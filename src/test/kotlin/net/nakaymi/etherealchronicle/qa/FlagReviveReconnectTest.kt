@@ -106,19 +106,32 @@ class FlagReviveReconnectTest {
                 fun ownedRare(p: PlayerMock,profile: net.nakaymi.etherealchronicle.core.PlayerProfile) =
                     (profile.pendingRewards[itemId] ?: 0) + p.inventory.storageContents.sumOf { stack -> if(plugin.identify(stack)==itemId) stack!!.amount else 0 }
                 pa.dropPity.clear(); pb.dropPity.clear(); pa.pendingRewards.clear(); pb.pendingRewards.clear()
-                val before=ownedRare(a,pa)+ownedRare(b,pb)
                 val kills=12
-                repeat(kills) {
+                val sequence=RpgPlugin::class.java.getDeclaredField("lootSequence").also { it.isAccessible=true }
+                repeat(kills) { index ->
+                    val seq=sequence.getLong(plugin)
+                    val selected=parties.lootRecipient(setOf(a.uniqueId,b.uniqueId),seq)!!
+                    val selectedProfile=if(selected==a.uniqueId) pa else pb
+                    val otherProfile=if(selected==a.uniqueId) pb else pa
+                    val selectedBefore=selectedProfile.dropPity[pityKey] ?: 0
+                    val otherBefore=otherProfile.dropPity[pityKey] ?: 0
+                    val dropsBefore=ownedRare(a,pa)+ownedRare(b,pb)
                     val m=world.spawn(a.location,org.bukkit.entity.Phantom::class.java)
                     m.persistentDataContainer.set(enemyKey,PersistentDataType.STRING,"ec:enemy_crystal_bat")
-                    plugin.rewardKill(a,m); m.remove(); server.pump(200) { false }
+                    plugin.rewardKill(a,m); m.remove()
+                    assertTrue(server.pump(10000) { !plugin.adventure.hasTransactions() },"party rewards did not drain at kill ${index+1}")
+                    val dropsAfter=ownedRare(a,pa)+ownedRare(b,pb)
+                    val delta=dropsAfter-dropsBefore
+                    assertTrue(delta in 0..1,"exactly one loot roll is expected per party kill, got $delta at ${index+1}")
+                    val selectedAfter=selectedProfile.dropPity[pityKey] ?: 0
+                    val otherAfter=otherProfile.dropPity[pityKey] ?: 0
+                    if(delta == 1) assertEquals(0,selectedAfter,"successful rare drop must reset only its recipient's pity")
+                    else assertEquals(selectedBefore+1,selectedAfter,"one unsuccessful kill must add exactly one miss")
+                    assertEquals(otherBefore,otherAfter,"non-recipient pity must remain unchanged")
                 }
-                assertTrue(server.pump(10000) { !plugin.adventure.hasTransactions() },"party rewards did not drain")
-                val drops=ownedRare(a,pa)+ownedRare(b,pb)-before
                 val sum=(pa.dropPity[pityKey] ?: 0)+(pb.dropPity[pityKey] ?: 0)
-                val info="kills=$kills currency=${pa.currency}+${pb.currency} pity a=${pa.dropPity[pityKey]} b=${pb.dropPity[pityKey]} misses=$sum delivered+pending drops=$drops"
+                val info="kills=$kills currency=${pa.currency}+${pb.currency} pity a=${pa.dropPity[pityKey]} b=${pb.dropPity[pityKey]} misses=$sum"
                 assertEquals(kills*43L,pa.currency+pb.currency,"all tagged rewardKill calls must grant currency; $info")
-                assertEquals(kills,sum+drops,"each kill must count as one pity miss or rare drop; $info")
                 info
             }
 
