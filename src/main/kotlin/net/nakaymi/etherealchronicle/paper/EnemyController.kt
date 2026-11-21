@@ -59,7 +59,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
             if(entity.isDead) { remove(entity.uniqueId,false); return@forEach }
             if(!entity.isValid) return@forEach
             val d=state.boss.definition
-            val eligible=entity.world.players.filter { p -> p.isOnline && !p.isDead && plugin.profiles[p.uniqueId]?.classId != null &&
+            val eligible=entity.world.players.filter { p -> p.isOnline && !p.isDead && p.gameMode !in setOf(GameMode.CREATIVE,GameMode.SPECTATOR) && !isSafe(p) && plugin.profiles[p.uniqueId]?.classId != null &&
                 (state.participants.isEmpty() || p.uniqueId in state.participants) && p.location.distanceSquared(entity.location) <= d.aggro*d.aggro }
             val target=eligible.minByOrNull { it.location.distanceSquared(entity.location) }
             state.bar?.let { bar ->
@@ -76,7 +76,8 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
             state.target=target.uniqueId
             if(entity is Mob) entity.target=target
             if("FLEE" in d.traits && state.boss.hp/state.boss.maximumHp < 0.25 && tick%80 < 40) {
-                entity.velocity=entity.location.toVector().subtract(target.location.toVector()).normalize().multiply(d.speed).setY(0.1)
+                val away=entity.location.toVector().subtract(target.location.toVector())
+                if(away.lengthSquared() > 0.0001) entity.velocity=away.normalize().multiply(d.speed).setY(0.1)
             }
             if(entity.location.distanceSquared(target.location) <= 8.0 && tick >= state.nextAttack) {
                 attack(state,target,1.0)
@@ -99,7 +100,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
             if(state == null || !state.entity.isValid) { warnings.remove(warning); return@forEach }
             draw(warning)
             if(tick >= warning.due) {
-                warning.location.world!!.players.filter { !it.isDead && (state.participants.isEmpty() || it.uniqueId in state.participants) && hits(warning,it.location) }.forEach { p ->
+                warning.location.world!!.players.filter { !it.isDead && it.gameMode !in setOf(GameMode.CREATIVE,GameMode.SPECTATOR) && !isSafe(it) && (state.participants.isEmpty() || it.uniqueId in state.participants) && hits(warning,it.location) }.forEach { p ->
                     attack(state,p,warning.attack.multiplier)
                     when(warning.attack.effect) {
                         "SLOW" -> p.addPotionEffect(PotionEffect(PotionEffectType.SLOWNESS,60,0))
@@ -118,6 +119,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
             nextSpawn[id]=tick+point.respawnTicks
         } }
     }
+    private fun isSafe(player: Player) = plugin.snapshot.world.areas.values.any { it.safe && it.contains(Position(player.world.name,player.x,player.y,player.z)) }
     private fun attack(state: MobState,player: Player,multiplier: Double) {
         dealing[state.entity.uniqueId]=multiplier*state.boss.damageScale(tick)
         try { player.damage(state.boss.definition.attack*multiplier,state.entity) } finally { dealing.remove(state.entity.uniqueId) }
@@ -175,5 +177,6 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
     fun removeParticipants(participants: Set<UUID>) { states.filterValues { it.participants == participants }.keys.toList().forEach { remove(it,true) } }
     fun close() { states.keys.toList().forEach { remove(it,true) } }
 }
+
 
 

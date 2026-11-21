@@ -50,6 +50,7 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
     val chapters = documents.filterValues { it["type"] == "chapter" }
     init {
         documents.forEach { (id,d) ->
+          try {
             when(d["type"]) {
                 "quest" -> {
                     val objectives = d.maps("objectives").map { Objective(it.string("id"),ObjectiveKind.valueOf(it.string("kind")),it.string("target"),it.integer("amount",1),it.bool("consume",true)) }
@@ -101,6 +102,7 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
                     ItemEffect(e.string("kind"),e.number("amount",0.0),e.whole("cooldown_ms",0),e.integer("duration_ticks",0),e.number("chance",1.0),e.text("element","PHYSICAL")).also { require(it.kind in setOf("HEAL","RESOURCE","CLEANSE","RETURN","REVIVE","ATTACK_PROC","DEFENSE_BUFF") && it.chance in 0.0..1.0) }
                 })
             }
+          } catch(error: Exception) { throw IllegalArgumentException("$id: ${error.message}",error) }
         }
     }
 }

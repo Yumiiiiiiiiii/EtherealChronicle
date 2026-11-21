@@ -44,10 +44,11 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal val snapshot get() = content.snapshot()
     internal fun persist(profile: PlayerProfile) = store.save(profile)
     internal fun identify(stack: ItemStack?) = stack?.itemMeta?.persistentDataContainer?.get(itemKey,PersistentDataType.STRING)
-    internal fun inventory(player: Player): PaperInventoryAccess = PaperInventoryAccess(player,::identify,::createItem) { logger.fine("取引の消費アイテムを保存しました: ${player.uniqueId}") }
+    internal fun inventory(player: Player,persistRemoval: Boolean = true): PaperInventoryAccess = PaperInventoryAccess(player,::identify,::createItem,persistRemoval) { logger.fine("取引の消費アイテムを保存しました: ${player.uniqueId}") }
     internal fun markDirty(player: UUID) { dirty.add(player) }
     override fun onEnable() {
         itemKey = NamespacedKey(this,"item_id"); enemyKey = NamespacedKey(this,"enemy_id"); slotKey = NamespacedKey(this,"skill_slot")
+        getCommand("ec")!!.setExecutor(this) // commands must reply while asynchronous content startup runs
         server.scheduler.runTaskAsynchronously(this,Runnable {
             try {
                 val bundled = getResource("content-index.txt")!!.bufferedReader().use { reader ->
@@ -56,12 +57,17 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                         clean to getResource(clean)!!.use { it.readBytes() }
                     }
                 }
+                val legacy=getResource("retired-content.properties")?.use { DefaultContentInstaller.manifest(it.readBytes()) } ?: emptyMap()
+                val retired=DefaultContentInstaller.retire(dataFolder.toPath(),bundled.keys,legacy)
+                retired.retired.forEach { logger.info("旧配布コンテンツを退避しました: $it") }
+                retired.preserved.forEach { logger.warning("編集済みの旧配布ファイルを保持しました。定義を確認してください: $it") }
                 DefaultContentInstaller.install(dataFolder.toPath(),bundled).forEach { name ->
                     logger.info("サーバー編集を優先します: $name（配布版と異なります。更新時は必須項目を比較してください）")
                 }
                 listOf("balance","classes","skills","items","enemies","bosses","npcs","quests","dialogues","chapters","droptables","shops").forEach { java.nio.file.Files.createDirectories(dataFolder.toPath().resolve("content").resolve(it)) }
-                content = ContentService(dataFolder.toPath().resolve("content"))
-                content.reload(); validatePaperContent(content.snapshot())
+                val startup=ContentBootstrap.initialize(dataFolder.toPath(),bundled,::validatePaperContent)
+                content=startup.service
+                if(startup.usedFallback) logger.warning("サーバーのコンテンツに不備があります。配布版で起動し /ec validate と /ec reload を有効にします: ${startup.problem}")
                 store = PlayerStore(dataFolder.toPath().resolve("playerdata"))
                 simStore = PlayerStore(dataFolder.toPath().resolve("simulation"))
                 sync {
@@ -87,11 +93,15 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     }
     override fun onDisable() {
         ready = false
+        if(::adventure.isInitialized) adventure.prepareShutdown()
+        if(::dungeons.isInitialized) runCatching { dungeons.shutdown() }.onFailure { logger.severe("聖堂の終了処理に失敗: ${it.message}") }
+        if(::enemies.isInitialized) runCatching { enemies.close() }.onFailure { logger.severe("魔物の終了処理に失敗: ${it.message}") }
+        if(::adventure.isInitialized) runCatching { adventure.close() }.onFailure { logger.severe("NPCの終了処理に失敗: ${it.message}") }
         server.scheduler.cancelTasks(this)
         if (::store.isInitialized) {
             profiles.values.forEach { store.save(it) }
-            if (::simStore.isInitialized) simStore.shutdown()
-            store.shutdown() // queued detached saves drain on the IO worker; no main-thread file IO
+            if (::simStore.isInitialized) runCatching { simStore.close() }.onFailure { logger.severe("シミュレーション保存失敗: ${it.message}") }
+            runCatching { store.close() }.onFailure { logger.severe("終了時のデータ保存失敗: ${it.message}") }
         }
         profiles.clear(); sessions.clear()
     }
@@ -120,11 +130,12 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             profiles[player.uniqueId] = profile
             if(::dungeons.isInitialized) dungeons.recover(player)
             if(profile.classId == null) Bukkit.getWorld(DemoWorld.NAME)?.let { player.teleport(it.spawnLocation) }
-            if(profile.classId == null || !profile.starterGranted) menu(player) else { skillSlot(player); applyStats(player,profile) }
+            if(profile.classId == null || !profile.starterGranted) menu(player) else { skillSlot(player); applyStats(player,profile); adventure.claimPending(player); adventure.resume(player.uniqueId) }
         } }
     }
     @EventHandler fun onJoin(e: PlayerJoinEvent) = join(e.player)
     @EventHandler fun onQuit(e: PlayerQuitEvent) {
+        if(::adventure.isInitialized) adventure.beforeQuit(e.player)
         sessions.remove(e.player.uniqueId); choosing.remove(e.player.uniqueId)
         profiles.remove(e.player.uniqueId)?.let(::save)
         lastMoved.remove(e.player.uniqueId); dirty.remove(e.player.uniqueId)
@@ -149,7 +160,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             if(profile.classId != null && profile.classId != id) return
             starter(p,profile,id); return
         }
-        if(p.uniqueId in choosing || e.slot == 8 && e.clickedInventory == p.inventory || e.hotbarButton == 8 || isSkill(e.currentItem)) e.isCancelled = true
+        if(p.uniqueId in choosing || e.slot == 8 && e.clickedInventory == p.inventory && isSkill(p.inventory.getItem(8)) || e.hotbarButton == 8 || isSkill(e.currentItem)) e.isCancelled = true
     }
     @EventHandler fun drag(e: InventoryDragEvent) {
         if(e.view.topInventory.holder is ClassMenu || e.rawSlots.any { e.view.convertSlot(it) == 8 && it >= e.view.topInventory.size }) e.isCancelled = true
@@ -157,7 +168,9 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     @EventHandler fun closeMenu(e: InventoryCloseEvent) {
         val p = e.player as? Player ?: return
         if(e.inventory.holder is ClassMenu && profiles[p.uniqueId]?.starterGranted == false && p.uniqueId !in choosing) sync { if(p.isOnline) menu(p) }
+        else if(profiles[p.uniqueId]?.starterGranted == true) sync { if(p.isOnline) skillSlot(p) }
     }
+    internal fun ensureStarter(player: Player) { profiles[player.uniqueId]?.takeIf { it.classId != null && !it.starterGranted }?.let { starter(player,it,it.classId!!) } }
     private fun starter(p: Player, profile: PlayerProfile, id: String) {
         if(!choosing.add(p.uniqueId)) return
         val c = content.snapshot().classes[id]
@@ -173,7 +186,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             if(!p.isOnline || profiles[p.uniqueId] !== profile) return@sync
             if(c.starterItems.size > (0..7).count { p.inventory.getItem(it) == null }) { p.sendMessage(Component.text("持ち物の空きがなくなりました。管理者にスターター装備の再付与を依頼してください。")); return@sync }
             c.starterItems.forEach { item -> val slot = (0..7).first { p.inventory.getItem(it) == null }; p.inventory.setItem(slot,createItem(item)) }
-            skillSlot(p); applyStats(p,profile); p.closeInventory(); p.sendMessage(Component.text("ようこそ！魔物を一体倒して冒険の第一歩を達成しましょう。"))
+            skillSlot(p); applyStats(p,profile); p.health=p.getAttribute(Attribute.MAX_HEALTH)!!.value
+            p.closeInventory(); p.sendMessage(Component.text("ようこそ！受付嬢セリアに話しかけて冒険を始めましょう。"))
         } }
     }
     internal fun createItem(id: String, amount: Int = 1): ItemStack {
@@ -189,17 +203,24 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private fun skillSlot(p: Player) {
         if(!isSkill(p.inventory.getItem(8))) {
             val old = p.inventory.getItem(8)
-            if(old != null) p.world.dropItemNaturally(p.location,old)
+            if(old != null && adventure.bound(old)) {
+                val free=(0 until p.inventory.storageContents.size).firstOrNull { it != 8 && p.inventory.getItem(it) == null }
+                if(free == null) { p.sendMessage(Component.text("9番のアイテムを空きに移して持ち物を閉じてください。保護品は地面に捨てません。")); return }
+                p.inventory.setItem(free,old)
+            } else if(old != null) p.world.dropItemNaturally(p.location,old)
             p.inventory.setItem(8,ItemStack(Material.NETHER_STAR).apply { itemMeta = itemMeta.apply {
                 displayName(Component.text("スキルスロット")); persistentDataContainer.set(slotKey,PersistentDataType.BYTE,1)
             } })
         }
     }
-    internal fun effectiveStats(p: Player, profile: PlayerProfile): Stats {
+    private fun equippedDefinitions(p: Player,profile: PlayerProfile): List<ItemDefinition> {
         val equipped: List<Pair<GearSlot,ItemStack?>> = listOf(GearSlot.HEAD to p.inventory.helmet,GearSlot.CHEST to p.inventory.chestplate,GearSlot.LEGS to p.inventory.leggings,GearSlot.FEET to p.inventory.boots,GearSlot.HAND to p.inventory.itemInMainHand,GearSlot.OFFHAND to p.inventory.itemInOffHand)
         val definitions=equipped.mapNotNull { (slot,stack) -> item(stack)?.takeIf { it.slot == slot } }.toMutableList()
         profile.accessory?.let { id -> if(inventory(p).count(id) > 0) snapshot.items.find(id)?.takeIf { it.slot == GearSlot.ACCESSORY }?.let(definitions::add) }
-        val base=game.stats(profile,definitions)
+        return definitions
+    }
+    internal fun effectiveStats(p: Player,profile: PlayerProfile): Stats {
+        val base=game.stats(profile,equippedDefinitions(p,profile))
         val buff=defenseBuffs[p.uniqueId]?.takeIf { it.second > System.nanoTime()/1_000_000 }?.first ?: 0.0
         return base.copy(defense=(base.defense+buff).coerceAtMost(snapshot.balance.statCap))
     }
@@ -211,9 +232,11 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     }
     private fun tick() {
         game.skills.cleanup()
+        val now=System.nanoTime()/1_000_000; procReady.entries.removeIf { it.value <= now }; defenseBuffs.entries.removeIf { it.value.second <= now }; basicAttacks.cleanup()
         if(::adventure.isInitialized) adventure.tick()
         if(::dungeons.isInitialized) dungeons.tick()
         server.onlinePlayers.forEach { p ->
+          try {
             val profile = profiles[p.uniqueId] ?: return@forEach
             val c = profile.classId?.let { content.snapshot().classes.find(it) } ?: return@forEach
             if(adventure.locked(p.uniqueId)) return@forEach
@@ -224,6 +247,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             profile.selectedSkill = profile.selectedSkill.coerceIn(0,c.skills.lastIndex)
             val skill = c.skills[profile.selectedSkill]
             p.sendActionBar(Component.text("HP ${p.health.toInt()}/${s.hp.toInt()}  ${when(c.resource){ResourceKind.RAGE -> "怒り";ResourceKind.FOCUS -> "集中";ResourceKind.MANA -> "マナ"}} ${profile.resource.toInt()}/${s.resource.toInt()}  ${content.snapshot().skills[skill].name} CD ${game.skills.remaining(p.uniqueId,skill)/1000.0}秒  仲間 ${adventure.parties.members(p.uniqueId).size}人"))
+          } catch(error: Exception) { logger.warning("HUD更新失敗 ${p.uniqueId}: ${error.message}") }
         }
         if(++autosaveSeconds >= 60) {
             autosaveSeconds = 0; dirty.toList().forEach { profiles[it]?.let(::save) }; dirty.clear()
@@ -270,7 +294,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         if(skill.defenseBuff > 0) defenseBuffs[player.uniqueId]=skill.defenseBuff to (System.nanoTime()/1_000_000+skill.buffTicks*50L)
         if(target != null) {
             val targets=if(skill.radius > 0) target.getNearbyEntities(skill.radius,skill.radius,skill.radius).filterIsInstance<LivingEntity>().filter { it.persistentDataContainer.has(enemyKey) }+target else listOf(target)
-            targets.forEach { hit(player,it,game.skills.multiplier(profile,skill),skill.element) }
+            targets.forEach { hit(player,it,game.skills.multiplier(profile,skill),skill.element,useSkillPower=true) }
         }
         dirty.add(player.uniqueId); return result
     }
@@ -279,25 +303,32 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private val procReady=mutableMapOf<Triple<UUID,String,Int>,Long>()
     internal fun procEffects(player: Player,target: LivingEntity) {
         val profile=profiles[player.uniqueId] ?: return
-        val equipped=listOfNotNull(item(player.inventory.itemInMainHand),item(player.inventory.itemInOffHand),profile.accessory?.let { if(inventory(player).count(it) > 0) snapshot.items.find(it) else null }).filter { it.canEquip(profile) }
+        if(!proccing.add(player.uniqueId)) return
+        try {
+        val equipped=equippedDefinitions(player,profile).filter { it.canEquip(profile) }
         val now=System.nanoTime()/1_000_000
         equipped.forEach { item -> snapshot.world.itemProperties[item.id]?.effects?.forEachIndexed { index,effect ->
-            if(effect.kind !in setOf("ATTACK_PROC","DEFENSE_BUFF")) return@forEachIndexed
+            if(effect.kind !in setOf("ATTACK_PROC","DEFENSE_BUFF","HEAL","RESOURCE")) return@forEachIndexed
             val key=Triple(player.uniqueId,item.id,index)
             if(now < procReady.getOrDefault(key,0) || kotlin.random.Random.nextDouble() >= effect.chance) return@forEachIndexed
-            procReady[key]=now+effect.cooldown.coerceAtLeast(1000)
-            if(effect.kind == "ATTACK_PROC" && !target.isDead) hit(player,target,effect.amount,effect.element)
+            procReady[key]=now+effect.cooldown.coerceAtLeast(1)
+            if(effect.kind == "ATTACK_PROC" && !target.isDead) hit(player,target,0.0,effect.element,effect.amount)
             if(effect.kind == "DEFENSE_BUFF") defenseBuff(player,effect.amount,effect.duration)
+            if(effect.kind == "HEAL") player.health=(player.health+effect.amount).coerceAtMost(player.getAttribute(Attribute.MAX_HEALTH)!!.value)
+            if(effect.kind == "RESOURCE") { profile.resource=(profile.resource+effect.amount).coerceAtMost(effectiveStats(player,profile).resource); dirty.add(profile.uuid) }
         } }
+        } finally { proccing.remove(player.uniqueId) }
     }
     private val casting = mutableSetOf<UUID>()
-    private fun hit(p: Player,target: LivingEntity,multiplier: Double,element: String = "PHYSICAL") {
+    private val proccing = mutableSetOf<UUID>()
+    private val basicAttacks=ActionGate(Clock { System.nanoTime()/1_000_000 })
+    private fun hit(p: Player,target: LivingEntity,multiplier: Double,element: String = "PHYSICAL",flat: Double? = null,useSkillPower: Boolean = false) {
         val profile = profiles[p.uniqueId] ?: return
         val d = target.persistentDataContainer.get(enemyKey,PersistentDataType.STRING)?.let { content.snapshot().documents[it] } ?: return
         val s = effectiveStats(p,profile)
         val enemy=snapshot.world.enemies[d.string("id")]
         val elementMod=when { element in (enemy?.weaknesses ?: emptySet()) -> snapshot.world.tuning.weakness; element in (enemy?.resistances ?: emptySet()) -> snapshot.world.tuning.resistance; else -> 1.0 }
-        val amount = content.snapshot().balance.damage(s,d.num("defense"),multiplier*s.skillPower,snapshot.world.itemProperties[item(p.inventory.itemInMainHand)?.id]?.weapon ?: 0.0,kotlin.random.Random.nextDouble() < s.crit.coerceIn(0.0,content.snapshot().balance.critCap),elementMod)
+        val amount = content.snapshot().balance.damage(if(flat == null) s else Stats.ZERO,d.num("defense"),multiplier*(if(useSkillPower) s.skillPower else 1.0),flat ?: snapshot.world.itemProperties[item(p.inventory.itemInMainHand)?.id]?.weapon ?: 0.0,flat == null && kotlin.random.Random.nextDouble() < s.crit.coerceIn(0.0,content.snapshot().balance.critCap),elementMod)
         casting.add(p.uniqueId)
         try { target.damage(amount,p) } finally { casting.remove(p.uniqueId) }
     }
@@ -307,6 +338,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         if(attacker != null && attacker.uniqueId !in casting && target.persistentDataContainer.has(enemyKey)) {
             e.isCancelled = true
             val profile = profiles[attacker.uniqueId] ?: return
+            if(adventure.locked(attacker.uniqueId) || profile.classId == null) return
+            if(!basicAttacks.accept(attacker.uniqueId,snapshot.world.tuning.basicAttackCooldown)) return
             if(item(attacker.inventory.itemInMainHand)?.canEquip(profile) == false) return
             hit(attacker,target,1.0)
         } else if(attacker != null && attacker.uniqueId in casting) {
@@ -315,6 +348,22 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             val profile = profiles[target.uniqueId] ?: run { e.isCancelled = true; return }
             val d = content.snapshot().documents[e.damager.persistentDataContainer.get(enemyKey,PersistentDataType.STRING)] ?: return
             setRpgDamage(e,content.snapshot().balance.damage(Stats(attack=d.num("attack")),effectiveStats(target,profile).defense,if(::enemies.isInitialized) enemies.multiplier(e.damager.uniqueId) else 1.0,0.0,false))
+        }
+    }
+    @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true) fun guardian(e: EntityDamageEvent) {
+        val player=e.entity as? Player ?: return
+        if(e.finalDamage < player.health) return
+        val profile=profiles[player.uniqueId] ?: return
+        val now=System.nanoTime()/1_000_000
+        for(item in equippedDefinitions(player,profile).filter { it.canEquip(profile) }) {
+            for((index,effect) in snapshot.world.itemProperties[item.id]?.effects.orEmpty().withIndex()) {
+                if(effect.kind != "REVIVE") continue
+                val key=Triple(player.uniqueId,item.id,index)
+                if(now < procReady.getOrDefault(key,0) || kotlin.random.Random.nextDouble() >= effect.chance) continue
+                procReady[key]=now+effect.cooldown.coerceAtLeast(1); e.isCancelled=true
+                player.health=effect.amount.coerceIn(1.0,player.getAttribute(Attribute.MAX_HEALTH)!!.value)
+                player.sendMessage(Component.text("装備の加護が命を守りました！")); return
+            }
         }
     }
     @Suppress("DEPRECATION")
@@ -345,28 +394,32 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val id=entity.persistentDataContainer.get(enemyKey,PersistentDataType.STRING) ?: return
         val definition=snapshot.documents[id] ?: return
         val eligible=adventure.parties.members(killer.uniqueId).mapNotNull(Bukkit::getPlayer).filter { p ->
-            p.world == entity.world && p.location.distanceSquared(entity.location) <= snapshot.world.tuning.partyRadius*snapshot.world.tuning.partyRadius && p.uniqueId in profiles && !adventure.locked(p.uniqueId)
+            p.world == entity.world && p.location.distanceSquared(entity.location) <= snapshot.world.tuning.partyRadius*snapshot.world.tuning.partyRadius && p.uniqueId in profiles
         }
         val ids=eligible.map { it.uniqueId }.toSet(); val xp=adventure.parties.splitXp(definition.long("xp"),ids); val currency=adventure.parties.splitXp(definition.long("currency"),ids)
         val loot=adventure.parties.lootRecipient(ids,lootSequence++)
-        eligible.forEach { player ->
-            val profile=profiles.getValue(player.uniqueId)
-            adventure.transaction(player,{ inv ->
-                val drops=game.kill(profile,id,inv,xp[player.uniqueId] ?: 0,currency[player.uniqueId] ?: 0,player.uniqueId == loot)
-                require(inv.exchange(emptyMap(),drops)) { "戦利品を受け取る空きがありません。" }
-            }) { player.sendMessage(Component.text("魔物を討伐！ レベル ${profile.level} / 経験値 ${profile.xp}")) }
+        eligible.forEach { member ->
+            val playerId=member.uniqueId
+            adventure.whenAvailable(playerId) {
+                val player=Bukkit.getPlayer(playerId) ?: return@whenAvailable
+                val profile=profiles[playerId] ?: return@whenAvailable
+                var drops=emptyMap<String,Int>()
+                adventure.transaction(player,{ inv ->
+                    drops=game.kill(profile,id,inv,xp[playerId] ?: 0,currency[playerId] ?: 0,playerId == loot)
+                    drops.forEach { (item,amount) -> profile.pendingRewards.merge(item,amount,Int::plus) }
+                }) { player.sendMessage(Component.text("魔物を討伐！ レベル ${profile.level} / 経験値 ${profile.xp}")) }
+            }
         }
-    }
-    private var lootSequence=0L
+    }    private var lootSequence=0L
     @EventHandler fun playerDeath(e: PlayerDeathEvent) { e.drops.removeIf(::isSkill) }
-    @EventHandler fun respawn(e: PlayerRespawnEvent) { sync { skillSlot(e.player); profiles[e.player.uniqueId]?.let { applyStats(e.player,it) } } }
+    @EventHandler fun respawn(e: PlayerRespawnEvent) { sync { skillSlot(e.player); profiles[e.player.uniqueId]?.let { applyStats(e.player,it); e.player.health=e.player.getAttribute(Attribute.MAX_HEALTH)!!.value } } }
     private fun validatePaperContent(c: ContentSnapshot) {
         c.items.all().forEach { require(Material.valueOf(it.material).isItem) }
         c.documents.values.filter { it["type"] in setOf("enemy","boss") }.forEach { require(EntityType.valueOf(it.string("entity")).isAlive) }
     }
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if(!ready) { sender.sendMessage(Component.text("冒険システムは起動中です。しばらくお待ちください。")); return true }
-        if(sender is Player && args.firstOrNull() in setOf("quest","party","equipment","dungeon","shop")) {
+        if(sender is Player && args.firstOrNull() in setOf("quest","party","equipment","dungeon","shop","claim")) {
             try { playerCommand(sender,args.toList()) } catch(error: Exception) { sender.sendMessage(Component.text("操作できません: ${error.message}")) }
             return true
         }
@@ -422,10 +475,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     val p = server.getPlayerExact(args[1]) ?: error("プレイヤーが見つかりません。")
                     val amount = args.getOrNull(3)?.toInt() ?: 1
                     require(amount in 1..64)
-                    val stack = createItem(args[2],amount)
-                    require(p.inventory.storageContents.any { it == null }) { "持ち物に空きがありません。" }
-                    val leftovers = p.inventory.addItem(stack)
-                    leftovers.values.forEach { p.world.dropItemNaturally(p.location,it) }
+                    require(!adventure.locked(p.uniqueId))
+                    require(inventory(p).exchange(emptyMap(),mapOf(args[2] to amount))) { "持ち物に空きがありません。" }
                     sender.sendMessage(Component.text("アイテムを付与しました。"))
                 }
                 "setlevel" -> {
@@ -441,9 +492,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     val p = server.getPlayerExact(args[1]) ?: error("プレイヤーが見つかりません。")
                     val profile = profiles[p.uniqueId] ?: error("読み込み中です。")
                     val c = content.snapshot().classes[args[2]]
-                    profile.classId = c.id; profile.selectedSkill = 0
-                    profile.resource = if(c.resource == ResourceKind.RAGE) 0.0 else c.stats.resource
-                    c.skills.forEach { profile.skillLevels.putIfAbsent(it,1) }; save(profile); applyStats(p,profile)
+                    require(!adventure.locked(profile.uuid))
+                    game.changeClass(profile,c.id); save(profile); applyStats(p,profile)
                     sender.sendMessage(Component.text("職業を変更しました。"))
                 }
                 "debug" -> debug(sender,args.drop(1))
@@ -456,6 +506,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val p=profiles[player.uniqueId] ?: error("読み込み中です。")
         require(!adventure.locked(p.uuid)) { "取引の処理中です。" }
         when(args[0]) {
+            "claim" -> adventure.claimPending(player)
             "equipment" -> adventure.equipment(player)
             "dungeon" -> if(args.getOrNull(1) == "leave") dungeons.leave(player) else dungeons.enter(player)
             "shop" -> {
@@ -465,8 +516,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 adventure.showShop(player,id)
             }
             "quest" -> when(args.getOrNull(1)) {
-                "start" -> { game.startQuest(p,args.getOrNull(2) ?: error("/ec quest start <id>")); save(p); player.sendMessage(Component.text("依頼を受注しました。")) }
-                "complete" -> adventure.transaction(player,{ inv -> game.completeQuest(p,args.getOrNull(2) ?: error("/ec quest complete <id>"),inv) }) { player.sendMessage(Component.text("依頼を達成しました！")) }
+                "start" -> { require(player.hasPermission("etherealchronicle.admin")) { "依頼はNPCとの会話から受注してください。" }; game.startQuest(p,args.getOrNull(2) ?: error("/ec quest start <id>")); save(p); player.sendMessage(Component.text("依頼を受注しました。")) }
+                "complete" -> { require(player.hasPermission("etherealchronicle.admin")) { "依頼はNPCに報告してください。" }; adventure.transaction(player,{ inv -> game.completeQuest(p,args.getOrNull(2) ?: error("/ec quest complete <id>"),inv) }) { player.sendMessage(Component.text("依頼を達成しました！")) } }
                 else -> {
                     if(p.quests.isEmpty()) player.sendMessage(Component.text("受注中の依頼はありません。"))
                     p.quests.forEach { (id,q) ->
@@ -520,6 +571,9 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         sender.sendMessage(Component.text("SIM $operation $name: ${simulated[name]}"))
     }
 }
+
+
+
 
 
 

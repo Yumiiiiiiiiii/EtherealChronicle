@@ -6,7 +6,7 @@ import org.bukkit.inventory.ItemStack
 
 /** Main-thread inventory transaction port. Clones are validated before replacing live storage. */
 class PaperInventoryAccess(private val player: Player,private val identify: (ItemStack?) -> String?,private val create: (String,Int) -> ItemStack,
-    private val onConsume: () -> Unit = {}): InventoryAccess {
+    private val persistRemoval: Boolean = true,private val onConsume: () -> Unit = {}): InventoryAccess {
     override fun count(item: String): Int = player.inventory.storageContents.filterNotNull().filter { identify(it) == item }.sumOf { it.amount }
     private fun preview(remove: Map<String,Int>,add: Map<String,Int>): Array<ItemStack?>? {
         val slots: Array<ItemStack?> = player.inventory.storageContents.map { it?.clone() }.toTypedArray()
@@ -39,8 +39,10 @@ class PaperInventoryAccess(private val player: Player,private val identify: (Ite
         val after=preview(remove,add) ?: return false
         if(remove.isNotEmpty()) {
             player.inventory.storageContents=preview(remove,emptyMap()) ?: return false
-            player.saveData() // lead-approved, rare item-consuming action; persist removal before currency payout
-            onConsume()
+            if(persistRemoval) {
+                player.saveData() // lead-approved economy/quest consumption boundary before payout
+                onConsume()
+            }
         }
         player.inventory.storageContents=after
         return true

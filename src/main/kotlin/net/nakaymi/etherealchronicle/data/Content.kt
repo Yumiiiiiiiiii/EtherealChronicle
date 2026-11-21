@@ -14,7 +14,7 @@ class ContentRegistry<T>(entries: Map<String,T>, private val aliases: Map<String
     fun find(id: String) = entries[aliases[id] ?: id]
     fun all() = entries.values
 }
-data class ContentSnapshot(val balance: Balance, val classes: ContentRegistry<ClassDefinition>, val skills: ContentRegistry<SkillDefinition>, val items: ContentRegistry<ItemDefinition>, val drops: ContentRegistry<DropTable>, val documents: Map<String,Map<String,Any?>>) {
+data class ContentSnapshot(val balance: Balance, val classes: ContentRegistry<ClassDefinition>, val skills: ContentRegistry<SkillDefinition>, val items: ContentRegistry<ItemDefinition>, val drops: ContentRegistry<DropTable>, val documents: Map<String,Map<String,Any?>>,val sources: Map<String,Path> = emptyMap()) {
     val world = WorldContent(documents)
 }
 class ContentException(val problems: List<String>): IllegalArgumentException(problems.joinToString("\n"))
@@ -27,6 +27,7 @@ class ContentService(private val root: Path, private val migration: ContentMigra
     fun load(): ContentSnapshot {
         val errors = mutableListOf<String>()
         val docs = linkedMapOf<String,Map<String,Any?>>()
+        val sources = linkedMapOf<String,Path>()
         val yaml = Yaml(SafeConstructor(LoaderOptions().apply { isAllowDuplicateKeys = false; maxAliasesForCollections = 20 }))
         Files.walk(root).use { paths -> paths.filter { Files.isRegularFile(it) && it.toString().endsWith(".yml") }.sorted().forEach { path ->
             try {
@@ -35,10 +36,19 @@ class ContentService(private val root: Path, private val migration: ContentMigra
                 require(doc.int("schema_version") == 1) { "Unsupported schema_version" }
                 val id = doc.string("id")
                 require(Regex("ec:[a-z][a-z0-9_]*").matches(id)) { "Invalid id $id" }
-                if (docs.putIfAbsent(id,doc) != null) errors += "Duplicate id $id"
-                numbers(doc,errors)
+                if (docs.putIfAbsent(id,doc) != null) errors += "$path [$id]: Duplicate id"
+                sources[id]=path
+                val numericErrors=mutableListOf<String>(); numbers(doc,numericErrors)
+                errors.addAll(numericErrors.map { "$path [$id]: $it" })
             } catch(e: Exception) { errors += "$path: ${e.message}" }
         } }
+        // Former class files may retain foundation starter IDs after unchanged old item files retire.
+        // Resolve only missing legacy targets, preserving server-authored items that still exist.
+        docs.replaceAll { _,doc ->
+            if(doc["type"] != "class") doc else doc + ("starter_items" to doc.strings("starter_items").map { id ->
+                if(id in docs) id else ProfileContentMigration.oldItems[id]?.takeIf { it in docs } ?: id
+            })
+        }
         val aliases = linkedMapOf<String,String>()
         docs.forEach { (id,d) -> d.strings("aliases").forEach { alias ->
             if(alias in docs || aliases.putIfAbsent(alias,id) != null) errors += "別名が重複しています: $alias"
@@ -65,33 +75,47 @@ class ContentService(private val root: Path, private val migration: ContentMigra
             }
             else -> if(key in refTypes) errors += "参照IDが必要です: $key"
         } }
-        docs.values.forEach { refs(it) }
+        docs.forEach { (id,doc) ->
+            val start=errors.size; refs(doc)
+            for(index in start until errors.size) errors[index]="${sources[id]} [$id]: ${errors[index]}"
+        }
         if (errors.isNotEmpty()) throw ContentException(errors)
+        var parsingId: String? = null
         try {
             fun typed(type: String) = docs.values.filter { it.string("type") == type }
             val balances = typed("balance")
             require(balances.size == 1) { "balance 定義は1件必要です (現在 ${balances.size} 件)" }
             val b = balances.single()
-            val balance = Balance(b.int("level_cap"),b.num("xp_base"),b.num("xp_exponent"),b.long("xp_gain_cap"),b.long("currency_gain_cap"),b.num("damage_cap"),b.num("stat_cap"),b.num("crit_cap"),b.num("defense_scale"),b.int("skill_level_cap"),b.num("skill_growth"),b.num("crit_damage_cap"),b.num("element_cap"),b.text("xp_curve","POWER"),b.number("xp_linear",45.0),b.number("xp_quadratic",18.0),b.whole("xp_rounding",10))
+            parsingId=b.string("id")
+            val balance = Balance(b.int("level_cap"),b.num("xp_base"),b.num("xp_exponent"),b.long("xp_gain_cap"),b.long("currency_gain_cap"),b.num("damage_cap"),b.num("stat_cap"),b.num("crit_cap"),b.num("defense_scale"),b.int("skill_level_cap"),b.num("skill_growth"),b.num("crit_damage_cap"),b.num("element_cap"),b.text("xp_curve","POWER"),b.number("xp_linear",45.0),b.number("xp_quadratic",18.0),b.whole("xp_rounding",10),b.whole("skill_gcd_ms",800))
             require(balance.levelCap in 1..1000 && balance.xpBase > 0 && balance.xpExponent in 0.0..10.0 && balance.defenseScale > 0 && balance.statCap >= 1 && balance.damageCap > 0 && balance.skillLevelCap in 1..100 && balance.critDamageCap >= 1 && balance.elementCap >= 1 && balance.xpGainCap > 0 && balance.currencyGainCap > 0 && balance.xpCurve in setOf("POWER","POLYNOMIAL") && balance.xpRounding > 0)
             val supported = setOf("balance","class","skill","item","enemy","boss","npc","quest","dialogue","chapter","droptable","shop")
             require(docs.values.all { it.string("type") in supported }) { "Unknown content type" }
-            val skills = typed("skill").associate { d -> d.string("id") to SkillDefinition(d.string("id"),d.string("name"),d.num("cost"),d.long("cooldown_ms"),d.num("multiplier"),d.num("range"),d.text("element","PHYSICAL"),d.number("radius",0.0),d.number("heal",0.0),d.number("defense_buff",0.0),d.integer("buff_ticks",0)) }
-            val classes = typed("class").associate { d -> d.string("id") to ClassDefinition(d.string("id"),d.string("name"),ResourceKind.valueOf(d.string("resource")),d.stats(),d.num("regeneration"),d.num("hit_gain"),d.strings("skills"),d.strings("starter_items"),(d["growth"] ?: emptyMap<String,Any?>()).asMapping().let { mapOf("stats" to it).stats(Stats.ZERO) }) }
+            val skills = typed("skill").associate { d -> parsingId=d.string("id"); d.string("id") to SkillDefinition(d.string("id"),d.string("name"),d.num("cost"),d.long("cooldown_ms"),d.num("multiplier"),d.num("range"),d.text("element","PHYSICAL"),d.number("radius",0.0),d.number("heal",0.0),d.number("defense_buff",0.0),d.integer("buff_ticks",0)) }
+            val classes = typed("class").associate { d -> parsingId=d.string("id"); d.string("id") to ClassDefinition(d.string("id"),d.string("name"),ResourceKind.valueOf(d.string("resource")),d.stats(),d.num("regeneration"),d.num("hit_gain"),d.strings("skills"),d.strings("starter_items"),(d["growth"] ?: emptyMap<String,Any?>()).asMapping().let { mapOf("stats" to it).stats(Stats.ZERO) }) }
             require(classes.values.all { c -> c.skills.size in 1..4 && c.skills.distinct().size == c.skills.size && c.stats.hp in 1.0..balance.statCap && c.stats.resource in 1.0..balance.statCap && c.skills.all { id -> skills[id]?.cost?.let { it <= c.stats.resource } == true } }) { "Invalid class skills/stats" }
-            val items = typed("item").associate { d -> d.string("id") to ItemDefinition(d.string("id"),d.string("name"),d.string("material"),Rarity.valueOf(d.string("rarity")),d.int("min_level"),d.strings("classes").map { aliases[it] ?: it },d.stats(Stats.ZERO),d.num("budget"),b.mapping("rarities").mapping(d.string("rarity")).num("budget_multiplier"),b.mapping("rarities").mapping(d.string("rarity")).int("affixes"),GearSlot.valueOf(d["slot"] as? String ?: "HAND")) }
+            val items = typed("item").associate { d -> parsingId=d.string("id"); d.string("id") to ItemDefinition(d.string("id"),d.string("name"),d.string("material"),Rarity.valueOf(d.string("rarity")),d.int("min_level"),d.strings("classes").map { aliases[it] ?: it },d.stats(Stats.ZERO),d.num("budget"),b.mapping("rarities").mapping(d.string("rarity")).num("budget_multiplier"),b.mapping("rarities").mapping(d.string("rarity")).int("affixes"),GearSlot.valueOf(d["slot"] as? String ?: "HAND")) }
             require(items.values.all { i -> i.withinBudget() && i.minLevel in 1..balance.levelCap && i.affixes in 0..4 && i.budgetMultiplier > 0 && i.classes.all { (aliases[it] ?: it) in classes } }) { "Item budget/level invalid" }
-            val drops = typed("droptable").associate { d -> d.string("id") to DropTable(d.string("id"),(d["entries"] as List<*>).map { raw ->
+            val drops = typed("droptable").associate { d -> parsingId=d.string("id"); d.string("id") to DropTable(d.string("id"),(d["entries"] as List<*>).map { raw ->
                 @Suppress("UNCHECKED_CAST") val e = raw as Map<String,Any?>
                 DropEntry(e.string("item"),e.num("chance"),e.int("min"),e.int("max")).also { require(it.min in 1..64 && it.max in it.min..64) }
             }) }
             require(drops.values.all { t -> t.entries.map { it.item }.distinct().size == t.entries.size && t.entries.all { it.item in items } }) { "Duplicate/invalid drop item" }
             require(classes.values.all { c -> c.starterItems.size in 1..8 && c.starterItems.all { it in items } }) { "Invalid starter items" }
             require(skills.values.all { it.range in 0.1..128.0 && it.multiplier in 0.0..balance.statCap && it.cooldownMillis in 1..3_600_000 }) { "Invalid skill range/multiplier/cooldown" }
-            (typed("enemy")+typed("boss")).forEach { d -> require(d.num("hp") in 1.0..balance.statCap && d.num("attack") <= balance.statCap && d.num("defense") <= balance.statCap && d.int("level") in 1..balance.levelCap); d.long("xp"); d.long("currency"); d.string("entity") }
-            typed("quest").filter { it["objectives"] == null }.forEach { d -> d.long("xp"); d.long("currency"); require(d.int("required_kills") >= 1) }
-            return ContentSnapshot(balance,ContentRegistry(classes,aliases),ContentRegistry(skills),ContentRegistry(items),ContentRegistry(drops),docs.toMap())
-        } catch(e: Exception) { throw ContentException(listOf(e.message ?: "Invalid content")) }
+            (typed("enemy")+typed("boss")).forEach { d ->
+                parsingId=d.string("id")
+                require(d.num("hp") in 1.0..balance.statCap) { "hp=${d["hp"]} は 1..${balance.statCap} の範囲外です (balance.stat_cap)。" }
+                require(d.num("attack") <= balance.statCap && d.num("defense") <= balance.statCap && d.int("level") in 1..balance.levelCap) { "attack/defense/level が上限外です。" }
+                d.long("xp"); d.long("currency"); d.string("entity")
+            }
+            typed("quest").filter { it["objectives"] == null }.forEach { d -> parsingId=d.string("id"); d.long("xp"); d.long("currency"); require(d.int("required_kills") >= 1) }
+            parsingId=null
+            return ContentSnapshot(balance,ContentRegistry(classes,aliases),ContentRegistry(skills),ContentRegistry(items),ContentRegistry(drops),docs.toMap(),sources)
+        } catch(e: Exception) {
+            val id=Regex("ec:[a-z0-9_]+").find(e.message.orEmpty())?.value ?: parsingId
+            throw ContentException(listOf("${sources[id] ?: root} [${id ?: "registry"}]: ${e.message ?: "Invalid content"}"))
+        }
     }
     private fun numbers(v: Any?, errors: MutableList<String>, parent: String = "") {
         when(v) {
@@ -118,6 +142,7 @@ fun Map<String,Any?>.stats(d: Stats = Stats()): Stats {
 
 @Suppress("UNCHECKED_CAST")
 fun Map<String,Any?>.mapping(k: String) = this[k] as? Map<String,Any?> ?: error("Missing mapping $k")
+
 
 
 
