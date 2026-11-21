@@ -72,7 +72,8 @@ object DemoWorld {
         world.setSpawnLocation(0,65,0)
         if(!Files.exists(folder.resolve(".etherealchronicle-built"))) {
             build(world)
-            Files.writeString(folder.resolve(".etherealchronicle-built"),"v1\n")
+            markFreshBuild(folder)
+            plugin.logger.info("ec_world を新規作成しました (v2)。")
         }
         migrateToV2(plugin,world,world.worldFolder.toPath())
         return world
@@ -94,6 +95,9 @@ object DemoWorld {
             "v2" -> return true
             else -> { plugin.logger.warning("ec_world 地形バージョンが不明なため変更しません: $marker"); return false }
         }
+    }
+    internal fun markFreshBuild(folder: java.nio.file.Path) {
+        Files.writeString(folder.resolve(".etherealchronicle-built"),"v2\n")
     }
     private fun build(world: World) {
         // Bounded, one-time structures on freshly generated islands, never user terrain.

@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:class_cleric
+aliases: [ec:cleric]
+type: class
+name: 星導士
+resource: MANA
+regeneration: 10
+hit_gain: 0
+skills: [ec:cleric_smite, ec:cleric_mend, ec:cleric_radiance, ec:cleric_blessing]
+starter_items: [ec:item_wpn_novice_censer]
+stats: {hp: 115, resource: 130, attack: 13, defense: 11, crit: 0.06, crit_damage: 1.5, element_resist: 0.05, skill_power: 1.1}
+growth: {hp: 21, resource: 14, attack: 3.6, defense: 2.9, crit: 0.003, crit_damage: 0, element_resist: 0.004, skill_power: 0.024}
+icon: END_CRYSTAL

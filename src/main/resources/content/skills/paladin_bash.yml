@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:paladin_bash
+type: skill
+name: 聖盾打撃
+cost: 10
+cooldown_ms: 2500
+multiplier: 1.45
+range: 4
+element: AETHER
+defense_buff: 14
+buff_ticks: 80
+taunt_ticks: 80
+threat_multiplier: 6

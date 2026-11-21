@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_acc_crucible_champion_crest
+type: item
+name: 試練覇者の星核紋章
+material: NETHER_STAR
+rarity: LEGENDARY
+slot: ACCESSORY
+min_level: 20
+classes: []
+budget: 46
+stats: {hp: 180, attack: 26, defense: 20, crit: 0.1, crit_damage: 0.24, element_resist: 0.1, skill_power: 0.36}
+price: 8800
+lore: '星核の融合体エーテル・キメラを制した覇者の証。【星核共鳴】攻撃時に星光追撃と防御障壁を発動する。'
+effects:
+  - {kind: ATTACK_PROC, amount: 88, cooldown_ms: 8500, chance: 0.35, element: AETHER}
+  - {kind: DEFENSE_BUFF, amount: 18, cooldown_ms: 18000, duration_ticks: 100, chance: 1.0}

@@ -106,3 +106,14 @@ Current profile schema is 5. `pending_rewards` maps stable item IDs to quantitie
 Balance also supports `skill_gcd_ms` (shipped 1000), `basic_attack_cooldown_ms` (550), `player_hp_cap` (1024), `element_res_cap` (0.5), `xp_curve` (POWER or POLYNOMIAL), and optional `xp_linear`, `xp_quadratic`, `xp_rounding` for POLYNOMIAL. Shipped POWER exponent is 1.575. Boss virtual HP uses stat_cap (100000), separate from the player's attribute cap. ATTACK_PROC effect amount is flat damage, not an attack multiplier.
 
 Core skill fields optionally include `element`, `radius`, `heal`, `defense_buff`, `buff_ticks`; defaults preserve existing single-target damage skills. Supported item effects and their amount units are HEAL/REVIVE (HP), RESOURCE (resource points), ATTACK_PROC (flat damage), DEFENSE_BUFF (defense points), CLEANSE and RETURN (no damage amount). Chance is 0..1; cooldown is milliseconds, duration is ticks. Equipment passives and consumable execution are handled separately.
+
+## Side-content engine additions (Task 5)
+
+- **Classes:** optional `icon` (Paper Material name) shown in menus.
+- **Skills:** optional `party_heal` / `party_defense_buff` (bool, apply to online party members within `ally_radius`), `taunt_ticks` (timed taunt on hit mobs), `threat_multiplier` (bounded). Active RPG mobs keep bounded per-player threat and honor taunts.
+- **Calendar resets (balance):** `calendar_reset_zone` (default UTC), `daily_reset_hour` (0-23), `weekly_reset_day` (e.g. MONDAY). Quests opt in with `reset_schedule: DAILY|WEEKLY`; shop daily limits use the same calendar day. Profile stores each quest's completed reset-period key.
+- **Challenge dungeons:** a chapter `dungeon_configs` entry may declare ordered `waves: [{boss, guards, guard_offsets}]` (`boss` resolves to an enemy or boss ID) and `score_ranks: [{rank: S|A|B|C, max_seconds}]` completion-time thresholds. A wave advances only when its boss is defeated; elapsed seconds, rank and each member's personal best are persisted (`/ec dungeon records`).
+- **Titles:** content type `title` (`titles/*.yml`): `id`, `name`, `description`, `unlock_flag` (declared `ec:flag_*`). `/ec title` lists, equips and clears; the selected title prefixes chat/tab names and reverts if the flag is absent.
+- **Codex:** profile persists enemy kill counts and discovered item IDs; `/ec codex` shows area completion, enemy detail (weaknesses/drops) and item pages. Area milestones at 25/50/75/100% set flag `ec:flag_codex_<area>_<percent>` once.
+- **Enhancement (balance):** `enhancement_cap` (5), `enhancement_rate` (0.03 per level), `enhancement_base_currency` (cost = base x next level), `enhancement_material` (item ID, one per level). `/ec enhance` stores the level in item PDC; stats are clamped to the rarity budget and global caps. Costs persist before the PDC write (loss-biased, no duplication).
+- Profile schema is now 9 (migrations from 1..8).

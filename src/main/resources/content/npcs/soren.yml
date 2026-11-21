@@ -1,0 +1,9 @@
+schema_version: 1
+id: ec:npc_soren
+type: npc
+name: 試練場番人ソーレン
+entity: VILLAGER
+chapter: ec:chapter_side_chronicles
+area: ec:area_stargazer_hill
+location: {world: ec_world, x: 264, y: 65, z: -12, yaw: 0}
+dialogue: ec:dlg_soren_hub

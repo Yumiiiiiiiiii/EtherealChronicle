@@ -1,0 +1,6 @@
+schema_version: 1
+id: ec:title_frost_walker
+type: title
+name: 氷原の歩哨
+description: 凍てつく祠の謎を解いた。
+unlock_flag: ec:flag_title_frost_walker

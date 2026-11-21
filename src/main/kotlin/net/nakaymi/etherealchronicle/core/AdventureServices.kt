@@ -30,7 +30,12 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
         val q = content().world.quests[id] ?: error("依頼が見つかりません。")
         require(q.condition.matches(p)) { "依頼の受注条件を満たしていません。" }
         val old = p.quests[id]
-        if(old != null) require(old.completed && q.repeatable && clock.millis()-old.completedAt >= q.repeatCooldown) { "この依頼は受注済みです。" }
+        if(old != null) {
+            val now=clock.millis()
+            val eligible=if(q.resetSchedule != null) old.completed && if(old.resetPeriod != null) old.resetPeriod != ResetPeriods.key(now,q.resetSchedule,content().world.tuning) else now-old.completedAt >= q.repeatCooldown
+                else old.completed && q.repeatable && now-old.completedAt >= q.repeatCooldown
+            require(eligible) { "この依頼は受注済みです。" }
+        }
         p.quests[id] = QuestProgress(completedAt=old?.completedAt ?: 0)
     }
     private fun progress(p: PlayerProfile,q: QuestDefinition,o: Objective,inventory: InventoryAccess): Int =
@@ -64,6 +69,7 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
         q.rewards.items.filter { it.condition.matches(p) }.forEach { add.merge(it.item,it.amount,Int::plus) }
         require(inventory.exchange(remove,add)) { "必要品が不足しているか、持ち物に空きがありません。" }
         val state=p.quests.getValue(id); state.completed=true; state.completedAt=clock.millis()
+        state.resetPeriod=q.resetSchedule?.let { ResetPeriods.key(clock.millis(),it,content().world.tuning) }
         state.repeatAvailableAt=if(q.repeatable) clock.millis()+q.repeatCooldown else Long.MAX_VALUE
         content().balance.grantXp(p,q.rewards.xp)
         val cap=content().world.tuning.maxCurrency
@@ -93,10 +99,11 @@ class TradeEngine(private val content: () -> ContentSnapshot) {
         require(transaction !in p.transactions) { "処理済みの取引です。" }
         val c=content(); val shop=c.world.shops[shopId] ?: error("店が見つかりません。")
         val e=shop.entries.firstOrNull { it.id == entryId } ?: error("商品が見つかりません。")
-        require(e.condition.matches(p) && e.amount <= c.world.tuning.transactionCap)
+        require(e.condition.matches(p)) { "この商品は条件を満たしていません。" }
+        require(e.amount <= c.world.tuning.transactionCap) { "商品の数量が上限を超えています。" }
         val cost=ceil(e.price.toDouble()*(if(shop.discountFlag in p.flags) 1-shop.discount else 1.0)).toLong()
         require(cost >= 0 && p.currency >= cost) { "所持金が足りません。" }
-        val key="$day:$shopId:$entryId"; val purchased=p.dailyPurchases.getOrDefault(key,0)
+        val key="${ResetPeriods.key(day,"DAILY",c.world.tuning)}:$shopId:$entryId"; val purchased=p.dailyPurchases.getOrDefault(key,0)
         require(e.dailyLimit == 0 || purchased+e.amount <= e.dailyLimit) { "本日の購入上限に達しています。" }
         val remove=e.tokens.associate { it.item to it.amount }.toMutableMap()
         if(e.tokenDiscountFlag in p.flags) e.tokenDiscount.forEach { remove[it.item]=(remove.getOrDefault(it.item,0)-it.amount).coerceAtLeast(0) }
@@ -119,16 +126,35 @@ class TradeEngine(private val content: () -> ContentSnapshot) {
     fun commit(p: PlayerProfile,plan: TradePlan) {
         require(plan.id !in p.transactions && p.currency == plan.currencyBefore) { "取引の状態が変化しました。" }
         p.currency=plan.currencyAfter
-        plan.dailyKey?.let { p.dailyPurchases[it]=plan.dailyCount }
+        plan.dailyKey?.let { key ->
+            val period=key.substringBefore(":ec:")
+            p.dailyPurchases.keys.removeIf { it.startsWith("D:") && !it.startsWith("$period:") }
+            p.dailyPurchases[key]=plan.dailyCount
+        }
         p.transactions += plan.id
         while(p.transactions.size > 128) p.transactions.removeAt(0)
     }
 }
 
 data class WorldTuning(val sellRatio: Double,val maxCurrency: Long,val transactionCap: Int,val partyCap: Int,val partyRadius: Double,
-    val enemyCap: Int,val instanceCap: Int,val instanceTimeout: Long,val weakness: Double,val resistance: Double,val playerHpCap: Double,val basicAttackCooldown: Long,val elementResCap: Double)
-fun Map<String,Any?>.tuning() = WorldTuning(number("sell_ratio",0.3),whole("max_currency",100_000_000),integer("transaction_amount_cap",64),integer("party_size_cap",4),number("party_xp_radius",32.0),integer("global_enemy_cap",100),integer("instance_cap",8),whole("instance_timeout_ticks",36000),number("weakness_multiplier",1.25),number("resistance_multiplier",0.8),number("player_hp_cap",1024.0),whole("basic_attack_cooldown_ms",550),number("element_res_cap",0.5)).also {
-    require(it.sellRatio in 0.0..0.49 && it.maxCurrency in 1..Long.MAX_VALUE/2 && it.transactionCap in 1..64 && it.partyCap in 1..8 && it.partyRadius in 1.0..128.0 && it.enemyCap in 1..1000 && it.instanceCap in 1..32 && it.instanceTimeout > 0 && it.playerHpCap in 1.0..1024.0 && it.basicAttackCooldown in 100..5000 && it.elementResCap in 0.0..0.9)
+    val enemyCap: Int,val instanceCap: Int,val instanceTimeout: Long,val weakness: Double,val resistance: Double,val playerHpCap: Double,val basicAttackCooldown: Long,val elementResCap: Double,
+    val resetZone: String = "UTC",val dailyResetHour: Int = 0,val weeklyResetDay: String = "MONDAY",val enhancementCap:Int=5,val enhancementRate:Double=.03,val enhancementBaseCurrency:Long=100,val enhancementMaterial:String="ec:item_mat_artisan_whetstone")
+fun Map<String,Any?>.tuning() = WorldTuning(number("sell_ratio",0.3),whole("max_currency",100_000_000),integer("transaction_amount_cap",64),integer("party_size_cap",4),number("party_xp_radius",32.0),integer("global_enemy_cap",100),integer("instance_cap",8),whole("instance_timeout_ticks",36000),number("weakness_multiplier",1.25),number("resistance_multiplier",0.8),number("player_hp_cap",1024.0),whole("basic_attack_cooldown_ms",550),number("element_res_cap",0.5),text("calendar_reset_zone","UTC"),integer("daily_reset_hour",0),text("weekly_reset_day","MONDAY"),integer("enhancement_cap",5),number("enhancement_rate",0.03),whole("enhancement_base_currency",100),text("enhancement_material","ec:item_mat_artisan_whetstone")).also {
+    require(it.sellRatio in 0.0..0.49 && it.maxCurrency in 1..Long.MAX_VALUE/2 && it.transactionCap in 1..64 && it.partyCap in 1..8 && it.partyRadius in 1.0..128.0 && it.enemyCap in 1..1000 && it.instanceCap in 1..32 && it.instanceTimeout > 0 && it.playerHpCap in 1.0..1024.0 && it.basicAttackCooldown in 100..5000 && it.elementResCap in 0.0..0.9 && it.dailyResetHour in 0..23 && it.weeklyResetDay in java.time.DayOfWeek.entries.map { day -> day.name } && it.enhancementCap in 1..5 && it.enhancementRate in 0.0..0.1 && it.enhancementBaseCurrency in 0..1_000_000 && it.enhancementMaterial.startsWith("ec:item_"))
+    java.time.ZoneId.of(it.resetZone)
+}
+
+object ResetPeriods {
+    fun key(epochMillis: Long,schedule: String,tuning: WorldTuning): String {
+        require(schedule in setOf("DAILY","WEEKLY")) { "リセット周期は DAILY または WEEKLY です。" }
+        val zone=java.time.ZoneId.of(tuning.resetZone)
+        val now=java.time.Instant.ofEpochMilli(epochMillis).atZone(zone)
+        val date=now.toLocalDate().minusDays(if(now.hour < tuning.dailyResetHour) 1 else 0)
+        return if(schedule == "DAILY") "D:$date" else {
+            val start=date.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.valueOf(tuning.weeklyResetDay)))
+            "W:$start"
+        }
+    }
 }
 
 /** Stages multiple quest/dialogue inventory effects, allowing one validated commit boundary. */
@@ -156,4 +182,5 @@ fun PlayerProfile.restore(other: PlayerProfile) {
     classId=other.classId; level=other.level; xp=other.xp; currency=other.currency; resource=other.resource; selectedSkill=other.selectedSkill; starterGranted=other.starterGranted; accessory=other.accessory
     skillLevels.clear(); skillLevels.putAll(other.skillLevels); flags.clear(); flags.addAll(other.flags)
     quests.clear(); quests.putAll(other.snapshot().quests); dailyPurchases.clear(); dailyPurchases.putAll(other.dailyPurchases); transactions.clear(); transactions.addAll(other.transactions); pendingRewards.clear(); pendingRewards.putAll(other.pendingRewards); dropPity.clear(); dropPity.putAll(other.dropPity)
+    challengeRecords.clear(); challengeRecords.putAll(other.snapshot().challengeRecords)
 }

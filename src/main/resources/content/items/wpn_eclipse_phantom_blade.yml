@@ -1,0 +1,17 @@
+schema_version: 1
+id: ec:item_wpn_eclipse_phantom_blade
+type: item
+name: 蝕夜の幻影刃「ノクターン」
+material: NETHERITE_SWORD
+rarity: LEGENDARY
+slot: HAND
+min_level: 20
+classes: [ec:class_assassin]
+budget: 55
+stats: {attack: 58, hp: 140, defense: 14, crit: 0.18, crit_damage: 0.36, element_resist: 0.05, skill_power: 0.34}
+weapon: 214
+price: 9600
+lore: '試練の星核から削り出された漆黒の幻影刃。【絶影連環】虚空刃を放ちつつ集中を研ぎ澄ます。'
+effects:
+  - {kind: ATTACK_PROC, amount: 120, cooldown_ms: 8500, chance: 0.38, element: VOID}
+  - {kind: RESOURCE, amount: 18, cooldown_ms: 9000, chance: 0.4}

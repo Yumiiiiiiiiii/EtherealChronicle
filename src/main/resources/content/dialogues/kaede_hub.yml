@@ -1,0 +1,61 @@
+schema_version: 1
+id: ec:dlg_kaede_hub
+type: dialogue
+name: 工房名匠カエデの工房
+speaker: ec:npc_kaede
+start: root
+nodes:
+  root:
+    text: いらっしゃい！ここは鍛造と調合の工房よ。蒼穹サケや星露の蓮花を集めてくれば極上の料理や秘薬に仕立てるし、研磨砥石と試練の勲章があれば伝説の武具も鍛えてあげるわ！
+    choices:
+      - id: open_artisan_shop
+        label: 鍛造・調合工房を開く（素材クラフト／武具鍛造）
+        actions:
+          - {kind: OPEN_SHOP, target: 'ec:shop_artisan_forge'}
+      - id: claim_artisan_kit
+        label: 工房の見本砥石を受け取る（初回限定）
+        condition: {has_flags: ['ec:flag_ch1_started'], not_flags: ['ec:flag_side_given_artisan_kit']}
+        next: artisan_kit_done
+        actions:
+          - {kind: GIVE_ITEM, target: 'ec:item_mat_artisan_whetstone', amount: 1, once_flag: 'ec:flag_side_given_artisan_kit'}
+      - id: start_g01
+        label: 【採集】蒼穹サケの水揚げ漁を受ける（12時間反復・Lv4〜）
+        condition: {min_level: 4, has_flags: ['ec:flag_ch1_started'], not_started_quests: ['ec:quest_side_g01_sky_fishing']}
+        next: g01_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_g01_sky_fishing'}
+      - id: complete_g01
+        label: 【採集】水揚げ漁の手伝いを報告する
+        condition: {active_quests: ['ec:quest_side_g01_sky_fishing']}
+        next: g01_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_g01_sky_fishing'}
+      - id: start_g02
+        label: 【採集】星露の蓮花と霊樹採取を受ける（12時間反復・Lv12〜）
+        condition: {min_level: 12, has_flags: ['ec:flag_stargazer_unlocked'], not_started_quests: ['ec:quest_side_g02_starlight_herb']}
+        next: g02_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_g02_starlight_herb'}
+      - id: complete_g02
+        label: 【採集】星露の蓮花採取を報告する
+        condition: {active_quests: ['ec:quest_side_g02_starlight_herb']}
+        next: g02_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_g02_starlight_herb'}
+      - id: bye
+        label: また素材を集めてくるよ
+  artisan_kit_done:
+    text: まずはこの『名匠の研磨砥石』を1つあげるわ。鉄くずと雷晶石があれば工房でいくらでも自作できるから、素材が集まったらまた覗きにきてね！
+    choices: []
+  g01_started:
+    text: 港の川辺にエーテルスライムが湧いてサケ漁の邪魔をしてるの。スライムを6体片付けて魔力ゲルを4つ届けてくれたら、獲れたての蒼穹サケと特製焼き魚を分けてあげるわ！
+    choices: []
+  g01_done:
+    text: お見事！おかげで大漁よ。ほら、蒼穹サケ3匹と焼きたての香草焼き！サケは工房でさらに料理に加工できるからね。
+    choices: []
+  g02_started:
+    text: 星見の丘の星露の蓮花を摘みに行きたいんだけど、スターウィスプが騒がしくてね。ウィスプを5体鎮めて星樹皮を3つ集めてくれたら、摘みたての星露の蓮花と研磨砥石をお礼に渡すわ！
+    choices: []
+  g02_done:
+    text: 助かったわ！これが星露の蓮花と研磨砥石よ。工房で『星露の極上秘薬』や『剛刃守護の研磨霊薬』に調合してみてね！
+    choices: []

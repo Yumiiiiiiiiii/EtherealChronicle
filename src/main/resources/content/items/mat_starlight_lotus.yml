@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_starlight_lotus
+type: item
+name: 星露の蓮花
+material: LILY_PAD
+rarity: UNCOMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 50
+lore: '星片の魔力を吸って咲く淡青の薬草。秘薬の調合に欠かせない。'

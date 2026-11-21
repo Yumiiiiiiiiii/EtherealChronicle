@@ -35,6 +35,24 @@ nodes:
         next: s10_done
         actions:
           - {kind: COMPLETE_QUEST, target: 'ec:quest_s10_star_constellation'}
+      - id: complete_side_06
+        label: トマス補給官からの補給馬車護衛完了を報告する（丘への補給馬車護衛路・報告）
+        condition: {active_quests: ['ec:quest_side_06_tomas_supply_escort']}
+        next: side_06_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_06_tomas_supply_escort'}
+      - id: start_side_07
+        label: 星片落下点の魔力観測を引き受ける（星片落下点の魔力観測・受注）
+        condition: {min_level: 14, has_flags: ['ec:flag_stargazer_unlocked'], not_started_quests: ['ec:quest_side_07_lyra_astral_survey']}
+        next: side_07_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_07_lyra_astral_survey'}
+      - id: complete_side_07
+        label: 落下点の魔力観測データを渡す（星片落下点の魔力観測・報告）
+        condition: {active_quests: ['ec:quest_side_07_lyra_astral_survey']}
+        next: side_07_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_07_lyra_astral_survey'}
       - id: open_shop
         label: 浄化星片・準備品交換所を開く
         actions:
@@ -84,6 +102,24 @@ nodes:
         next: s10_done
         actions:
           - {kind: COMPLETE_QUEST, target: 'ec:quest_s10_star_constellation'}
+      - id: complete_side_06_ready
+        label: 補給馬車護衛完了を報告する（丘への補給馬車護衛路・報告）
+        condition: {active_quests: ['ec:quest_side_06_tomas_supply_escort']}
+        next: side_06_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_06_tomas_supply_escort'}
+      - id: start_side_07_ready
+        label: 星片落下点の魔力観測を受ける
+        condition: {min_level: 14, not_started_quests: ['ec:quest_side_07_lyra_astral_survey']}
+        next: side_07_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_07_lyra_astral_survey'}
+      - id: complete_side_07_ready
+        label: 星片落下点の魔力観測を報告する
+        condition: {active_quests: ['ec:quest_side_07_lyra_astral_survey']}
+        next: side_07_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_07_lyra_astral_survey'}
       - id: sanctum_tips
         label: ヴォイド・ウォーデン攻略の助言を聞く
         next: tips_node
@@ -103,6 +139,15 @@ nodes:
     choices: []
   s10_done:
     text: ……やはりそうじゃったか。核は自然に砕けたのではない、『虚無を呼ぶ者』に裂かれたと記されておる。そなたのおかげで千年越しの謎に光が差したぞ。
+    choices: []
+  side_06_done:
+    text: 無事に補給馬車が届いたか！天文台の備蓄もこれで安泰じゃ。お礼の功績印と星見茶を受け取ってくれ。
+    choices: []
+  side_07_started:
+    text: 虚核の聖堂外縁に落ちた星片の魔力波形を観測したいのじゃ。スターウィスプ6体とアストラルストーカー4体を鎮め、聖堂外縁の魔力を記録してきておくれ。
+    choices: []
+  side_07_done:
+    text: ほう、興味深い波形じゃ……星片の揺らぎは試練場の封印とも共鳴しておるらしい。礼に星露の蓮花と極上秘薬を贈ろう。
     choices: []
   post_ch1:
     text: 星々は一時的に静けさを取り戻した。だが北の〈蒼穹の氷嶺〉に新たな揺らぎが見える……。旅立ちの日まで、聖堂の残響を鎮めながら至高の武具を鍛えるがよい。
@@ -127,6 +172,24 @@ nodes:
         next: s12_done
         actions:
           - {kind: COMPLETE_QUEST, target: 'ec:quest_s12_sanctum_trial'}
+      - id: complete_side_06_post
+        label: 補給馬車護衛完了を報告する（丘への補給馬車護衛路・報告）
+        condition: {active_quests: ['ec:quest_side_06_tomas_supply_escort']}
+        next: side_06_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_06_tomas_supply_escort'}
+      - id: start_side_07_post
+        label: 星片落下点の魔力観測を受ける
+        condition: {min_level: 14, not_started_quests: ['ec:quest_side_07_lyra_astral_survey']}
+        next: side_07_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_07_lyra_astral_survey'}
+      - id: complete_side_07_post
+        label: 星片落下点の魔力観測を報告する
+        condition: {active_quests: ['ec:quest_side_07_lyra_astral_survey']}
+        next: side_07_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_07_lyra_astral_survey'}
       - id: bye_post
         label: また来るよ、賢者殿
   s12_started:

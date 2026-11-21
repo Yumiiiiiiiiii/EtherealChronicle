@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_off_sanctified_chalice
+type: item
+name: 聖別星露の聖杯「ルミナス」
+material: TOTEM_OF_UNDYING
+rarity: EPIC
+slot: OFFHAND
+min_level: 18
+classes: [ec:class_cleric]
+budget: 34
+stats: {resource: 140, hp: 110, defense: 16, element_resist: 0.1, skill_power: 0.3}
+price: 3100
+lore: '尽きぬ星露を湛えた黄金の聖杯。【星泉の恵み】戦闘中に魔力と体力を穏やかに回復し続ける。'
+effects:
+  - {kind: RESOURCE, amount: 26, cooldown_ms: 14000, chance: 0.55}
+  - {kind: HEAL, amount: 55, cooldown_ms: 16000, chance: 0.5}

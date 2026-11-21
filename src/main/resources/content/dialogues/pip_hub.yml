@@ -24,6 +24,16 @@ nodes:
         next: s04_done
         actions:
           - {kind: COMPLETE_QUEST, target: 'ec:quest_s04_spider_silk'}
+      - id: start_side_01
+        label: 港から消えた積荷の件を聞く（港の密輸団と消えた積荷・受注）
+        condition: {min_level: 4, has_flags: ['ec:flag_ch1_started'], not_started_quests: ['ec:quest_side_01_port_smugglers']}
+        next: side_01_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_01_port_smugglers'}
+      - id: complete_side_01
+        label: 密輸団から積荷を取り戻したよ（港の密輸団と消えた積荷・報告）
+        condition: {active_quests: ['ec:quest_side_01_port_smugglers']}
+        next: side_01_branch
       - id: bye
         label: また覗くよ
   s04_started:
@@ -31,4 +41,28 @@ nodes:
     choices: []
   s04_done:
     text: おおっ、傷ひとつない極上品じゃないですか！まいどあり〜！またうまい話があったら真っ先に声をかけますよ、旦那！
+    choices: []
+  side_01_started:
+    text: 旦那、頼みがあるんです！港の倉庫から食料と毛皮の積荷が消えて、森のコケゴブリンどもが持ち去ったみたいでしてね。ゴブリンを5体懲らしめてコケ革を3枚取り返してきてくださいな！
+    choices: []
+  side_01_branch:
+    text: おおっ、見事に積荷を取り戻してくれましたね！ところで旦那、この持ち主不明になった余剰分の食料――元の港商会へ返還しますか、それとも困っている開拓民へ分配しましょうか？
+    choices:
+      - id: choose_pip_return
+        label: 筋を通して港の商会へ返還する
+        next: side_01_done_return
+        set_flags: ['ec:flag_side_pip_return']
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_01_port_smugglers'}
+      - id: choose_pip_donate
+        label: 避難してきた開拓民たちへ分配する
+        next: side_01_done_donate
+        set_flags: ['ec:flag_side_pip_donate']
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_01_port_smugglers'}
+  side_01_done_return:
+    text: へへ、商売は信用第一ですもんね！商会の大旦那も大喜びで、きっちり謝礼を弾んでくれましたぜ。功績印も受け取ってくださいな！
+    choices: []
+  side_01_done_donate:
+    text: 旦那も粋ですな〜！開拓民の連中、涙を流して喜んでましたよ。お礼の功績印と回復薬、ありがたく受け取ってください！
     choices: []

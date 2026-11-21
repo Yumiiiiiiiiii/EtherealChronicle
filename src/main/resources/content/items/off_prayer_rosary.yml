@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_off_prayer_rosary
+type: item
+name: 星雫の祈祷数珠
+material: TOTEM_OF_UNDYING
+rarity: COMMON
+slot: OFFHAND
+min_level: 3
+classes: [ec:class_cleric]
+budget: 12
+stats: {resource: 40, hp: 30, defense: 3, skill_power: 0.1}
+price: 160
+lore: '星光の雫を封じた小さな数珠。星導士の精神集中を助ける。'

@@ -53,7 +53,7 @@ class SimulationSession(private val content: () -> ContentSnapshot, private val 
             }
             "buy", "sell" -> {
                 val tx=args.getOrNull(if(operation == "buy") 2 else 3) ?: UUID.randomUUID().toString()
-                val plan=if(operation == "buy") trades.buy(p,arg(0),arg(1),inventory,tx,System.currentTimeMillis()/86_400_000)
+                val plan=if(operation == "buy") trades.buy(p,arg(0),arg(1),inventory,tx,System.currentTimeMillis())
                     else trades.sell(p,arg(0),arg(1),arg(2).toInt(),inventory,tx)
                 require(inventory.exchange(plan.remove,plan.add)); trades.commit(p,plan); "取引=$tx 所持金=${p.currency} 持ち物=${inventory.contents}"
             }

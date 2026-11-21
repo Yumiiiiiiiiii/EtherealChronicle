@@ -1,0 +1,20 @@
+schema_version: 1
+id: ec:quest_side_d02_daily_frost
+type: quest
+name: 【デイリー】北方氷嶺の巡回掃討
+condition: {min_level: 16, has_flags: ['ec:flag_ch2_started']}
+objectives:
+  - {id: daily_frost_wolves, kind: KILL, target: 'ec:enemy_frost_wolf', amount: 6}
+  - {id: daily_cryo_cultists, kind: KILL, target: 'ec:enemy_cryo_cultist', amount: 6}
+  - {id: report_ren, kind: TALK, target: 'ec:npc_ren', amount: 1}
+rewards:
+  xp: 2600
+  currency: 640
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_chronicle_seal', amount: 3}
+    - {item: 'ec:item_mat_glacial_shard', amount: 3}
+auto_complete: false
+repeatable: true
+repeat_cooldown_ms: 86400000
+reset_schedule: DAILY

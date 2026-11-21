@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_wpn_prism_scepter
+type: item
+name: 虹晶の聖光杓
+material: GOLDEN_HOE
+rarity: RARE
+slot: HAND
+min_level: 11
+classes: [ec:class_cleric]
+budget: 26
+stats: {attack: 17, resource: 80, hp: 50, defense: 4, crit: 0.02, skill_power: 0.22}
+weapon: 84
+price: 1100
+lore: '廃坑の雷晶石を研磨して組み込んだ聖杓。星光と雷鳴を同時に導く。'
+effects:
+  - {kind: RESOURCE, amount: 14, cooldown_ms: 14000, chance: 0.5}

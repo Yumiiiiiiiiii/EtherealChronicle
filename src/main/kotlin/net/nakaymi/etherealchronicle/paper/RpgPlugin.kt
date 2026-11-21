@@ -40,6 +40,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private val simulated = mutableMapOf<String,PlayerProfile>()
     private val simSessions = mutableMapOf<String,SimulationSession>()
     private lateinit var itemKey: NamespacedKey
+    private lateinit var enhancementKey: NamespacedKey
     private lateinit var enemyKey: NamespacedKey
     private lateinit var slotKey: NamespacedKey
     internal val snapshot get() = content.snapshot()
@@ -48,7 +49,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal fun inventory(player: Player,persistRemoval: Boolean = true): PaperInventoryAccess = PaperInventoryAccess(player,::identify,::createItem,persistRemoval) { logger.fine("取引の消費アイテムを保存しました: ${player.uniqueId}") }
     internal fun markDirty(player: UUID) { dirty.add(player) }
     override fun onEnable() {
-        itemKey = NamespacedKey(this,"item_id"); enemyKey = NamespacedKey(this,"enemy_id"); slotKey = NamespacedKey(this,"skill_slot")
+        itemKey = NamespacedKey(this,"item_id"); enhancementKey=NamespacedKey(this,"enhancement_level"); enemyKey = NamespacedKey(this,"enemy_id"); slotKey = NamespacedKey(this,"skill_slot")
         getCommand("ec")!!.setExecutor(this) // commands must reply while asynchronous content startup runs
         server.scheduler.runTaskAsynchronously(this,Runnable {
             try {
@@ -68,7 +69,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 installation.changed.forEach { name ->
                     logger.info("サーバー編集を優先します: $name（配布版と異なります。更新時は必須項目を比較してください）")
                 }
-                listOf("balance","classes","skills","items","enemies","bosses","npcs","quests","dialogues","chapters","droptables","shops").forEach { java.nio.file.Files.createDirectories(dataFolder.toPath().resolve("content").resolve(it)) }
+                listOf("balance","classes","skills","items","enemies","bosses","npcs","quests","dialogues","chapters","droptables","shops","titles").forEach { java.nio.file.Files.createDirectories(dataFolder.toPath().resolve("content").resolve(it)) }
                 val startup=ContentBootstrap.initialize(dataFolder.toPath(),bundled,::validatePaperContent)
                 content=startup.service
                 if(startup.usedFallback) logger.warning("サーバーのコンテンツに不備があります。配布版で起動し /ec validate と /ec reload を有効にします: ${startup.problem}")
@@ -129,6 +130,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             profile.classId = profile.classId?.let { snapshot.classes[it].id }
             for(slot in 0 until player.inventory.size) {
                 val old=player.inventory.getItem(slot); val id=identify(old) ?: continue
+                profile.discoverItem(id)
                 if(snapshot.items.find(id) == null) ProfileContentMigration.oldItems[id]?.takeIf { snapshot.items.find(it) != null }?.let { player.inventory.setItem(slot,createItem(it,old!!.amount)) }
             }
             profiles[player.uniqueId] = profile
@@ -151,7 +153,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private fun menu(player: Player) {
         val menu = ClassMenu().inventory
         content.snapshot().classes.all().take(9).forEachIndexed { index,c ->
-            menu.setItem(index,ItemStack(when(c.resource) { ResourceKind.RAGE -> Material.IRON_SWORD; ResourceKind.FOCUS -> Material.BOW; ResourceKind.MANA -> Material.BLAZE_ROD }).apply {
+            val icon=c.icon?.let(Material::valueOf) ?: when(c.resource) { ResourceKind.RAGE -> Material.IRON_SWORD; ResourceKind.FOCUS -> Material.BOW; ResourceKind.MANA -> Material.BLAZE_ROD }
+            menu.setItem(index,ItemStack(icon).apply {
                 itemMeta = itemMeta.apply { displayName(Component.text(c.name)); persistentDataContainer.set(itemKey,PersistentDataType.STRING,c.id) }
             })
         }
@@ -192,7 +195,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             if(error != null) { profile.starterGranted = false; p.sendMessage(Component.text("保存できませんでした。もう一度お試しください。")); return@sync }
             if(!p.isOnline || profiles[p.uniqueId] !== profile) return@sync
             if(c.starterItems.size > (0..7).count { p.inventory.getItem(it) == null }) { p.sendMessage(Component.text("持ち物の空きがなくなりました。管理者にスターター装備の再付与を依頼してください。")); return@sync }
-            c.starterItems.forEach { item -> val slot = (0..7).first { p.inventory.getItem(it) == null }; p.inventory.setItem(slot,createItem(item)) }
+            c.starterItems.forEach { item -> val slot = (0..7).first { p.inventory.getItem(it) == null }; p.inventory.setItem(slot,createItem(item)); profile.discoverItem(item) }
+            save(profile)
             skillSlot(p); applyStats(p,profile); p.health=p.getAttribute(Attribute.MAX_HEALTH)!!.value
             p.closeInventory(); p.sendMessage(Component.text("ようこそ！受付嬢セリアに話しかけて冒険を始めましょう。"))
         } }
@@ -222,7 +226,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     }
     private fun equippedDefinitions(p: Player,profile: PlayerProfile): List<ItemDefinition> {
         val equipped: List<Pair<GearSlot,ItemStack?>> = listOf(GearSlot.HEAD to p.inventory.helmet,GearSlot.CHEST to p.inventory.chestplate,GearSlot.LEGS to p.inventory.leggings,GearSlot.FEET to p.inventory.boots,GearSlot.HAND to p.inventory.itemInMainHand,GearSlot.OFFHAND to p.inventory.itemInOffHand)
-        val definitions=equipped.mapNotNull { (slot,stack) -> item(stack)?.takeIf { it.slot == slot } }.toMutableList()
+        val definitions=equipped.mapNotNull { (slot,stack) -> item(stack)?.takeIf { it.slot == slot }?.let { def -> def.copy(stats=def.enhancedStats(stack?.itemMeta?.persistentDataContainer?.get(enhancementKey,PersistentDataType.INTEGER) ?: 0,snapshot.balance,snapshot.world.tuning.enhancementRate)) } }.toMutableList()
         profile.accessory?.let { id -> if(inventory(p).count(id) > 0) snapshot.items.find(id)?.takeIf { it.slot == GearSlot.ACCESSORY }?.let(definitions::add) }
         return definitions
     }
@@ -237,6 +241,111 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         p.isHealthScaled = true; p.healthScale = 20.0
         if(p.health > max) p.health = max
     }
+    private fun applyTitle(player:Player,profile:PlayerProfile) {
+        val title=profile.selectedTitle?.let(snapshot.world.titles::get)?.takeIf { it.unlockFlag in profile.flags }?.name
+        val display=if(title == null) Component.text(player.name) else Component.text("[$title] ${player.name}")
+        player.displayName(display); player.playerListName(display)
+    }
+    private fun areaCodexPercent(profile:PlayerProfile,area:Area):Pair<Int,Int> {
+        val enemies=snapshot.world.enemiesInArea(area.id)
+        val found=enemies.count { (profile.bestiary[it.id] ?: 0) > 0 }
+        return found to enemies.size
+    }
+    internal fun openCodex(player:Player) {
+        val profile=profiles[player.uniqueId] ?: return
+        val menu=RpgMenu("codex-areas","").inventory
+        snapshot.world.areas.values.sortedBy { it.name }.take(45).forEachIndexed { slot,area ->
+            val (found,total)=areaCodexPercent(profile,area)
+            menu.setItem(slot,ItemStack(Material.FILLED_MAP).apply { itemMeta=itemMeta.apply {
+                displayName(Component.text(area.name)); lore(listOf(Component.text("発見: $found/$total (${if(total==0) 0 else found*100/total}%)")))
+            } })
+        }
+        menu.setItem(53,ItemStack(Material.BOOK).apply { itemMeta=itemMeta.apply { displayName(Component.text("発見したアイテム")); lore(listOf(Component.text("${profile.discoveredItems.size} 種"))) } })
+        player.openInventory(menu)
+    }
+    internal fun openCodexArea(player:Player,areaId:String) {
+        val profile=profiles[player.uniqueId] ?: return
+        val area=snapshot.world.areas[areaId] ?: return openCodex(player)
+        val menu=RpgMenu("codex-area",areaId).inventory
+        snapshot.world.enemiesInArea(areaId).take(45).forEachIndexed { slot,enemy ->
+            val count=profile.bestiary[enemy.id] ?: 0
+            val discovered=count > 0
+            val drops=snapshot.documents[enemy.id]?.get("droptable") as? String
+            val dropIds=drops?.let(snapshot.drops::find)?.entries?.map { it.item }.orEmpty()
+            menu.setItem(slot,ItemStack(if(discovered) Material.BLAZE_POWDER else Material.GRAY_DYE).apply { itemMeta=itemMeta.apply {
+                displayName(Component.text(if(discovered) enemy.name else "未発見の魔物"))
+                lore(if(discovered) listOf(Component.text("討伐数: $count"),Component.text("弱点: ${enemy.weaknesses.joinToString().ifEmpty { "なし" }}"),Component.text("ドロップ: ${dropIds.joinToString()}")) else listOf(Component.text("このエリアで魔物を探しましょう。")))
+            } })
+        }
+        menu.setItem(53,ItemStack(Material.ARROW).apply { itemMeta=itemMeta.apply { displayName(Component.text("エリア一覧へ戻る")) } })
+        player.openInventory(menu)
+    }
+    internal fun openCodexItems(player:Player) {
+        val profile=profiles[player.uniqueId] ?: return
+        val menu=RpgMenu("codex-items","").inventory
+        profile.discoveredItems.sorted().take(45).forEachIndexed { slot,id ->
+            val name=snapshot.documents[id]?.get("name") as? String ?: id
+            menu.setItem(slot,ItemStack(Material.PAPER).apply { itemMeta=itemMeta.apply { displayName(Component.text(name)); lore(listOf(Component.text(id))) } })
+        }
+        menu.setItem(53,ItemStack(Material.ARROW).apply { itemMeta=itemMeta.apply { displayName(Component.text("エリア一覧へ戻る")) } })
+        player.openInventory(menu)
+    }
+    internal fun openEnhancement(player:Player) {
+        val stack=player.inventory.itemInMainHand
+        val definition=item(stack) ?: error("強化できる冒険者装備を手に持ってください。")
+        require(stack.amount == 1 && definition.slot in setOf(GearSlot.HAND,GearSlot.HEAD,GearSlot.CHEST,GearSlot.LEGS,GearSlot.FEET)) { "装備品を1個だけ手に持ってください。" }
+        require(definition.canEquip(profiles[player.uniqueId] ?: error("プロフィールを読み込み中です。"))) { "この装備は現在の職業・レベルでは使用できません。" }
+        val level=stack.itemMeta.persistentDataContainer.get(enhancementKey,PersistentDataType.INTEGER) ?: 0
+        val tuning=snapshot.world.tuning
+        val menu=RpgMenu("enhance",definition.id,level.toString()).inventory
+        menu.setItem(4,stack.clone())
+        menu.setItem(13,ItemStack(Material.ANVIL).apply { itemMeta=itemMeta.apply {
+            displayName(Component.text("+${level+1} に強化"))
+            lore(listOf(Component.text("必要素材: ${tuning.enhancementMaterial} ×1"),Component.text("費用: ${tuning.enhancementBaseCurrency*(level+1)} G"),Component.text("上限: +${tuning.enhancementCap}")))
+        } })
+        player.openInventory(menu)
+    }
+    internal fun enhance(player:Player,menu:RpgMenu) {
+        val p=profiles[player.uniqueId] ?: error("プロフィールを読み込み中です。")
+        val stack=player.inventory.itemInMainHand
+        require(identify(stack) == menu.contentId) { "強化対象の装備が変わりました。もう一度開いてください。" }
+        val definition=item(stack) ?: error("強化対象の装備が見つかりません。")
+        val current=stack.itemMeta.persistentDataContainer.get(enhancementKey,PersistentDataType.INTEGER) ?: 0
+        require(current == menu.nodeId.toInt()) { "強化段階が更新されています。もう一度開いてください。" }
+        val tuning=snapshot.world.tuning
+        require(current < tuning.enhancementCap) { "強化上限です。" }
+        val cost=Math.multiplyExact(tuning.enhancementBaseCurrency,(current+1).toLong())
+        val next=definition.enhancedStats(current+1,snapshot.balance,tuning.enhancementRate)
+        val now=definition.enhancedStats(current,snapshot.balance,tuning.enhancementRate)
+        require(next != now) { "装備のステータス予算上限に達しています。" }
+        adventure.transaction(player,{ inventory ->
+            require(p.currency >= cost) { "所持金が足りません。" }
+            require(inventory.exchange(mapOf(tuning.enhancementMaterial to 1),emptyMap())) { "強化素材が足りません。" }
+            p.currency -= cost
+        }) {
+            val held=player.inventory.itemInMainHand
+            if(identify(held) == definition.id && (held.itemMeta.persistentDataContainer.get(enhancementKey,PersistentDataType.INTEGER) ?: 0) == current) {
+                val meta=held.itemMeta
+                meta.persistentDataContainer.set(enhancementKey,PersistentDataType.INTEGER,current+1)
+                meta.lore((meta.lore() ?: emptyList()).filterNot { it.toString().contains("強化段階") }+Component.text("強化段階 +${current+1}"))
+                held.itemMeta=meta; player.inventory.setItemInMainHand(held); player.saveData(); save(p); applyStats(player,p)
+                player.sendMessage(Component.text("装備を +${current+1} に強化しました。"))
+            } else player.sendMessage(Component.text("消費は確定しましたが装備が切り替わっています。強化は保留されました。"))
+        }
+    }
+    @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=false) fun codexClick(e:InventoryClickEvent) {
+        val player=e.whoClicked as? Player ?: return
+        val menu=e.view.topInventory.holder as? RpgMenu ?: return
+        if(!menu.kind.startsWith("codex-") && menu.kind != "enhance") return
+        e.isCancelled=true
+        if(e.rawSlot !in 0 until e.view.topInventory.size) return
+        if(menu.kind == "enhance") { if(e.rawSlot == 13) runCatching { enhance(player,menu) }.onFailure { player.sendMessage(Component.text("強化できません: ${it.message}")) }; return }
+        when(menu.kind) {
+            "codex-areas" -> if(e.rawSlot == 53) openCodexItems(player) else snapshot.world.areas.values.sortedBy { it.name }.getOrNull(e.rawSlot)?.let { openCodexArea(player,it.id) }
+            "codex-area" -> if(e.rawSlot == 53) openCodex(player)
+            "codex-items" -> if(e.rawSlot == 53) openCodex(player)
+        }
+    }
     private fun tick() {
         game.skills.cleanup()
         val now=System.nanoTime()/1_000_000; procReady.entries.removeIf { it.value <= now }; defenseBuffs.entries.removeIf { it.value.second <= now }; basicAttacks.cleanup()
@@ -247,7 +356,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             val profile = profiles[p.uniqueId] ?: return@forEach
             val c = profile.classId?.let { content.snapshot().classes.find(it) } ?: return@forEach
             if(adventure.locked(p.uniqueId)) return@forEach
-            val s = effectiveStats(p,profile); applyStats(p,profile)
+            val s = effectiveStats(p,profile); applyStats(p,profile); applyTitle(p,profile)
             val beforeResource = profile.resource
             game.regenerate(profile,s.resource,Bukkit.getCurrentTick()-(lastMoved[p.uniqueId] ?: Int.MIN_VALUE/2) < 20)
             if(profile.resource != beforeResource) dirty.add(p.uniqueId)
@@ -292,13 +401,21 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val weapon=item(player.inventory.itemInMainHand)?.takeIf { it.slot == GearSlot.HAND && it.canEquip(profile) } ?: return CastResult.INVALID_TARGET
         val c=profile.classId?.let { snapshot.classes.find(it) } ?: return CastResult.INVALID_TARGET
         val skill=snapshot.skills[c.skills[profile.selectedSkill.coerceIn(0,c.skills.lastIndex)]]
-        if(target == null && skill.heal <= 0 && skill.defenseBuff <= 0) return CastResult.INVALID_TARGET
+        if(target == null && skill.heal <= 0 && skill.defenseBuff <= 0 && skill.tauntTicks <= 0) return CastResult.INVALID_TARGET
         if(target != null && (target.world != player.world || target.location.distanceSquared(player.location) > skill.range*skill.range || !target.persistentDataContainer.has(enemyKey))) return CastResult.INVALID_TARGET
         if(target != null && enemies.state(target.uniqueId)?.participants?.let { it.isNotEmpty() && player.uniqueId !in it } == true) return CastResult.INVALID_TARGET
         val result=game.skills.cast(profile,skill)
         if(result != CastResult.SUCCESS) return result
-        if(skill.heal > 0) player.health=(player.health+effectiveStats(player,profile).hp*skill.heal).coerceAtMost(player.getAttribute(Attribute.MAX_HEALTH)!!.value)
-        if(skill.defenseBuff > 0) defenseBuffs[player.uniqueId]=skill.defenseBuff to (System.nanoTime()/1_000_000+skill.buffTicks*50L)
+        if(skill.heal > 0 || skill.defenseBuff > 0) {
+            val recipientIds=if((skill.partyHeal || skill.partyDefenseBuff) && skill.allyRadius > 0) adventure.parties.members(player.uniqueId) else setOf(player.uniqueId)
+            val recipients=player.world.players.filter { it.uniqueId in recipientIds && it.location.distanceSquared(player.location) <= skill.allyRadius*skill.allyRadius || it.uniqueId == player.uniqueId }
+            recipients.forEach { recipient ->
+                val recipientProfile=profiles[recipient.uniqueId] ?: return@forEach
+                if(skill.heal > 0 && (recipient.uniqueId == player.uniqueId || skill.partyHeal)) recipient.health=(recipient.health+effectiveStats(recipient,recipientProfile).hp*skill.heal).coerceAtMost(recipient.getAttribute(Attribute.MAX_HEALTH)!!.value)
+                if(skill.defenseBuff > 0 && (recipient.uniqueId == player.uniqueId || skill.partyDefenseBuff)) defenseBuffs[recipient.uniqueId]=skill.defenseBuff to (System.nanoTime()/1_000_000+skill.buffTicks*50L)
+            }
+        }
+        if(skill.tauntTicks > 0) enemies.taunt(player,skill.radius.coerceAtLeast(skill.allyRadius).coerceAtLeast(skill.range),skill.tauntTicks,skill.threatMultiplier)
         if(target != null) {
             val targets=if(skill.radius > 0) target.getNearbyEntities(skill.radius,skill.radius,skill.radius).filterIsInstance<LivingEntity>().filter { it.persistentDataContainer.has(enemyKey) }+target else listOf(target)
             targets.forEach { hit(player,it,game.skills.multiplier(profile,skill),skill.element,useSkillPower=true) }
@@ -414,24 +531,35 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             adventure.whenAvailable(playerId) {
                 val player=Bukkit.getPlayer(playerId) ?: return@whenAvailable
                 val profile=profiles[playerId] ?: return@whenAvailable
+                var codexUnlocks=emptySet<String>()
                 var drops=emptyMap<String,Int>()
                 adventure.transaction(player,{ inv ->
+                    codexUnlocks=profile.recordEnemyKill(id,snapshot.world.areas,snapshot.world.enemies)
                     drops=game.kill(profile,id,inv,xp[playerId] ?: 0,currency[playerId] ?: 0,playerId == loot)
                     drops.forEach { (item,amount) -> profile.pendingRewards.merge(item,amount,Int::plus) }
-                }) { player.sendMessage(Component.text("魔物を討伐！ レベル ${profile.level} / 経験値 ${profile.xp}")) }
+                }) {
+                    player.sendMessage(Component.text("魔物を討伐！ レベル ${profile.level} / 経験値 ${profile.xp}"))
+                    if(codexUnlocks.isNotEmpty()) player.sendMessage(Component.text("図鑑の発見率が上がりました: ${codexUnlocks.joinToString()}"))
+                }
             }
         }
     }    private var lootSequence=0L
     @EventHandler fun playerDeath(e: PlayerDeathEvent) { e.drops.removeIf(::isSkill) }
+    @EventHandler(priority=EventPriority.MONITOR,ignoreCancelled=true) fun itemPickup(e:EntityPickupItemEvent) {
+        val player=e.entity as? Player ?: return
+        val profile=profiles[player.uniqueId] ?: return
+        identify(e.item.itemStack)?.let { if(profile.discoverItem(it)) save(profile) }
+    }
     @EventHandler fun respawn(e: PlayerRespawnEvent) { sync { skillSlot(e.player); profiles[e.player.uniqueId]?.let { applyStats(e.player,it); e.player.health=e.player.getAttribute(Attribute.MAX_HEALTH)!!.value } } }
     private fun validatePaperContent(c: ContentSnapshot) {
         fun validate(id: String, action: () -> Unit) { try { action() } catch(e: Exception) { throw IllegalArgumentException("${c.sources[id]} [$id]: ${e.message}",e) } }
         c.items.all().forEach { item -> validate(item.id) { require(Material.valueOf(item.material).isItem) { "material はアイテムである必要があります。" } } }
+        c.classes.all().filter { it.icon != null }.forEach { definition -> validate(definition.id) { require(Material.valueOf(definition.icon!!).isItem) { "icon はアイテム素材である必要があります。" } } }
         c.documents.values.filter { it["type"] in setOf("enemy","boss") }.forEach { d -> validate(d.string("id")) { require(EntityType.valueOf(d.string("entity")).isAlive) { "entity は生物である必要があります。" } } }
     }
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if(!ready) { sender.sendMessage(Component.text("冒険システムは起動中です。しばらくお待ちください。")); return true }
-        if(sender is Player && args.firstOrNull() in setOf("quest","party","equipment","dungeon","shop","claim")) {
+        if(sender is Player && args.firstOrNull() in setOf("quest","party","equipment","dungeon","shop","claim","title","codex","enhance")) {
             try { playerCommand(sender,args.toList()) } catch(error: Exception) { sender.sendMessage(Component.text("操作できません: ${error.message}")) }
             return true
         }
@@ -534,10 +662,25 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val p=profiles[player.uniqueId] ?: error("読み込み中です。")
         require(!adventure.locked(p.uuid)) { "取引の処理中です。" }
         when(args[0]) {
+            "codex" -> openCodex(player)
+            "enhance" -> openEnhancement(player)
+            "title" -> {
+                val id=args.getOrNull(1)
+                if(id == null) {
+                    snapshot.world.titles.values.forEach { title -> player.sendMessage(Component.text("${if(title.unlockFlag in p.flags) "✓" else "○"} ${title.id}: ${title.name}${if(title.id == p.selectedTitle) " [装備中]" else ""}")) }
+                    player.sendMessage(Component.text("/ec title <称号ID|none> で表示を切り替えます。"))
+                } else {
+                    val selected=if(id == "none") null else id
+                    require(p.equipTitle(selected,snapshot.world.titles)) { "称号をまだ解放していません。" }
+                    save(p); applyTitle(player,p)
+                    player.sendMessage(Component.text(if(selected == null) "称号表示を解除しました。" else "称号を装備しました: ${snapshot.world.titles.getValue(selected).name}"))
+                }
+            }
             "claim" -> adventure.claimPending(player)
             "equipment" -> adventure.equipment(player)
             "dungeon" -> when(args.getOrNull(1)) {
                 "leave" -> dungeons.leave(player)
+                "records" -> if(p.challengeRecords.isEmpty()) player.sendMessage(Component.text("試練の記録はまだありません。")) else p.challengeRecords.forEach { (id,record) -> player.sendMessage(Component.text("$id: ${record.bestSeconds}秒 / ランク${record.bestRank}")) }
                 "enter" -> dungeons.enter(player,args.getOrNull(2) ?: "ec:dungeon_void_sanctum")
                 null -> dungeons.enter(player)
                 else -> dungeons.enter(player,args[1])

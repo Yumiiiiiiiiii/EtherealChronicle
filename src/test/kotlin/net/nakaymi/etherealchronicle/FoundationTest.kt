@@ -75,13 +75,14 @@ class FoundationTest {
         val uuid = UUID.randomUUID()
         PlayerStore(temp).use { store ->
             val p = PlayerProfile(uuid,classId="ec:mage",level=3,xp=50,currency=20,resource=33.0,starterGranted=true,quests=mutableMapOf("ec:tutorial" to QuestProgress()))
+            p.challengeRecords["ec:dungeon_aether_crucible"]=ChallengeRecord(275,"A")
             p.skillLevels["ec:mage_strike"] = 2
             val first = store.save(p); p.level = 4; first.join()
             assertEquals(3,store.load(uuid).join().level)
             store.save(p).join(); assertEquals(p,store.load(uuid).join())
             Files.writeString(temp.resolve("$uuid.yml"),"corrupt: [")
             assertEquals(3,store.load(uuid).join().level)
-            assertEquals(5,store.migrate(mapOf("uuid" to uuid.toString()))["schema_version"])
+        assertEquals(9,store.migrate(mapOf("uuid" to uuid.toString()))["schema_version"])
             assertEquals(emptyMap<String,Int>(),store.migrate(mapOf("schema_version" to 4))["drop_pity"])
             assertFailsWith<IllegalArgumentException> { store.migrate(mapOf("schema_version" to 99)) }
         }

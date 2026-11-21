@@ -26,6 +26,18 @@ nodes:
         next: s01_done
         actions:
           - {kind: COMPLETE_QUEST, target: 'ec:quest_ch2_s01_frost_pelt'}
+      - id: start_side_10
+        label: 名匠脚甲の鍛造依頼を受ける（氷嶺鍛冶の名匠脚甲・受注）
+        condition: {min_level: 19, has_flags: ['ec:flag_ch2_colossus_defeated'], not_started_quests: ['ec:quest_side_10_borka_masterwork']}
+        next: side_10_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_10_borka_masterwork'}
+      - id: complete_side_10
+        label: 研磨砥石と蒼氷の欠片を持ってきたよ（氷嶺鍛冶の名匠脚甲・報告）
+        condition: {active_quests: ['ec:quest_side_10_borka_masterwork']}
+        next: side_10_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_10_borka_masterwork'}
       - id: bye
         label: また炉端に来るよ
   root_discount:
@@ -47,6 +59,18 @@ nodes:
         next: s01_done
         actions:
           - {kind: COMPLETE_QUEST, target: 'ec:quest_ch2_s01_frost_pelt'}
+      - id: start_side_10_disc
+        label: 名匠脚甲の鍛造依頼を受ける（氷嶺鍛冶の名匠脚甲・受注）
+        condition: {min_level: 19, has_flags: ['ec:flag_ch2_colossus_defeated'], not_started_quests: ['ec:quest_side_10_borka_masterwork']}
+        next: side_10_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_10_borka_masterwork'}
+      - id: complete_side_10_disc
+        label: 研磨砥石と蒼氷の欠片を持ってきたよ（氷嶺鍛冶の名匠脚甲・報告）
+        condition: {active_quests: ['ec:quest_side_10_borka_masterwork']}
+        next: side_10_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_10_borka_masterwork'}
       - id: bye_disc
         label: ありがとう、ボルカ！
   s01_started:
@@ -54,4 +78,10 @@ nodes:
     choices: []
   s01_done:
     text: おう、極上の毛皮と氷晶じゃねぇか！ほらよ、出来立ての『氷嶺防寒の兜』と俺自慢の温燻鮭料理だ。これで吹雪の中でもピンピン戦えるぜ、ガハハ！
+    choices: []
+  side_10_started:
+    text: 港のカエデから噂の『名匠の研磨砥石』の話を聞いてな！そいつを2個と蒼氷の欠片を8つ持ってきてくれりゃ、俺とカエデの共同設計『名匠鍛造の星鋼脚甲』を叩き上げてやるぜ！
+    choices: []
+  side_10_done:
+    text: ガハハ！これぞ俺の最高傑作だ！ほらよ、『名匠鍛造の星鋼脚甲』と功績印を受け取れ。どんな強敵の踏みつけも涼しい顔で受け止められるぜ！
     choices: []

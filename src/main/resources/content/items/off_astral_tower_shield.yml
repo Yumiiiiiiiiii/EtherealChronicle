@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_off_astral_tower_shield
+type: item
+name: 星光大塔盾「バスティオン」
+material: SHIELD
+rarity: EPIC
+slot: OFFHAND
+min_level: 18
+classes: [ec:class_paladin]
+budget: 34
+stats: {hp: 150, defense: 32, element_resist: 0.12}
+price: 3100
+lore: '星片と蒼氷鋼を重ね合わせた巨大な塔盾。【星壁の守護】衝撃を受けるたび聖光の障壁を張り直す。'
+effects:
+  - {kind: DEFENSE_BUFF, amount: 26, cooldown_ms: 24000, duration_ticks: 110, chance: 1.0}

@@ -1,0 +1,74 @@
+schema_version: 1
+id: ec:chapter_side_chronicles
+type: chapter
+name: 外伝「蒼穹の冒険者録」
+min_level: 4
+max_level: 20
+quests:
+  - ec:quest_side_01_port_smugglers
+  - ec:quest_side_02_mira_moonherb
+  - ec:quest_side_03_elena_escort
+  - ec:quest_side_04_garudo_whetstone
+  - ec:quest_side_05_daren_lost_pick
+  - ec:quest_side_06_tomas_supply_escort
+  - ec:quest_side_07_lyra_astral_survey
+  - ec:quest_side_08_nora_glacier_ecology
+  - ec:quest_side_09_nora_cavern_escort
+  - ec:quest_side_10_borka_masterwork
+  - ec:quest_side_h01_forgotten_diary
+  - ec:quest_side_h02_frozen_shrine
+  - ec:quest_side_g01_sky_fishing
+  - ec:quest_side_g02_starlight_herb
+  - ec:quest_side_d01_daily_hunt
+  - ec:quest_side_d02_daily_frost
+  - ec:quest_side_w01_weekly_bounty
+  - ec:quest_side_c01_crucible_gauntlet
+npcs:
+  - ec:npc_ren
+  - ec:npc_kaede
+  - ec:npc_soren
+  - ec:npc_nora
+dungeons:
+  - ec:dungeon_aether_crucible
+dungeon_configs:
+  - id: ec:dungeon_aether_crucible
+    unlock_flag: ec:flag_side_crucible_unlocked
+    boss: ec:boss_aether_chimera
+    guards: [ec:enemy_void_sentinel, ec:enemy_glacial_knight]
+    guard_offsets: [{x: -8, z: -3}, {x: 8, z: -3}]
+    area: ec:area_void_sanctum
+    palette: [AMETHYST_BLOCK, OBSIDIAN, QUARTZ_BRICKS]
+    boss_offset: {x: 0, z: 10}
+    entry_message: 星片の試練場へ入場しました。/ec dungeon leave で帰還できます。
+    clear_message: 星核の融合体エーテル・キメラを撃破しました！ソーレンへ報告しましょう。
+    waves:
+      - boss: ec:enemy_void_sentinel
+        guards: [ec:enemy_cryo_cultist, ec:enemy_cryo_cultist]
+        guard_offsets: [{x: -8, z: -3}, {x: 8, z: -3}]
+        boss_offset: {x: 0, z: 6}
+      - boss: ec:enemy_glacial_knight
+        guards: [ec:enemy_obsidian_golem]
+        guard_offsets: [{x: 0, z: -4}]
+        boss_offset: {x: 0, z: 7}
+      - boss: ec:boss_aether_chimera
+        guards: [ec:enemy_void_sentinel, ec:enemy_glacial_knight]
+        guard_offsets: [{x: -8, z: -3}, {x: 8, z: -3}]
+        boss_offset: {x: 0, z: 10}
+    score_ranks:
+      - {rank: S, max_seconds: 180}
+      - {rank: A, max_seconds: 300}
+      - {rank: B, max_seconds: 480}
+      - {rank: C, max_seconds: 900}
+flags:
+  - ec:flag_side_pip_return
+  - ec:flag_side_pip_donate
+  - ec:flag_side_nora_preserve
+  - ec:flag_side_nora_specimen
+  - ec:flag_side_crucible_unlocked
+  - ec:flag_side_chimera_defeated
+  - ec:flag_side_given_artisan_kit
+  - ec:flag_side_given_bounty_pack
+  - ec:flag_title_truth_seeker
+  - ec:flag_title_frost_walker
+  - ec:flag_title_crucible_victor
+areas: []

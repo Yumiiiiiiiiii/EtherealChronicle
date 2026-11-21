@@ -1,0 +1,6 @@
+schema_version: 1
+id: ec:title_truth_seeker
+type: title
+name: 真実を追う者
+description: 忘れられた日記の真相を明らかにした。
+unlock_flag: ec:flag_title_truth_seeker

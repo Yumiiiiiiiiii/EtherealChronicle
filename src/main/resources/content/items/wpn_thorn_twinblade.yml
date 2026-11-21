@@ -1,0 +1,14 @@
+schema_version: 1
+id: ec:item_wpn_thorn_twinblade
+type: item
+name: 茨牙の双短刃
+material: STONE_SWORD
+rarity: UNCOMMON
+slot: HAND
+min_level: 5
+classes: [ec:class_assassin]
+budget: 16
+stats: {attack: 11, crit: 0.06, crit_damage: 0.1}
+weapon: 44
+price: 240
+lore: '灰森の茨狼の牙を刃先に仕込んだ双短刃。会心時の切れ味が鋭い。'

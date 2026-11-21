@@ -13,7 +13,7 @@ import kotlin.test.fail
 
 /**
  * QA: drives the SHIPPED chapter-1 content (src/main/resources/content) through the pure core services:
- * class -> m01..m08 for all 3 classes x both branch choices, trade exploits, party XP, boss phases, spawn caps.
+ * class -> m01..m08 for all classes x both branch choices, trade exploits, party XP, boss phases, spawn caps.
  * Writes a human-readable trace to build/qa-chain.txt.
  */
 class Chapter1ChainTest {
@@ -68,7 +68,7 @@ class Chapter1ChainTest {
     @Test
     fun fullChapterChainAllClassesAndBranches() {
         val classes = snapshot.classes.all().map { it.id }
-        assertEquals(3, classes.size)
+        assertTrue(classes.size >= 3)
         for (cls in classes) for (c1 in listOf("ec:flag_choice1_purify", "ec:flag_choice1_extract")) for (c2 in listOf("ec:flag_choice2_forgive", "ec:flag_choice2_report")) for (c3 in listOf("ec:flag_choice3_guild", "ec:flag_choice3_observatory")) {
             val p = runChain(cls, c1, c2, c3)
             // branch-specific rewards must exist

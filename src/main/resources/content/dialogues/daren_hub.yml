@@ -15,6 +15,18 @@ nodes:
       - id: ask_mine
         label: 嘆きの廃坑で何が起きているんだ？
         next: mine_info
+      - id: start_side_05
+        label: 崩落坑道に残された鶴嘴の話を聞く（崩落坑道に残された鶴嘴・受注）
+        condition: {min_level: 10, has_flags: ['ec:flag_mine_unlocked'], not_started_quests: ['ec:quest_side_05_daren_lost_pick']}
+        next: side_05_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_05_daren_lost_pick'}
+      - id: complete_side_05
+        label: 崩落坑道の魔物を鎮めてきたよ（崩落坑道に残された鶴嘴・報告）
+        condition: {active_quests: ['ec:quest_side_05_daren_lost_pick']}
+        next: side_05_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_05_daren_lost_pick'}
       - id: bye
         label: 気をつけて進むよ
   mine_info:
@@ -52,6 +64,18 @@ nodes:
         next: s08_done
         actions:
           - {kind: COMPLETE_QUEST, target: 'ec:quest_s08_daren_atonement'}
+      - id: start_side_05_f
+        label: 崩落坑道に残された鶴嘴の話を聞く（崩落坑道に残された鶴嘴・受注）
+        condition: {min_level: 10, has_flags: ['ec:flag_mine_unlocked'], not_started_quests: ['ec:quest_side_05_daren_lost_pick']}
+        next: side_05_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_05_daren_lost_pick'}
+      - id: complete_side_05_f
+        label: 崩落坑道の魔物を鎮めてきたよ（崩落坑道に残された鶴嘴・報告）
+        condition: {active_quests: ['ec:quest_side_05_daren_lost_pick']}
+        next: side_05_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_05_daren_lost_pick'}
       - id: boss_hint
         label: アイアン・グラインダーの弱点をもう一度聞く
         next: grinder_hint
@@ -68,4 +92,24 @@ nodes:
     choices: []
   reported_hub:
     text: ……ギルドの処分は受け入れるつもりだ。あんたは先に進んでくれ、俺の分まで教団を止めてやってくれよな。
+    choices:
+      - id: start_side_05_r
+        label: 崩落坑道に残された鶴嘴の話を聞く（崩落坑道に残された鶴嘴・受注）
+        condition: {min_level: 10, has_flags: ['ec:flag_mine_unlocked'], not_started_quests: ['ec:quest_side_05_daren_lost_pick']}
+        next: side_05_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_05_daren_lost_pick'}
+      - id: complete_side_05_r
+        label: 崩落坑道の魔物を鎮めてきたよ（崩落坑道に残された鶴嘴・報告）
+        condition: {active_quests: ['ec:quest_side_05_daren_lost_pick']}
+        next: side_05_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_05_daren_lost_pick'}
+      - id: bye_r
+        label: わかった
+  side_05_started:
+    text: 十年前の落盤で亡くした相棒の鶴嘴が、崩落坑道に取り残されたままなんだ。虚空炭鉱夫6体とコボルド4体を鎮めて、あいつの眠りを静かにしてやってくれねぇか。
+    choices: []
+  side_05_done:
+    text: ……ありがとうよ、あんた。これで相棒も安らかに眠れるはずだ。礼と言っては何だが、功績印と名匠の研磨砥石を受け取ってくれ。
     choices: []

@@ -14,7 +14,7 @@ data class Objective(val id: String, val kind: ObjectiveKind, val target: String
 data class ItemReward(val item: String, val amount: Int, val condition: Condition = Condition())
 data class Rewards(val xp: Long = 0, val currency: Long = 0, val items: List<ItemReward> = emptyList(), val flags: Set<String> = emptySet())
 data class QuestDefinition(val id: String, val name: String, val condition: Condition, val objectives: List<Objective>,
-    val rewards: Rewards, val autoComplete: Boolean, val repeatable: Boolean, val repeatCooldown: Long)
+    val rewards: Rewards, val autoComplete: Boolean, val repeatable: Boolean, val repeatCooldown: Long, val resetSchedule: String? = null)
 data class DialogueAction(val kind: String, val target: String, val amount: Int = 1, val onceFlag: String? = null, val destination: Position? = null, val requiredFlag: String? = null)
 data class DialogueChoice(val id: String, val label: String, val condition: Condition, val next: String?, val flags: Set<String>, val clearFlags: Set<String>, val actions: List<DialogueAction>)
 data class DialogueNode(val text: String, val branches: List<Pair<Condition,String>>, val choices: List<DialogueChoice>)
@@ -23,7 +23,10 @@ data class Position(val world: String, val x: Double, val y: Double, val z: Doub
 data class Area(val id: String, val name: String, val world: String, val minX: Double, val maxX: Double, val minY: Double, val maxY: Double, val minZ: Double, val maxZ: Double, val safe: Boolean) {
     fun contains(p: Position) = p.world == world && p.x in minX..maxX && p.y in minY..maxY && p.z in minZ..maxZ
 }
-data class DungeonDefinition(val id: String, val unlockFlag: String, val boss: String, val guards: List<String>, val guardOffsets: List<Pair<Int,Int>>, val area: String, val palette: List<String>, val bossOffset: Pair<Int,Int>, val entryMessage: String, val clearMessage: String)
+data class DungeonWave(val boss: String, val guards: List<String>, val guardOffsets: List<Pair<Int,Int>>, val bossOffset: Pair<Int,Int>)
+data class ScoreRank(val rank: String,val maxSeconds: Long)
+data class TitleDefinition(val id: String,val name: String,val description: String,val unlockFlag: String)
+data class DungeonDefinition(val id: String, val unlockFlag: String, val boss: String, val guards: List<String>, val guardOffsets: List<Pair<Int,Int>>, val area: String, val palette: List<String>, val bossOffset: Pair<Int,Int>, val entryMessage: String, val clearMessage: String,val waves: List<DungeonWave> = emptyList(),val scoreRanks: List<ScoreRank> = emptyList())
 data class NpcDefinition(val id: String, val name: String, val position: Position, val dialogue: String, val shop: String?)
 data class TokenCost(val item: String, val amount: Int)
 data class ShopEntry(val id: String, val item: String, val amount: Int, val price: Long, val tokens: List<TokenCost>, val condition: Condition, val dailyLimit: Int, val tokenDiscountFlag: String?, val tokenDiscount: List<TokenCost>)
@@ -47,6 +50,7 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
     val shops = linkedMapOf<String,ShopDefinition>()
     val areas = linkedMapOf<String,Area>()
     val dungeons = linkedMapOf<String,DungeonDefinition>()
+    val titles = linkedMapOf<String,TitleDefinition>()
     val enemies = linkedMapOf<String,EnemyDefinition>()
     val itemProperties = linkedMapOf<String,ItemProperties>()
     val chapters = documents.filterValues { it["type"] == "chapter" }
@@ -59,7 +63,9 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
                         .ifEmpty { listOf(Objective("legacy_kills",ObjectiveKind.KILL,d["kill_target"] as? String ?: "*",d.integer("required_kills",1))) }
                     require(objectives.map { it.id }.distinct().size == objectives.size && objectives.all { it.amount in 1..1_000_000 }) { "$id: 目標IDまたは数量が不正です。" }
                     val rewards = if(d["rewards"] != null) d.mapping("rewards").rewards() else Rewards(d.whole("xp",0),d.whole("currency",0))
-                    quests[id] = QuestDefinition(id,d.string("name"),d.condition(),objectives,rewards,d.bool("auto_complete",d["objectives"] == null),d.bool("repeatable",false),d.whole("repeat_cooldown_ms",86_400_000))
+                    val reset=d["reset_schedule"] as? String
+                    require(reset == null || reset in setOf("DAILY","WEEKLY")) { "reset_schedule は DAILY または WEEKLY を指定してください。" }
+                    quests[id] = QuestDefinition(id,d.string("name"),d.condition(),objectives,rewards,d.bool("auto_complete",d["objectives"] == null),d.bool("repeatable",false),d.whole("repeat_cooldown_ms",86_400_000),reset)
                 }
                 "dialogue" -> {
                     fun parseChoice(c: Map<String,Any?>) = DialogueChoice(c.string("id"),c.string("label"),c.condition(),c["next"] as? String,c.strings("set_flags").toSet(),c.strings("clear_flags").toSet(),c.maps("actions").map { a ->
@@ -82,6 +88,7 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
                     dialogues[id] = DialogueDefinition(id,start,nodes,globalChoices)
                 }
                 "npc" -> npcs[id] = NpcDefinition(id,d.string("name"),d.mapping("location").position(),d.string("dialogue"),d["shop"] as? String)
+                "title" -> titles[id] = TitleDefinition(id,d.string("name"),d.text("description",""),d.string("unlock_flag"))
                 "shop" -> {
                     val entries = d.maps("entries").map { e -> ShopEntry(e.string("id"),e.string("item"),e.integer("amount",1),e.whole("price",0),e.tokens("tokens"),e.condition(),e.integer("daily_limit",0),e["token_discount_flag"] as? String,e.tokens("token_discount")) }
                     require(entries.size in 1..45 && entries.map { it.id }.distinct().size == entries.size && entries.all { it.amount in 1..64 && it.price >= 0 && it.dailyLimit >= 0 && it.tokens.all { t -> t.amount > 0 } })
@@ -99,8 +106,15 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
                         val guards=config.strings("guards")
                         val offsets=config.maps("guard_offsets").map { it.int("x") to it.int("z") }
                         val bossOffset=config.mapping("boss_offset").let { it.int("x") to it.int("z") }
-                        val definition=DungeonDefinition(id,config.string("unlock_flag"),config.string("boss"),guards,offsets,config.string("area"),config.strings("palette"),bossOffset,config.string("entry_message"),config.string("clear_message"))
+                        val waves=config.maps("waves").map { wave ->
+                            val bossOffset=wave.mapping("boss_offset").let { it.int("x") to it.int("z") }
+                            val guards=wave.strings("guards"); val offsets=wave.maps("guard_offsets").map { it.int("x") to it.int("z") }
+                            DungeonWave(wave.string("boss"),guards,offsets,bossOffset)
+                        }
+                        val ranks=config.maps("score_ranks").map { ScoreRank(it.string("rank"),it.whole("max_seconds",0)) }
+                        val definition=DungeonDefinition(id,config.string("unlock_flag"),config.string("boss"),guards,offsets,config.string("area"),config.strings("palette"),bossOffset,config.string("entry_message"),config.string("clear_message"),waves,ranks)
                         require(id in d.strings("dungeons") && id !in dungeons && definition.unlockFlag in d.strings("flags") && definition.guards.size == definition.guardOffsets.size && definition.palette.size == 3)
+                        require(definition.waves.all { it.guardOffsets.size == it.guards.size } && definition.scoreRanks.all { it.rank in setOf("S","A","B","C") && it.maxSeconds > 0 } && definition.scoreRanks.zipWithNext().all { (a,b) -> a.maxSeconds <= b.maxSeconds })
                         dungeons[id]=definition
                     }
                 }
@@ -121,10 +135,14 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
         }
         require(chapters.values.flatMap { it.strings("dungeons") }.all { it in dungeons }) { "章のダンジョン定義が不足しています。" }
         dungeons.values.forEach { dungeon ->
-            require(dungeon.area in areas && dungeon.boss in enemies && enemies[dungeon.boss]?.boss == true && dungeon.guards.all { enemies[it] != null }) { "${dungeon.id}: ダンジョン参照が不正です。" }
+            require(dungeon.area in areas && dungeon.boss in enemies && enemies[dungeon.boss]?.boss == true && dungeon.guards.all { enemies[it] != null } && dungeon.waves.all { wave -> wave.boss in enemies && wave.guards.all { it in enemies } }) { "${dungeon.id}: ダンジョン参照が不正です。" }
             require(dungeon.unlockFlag.startsWith("ec:flag_") && dungeon.palette.all { it.matches(Regex("[A-Z_]+")) }) { "${dungeon.id}: ダンジョン設定が不正です。" }
         }
         validateWorldReferences(documents)
+    }
+    fun enemiesInArea(areaId:String):List<EnemyDefinition> {
+        val area=areas[areaId] ?: return emptyList()
+        return enemies.values.filter { enemy -> enemy.spawns.any { spawn -> area.contains(spawn.position) } }.sortedBy { it.id }
     }
 }
 @Suppress("UNCHECKED_CAST") fun Any?.asMapping(): Map<String,Any?> = this as? Map<String,Any?> ?: error("マッピングが必要です。")

@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_q_sealed_diary
+type: item
+name: 封じられた調査日誌
+material: WRITTEN_BOOK
+rarity: RARE
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 0
+bound: true
+quest_item: true
+lore: '教団信徒が持ち去った先代調査隊の手記。星片墜落の真相を示唆する記述が残っている。'

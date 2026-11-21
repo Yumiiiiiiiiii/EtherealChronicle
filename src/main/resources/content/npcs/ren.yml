@@ -1,0 +1,10 @@
+schema_version: 1
+id: ec:npc_ren
+type: npc
+name: ギルド記録官レン
+entity: VILLAGER
+chapter: ec:chapter_side_chronicles
+area: ec:area_lumina_port
+location: {world: ec_world, x: 8, y: 65, z: -14, yaw: 0}
+dialogue: ec:dlg_ren_hub
+shop: ec:shop_chronicle_exchange

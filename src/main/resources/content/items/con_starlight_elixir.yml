@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_con_starlight_elixir
+type: item
+name: 星露の極上秘薬
+material: EXPERIENCE_BOTTLE
+rarity: EPIC
+slot: NONE
+min_level: 14
+classes: []
+budget: 0
+stats: {}
+price: 280
+lore: '星露の蓮花を精製した秘薬。HPを520、リソースを75同時に回復する。'
+effects:
+  - {kind: HEAL, amount: 520, cooldown_ms: 10000, chance: 1.0}
+  - {kind: RESOURCE, amount: 75, cooldown_ms: 10000, chance: 1.0}

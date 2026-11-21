@@ -327,6 +327,18 @@ class Chapter2ContentValidationTest {
     }
 
     @Test
+    fun `flag gated shop purchase reports a Japanese condition error`() {
+        val snap = loadBundled()
+        val trade = TradeEngine { snap }
+        val profile = PlayerProfile(UUID.randomUUID(), level = 20, flags = mutableSetOf("ec:flag_ch2_archon_defeated"))
+        val bag = MemoryInventory(capacity = 50)
+        val error = assertFailsWith<IllegalArgumentException> {
+            trade.buy(profile, "ec:shop_frostpeak_outfitter", "glacier_greatsword", bag, "gated-test", 1)
+        }
+        assertEquals("この商品は条件を満たしていません。", error.message)
+    }
+
+    @Test
     fun `chapter 2 bosses scale virtual HP, phases, coop multipliers, and enrage properly`() {
         val snap = loadBundled()
         val colossus = snap.world.enemies["ec:boss_frost_colossus"] ?: fail("Missing ec:boss_frost_colossus")

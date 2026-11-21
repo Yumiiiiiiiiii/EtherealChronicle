@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:quest_side_g01_sky_fishing
+type: quest
+name: 【採集】蒼穹サケの水揚げ漁
+condition: {min_level: 4, has_flags: ['ec:flag_ch1_started']}
+objectives:
+  - {id: clear_slimes, kind: KILL, target: 'ec:enemy_aether_slime', amount: 6}
+  - {id: collect_gel, kind: COLLECT, target: 'ec:item_mat_aether_gel', amount: 4}
+  - {id: report_kaede, kind: TALK, target: 'ec:npc_kaede', amount: 1}
+rewards:
+  xp: 320
+  currency: 140
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_sky_salmon', amount: 3}
+    - {item: 'ec:item_con_sky_salmon_grill', amount: 1}
+auto_complete: false
+repeatable: true
+repeat_cooldown_ms: 43200000

@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_wpn_mineguard_halberd
+type: item
+name: 廃坑守護者の戦斧槍
+material: GOLDEN_AXE
+rarity: RARE
+slot: HAND
+min_level: 11
+classes: [ec:class_paladin]
+budget: 26
+stats: {attack: 17, defense: 11, hp: 70, element_resist: 0.03}
+weapon: 84
+price: 1100
+lore: '坑道警備隊が魔獣の突進を受け止めるために鍛えた重斧槍。'
+effects:
+  - {kind: DEFENSE_BUFF, amount: 12, cooldown_ms: 18000, duration_ticks: 100, chance: 1.0}

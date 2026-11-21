@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:paladin_aegis
+type: skill
+name: 蒼穹の聖壁
+cost: 20
+cooldown_ms: 8000
+multiplier: 1.1
+range: 5
+radius: 3.5
+element: AETHER
+heal: 0.12
+defense_buff: 32
+buff_ticks: 140
+party_heal: true
+party_defense_buff: true
+ally_radius: 10

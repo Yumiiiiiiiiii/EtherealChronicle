@@ -1,0 +1,14 @@
+schema_version: 1
+id: ec:item_wpn_iron_dirk
+type: item
+name: 影縫いの鉄短剣
+material: SHEARS
+rarity: COMMON
+slot: HAND
+min_level: 1
+classes: [ec:class_assassin]
+budget: 10
+stats: {attack: 5, crit: 0.04}
+weapon: 19
+price: 30
+lore: '影刃見習いが携える軽量な鉄短剣。素早い切り返しで急所を突く。'

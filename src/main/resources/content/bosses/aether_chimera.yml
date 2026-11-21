@@ -1,0 +1,38 @@
+schema_version: 1
+id: ec:boss_aether_chimera
+type: boss
+name: 星核の融合体エーテル・キメラ
+entity: RAVAGER
+level: 20
+hp: 88000
+attack: 122
+defense: 96
+xp: 5000
+currency: 1400
+droptable: ec:drop_aether_chimera
+element: AETHER
+weaknesses: [VOID, LIGHTNING]
+resistances: [AETHER, ICE]
+speed: 0.27
+size: 2
+elite: true
+aggro_range: 24
+leash_range: 42
+attack_interval_ticks: 34
+traits: [KNOCKBACK_RESIST]
+set_flags_on_kill: [ec:flag_side_chimera_defeated]
+specials:
+  - {id: astral_ram, name: '星核突進', shape: LINE, cooldown_ticks: 210, telegraph_ticks: 28, radius: 3.5, range: 18, multiplier: 2.0, min_hp_ratio: 0.0, max_hp_ratio: 1.0, element: AETHER, effect: KNOCKUP}
+  - {id: prism_roar, name: '虹光咆哮', shape: CIRCLE, cooldown_ticks: 250, telegraph_ticks: 30, radius: 9.5, range: 18, multiplier: 1.75, min_hp_ratio: 0.0, max_hp_ratio: 1.0, element: LIGHTNING, effect: SLOW}
+  - {id: venom_spores, name: '虚毒胞子雲', shape: CONE, cooldown_ticks: 280, telegraph_ticks: 30, radius: 6.0, range: 14, multiplier: 1.85, min_hp_ratio: 0.0, max_hp_ratio: 0.65, element: VOID, effect: POISON}
+  - {id: rime_lock, name: '蒼氷の楔', shape: TARGET, cooldown_ticks: 380, telegraph_ticks: 28, radius: 3.5, range: 22, multiplier: 1.7, min_hp_ratio: 0.0, max_hp_ratio: 0.65, element: ICE, effect: FREEZE, effect_duration_ticks: 55}
+  - {id: crucible_nova, name: '星核崩壊ノヴァ', shape: CIRCLE, cooldown_ticks: 520, telegraph_ticks: 72, radius: 15.0, range: 24, multiplier: 2.85, min_hp_ratio: 0.0, max_hp_ratio: 0.3, element: AETHER, effect: KNOCKUP}
+spawn_points: []
+phases:
+  - {id: phase_chimera_awakening, below_hp_ratio: 1.0, damage_multiplier: 1.0, interval_multiplier: 1.0}
+  - {id: phase_chimera_fusion, below_hp_ratio: 0.65, damage_multiplier: 1.15, interval_multiplier: 0.88}
+  - {id: phase_chimera_overclock, below_hp_ratio: 0.3, damage_multiplier: 1.28, interval_multiplier: 0.8}
+enrage_ticks: 14400
+enrage_multiplier: 1.5
+coop_hp_per_player: 0.85
+coop_damage_per_player: 0.04

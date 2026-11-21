@@ -1,0 +1,6 @@
+schema_version: 1
+id: ec:title_crucible_victor
+type: title
+name: 星片の試練者
+description: 星片の試練場を踏破した。
+unlock_flag: ec:flag_title_crucible_victor

@@ -1,0 +1,20 @@
+schema_version: 1
+id: ec:quest_side_06_tomas_supply_escort
+type: quest
+name: 丘への補給馬車護衛路
+condition: {min_level: 12, has_flags: ['ec:flag_stargazer_unlocked']}
+objectives:
+  - {id: clear_bats, kind: KILL, target: 'ec:enemy_crystal_bat', amount: 6}
+  - {id: clear_acolytes, kind: KILL, target: 'ec:enemy_cult_acolyte', amount: 5}
+  - {id: reach_hill, kind: EXPLORE, target: 'ec:area_stargazer_hill', amount: 1}
+  - {id: deliver_lyra, kind: TALK, target: 'ec:npc_lyra', amount: 1}
+rewards:
+  xp: 1450
+  currency: 440
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_chronicle_seal', amount: 2}
+    - {item: 'ec:item_con_starlight_tea', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 0

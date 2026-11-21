@@ -62,19 +62,21 @@ class ContentService(private val root: Path, private val migration: ContentMigra
         }
         if(declarations.distinct().size != declarations.size) errors += "章内の宣言IDが重複しています。"
         val knownIds = docs.keys + aliases.keys + declarations
-        val refTypes = mapOf("skills" to "skill","starter_items" to "item","classes" to "class","item" to "item","class" to "class","enemy" to "enemy","boss" to "boss","guards" to "enemy","quest" to "quest","dialogue" to "dialogue","chapter" to "chapter","droptable" to "droptable","shop" to "shop","npc" to "npc","kill_target" to "enemy")
+        val refTypes = mapOf("skills" to "skill","starter_items" to "item","classes" to "class","item" to "item","class" to "class","enemy" to "enemy","boss" to "boss","guards" to "enemy","quest" to "quest","dialogue" to "dialogue","chapter" to "chapter","droptable" to "droptable","shop" to "shop","npc" to "npc","kill_target" to "enemy","enhancement_material" to "item")
         val listRefs = setOf("skills","starter_items","classes","requires","guards")
-        fun refs(v: Any?, key: String = "") { when(v) {
+        fun refs(v: Any?, key: String = "", inWave: Boolean = false) { when(v) {
             is Map<*,*> -> v.forEach { (k,x) ->
                 val name = k.toString()
                 if(name in listRefs && x !is List<*>) errors += "参照リストが必要です: $name"
                 if(name in refTypes && name !in listRefs && x !is String) errors += "参照IDが必要です: $name"
-                refs(x,name)
+                refs(x,name,inWave || name == "waves")
             }
-            is List<*> -> v.forEach { refs(it,key) }
+            is List<*> -> v.forEach { refs(it,key,inWave) }
             is String -> {
-                val expected = refTypes[key]
-                if(expected != null && (docs[aliases[v] ?: v]?.get("type") != expected || !v.startsWith("ec:"))) errors += "参照先の種類が不正です: $key -> $v ($expected)"
+                val expected = refTypes[key]?.takeUnless { key == "boss" }
+                val actualType = docs[aliases[v] ?: v]?.get("type")
+                if(key == "boss" && (actualType !in setOf("enemy", "boss") || !v.startsWith("ec:"))) errors += "参照先の種類が不正です: $key -> $v (enemy/boss)"
+                else if(expected != null && (actualType != expected || !v.startsWith("ec:"))) errors += "参照先の種類が不正です: $key -> $v ($expected)"
                 else if(key != "id" && v.startsWith("ec:") && v !in knownIds) errors += "参照先がありません: $key -> $v"
             }
             else -> if(key in refTypes) errors += "参照IDが必要です: $key"
@@ -93,10 +95,10 @@ class ContentService(private val root: Path, private val migration: ContentMigra
             parsingId=b.string("id")
             val balance = Balance(b.int("level_cap"),b.num("xp_base"),b.num("xp_exponent"),b.long("xp_gain_cap"),b.long("currency_gain_cap"),b.num("damage_cap"),b.num("stat_cap"),b.num("crit_cap"),b.num("defense_scale"),b.int("skill_level_cap"),b.num("skill_growth"),b.num("crit_damage_cap"),b.num("element_cap"),b.text("xp_curve","POWER"),b.number("xp_linear",45.0),b.number("xp_quadratic",18.0),b.whole("xp_rounding",10),b.whole("skill_gcd_ms",800),b.integer("drop_pity_attempt_cap",100))
             require(balance.levelCap in 1..1000 && balance.xpBase > 0 && balance.xpExponent in 0.0..10.0 && balance.defenseScale > 0 && balance.statCap >= 1 && balance.damageCap > 0 && balance.skillLevelCap in 1..100 && balance.critDamageCap >= 1 && balance.elementCap >= 1 && balance.xpGainCap > 0 && balance.currencyGainCap > 0 && balance.xpCurve in setOf("POWER","POLYNOMIAL") && balance.xpRounding > 0 && balance.dropPityAttemptCap in 1..10000)
-            val supported = setOf("balance","class","skill","item","enemy","boss","npc","quest","dialogue","chapter","droptable","shop")
+            val supported = setOf("balance","class","skill","item","enemy","boss","npc","quest","dialogue","chapter","droptable","shop","title")
             require(docs.values.all { it.string("type") in supported }) { "Unknown content type" }
-            val skills = typed("skill").associate { d -> parsingId=d.string("id"); d.string("id") to SkillDefinition(d.string("id"),d.string("name"),d.num("cost"),d.long("cooldown_ms"),d.num("multiplier"),d.num("range"),d.text("element","PHYSICAL"),d.number("radius",0.0),d.number("heal",0.0),d.number("defense_buff",0.0),d.integer("buff_ticks",0)) }
-            val classes = typed("class").associate { d -> parsingId=d.string("id"); d.string("id") to ClassDefinition(d.string("id"),d.string("name"),ResourceKind.valueOf(d.string("resource")),d.stats(),d.num("regeneration"),d.num("hit_gain"),d.strings("skills"),d.strings("starter_items"),(d["growth"] ?: emptyMap<String,Any?>()).asMapping().let { mapOf("stats" to it).stats(Stats.ZERO) }) }
+            val skills = typed("skill").associate { d -> parsingId=d.string("id"); d.string("id") to SkillDefinition(d.string("id"),d.string("name"),d.num("cost"),d.long("cooldown_ms"),d.num("multiplier"),d.num("range"),d.text("element","PHYSICAL"),d.number("radius",0.0),d.number("heal",0.0),d.number("defense_buff",0.0),d.integer("buff_ticks",0),d.bool("party_heal",false),d.bool("party_defense_buff",false),d.number("ally_radius",0.0),d.integer("taunt_ticks",0),d.number("threat_multiplier",1.0)) }
+            val classes = typed("class").associate { d -> parsingId=d.string("id"); d.string("id") to ClassDefinition(d.string("id"),d.string("name"),ResourceKind.valueOf(d.string("resource")),d.stats(),d.num("regeneration"),d.num("hit_gain"),d.strings("skills"),d.strings("starter_items"),(d["growth"] ?: emptyMap<String,Any?>()).asMapping().let { mapOf("stats" to it).stats(Stats.ZERO) },d["icon"] as? String) }
             classes.values.forEach { c -> parsingId=c.id; require(c.skills.size in 1..4 && c.skills.distinct().size == c.skills.size && c.stats.hp in 1.0..balance.statCap && c.stats.resource in 1.0..balance.statCap && c.skills.all { id -> skills[id]?.cost?.let { it <= c.stats.resource } == true }) { "Invalid class skills/stats" } }
             val items = typed("item").associate { d -> parsingId=d.string("id"); d.string("id") to ItemDefinition(d.string("id"),d.string("name"),d.string("material"),Rarity.valueOf(d.string("rarity")),d.int("min_level"),d.strings("classes").map { aliases[it] ?: it },d.stats(Stats.ZERO),d.num("budget"),b.mapping("rarities").mapping(d.string("rarity")).num("budget_multiplier"),b.mapping("rarities").mapping(d.string("rarity")).int("affixes"),GearSlot.valueOf(d["slot"] as? String ?: "HAND")) }
             items.values.forEach { i -> parsingId=i.id; require(i.withinBudget() && i.minLevel in 1..balance.levelCap && i.affixes in 0..4 && i.budgetMultiplier > 0 && i.classes.all { (aliases[it] ?: it) in classes }) { "Item budget/level invalid" } }
@@ -106,7 +108,7 @@ class ContentService(private val root: Path, private val migration: ContentMigra
             }) }
             drops.values.forEach { t -> parsingId=t.id; require(t.entries.map { it.item }.distinct().size == t.entries.size && t.entries.all { it.item in items }) { "Duplicate/invalid drop item" } }
             classes.values.forEach { c -> parsingId=c.id; require(c.starterItems.size in 1..8 && c.starterItems.all { it in items }) { "Invalid starter items" } }
-            skills.values.forEach { s -> parsingId=s.id; require(s.range in 0.1..128.0 && s.multiplier in 0.0..balance.statCap && s.cooldownMillis in 1..3_600_000 && s.radius in 0.0..32.0 && s.heal >= 0) { "Invalid skill range/multiplier/cooldown/radius/heal" } }
+            skills.values.forEach { s -> parsingId=s.id; require(s.range in 0.1..128.0 && s.multiplier in 0.0..balance.statCap && s.cooldownMillis in 1..3_600_000 && s.radius in 0.0..32.0 && s.heal >= 0 && s.defenseBuff >= 0 && s.buffTicks in 0..72000 && s.allyRadius in 0.0..64.0 && s.tauntTicks in 0..72000 && s.threatMultiplier in 1.0..100.0) { "スキル範囲・倍率・支援効果の設定が上限外です。" } }
             (typed("enemy")+typed("boss")).forEach { d ->
                 parsingId=d.string("id")
                 require(d.num("hp") in 1.0..balance.statCap) { "hp=${d["hp"]} は 1..${balance.statCap} の範囲外です (balance.stat_cap)。" }

@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:quest_side_c01_crucible_gauntlet
+type: quest
+name: 【試練】星片の試練場・融合体討伐
+condition: {min_level: 18, has_flags: ['ec:flag_side_crucible_unlocked']}
+objectives:
+  - {id: defeat_aether_chimera, kind: KILL, target: 'ec:boss_aether_chimera', amount: 1}
+  - {id: report_soren, kind: TALK, target: 'ec:npc_soren', amount: 1}
+rewards:
+  xp: 6000
+  currency: 1800
+  set_flags: ['ec:flag_title_crucible_victor']
+  items:
+    - {item: 'ec:item_mat_crucible_medal', amount: 3}
+    - {item: 'ec:item_mat_artisan_whetstone', amount: 2}
+    - {item: 'ec:item_con_starlight_elixir', amount: 2}
+auto_complete: false
+repeatable: true
+repeat_cooldown_ms: 86400000

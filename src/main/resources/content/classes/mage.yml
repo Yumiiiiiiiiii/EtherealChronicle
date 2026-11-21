@@ -10,3 +10,4 @@ skills: [ec:mage_strike, ec:mage_burst, ec:mage_wave, ec:mage_ultimate]
 starter_items: [ec:item_wpn_apprentice_wand]
 stats: {hp: 95, resource: 120, attack: 17, defense: 7, crit: 0.08, crit_damage: 1.55, element_resist: 0, skill_power: 1.15}
 growth: {hp: 19, resource: 12, attack: 4.5, defense: 2.4, crit: 0.004, crit_damage: 0, element_resist: 0, skill_power: 0.025}
+icon: BLAZE_ROD
