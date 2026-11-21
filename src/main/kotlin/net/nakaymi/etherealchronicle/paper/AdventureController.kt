@@ -47,6 +47,8 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     }
     fun close() { npcEntities.values.forEach { Bukkit.getEntity(it)?.remove() }; npcEntities.clear() }
     fun tick() {
+        val now=System.nanoTime()/1_000_000
+        consumableReady.entries.removeIf { it.value <= now }
         plugin.server.onlinePlayers.forEach { player ->
             val p=plugin.profiles[player.uniqueId] ?: return@forEach
             if(player.uniqueId in locks) return@forEach
@@ -225,7 +227,12 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         val action=queue.removeFirstOrNull() ?: return
         if(queue.isEmpty()) waiting.remove(id)
         scheduled.add(id)
-        plugin.sync { scheduled.remove(id); try { action() } catch(error: Exception) { plugin.logger.warning("保留報酬の処理失敗 $id: ${error.message}") }; if(!locked(id)) resume(id) }
+        plugin.sync {
+            scheduled.remove(id)
+            if(locked(id)) { waiting.getOrPut(id) { ArrayDeque() }.addFirst(action); return@sync }
+            try { action() } catch(error: Exception) { plugin.logger.warning("保留報酬の処理失敗 $id: ${error.message}") }
+            if(!locked(id)) resume(id)
+        }
     }
     private fun unlock(id: UUID) { locks.remove(id); resume(id) }
     fun hasTransactions() = locks.isNotEmpty() || scheduled.isNotEmpty()

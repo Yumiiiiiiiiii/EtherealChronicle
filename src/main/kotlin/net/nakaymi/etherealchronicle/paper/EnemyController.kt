@@ -29,6 +29,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
     private var tick=0L
     init { plugin.server.pluginManager.registerEvents(this,plugin) }
     fun state(id: UUID) = states[id]
+    fun activeCount() = budget.total()
     fun killer(id: UUID): Player? = attackers[id]?.let(Bukkit::getPlayer)
     fun multiplier(id: UUID) = dealing[id] ?: states[id]?.boss?.damageScale(tick) ?: 1.0
     fun spawn(id: String,location: Location,point: String="admin:$id",cap: Int=1,participants: Set<UUID> = emptySet()): LivingEntity? {
@@ -157,12 +158,21 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
         val attacker=(e as? EntityDamageByEntityEvent)?.damager?.let { it as? Player ?: ((it as? Projectile)?.shooter as? Player) }
         if(attacker == null || state.participants.isNotEmpty() && attacker.uniqueId !in state.participants) return
         if(e.finalDamage <= 0) return
-        attackers[state.entity.uniqueId]=attacker.uniqueId
         plugin.profiles[attacker.uniqueId]?.let { plugin.game.onHit(it,plugin.effectiveStats(attacker,it).resource); plugin.markDirty(it.uuid) }
-        state.boss.hp=(state.boss.hp-e.finalDamage).coerceAtLeast(0.0)
         if("PACK" in state.boss.definition.traits) states.values.filter { it.boss.definition.id == state.boss.definition.id && it.entity.world == state.entity.world && it.entity.location.distanceSquared(state.entity.location) <= 64 }.forEach { if(it.entity is Mob) it.entity.target=attacker }
-        state.entity.health=if(state.boss.hp <= 0) 0.0 else (20*state.boss.hp/state.boss.maximumHp).coerceIn(0.1,20.0)
+        applyVirtualDamage(state.entity.uniqueId,attacker.uniqueId,e.finalDamage)
         if(!state.entity.isDead) plugin.procEffects(attacker,state.entity)
+    }
+    /** Shared virtual-HP/death seam for console simulations and the real damage event. */
+    fun applyVirtualDamage(entity: UUID,attacker: UUID,amount: Double): Boolean {
+        val state=states[entity] ?: return false
+        require(amount.isFinite() && amount > 0)
+        if(state.participants.isNotEmpty() && attacker !in state.participants) return false
+        attackers[entity]=attacker
+        state.boss.hp=(state.boss.hp-amount.coerceAtMost(plugin.snapshot.balance.damageCap)).coerceAtLeast(0.0)
+        val killed=state.boss.hp <= 0
+        state.entity.health=if(killed) 0.0 else (20*state.boss.hp/state.boss.maximumHp).coerceIn(0.1,20.0)
+        return killed
     }
     @EventHandler(priority=EventPriority.MONITOR) fun death(e: EntityDeathEvent) { remove(e.entity.uniqueId,false) }
     @EventHandler fun removed(e: EntityRemoveEvent) { remove(e.entity.uniqueId,false) }

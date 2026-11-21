@@ -24,3 +24,8 @@ core.stats / core.combat / core.skill / core.item / core.quest / core.economy / 
 ## Status files
 docs/AGENT_STATUS.md must be updated by each agent at task end (what done, what verified, what open).
 
+
+## Context hygiene (all agents)
+- At roughly 60%+ context usage, checkpoint done/verified/open/branch+commit/next action in docs/AGENT_STATUS.md and commit WIP before compacting.
+- Keep the task, branch/commit, open findings and exact next action; drop raw logs, diffs and full file dumps. Re-read files from disk afterwards.
+- Send paths and concise findings, not large logs, to other agents.

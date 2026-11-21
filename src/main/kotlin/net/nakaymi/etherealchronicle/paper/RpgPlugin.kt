@@ -24,9 +24,9 @@ class ClassMenu: InventoryHolder {
 
 open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private var ready = false
-    private lateinit var adventure: AdventureController
-    private lateinit var enemies: EnemyController
-    private lateinit var dungeons: DungeonController
+    internal lateinit var adventure: AdventureController
+    internal lateinit var enemies: EnemyController
+    internal lateinit var dungeons: DungeonController
     private lateinit var content: ContentService
     private lateinit var store: PlayerStore
     internal lateinit var game: GameService
@@ -130,7 +130,10 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             profiles[player.uniqueId] = profile
             if(::dungeons.isInitialized) dungeons.recover(player)
             if(profile.classId == null) Bukkit.getWorld(DemoWorld.NAME)?.let { player.teleport(it.spawnLocation) }
-            if(profile.classId == null || !profile.starterGranted) menu(player) else { skillSlot(player); applyStats(player,profile); adventure.claimPending(player); adventure.resume(player.uniqueId) }
+            if(profile.classId == null || !profile.starterGranted) menu(player) else {
+                skillSlot(player); applyStats(player,profile)
+                adventure.whenAvailable(player.uniqueId) { if(player.isOnline && profiles[player.uniqueId] === profile) adventure.claimPending(player) }
+            }
         } }
     }
     @EventHandler fun onJoin(e: PlayerJoinEvent) = join(e.player)
@@ -337,11 +340,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val attacker = (e.damager as? Player) ?: ((e.damager as? Projectile)?.shooter as? Player)
         if(attacker != null && attacker.uniqueId !in casting && target.persistentDataContainer.has(enemyKey)) {
             e.isCancelled = true
-            val profile = profiles[attacker.uniqueId] ?: return
-            if(adventure.locked(attacker.uniqueId) || profile.classId == null) return
-            if(!basicAttacks.accept(attacker.uniqueId,snapshot.world.tuning.basicAttackCooldown)) return
-            if(item(attacker.inventory.itemInMainHand)?.canEquip(profile) == false) return
-            hit(attacker,target,1.0)
+            basicAttack(attacker,target)
         } else if(attacker != null && attacker.uniqueId in casting) {
             setRpgDamage(e,e.damage)
         } else if(target is Player && e.damager.persistentDataContainer.has(enemyKey)) {
@@ -349,6 +348,14 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             val d = content.snapshot().documents[e.damager.persistentDataContainer.get(enemyKey,PersistentDataType.STRING)] ?: return
             setRpgDamage(e,content.snapshot().balance.damage(Stats(attack=d.num("attack")),effectiveStats(target,profile).defense,if(::enemies.isInitialized) enemies.multiplier(e.damager.uniqueId) else 1.0,0.0,false))
         }
+    }
+    /** Same gate/damage path as the actual player event, callable without a client attack packet. */
+    fun basicAttack(player: Player,target: LivingEntity): Boolean {
+        val profile=profiles[player.uniqueId] ?: return false
+        if(profile.classId == null || adventure.locked(profile.uuid) || !target.persistentDataContainer.has(enemyKey)) return false
+        if(item(player.inventory.itemInMainHand)?.canEquip(profile) == false) return false
+        if(!basicAttacks.accept(profile.uuid,snapshot.world.tuning.basicAttackCooldown)) return false
+        hit(player,target,1.0); return true
     }
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true) fun guardian(e: EntityDamageEvent) {
         val player=e.entity as? Player ?: return
@@ -467,7 +474,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     require(args.size == 2) { "/ec starter <player>" }
                     val p = server.getPlayerExact(args[1]) ?: error("プレイヤーが見つかりません。")
                     val profile = profiles[p.uniqueId] ?: error("読み込み中です。")
-                    require(p.uniqueId !in choosing && profile.classId != null)
+                    require(p.uniqueId !in choosing && profile.classId != null && !adventure.locked(p.uniqueId))
                     profile.starterGranted = false; starter(p,profile,profile.classId!!)
                 }
                 "give" -> {
@@ -483,6 +490,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     require(args.size == 3)
                     val p = server.getPlayerExact(args[1]) ?: error("プレイヤーが見つかりません。")
                     val profile = profiles[p.uniqueId] ?: error("読み込み中です。")
+                    require(!adventure.locked(profile.uuid))
                     val level = args[2].toInt(); require(level in 1..content.snapshot().balance.levelCap)
                     profile.level = level; profile.xp = 0; save(profile)
                     sender.sendMessage(Component.text("レベルを変更しました。"))
