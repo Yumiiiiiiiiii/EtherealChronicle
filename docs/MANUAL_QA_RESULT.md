@@ -100,3 +100,28 @@ Shots: `D:\test\mcmmo-client-qa\shots\g01..g46*.png` (not in repo).
 | Potion tooltip | MINOR (sent to Codex) | vanilla `No Effects` line |
 Processes stopped, server.properties/ops.json restored, port closed.
 
+
+## Task 15 real-client check (master 6f8d7bc, offline QaPack, en_us client, 2026-11-22)
+Shots: `D:\test\mcmmo-client-qa\shots\h01..h27*.png` (not in repo).
+| Item | Result | Evidence |
+|---|---|---|
+| Build | PASS | `gradlew build` green |
+| Boot, datapack, 6 biomes, wolf variants | PASS | no WARN/ERROR in server log (only offline-mode notice, "Skipping Entity" legacy mobs) |
+| Embedded HTTP (25580): valid GET/HEAD | PASS | 200, downloaded SHA-1 = jar-embedded pack SHA-1 `594ce9b8...` |
+| Path traversal, wrong hash, query, POST, `/`, `/pack/`, encoded `%2e%2e`, `%5c`, `%00`, raw `/pack/../..` | PASS | all 404 |
+| 300 parallel GETs | PASS | 300x200 in 1.3 s |
+| 100 KB URL / 70 KB header | OK | 404 / 200 for a valid path (no crash); 5000 headers: connection dropped |
+| Slowloris (100 partial requests held open) | WEAKNESS | valid GET returned 000 (timeout) for 40 s while 100 partial-request sockets were open (maxConcurrent 32 permits taken, no read timeout); recovered after closing. 200 silent idle sockets did NOT block |
+| bind_host default 0.0.0.0 | OBSERVATION | 25580 listens on `::` (all interfaces); only the fixed pack path serves content |
+| Client prompt + decline/accept | PASS | prompt localized (en) "Apply the EtherealChronicle resource pack?"; accept -> download, hash verified, reload (`server/.../a7c7ef70...`); `/ec ui pack on` re-prompts. After a decline the client does not re-prompt on the same address (client behaviour, not plugin) |
+| Preference persistence (schema 12) | PASS | `schema_version: 12`, `resource_pack_preference: 'ON'` |
+| Resource pack content | FAIL (minor) | client WARN `Missing textures in model ec:item/ui_transparent` although `textures/gui/transparent_slot.png` is in the zip (texture is probably invalid/oversized or atlas path) |
+| InvUI class selection + Paper Dialog confirm | PASS | h01, h04 (class list in InvUI, Start/Go back dialog, English text) |
+| InvUI Codex / Enhance / Equipment / Shop | **FAIL (blocker, sent to Codex)** | `/ec codex|enhance|equipment|shop` -> `Could not complete that action: Illegal width: 6`, no GUI (h14, h15) |
+| NPC dialogue via Paper Dialog, quest accept | NOT-RUN | blocked by time after the blocker |
+| Advancement tab background | PASS | sand background (h25), no checkerboard. Tab title still Japanese on an en_us client |
+| Title toast | NOT-RUN | verified in an earlier task |
+| Wolf variant visuals | PARTIAL | server data `variant: ec:thorn_wolf` set; visual not captured clearly (h27). frost_wolf / ashwood_alpha NOT-RUN |
+| `/ec quest` display names, potion tooltip, class-change weapon | NOT-RUN | |
+| Language: client en_us -> English UI (HUD "Focus/Party", dialogs, pack prompt) | PASS (partial) | content names (class/skill/NPC) stay Japanese; auto-selection works. ja_jp/en_us config forcing NOT-RUN |
+Processes stopped, server.properties/ops.json restored, ports closed.
