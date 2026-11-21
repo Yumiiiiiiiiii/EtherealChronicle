@@ -114,3 +114,6 @@
 
 ## Claude-QA — checkpoint before real-client offline debugging
 - qa/harness @a837474 (BUG-7 re-verified). Task now: launch official 26.3 client offline (no MS account) from official Mojang URLs into a fresh empty dir, screenshots of the Minecraft window only, input only while it is focused, run MANUAL_QA A-I, write docs/MANUAL_QA_RESULT.md + docs/CLIENT_OFFLINE.md, report bugs to Codex f5e3b614. Stop all processes at the end.
+
+## Claude-QA — checkpoint before Task8 (fishing/gathering) verification
+- qa/harness @e8abe48 (real-client offline harness + docs). Next: merge master (Task8), build/test, inspect gathering+fishing code, MockBukkit/sim tests, live schema 9->10 + DemoWorld v2->v3, real-client check (also re-check 3 earlier fixes), docs, commit, report hash+points only. Stop all processes + restore server.properties/ops.json at the end.
