@@ -15,10 +15,10 @@ data class ItemReward(val item: String, val amount: Int, val condition: Conditio
 data class Rewards(val xp: Long = 0, val currency: Long = 0, val items: List<ItemReward> = emptyList(), val flags: Set<String> = emptySet())
 data class QuestDefinition(val id: String, val name: String, val condition: Condition, val objectives: List<Objective>,
     val rewards: Rewards, val autoComplete: Boolean, val repeatable: Boolean, val repeatCooldown: Long)
-data class DialogueAction(val kind: String, val target: String, val amount: Int = 1, val onceFlag: String? = null)
+data class DialogueAction(val kind: String, val target: String, val amount: Int = 1, val onceFlag: String? = null, val destination: Position? = null, val requiredFlag: String? = null)
 data class DialogueChoice(val id: String, val label: String, val condition: Condition, val next: String?, val flags: Set<String>, val clearFlags: Set<String>, val actions: List<DialogueAction>)
 data class DialogueNode(val text: String, val branches: List<Pair<Condition,String>>, val choices: List<DialogueChoice>)
-data class DialogueDefinition(val id: String, val start: String, val nodes: Map<String,DialogueNode>)
+data class DialogueDefinition(val id: String, val start: String, val nodes: Map<String,DialogueNode>, val globalChoices: List<DialogueChoice> = emptyList())
 data class Position(val world: String, val x: Double, val y: Double, val z: Double, val yaw: Float = 0f)
 data class Area(val id: String, val name: String, val world: String, val minX: Double, val maxX: Double, val minY: Double, val maxY: Double, val minZ: Double, val maxZ: Double, val safe: Boolean) {
     fun contains(p: Position) = p.world == world && p.x in minX..maxX && p.y in minY..maxY && p.z in minZ..maxZ
@@ -62,22 +62,24 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
                     quests[id] = QuestDefinition(id,d.string("name"),d.condition(),objectives,rewards,d.bool("auto_complete",d["objectives"] == null),d.bool("repeatable",false),d.whole("repeat_cooldown_ms",86_400_000))
                 }
                 "dialogue" -> {
+                    fun parseChoice(c: Map<String,Any?>) = DialogueChoice(c.string("id"),c.string("label"),c.condition(),c["next"] as? String,c.strings("set_flags").toSet(),c.strings("clear_flags").toSet(),c.maps("actions").map { a ->
+                        DialogueAction(a.string("kind"),a.string("target"),a.integer("amount",1),a["once_flag"] as? String,a["destination"]?.let { it.asMapping().position() },a["required_flag"] as? String)
+                    })
                     val nodes = d.mapping("nodes").mapValues { (_,raw) ->
                         val n = raw.asMapping()
-                        DialogueNode(n.text("text",""),n.maps("branches").map { it.condition() to it.string("next") },n.maps("choices").map { c ->
-                            DialogueChoice(c.string("id"),c.string("label"),c.condition(),c["next"] as? String,c.strings("set_flags").toSet(),c.strings("clear_flags").toSet(),c.maps("actions").map { a ->
-                                DialogueAction(a.string("kind"),a.string("target"),a.integer("amount",1),a["once_flag"] as? String)
-                            })
-                        })
+                        DialogueNode(n.text("text",""),n.maps("branches").map { it.condition() to it.string("next") },n.maps("choices").map(::parseChoice))
                     }
+                    val globalChoices=d.maps("global_choices").map(::parseChoice)
+                    val allChoiceIds=globalChoices.map { it.id }+nodes.values.flatMap { it.choices.map(DialogueChoice::id) }
+                    require(globalChoices.map { it.id }.distinct().size == globalChoices.size && allChoiceIds.distinct().size == allChoiceIds.size) { "$id: 共通会話選択肢IDが重複しています。" }
                     val start = d.string("start")
                     require(start in nodes && nodes.isNotEmpty()) { "$id: 開始ノードがありません。" }
                     nodes.values.forEach { n ->
                         require(n.choices.map { it.id }.distinct().size == n.choices.size)
                         require(n.branches.all { it.second in nodes } && n.choices.all { it.next.isNullOrEmpty() || it.next in nodes }) { "$id: 会話ノード参照が不正です。" }
-                        require(n.choices.flatMap { it.actions }.all { it.kind in setOf("START_QUEST","COMPLETE_QUEST","SELECT_CLASS","OPEN_SHOP","ENTER_DUNGEON","GIVE_ITEM") && it.amount in 1..64 })
+                        require(n.choices.flatMap { it.actions }.all { it.kind in setOf("START_QUEST","COMPLETE_QUEST","SELECT_CLASS","OPEN_SHOP","ENTER_DUNGEON","GIVE_ITEM","TELEPORT_AREA") && it.amount in 1..64 })
                     }
-                    dialogues[id] = DialogueDefinition(id,start,nodes)
+                    dialogues[id] = DialogueDefinition(id,start,nodes,globalChoices)
                 }
                 "npc" -> npcs[id] = NpcDefinition(id,d.string("name"),d.mapping("location").position(),d.string("dialogue"),d["shop"] as? String)
                 "shop" -> {

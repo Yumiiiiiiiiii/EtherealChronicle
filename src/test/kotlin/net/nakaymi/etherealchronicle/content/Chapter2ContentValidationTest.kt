@@ -120,6 +120,24 @@ class Chapter2ContentValidationTest {
     }
 
     @Test
+    fun `airship dialogue choices are global gated and resolve to chapter areas`() {
+        val snapshot=loadBundled()
+        val engine=DialogueEngine { snapshot }
+        val p=PlayerProfile(UUID.randomUUID(),classId="ec:class_warrior",level=16)
+        assertFalse(engine.node(p,"ec:dlg_freya_hub").second.choices.any { it.id=="airship_to_frostpeak" })
+        assertFalse(engine.node(p,"ec:dlg_orphe_hub").second.choices.any { it.id=="airship_to_lumina" })
+        p.flags += "ec:flag_ch2_started"
+        val outbound=engine.node(p,"ec:dlg_freya_hub").second.choices.single { it.id=="airship_to_frostpeak" }.actions.single()
+        assertEquals("TELEPORT_AREA",outbound.kind)
+        assertEquals("ec:area_frostpeak_outpost",outbound.target)
+        assertEquals("ec:flag_ch2_started",outbound.requiredFlag)
+        assertEquals(480.0,outbound.destination?.x)
+        val returnTrip=engine.node(p,"ec:dlg_orphe_hub").second.choices.single { it.id=="airship_to_lumina" }.actions.single()
+        assertEquals("ec:area_lumina_port",returnTrip.target)
+        assertEquals(18.0,returnTrip.destination?.x)
+    }
+
+    @Test
     fun `ec validate equivalent - zero duplicate YAML ids and all Paper enums resolve cleanly`() {
         val yaml = Yaml()
         val seenIds = mutableMapOf<String, Path>()

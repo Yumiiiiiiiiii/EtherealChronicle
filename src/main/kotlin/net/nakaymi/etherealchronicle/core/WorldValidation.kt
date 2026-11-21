@@ -26,7 +26,7 @@ internal fun WorldContent.validateWorldReferences(documents: Map<String,Map<Stri
         } }
         q.rewards.items.forEach { require(it.amount in 1..64) { "rewards.items.amount は1..64です。" }; ref(it.item,setOf("item"),"rewards.items"); condition(it.condition) }
     } }
-    dialogues.forEach { (id,d) -> check(id) { d.nodes.values.forEach { n ->
+    dialogues.forEach { (id,d) -> check(id) { (d.nodes.values.toList()+DialogueNode("",emptyList(),d.globalChoices)).forEach { n ->
         n.branches.forEach { condition(it.first) }
         n.choices.forEach { c -> condition(c.condition); c.actions.forEach { a -> when(a.kind) {
             "START_QUEST","COMPLETE_QUEST" -> ref(a.target,setOf("quest"),"actions.${a.kind}")
@@ -34,6 +34,12 @@ internal fun WorldContent.validateWorldReferences(documents: Map<String,Map<Stri
             "OPEN_SHOP" -> ref(a.target,setOf("shop"),"actions.OPEN_SHOP")
             "GIVE_ITEM" -> { ref(a.target,setOf("item"),"actions.GIVE_ITEM"); require(a.onceFlag != null) { "GIVE_ITEM.once_flag が必要です。" } }
             "ENTER_DUNGEON" -> require(chapters.values.any { a.target in it.strings("dungeons") }) { "actions.ENTER_DUNGEON -> ${a.target}: ダンジョンが必要です。" }
+            "TELEPORT_AREA" -> {
+                val area=areas[a.target] ?: error("actions.TELEPORT_AREA -> ${a.target}: エリアが必要です。")
+                require(area.world == "ec_world") { "actions.TELEPORT_AREA は管理ワールド内のエリアに限ります。" }
+                a.destination?.let { require(area.contains(it)) { "actions.TELEPORT_AREA.destination は対象エリア内で指定してください。" } }
+                a.requiredFlag?.let { flag -> require(chapters.values.any { flag in it.strings("flags") }) { "actions.TELEPORT_AREA.required_flag が章に定義されていません。" } }
+            }
         } } }
     } } }
     shops.forEach { (id,s) -> check(id) { s.entries.forEach { e ->
