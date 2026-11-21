@@ -30,7 +30,7 @@ class DropPityTest {
     }
     @Test fun `pity survives schema five save reload and schema four migration`() {
         val store=PlayerStore(temp); val p=PlayerProfile(UUID.randomUUID()); p.dropPity["ec:drop/ec:rare"]=9
-        store.use { it.save(p).join(); val loaded=it.load(p.uuid).join(); assertEquals(9,loaded.dropPity["ec:drop/ec:rare"]); assertEquals(9,it.migrate(mapOf("schema_version" to 4))["schema_version"]) }
+        store.use { it.save(p).join(); val loaded=it.load(p.uuid).join(); assertEquals(9,loaded.dropPity["ec:drop/ec:rare"]); assertEquals(10,it.migrate(mapOf("schema_version" to 4))["schema_version"]) }
     }
     @Test fun `party members without loot assignment do not advance pity`() {
         val content=ContentService(Path.of("src/main/resources/content")).load()

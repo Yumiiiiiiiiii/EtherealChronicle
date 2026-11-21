@@ -61,32 +61,50 @@ class PlayerStore(private val directory: Path): AutoCloseable {
         p.selectedTitle=d["selected_title"] as? String
         d.mapping("bestiary").forEach { (id,n) -> p.bestiary[id]=(n as Number).toInt().also { require(it in 0..1_000_000) } }
         p.discoveredItems.addAll(d.strings("discovered_items"))
+        d.mapping("life_skills").forEach { (kind,value) ->
+            val skill=LifeSkillKind.valueOf(kind)
+            val progress=value.asMapping()
+            val level=progress.int("level"); val xp=progress.long("xp")
+            require(level in 1..100 && xp >= 0)
+            p.lifeSkills[skill]=LifeSkillProgress(level,xp)
+        }
+        d.mapping("fish_records").forEach { (id,value) ->
+            val record=value.asMapping(); val count=record.int("count"); val size=record.num("max_cm"); val crown=Crown.valueOf(record.string("crown"))
+            require(count in 0..1_000_000 && size.isFinite() && size in 0.0..10_000.0)
+            p.fishRecords[id]=FishRecord(count,size,crown)
+        }
+        d.mapping("gathering_records").forEach { (id,n) -> p.gatheringRecords[id]=(n as Number).toInt().also { require(it in 0..1_000_000) } }
+        d.mapping("gathering_ready_at").forEach { (id,n) -> p.gatheringReadyAt[id]=(n as Number).toString().toLongOrNull()?.also { require(it >= 0) } ?: error("採取時刻が不正です: $id") }
+        require(p.fishRecords.size <= 500 && p.gatheringRecords.size <= 500 && p.gatheringReadyAt.size <= 2000)
         return p
     }
     fun migrate(raw: Map<String,Any?>): Map<String,Any?> {
         val version = (raw["schema_version"] as? Number)?.toInt() ?: 0
-        if(version !in 0..9) throw FutureSchema("Unsupported player schema $version")
-        if(version == 9) return raw
-        if(version == 8) return raw + mapOf("schema_version" to 9,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())
-        if(version == 7) return raw + mapOf("schema_version" to 9,"selected_title" to null,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())
-        if(version == 6) return raw + mapOf("schema_version" to 9,"challenge_records" to emptyMap<String,Any?>(),"selected_title" to null,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())
-        if(version == 5) return raw + mapOf("schema_version" to 9,"challenge_records" to emptyMap<String,Any?>(),"selected_title" to null,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())
-        if(version == 4) return raw + mapOf("schema_version" to 9,"drop_pity" to emptyMap<String,Int>(),"challenge_records" to emptyMap<String,Any?>(),"selected_title" to null,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())
-        if(version == 3) return raw + mapOf("schema_version" to 9,"pending_rewards" to emptyMap<String,Int>(),"drop_pity" to emptyMap<String,Int>(),"challenge_records" to emptyMap<String,Any?>(),"selected_title" to null,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())
-        if(version == 2) return raw + mapOf("schema_version" to 9,"flags" to emptyList<String>(),"transactions" to emptyList<String>(),"daily_purchases" to emptyMap<String,Int>(),"drop_pity" to emptyMap<String,Int>(),"challenge_records" to emptyMap<String,Any?>(),"selected_title" to null,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())
+        if(version !in 0..10) throw FutureSchema("Unsupported player schema $version")
+        val lifeDefaults=mapOf("life_skills" to mapOf("FISHING" to mapOf("level" to 1,"xp" to 0),"GATHERING" to mapOf("level" to 1,"xp" to 0)),"fish_records" to emptyMap<String,Any?>(),"gathering_records" to emptyMap<String,Int>(),"gathering_ready_at" to emptyMap<String,Long>())
+        if(version == 10) return raw
+        if(version == 9) return raw + lifeDefaults + mapOf("schema_version" to 10)
+        if(version == 8) return (raw + mapOf("schema_version" to 9,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())) + lifeDefaults + mapOf("schema_version" to 10)
+        if(version == 7) return (raw + mapOf("schema_version" to 9,"selected_title" to null,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())) + lifeDefaults + mapOf("schema_version" to 10)
+        if(version == 6) return (raw + mapOf("schema_version" to 9,"challenge_records" to emptyMap<String,Any?>(),"selected_title" to null,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())) + lifeDefaults + mapOf("schema_version" to 10)
+        if(version == 5) return (raw + mapOf("schema_version" to 9,"challenge_records" to emptyMap<String,Any?>(),"selected_title" to null,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())) + lifeDefaults + mapOf("schema_version" to 10)
+        if(version == 4) return (raw + mapOf("schema_version" to 9,"drop_pity" to emptyMap<String,Int>(),"challenge_records" to emptyMap<String,Any?>(),"selected_title" to null,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())) + lifeDefaults + mapOf("schema_version" to 10)
+        if(version == 3) return (raw + mapOf("schema_version" to 9,"pending_rewards" to emptyMap<String,Int>(),"drop_pity" to emptyMap<String,Int>(),"challenge_records" to emptyMap<String,Any?>(),"selected_title" to null,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())) + lifeDefaults + mapOf("schema_version" to 10)
+        if(version == 2) return (raw + mapOf("schema_version" to 9,"flags" to emptyList<String>(),"transactions" to emptyList<String>(),"daily_purchases" to emptyMap<String,Int>(),"drop_pity" to emptyMap<String,Int>(),"challenge_records" to emptyMap<String,Any?>(),"selected_title" to null,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())) + lifeDefaults + mapOf("schema_version" to 10)
         val v1 = if (version == 1) raw else mapOf("level" to 1,"xp" to 0,"currency" to 0,
             "resource" to 0,"selected_skill" to 0,"starter_granted" to false,"skill_levels" to emptyMap<String,Int>()) + raw
         val tutorial = v1["tutorial_quest"] as? String
         val quests = if(tutorial == null) emptyMap() else mapOf("ec:tutorial" to mapOf("progress" to (if(tutorial == "ec:tutorial_complete") 1 else 0),"completed" to (tutorial == "ec:tutorial_complete")))
-        return v1.filterKeys { it != "tutorial_quest" } + mapOf("schema_version" to 9,"quests" to quests,"flags" to emptyList<String>(),"transactions" to emptyList<String>(),"daily_purchases" to emptyMap<String,Int>(),"drop_pity" to emptyMap<String,Int>(),"challenge_records" to emptyMap<String,Any?>(),"selected_title" to null,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())
+        return (v1.filterKeys { it != "tutorial_quest" } + mapOf("schema_version" to 9,"quests" to quests,"flags" to emptyList<String>(),"transactions" to emptyList<String>(),"daily_purchases" to emptyMap<String,Int>(),"drop_pity" to emptyMap<String,Int>(),"challenge_records" to emptyMap<String,Any?>(),"selected_title" to null,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())) + lifeDefaults + mapOf("schema_version" to 10)
     }
     private fun write(p: PlayerProfile) {
         Files.createDirectories(directory)
         val target = directory.resolve("${p.uuid}.yml")
         val tmp = directory.resolve("${p.uuid}.yml.tmp")
-        val values = linkedMapOf<String,Any?>("schema_version" to 9,"uuid" to p.uuid.toString(),"class" to p.classId,
+        val values = linkedMapOf<String,Any?>("schema_version" to 10,"uuid" to p.uuid.toString(),"class" to p.classId,
             "level" to p.level,"xp" to p.xp,"currency" to p.currency,"resource" to p.resource,"selected_skill" to p.selectedSkill,
-            "starter_granted" to p.starterGranted,"quests" to p.quests.mapValues { (_,q) -> mapOf("progress" to q.progress,"completed" to q.completed,"objectives" to q.objectives,"completed_at" to q.completedAt,"repeat_available_at" to q.repeatAvailableAt,"reset_period" to q.resetPeriod) },"skill_levels" to p.skillLevels,"flags" to p.flags.toList(),"transactions" to p.transactions,"daily_purchases" to p.dailyPurchases,"accessory" to p.accessory,"pending_rewards" to p.pendingRewards,"drop_pity" to p.dropPity,"challenge_records" to p.challengeRecords.mapValues { (_,record) -> mapOf("best_seconds" to record.bestSeconds,"best_rank" to record.bestRank) },"selected_title" to p.selectedTitle,"bestiary" to p.bestiary,"discovered_items" to p.discoveredItems.toList())
+            "starter_granted" to p.starterGranted,"quests" to p.quests.mapValues { (_,q) -> mapOf("progress" to q.progress,"completed" to q.completed,"objectives" to q.objectives,"completed_at" to q.completedAt,"repeat_available_at" to q.repeatAvailableAt,"reset_period" to q.resetPeriod) },"skill_levels" to p.skillLevels,"flags" to p.flags.toList(),"transactions" to p.transactions,"daily_purchases" to p.dailyPurchases,"accessory" to p.accessory,"pending_rewards" to p.pendingRewards,"drop_pity" to p.dropPity,"challenge_records" to p.challengeRecords.mapValues { (_,record) -> mapOf("best_seconds" to record.bestSeconds,"best_rank" to record.bestRank) },"selected_title" to p.selectedTitle,"bestiary" to p.bestiary,"discovered_items" to p.discoveredItems.toList(),
+            "life_skills" to p.lifeSkills.mapKeys { it.key.name }.mapValues { (_,progress) -> mapOf("level" to progress.level,"xp" to progress.xp) },"fish_records" to p.fishRecords.mapValues { (_,record) -> mapOf("count" to record.count,"max_cm" to record.maxCm,"crown" to record.crown.name) },"gathering_records" to p.gatheringRecords,"gathering_ready_at" to p.gatheringReadyAt)
         Files.newBufferedWriter(tmp,StandardOpenOption.CREATE,StandardOpenOption.TRUNCATE_EXISTING).use { Yaml().dump(values,it) }
         FileChannel.open(tmp,StandardOpenOption.WRITE).use { it.force(true) }
         if (Files.exists(target)) {

@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:life_balance
+type: life_balance
+life_level_cap: 20
+life_xp_base: 80
+life_xp_exponent: 1.45
+cast_range_blocks: 12.0
+cast_cooldown_ms: 1500
+max_concurrent_fishing_sessions: 100
+fatigue_window_seconds: 600
+fatigue_soft_threshold: 12
+fatigue_hard_threshold: 20
+fatigue_cooldown_seconds: 300
+reeling_timeout_seconds: 45
+slack_fail_seconds: 2.5
+party_gather_rare_bonus: 0.08

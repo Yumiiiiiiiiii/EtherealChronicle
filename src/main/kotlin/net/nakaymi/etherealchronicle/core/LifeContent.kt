@@ -1,11 +1,15 @@
 package net.nakaymi.etherealchronicle.core
 
+import kotlin.math.pow
+
 enum class LifeSkillKind { FISHING, GATHERING }
 enum class TackleKind { ROD, BAIT, PICKAXE, SICKLE, HATCHET, EXTRACTOR }
 enum class NodeKind { ORE, HERB, WOOD, CRYSTAL }
 enum class Crown { NONE, SILVER, GOLD }
 
 data class LifeMilestone(val threshold: Int, val uniqueNodes: Int = 0, val flag: String)
+data class LifeSkillProgress(var level: Int = 1, var xp: Long = 0)
+data class FishRecord(var count: Int = 0, var maxCm: Double = 0.0, var crown: Crown = Crown.NONE)
 data class LifeBalance(
     val levelCap: Int = 20,
     val xpBase: Long = 80,
@@ -55,3 +59,34 @@ data class GatheringNodeDefinition(
     val respawnSeconds: Long, val perPlayerRespawn: Boolean, val lifeXp: Long, val adventurerXp: Long,
     val yields: List<NodeYield>, val rareYields: List<NodeYield>, val locations: List<GatheringLocation>
 )
+
+class LifeSkillEngine(private val balance: LifeBalance) {
+    fun requiredXp(level: Int): Long {
+        val safe=level.coerceIn(1,balance.levelCap)
+        return (balance.xpBase.toDouble()*safe.toDouble().pow(balance.xpExponent)).toLong().coerceAtLeast(1)
+    }
+    fun grant(progress: LifeSkillProgress,amount: Long): Int {
+        require(amount >= 0)
+        val before=progress.level
+        progress.xp=(progress.xp.coerceAtMost(Long.MAX_VALUE-amount)+amount)
+        while(progress.level < balance.levelCap && progress.xp >= requiredXp(progress.level)) {
+            progress.xp-=requiredXp(progress.level); progress.level++
+        }
+        if(progress.level >= balance.levelCap) progress.xp=0
+        return progress.level-before
+    }
+}
+
+data class GatherResult(val item: String,val amount: Int,val rare: Boolean)
+class GatheringEngine(private val random: kotlin.random.Random = kotlin.random.Random.Default) {
+    fun roll(node: GatheringNodeDefinition,toolTier: Int,lifeLevel: Int,partyNearby: Boolean,partyBonus: Double): List<GatherResult> {
+        require(toolTier in 1..3 && lifeLevel >= 1 && partyBonus in 0.0..0.25)
+        val bonus=if(partyNearby) partyBonus else 0.0
+        return buildList {
+            node.yields.forEach { y -> if(random.nextDouble() < y.chance) add(GatherResult(y.item,random.nextInt(y.min,y.max+1),false)) }
+            val rareBoost=((toolTier-node.minToolTier).coerceAtLeast(0)*0.05+(lifeLevel-1)*0.005+bonus).coerceAtMost(0.45)
+            node.rareYields.forEach { y -> if(random.nextDouble() < (y.chance+rareBoost).coerceAtMost(0.45)) add(GatherResult(y.item,random.nextInt(y.min,y.max+1),true)) }
+        }
+    }
+    fun readyAt(profile: PlayerProfile,nodeId: String,nowMillis: Long) = (profile.gatheringReadyAt[nodeId] ?: 0L) <= nowMillis
+}

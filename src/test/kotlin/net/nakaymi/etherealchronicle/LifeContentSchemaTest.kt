@@ -4,6 +4,12 @@ import net.nakaymi.etherealchronicle.data.ContentException
 import net.nakaymi.etherealchronicle.data.ContentService
 import net.nakaymi.etherealchronicle.core.NodeKind
 import net.nakaymi.etherealchronicle.core.TackleKind
+import net.nakaymi.etherealchronicle.core.PlayerProfile
+import net.nakaymi.etherealchronicle.core.LifeSkillKind
+import net.nakaymi.etherealchronicle.core.LifeSkillProgress
+import net.nakaymi.etherealchronicle.core.FishRecord
+import net.nakaymi.etherealchronicle.core.Crown
+import net.nakaymi.etherealchronicle.data.PlayerStore
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
 import java.nio.file.Path
@@ -12,6 +18,7 @@ import kotlin.io.path.writeText
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import java.util.UUID
 
 class LifeContentSchemaTest {
     private fun fixture(): Path {
@@ -122,5 +129,26 @@ class LifeContentSchemaTest {
         val error=assertFailsWith<ContentException> { ContentService(root).load() }
         assertTrue(error.message.orEmpty().contains("ec:fish_test"), error.message.orEmpty())
         assertTrue(error.message.orEmpty().contains("ec:item_missing_fish"), error.message.orEmpty())
+    }
+
+    @Test
+    fun `migrates schema nine and atomically round trips life skill records`() {
+        val directory=Files.createTempDirectory("ec-life-player")
+        PlayerStore(directory).use { store ->
+            val migration=store.migrate(mapOf("schema_version" to 9))
+            assertEquals(10,migration["schema_version"])
+            assertTrue((migration["life_skills"] as Map<*,*>).containsKey("FISHING"))
+            val profile=PlayerProfile(UUID.randomUUID())
+            profile.lifeSkills[LifeSkillKind.FISHING]=LifeSkillProgress(7,153)
+            profile.fishRecords["ec:fish_silver_sardine"]=FishRecord(12,83.5,Crown.GOLD)
+            profile.gatheringRecords["ec:node_hill_crystal_1"]=4
+            profile.gatheringReadyAt["ec:node_hill_crystal_1"]=123456789
+            store.save(profile).join()
+            val loaded=store.load(profile.uuid).join()
+            assertEquals(profile.lifeSkills,loaded.lifeSkills)
+            assertEquals(profile.fishRecords,loaded.fishRecords)
+            assertEquals(profile.gatheringRecords,loaded.gatheringRecords)
+            assertEquals(profile.gatheringReadyAt,loaded.gatheringReadyAt)
+        }
     }
 }
