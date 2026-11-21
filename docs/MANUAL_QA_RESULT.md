@@ -81,3 +81,22 @@ Processes stopped; `server.properties` / `ops.json` restored.
 
 ## Final real-client pass (48beca1, 2026-11-22)
 See docs/TESTING.md. PASS: join/class/HUD/NPC+shop GUI/quest/codex/enhance/title/party, chests, Baldo/Luna, debug fish CAUGHT+record, dungeon entry, 0 ERROR, TPS 20. PARTIAL: arena (wave 1->2). NOT-RUN: death/respawn, other classes, advancement tab, boss fights, normal-cast fishing, night-thunder goblin.
+
+
+## Remaining items pass (master ea87cdb, offline QaMage, 2026-11-22)
+Shots: `D:\test\mcmmo-client-qa\shots\g01..g46*.png` (not in repo).
+| Item | Result | Evidence |
+|---|---|---|
+| Death -> respawn | PASS | g05-g07: normal items dropped, bound `starshard_fragment` kept, weapon + skill slot present, HP full, respawn in Lumina |
+| Class menu pick (cleric) + cast | PASS | g04 (`星光の導矢`, mana HUD, skill hits slime) |
+| Other classes | PARTIAL | warrior/mage/archer HUD + skill name switch via admin class command (g34); starter gear via the menu NOT verified (admin switch keeps old weapon -> `この装備の条件を満たしていません`) |
+| Quest chain m01 (Celia, Vulcan, Garudo, Vulcan report) | PASS | g11-g30: profile objectives `talk_celia, talk_vulcan_class, talk_garudo, return_vulcan` all 1, `completed: true`; reward 60G + 90xp + 3 potions + stew; next quest offered |
+| Shop purchase | PASS | g31-g33: 60G -> 32G -> 4G, 2 potions received, repeat purchase works |
+| Advancement tab | PARTIAL/FAIL | tab "EtherealChronicle" and icons shown, background is the missing-texture checkerboard (g16_adv.png). Toast verified earlier |
+| Normal fishing cast, wait, bite, reel | PASS | g37-g42: cast shows `魚影を探しています...` + bobber; bite window ~2 s (missed once = ESCAPED_BITE); clicking during the wait cancels (`釣りを中断しました`); held right-click after bite -> CAUGHT, record `sunbeam_trout 43.9 cm SILVER`, fishing xp 18, fish item in hotbar |
+| Arena 3 waves / rank / first reward / record | NOT achieved | entry and spawns fine; scripted fight killed only 1 slime in ~250 s. Cause: operation (my aim/teleport loop), not shown to be balance or timeout. Records empty |
+| Night + thunder goblin | PASS | present at night+thunder, absent at night+clear and day+thunder |
+| Raw ids in quest log | FAIL (sent to Codex) | quest list shows `ec:npc_celia 1/1` instead of NPC names |
+| Potion tooltip | MINOR (sent to Codex) | vanilla `No Effects` line |
+Processes stopped, server.properties/ops.json restored, port closed.
+
