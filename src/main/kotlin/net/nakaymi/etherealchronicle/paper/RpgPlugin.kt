@@ -22,7 +22,8 @@ class ClassMenu: InventoryHolder {
     override fun getInventory() = menu
 }
 
-class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
+open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
+    private var ready = false
     private lateinit var content: ContentService
     private lateinit var store: PlayerStore
     private lateinit var game: GameService
@@ -57,6 +58,7 @@ class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 simStore = PlayerStore(dataFolder.toPath().resolve("simulation"))
                 sync {
                     game = GameService(content::snapshot,SkillEngine(Clock { System.nanoTime()/1_000_000 },content.snapshot().balance))
+                    ready = true
                     server.pluginManager.registerEvents(this,this)
                     getCommand("ec")!!.setExecutor(this)
                     server.scheduler.runTaskTimer(this,Runnable { tick() },20,20)
@@ -70,6 +72,7 @@ class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         })
     }
     override fun onDisable() {
+        ready = false
         server.scheduler.cancelTasks(this)
         if (::store.isInitialized) {
             profiles.values.forEach { store.save(it) }
@@ -94,6 +97,7 @@ class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             if(profile.classId != null && snapshot.classes.find(profile.classId!!) == null) { player.kick(Component.text("職業データが見つかりません。管理者にご連絡ください。")); return@sync }
             profile.level = profile.level.coerceIn(1,snapshot.balance.levelCap)
             profile.skillLevels.replaceAll { _,level -> level.coerceIn(1,snapshot.balance.skillLevelCap) }
+            profile.classId = profile.classId?.let { snapshot.classes[it].id }
             profiles[player.uniqueId] = profile
             if(profile.classId == null || !profile.starterGranted) menu(player) else { skillSlot(player); applyStats(player,profile) }
         } }
@@ -170,7 +174,7 @@ class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         }
     }
     private fun stats(p: Player, profile: PlayerProfile): Stats {
-        val equipped = listOf(GearSlot.HEAD to p.inventory.helmet,GearSlot.CHEST to p.inventory.chestplate,GearSlot.LEGS to p.inventory.leggings,GearSlot.FEET to p.inventory.boots,GearSlot.HAND to p.inventory.itemInMainHand)
+        val equipped: List<Pair<GearSlot,ItemStack?>> = listOf(GearSlot.HEAD to p.inventory.helmet,GearSlot.CHEST to p.inventory.chestplate,GearSlot.LEGS to p.inventory.leggings,GearSlot.FEET to p.inventory.boots,GearSlot.HAND to p.inventory.itemInMainHand)
         return game.stats(profile,equipped.mapNotNull { (slot,stack) -> item(stack)?.takeIf { it.slot == slot } })
     }
     private fun applyStats(p: Player, profile: PlayerProfile) {
@@ -288,6 +292,7 @@ class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         c.documents.values.filter { it["type"] in setOf("enemy","boss") }.forEach { require(EntityType.valueOf(it.string("entity")).isAlive) }
     }
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
+        if(!ready) { sender.sendMessage(Component.text("冒険システムは起動中です。しばらくお待ちください。")); return true }
         if(!sender.hasPermission("etherealchronicle.admin")) { sender.sendMessage(Component.text("権限がありません。")); return true }
         try {
             when(args.firstOrNull()) {
@@ -388,6 +393,7 @@ class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         sender.sendMessage(Component.text("SIM $operation $name: ${simulated[name]}"))
     }
 }
+
 
 
 
