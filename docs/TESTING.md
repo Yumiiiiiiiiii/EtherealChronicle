@@ -142,3 +142,9 @@ Suite after merge: 60 tests, 0 failures.
 - **FAIL / BUG-6 (high, probably affects real combat)**: `hit` on a slime (`ec:enemy_aether_slime`) throws `Health value (18.57…) must be between 0 and 4.0 (attribute base value: 4.0)`. `EnemyController` sets the Bukkit health from the virtual HP ratio (`20*hp/max`), but Slime size resets `MAX_HEALTH` to size² (4.0) after the spawn code sets it to 20. Every hit on this enemy therefore throws; the slime can never die through the virtual-HP path.
 - Open nit: `give ... 999` answers `Failed requirement.`; `give ec:item_nope` answers raw English `Unknown content: ec:item_nope`.
 - Operational note: commands sent while the plugin is still starting on a clean data dir get the `起動中` reply; add a warm-up `ec validate` before scripted sims.
+
+## Console sim re-run (codex fa4f068, clean data; 63 tests green) — BUG-6 FIXED
+- Slime: spawn hp=140; hits 10 -> 130, 50 -> 80, 1000 (capped lethal) -> `hp=0.0 killed=true`, drops `{ec:item_mat_aether_gel=1}`, fake profile +18 xp/+6 currency exactly once; a further hit -> `対象が見つかりません。`.
+- Void warden: 55000 -> 45000 (`phase_awakening`) -> 35000/25000 (`phase_void_resonance`) -> 15000/5000 (`phase_cataclysm_judgment`) -> lethal: `killed=true`, loot `{item_q_void_remnant, item_mat_void_core_essence, item_mat_starshard_fragment x6, item_con_greater_hp_potion x2}`, fake profile level 1 -> 6, currency 756; repeat hits after death rejected.
+- `give ... 999` -> `数量は1..64で指定してください。`; unknown item -> `アイテムが見つかりません: ec:item_nope` (both Japanese now).
+- Observation (balance, for lead): one boss kill takes a level-1 profile to level 6 (xp 109 left over); fine for a sim, but check that real-player boss XP isn't reachable at level 1 (dungeon level gate).
