@@ -1,0 +1,113 @@
+schema_version: 1
+id: ec:dlg_seraphina_hub
+type: dialogue
+name: セラフィナの密談
+speaker: ec:npc_seraphina
+start: root
+nodes:
+  root:
+    text: ……驚いたわ、本当にギルドの冒険者がここまで辿り着くなんて。私はセラフィナ。少し前まで〈虚ろの手〉の氷嶺書記官をしていたけれど、ヴェスパーの狂気に付き合う義理はないの。
+    branches:
+      - {condition: {has_flags: ['ec:flag_ch2_colossus_defeated']}, next: after_colossus}
+      - {condition: {has_flags: ['ec:flag_ch2_cavern_unlocked']}, next: cavern_ops}
+    choices:
+      - id: conduit_advice
+        label: 星片導管の暴走について聞く
+        next: advice_node
+      - id: bye
+        label: また話を聞くよ
+  advice_node:
+    text: ヴェスパーは冷却導管を暴走させて氷嶺全体を凍結させるつもりよ。手っ取り早く教団の防衛線を崩したいなら、導管を過熱解凍して氷壁ごと吹き飛ばすのが合理的ね。……もっとも、あの生真面目な観測官は安定制御を推すでしょうけど。判断はオルフェの元で下して。
+    choices:
+      - id: ack_advice
+        label: 意見は聞いた、オルフェの元へ戻るよ
+  cavern_ops:
+    text: 蒼晶の氷窟へ入れるようになったわね。ここからは私の専門分野――教団の暗号と氷窟の防衛機構を丸裸にしてあげる。準備はいい？
+    choices:
+      - id: start_m04
+        label: 蒼晶の氷窟への潜入を引き受ける（蒼晶の氷窟への潜入・受注）
+        condition: {min_level: 17, completed_quests: ['ec:quest_ch2_m03_frozen_conduit'], not_started_quests: ['ec:quest_ch2_m04_cavern_infiltration']}
+        next: m04_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_ch2_m04_cavern_infiltration'}
+      - id: complete_m04
+        label: 氷結術師から暗号表を奪ったよ（蒼晶の氷窟への潜入・報告）
+        condition: {active_quests: ['ec:quest_ch2_m04_cavern_infiltration']}
+        next: m04_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_ch2_m04_cavern_infiltration'}
+      - id: start_m05
+        label: フロスト・コロッサス討伐を引き受ける（凍鉄の番兵を砕け・受注）
+        condition: {min_level: 18, completed_quests: ['ec:quest_ch2_m04_cavern_infiltration'], not_started_quests: ['ec:quest_ch2_m05_frost_colossus']}
+        next: m05_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_ch2_m05_frost_colossus'}
+      - id: complete_m05
+        label: フロスト・コロッサスを倒し封鍵を回収したよ（凍鉄の番兵を砕け・報告）
+        condition: {active_quests: ['ec:quest_ch2_m05_frost_colossus']}
+        next: m05_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_ch2_m05_frost_colossus'}
+      - id: start_s03
+        label: 教団の補給網遮断について聞く（教団の氷嶺収支台帳・受注）
+        condition: {min_level: 17, has_flags: ['ec:flag_ch2_choice4_overload'], not_started_quests: ['ec:quest_ch2_s03_defector_ledger']}
+        next: s03_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_ch2_s03_defector_ledger'}
+      - id: complete_s03
+        label: 氷結術師の物資を押収したよ（教団の氷嶺収支台帳・報告）
+        condition: {active_quests: ['ec:quest_ch2_s03_defector_ledger']}
+        next: s03_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_ch2_s03_defector_ledger'}
+      - id: bye_cavern
+        label: すぐ戻るよ
+  m04_started:
+    text: 蒼晶の氷窟に潜む『氷結術師』を6体倒して、奴らが持っている『教団の氷嶺暗号表』を奪ってきて。あれがあれば氷城へ通じる封印鍵の在処を特定できるわ。
+    choices: []
+  m04_done:
+    text: 見事な手際ね。……ふむ、暗号を解読したわ。氷城の正門を開く『蒼氷城の凍結封鍵』は、氷窟最奥に眠る古代の凍鉄番兵『フロスト・コロッサス』の炉心に組み込まれているそうよ。
+    choices:
+      - id: accept_m05_now
+        label: フロスト・コロッサスを撃破しに行く（凍鉄の番兵を砕け・受注）
+        condition: {min_level: 18, not_started_quests: ['ec:quest_ch2_m05_frost_colossus']}
+        next: m05_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_ch2_m05_frost_colossus'}
+      - id: prep_m05
+        label: 補給を整えてから挑むよ
+  m05_started:
+    text: フロスト・コロッサスは重装甲の氷巨兵よ。炎と雷が弱点だけど、『雪崩の突進』と『極低温炉心解放』は直撃すると危険だから予兆を見て回避して。封鍵を取り戻したらここへ持ってきて。
+    choices: []
+  m05_done:
+    text: 本当にあの凍鉄巨兵を砕いてしまったのね……。お礼に教団の隠し倉庫から持ち出した最上級オフハンドを贈るわ。封鍵は前哨基地のオルフェへ渡して――いよいよ蒼穹の氷城とヴェスパーの出番よ。
+    choices: []
+  after_colossus:
+    text: 封鍵は手に入ったわ。前哨基地のオルフェに氷城の門の解析を頼んで。……ヴェスパーには気をつけて、あの男は自分の信念のためなら浮島ごと凍らせるわ。
+    choices:
+      - id: complete_m05_after
+        label: フロスト・コロッサス討伐を報告する（凍鉄の番兵を砕け・報告）
+        condition: {active_quests: ['ec:quest_ch2_m05_frost_colossus']}
+        next: m05_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_ch2_m05_frost_colossus'}
+      - id: start_s03_after
+        label: 教団の氷嶺収支台帳を受ける（選択4B専用）
+        condition: {min_level: 17, has_flags: ['ec:flag_ch2_choice4_overload'], not_started_quests: ['ec:quest_ch2_s03_defector_ledger']}
+        next: s03_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_ch2_s03_defector_ledger'}
+      - id: complete_s03_after
+        label: 教団の氷嶺収支台帳を報告する
+        condition: {active_quests: ['ec:quest_ch2_s03_defector_ledger']}
+        next: s03_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_ch2_s03_defector_ledger'}
+      - id: bye_after
+        label: 必ず止めてみせるよ
+  s03_started:
+    text: 過熱解凍のおかげで教団の氷窟補給路が丸見えになったわ。今のうちに氷結術師を5体叩いて、隠匿していた蒼氷の欠片を4つ押収してきて。取り分は弾むわよ。
+    choices: []
+  s03_done:
+    text: これで氷窟の補給網は完全に干上がったわね。約束通り多めの蒼氷の欠片と耐寒秘薬を渡すわ。有効に使いなさい。
+    choices: []

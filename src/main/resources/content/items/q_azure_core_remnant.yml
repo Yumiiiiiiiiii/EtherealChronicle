@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_q_azure_core_remnant
+type: item
+name: 蒼氷の核の残滓
+material: BLUE_ICE
+rarity: LEGENDARY
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 0
+bound: true
+quest_item: true
+lore: 'クライオ・アルコンを退けた後に残った〈第二の星片〉の純化結晶。静かな蒼い光を放っている。'

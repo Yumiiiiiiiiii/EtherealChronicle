@@ -1,0 +1,82 @@
+schema_version: 1
+id: ec:chapter_2
+type: chapter
+name: 第2章「凍てつく蒼穹の星片」
+min_level: 16
+max_level: 20
+quests:
+  - ec:quest_ch2_m01_northward
+  - ec:quest_ch2_m02_frost_beacons
+  - ec:quest_ch2_m03_frozen_conduit
+  - ec:quest_ch2_m04_cavern_infiltration
+  - ec:quest_ch2_m05_frost_colossus
+  - ec:quest_ch2_m06_citadel_gate
+  - ec:quest_ch2_m07_cryo_archon
+  - ec:quest_ch2_s01_frost_pelt
+  - ec:quest_ch2_s02_ice_resonance
+  - ec:quest_ch2_s03_defector_ledger
+  - ec:quest_ch2_s04_citadel_echo
+npcs:
+  - ec:npc_freya
+  - ec:npc_orphe
+  - ec:npc_borka
+  - ec:npc_seraphina
+  - ec:npc_vesper
+dungeons:
+  - ec:dungeon_glacial_citadel
+flags:
+  - ec:flag_ch2_started
+  - ec:flag_ch2_ridge_secured
+  - ec:flag_ch2_choice4_stabilize
+  - ec:flag_ch2_choice4_overload
+  - ec:flag_ch2_cavern_unlocked
+  - ec:flag_ch2_cipher_decoded
+  - ec:flag_ch2_colossus_defeated
+  - ec:flag_ch2_vesper_met
+  - ec:flag_ch2_citadel_unlocked
+  - ec:flag_ch2_archon_defeated
+  - ec:flag_ch2_choice5_anchor
+  - ec:flag_ch2_choice5_resonance
+  - ec:flag_ch2_completed
+  - ec:flag_ch2_given_vanguard_pack
+areas:
+  - id: ec:area_frostpeak_outpost
+    name: 蒼氷の前哨基地
+    world: ec_world
+    min_x: 440
+    max_x: 520
+    min_y: 0
+    max_y: 256
+    min_z: -40
+    max_z: 40
+    safe: true
+  - id: ec:area_glacier_ridge
+    name: 霧氷の尾根
+    world: ec_world
+    min_x: 536
+    max_x: 616
+    min_y: 0
+    max_y: 256
+    min_z: -40
+    max_z: 40
+    safe: false
+  - id: ec:area_crystalline_cavern
+    name: 蒼晶の氷窟
+    world: ec_world
+    min_x: 632
+    max_x: 712
+    min_y: 0
+    max_y: 256
+    min_z: -40
+    max_z: 40
+    safe: false
+  - id: ec:area_glacial_citadel
+    name: 蒼穹の氷城
+    world: ec_world
+    min_x: 728
+    max_x: 808
+    min_y: 0
+    max_y: 256
+    min_z: -40
+    max_z: 40
+    safe: false

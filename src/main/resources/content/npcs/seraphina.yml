@@ -1,0 +1,9 @@
+schema_version: 1
+id: ec:npc_seraphina
+type: npc
+name: 元教団書記官セラフィナ
+entity: VILLAGER
+chapter: ec:chapter_2
+area: ec:area_glacier_ridge
+location: {world: ec_world, x: 552, y: 65, z: -18, yaw: 90}
+dialogue: ec:dlg_seraphina_hub

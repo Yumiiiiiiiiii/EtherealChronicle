@@ -1,0 +1,17 @@
+schema_version: 1
+id: ec:item_wpn_cryo_eternity_staff
+type: item
+name: 永久凍土の聖杖「エタニティ」
+material: TRIDENT
+rarity: LEGENDARY
+slot: HAND
+min_level: 20
+classes: [ec:class_mage]
+budget: 46
+stats: {attack: 54, skill_power: 1.08, crit: 0.10, crit_damage: 0.24, resource: 130, element_resist: 0.08}
+weapon: 202
+price: 9600
+lore: '〈第二の星片〉の冷却波長を結晶化させた至高の聖杖。【蒼氷の聖域】極寒の星閃を放つと同時に氷晶障壁を纏う。'
+effects:
+  - {kind: ATTACK_PROC, amount: 120, cooldown_ms: 9000, chance: 0.42, element: ICE}
+  - {kind: DEFENSE_BUFF, amount: 18, cooldown_ms: 9000, duration_ticks: 100, chance: 0.42}

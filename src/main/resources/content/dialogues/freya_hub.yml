@@ -1,0 +1,140 @@
+schema_version: 1
+id: ec:dlg_freya_hub
+type: dialogue
+name: フレイヤの遠征指令
+speaker: ec:npc_freya
+start: root
+nodes:
+  root:
+    text: 北方遠征隊の駐留桟橋へようこそ。私は遠征隊長フレイヤ。北の〈蒼穹の氷嶺〉に異変が確認された。第1章の戦いを潜り抜けた実力者なら、ぜひ力を貸してほしい。
+    branches:
+      - {condition: {active_quests: ['ec:quest_ch2_m07_cryo_archon'], has_flags: ['ec:flag_ch2_archon_defeated'], not_flags: ['ec:flag_ch2_completed']}, next: ending_choice5}
+      - {condition: {has_flags: ['ec:flag_ch2_completed']}, next: post_ch2}
+      - {condition: {has_flags: ['ec:flag_ch1_completed'], not_flags: ['ec:flag_ch2_started'], not_started_quests: ['ec:quest_ch2_m01_northward']}, next: departure_brief}
+      - {condition: {active_quests: ['ec:quest_ch2_m01_northward']}, next: m01_progress}
+    choices:
+      - id: ch2_status
+        label: 蒼穹の氷嶺の戦況を聞く
+        next: status_info
+      - id: claim_vanguard_pack
+        label: 出航用の耐寒秘薬を受け取る
+        condition: {has_flags: ['ec:flag_ch1_completed'], not_flags: ['ec:flag_ch2_given_vanguard_pack']}
+        next: pack_given
+        actions:
+          - {kind: GIVE_ITEM, target: 'ec:item_con_frostguard_brew', amount: 1, once_flag: 'ec:flag_ch2_given_vanguard_pack'}
+      - id: bye
+        label: また報告に来るよ
+  departure_brief:
+    text: ようやく会えたな、ルミナの英雄。虚核の聖堂でカインが言い残した〈第二の星片〉の脈動が、北の果て〈蒼穹の氷嶺〉で急激に強まっている。今すぐ先遣隊に合流してほしい。
+    branches:
+      - {condition: {has_flags: ['ec:flag_choice3_guild']}, next: departure_guild}
+      - {condition: {has_flags: ['ec:flag_choice3_observatory']}, next: departure_observatory}
+    choices:
+      - id: start_m01_default
+        label: 蒼穹の氷嶺へ向かう（蒼穹の氷嶺への出航・受注）
+        condition: {min_level: 16, not_started_quests: ['ec:quest_ch2_m01_northward']}
+        next: m01_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_ch2_m01_northward'}
+          - {kind: GIVE_ITEM, target: 'ec:item_con_frostguard_brew', amount: 1, once_flag: 'ec:flag_ch2_given_vanguard_pack'}
+      - id: prep_before_north
+        label: 装備を整えてから出航する
+  departure_guild:
+    text: ヴァルカンギルド長から話は聞いているぞ、『ルミナの盾』。お前が守った港の威信にかけて、北方遠征隊の先鋒を任せたい。前哨基地の観測官オルフェと鍛冶師ボルカが待っている！
+    choices:
+      - id: start_m01_guild
+        label: 了解だ、先鋒として出航する（蒼穹の氷嶺への出航・受注）
+        condition: {min_level: 16, not_started_quests: ['ec:quest_ch2_m01_northward']}
+        next: m01_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_ch2_m01_northward'}
+          - {kind: GIVE_ITEM, target: 'ec:item_con_frostguard_brew', amount: 1, once_flag: 'ec:flag_ch2_given_vanguard_pack'}
+      - id: prep_guild
+        label: もう少し準備してから向かう
+  departure_observatory:
+    text: 賢者リラ殿の星図解析は見事だったな、『星の導き手』。示された座標の先に〈蒼氷の前哨基地〉を設営した。リラ殿門下の観測官オルフェが現地で君の到着を心待ちにしているぞ。
+    choices:
+      - id: start_m01_observatory
+        label: 星図の座標へ向かう（蒼穹の氷嶺への出航・受注）
+        condition: {min_level: 16, not_started_quests: ['ec:quest_ch2_m01_northward']}
+        next: m01_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_ch2_m01_northward'}
+          - {kind: GIVE_ITEM, target: 'ec:item_con_frostguard_brew', amount: 1, once_flag: 'ec:flag_ch2_given_vanguard_pack'}
+      - id: prep_observatory
+        label: もう少し準備してから向かう
+  m01_started:
+    text: 出航準備完了だ！氷嶺は極寒につき、この耐寒秘薬を携えていけ。東端の航路の先にある『蒼氷の前哨基地』へ到着したら、まず鍛冶師ボルカと観測官オルフェに挨拶するんだ。健闘を祈る！
+    choices: []
+  m01_progress:
+    text: 飛空艇の係留は済んでいる。〈蒼氷の前哨基地〉へ入り、鍛冶師ボルカと観測官オルフェに合流してくれ。吹雪が強まっているから油断は禁物だぞ。
+    choices:
+      - id: pack_in_progress
+        label: 耐寒秘薬を受け取る
+        condition: {not_flags: ['ec:flag_ch2_given_vanguard_pack']}
+        next: pack_given
+        actions:
+          - {kind: GIVE_ITEM, target: 'ec:item_con_frostguard_brew', amount: 1, once_flag: 'ec:flag_ch2_given_vanguard_pack'}
+      - id: bye_progress
+        label: 今すぐ向かうよ
+  pack_given:
+    text: これで最低限の寒さは凌げるはずだ。無茶はするなよ。
+    choices: []
+  status_info:
+    text: 蒼穹の氷嶺は前哨基地・霧氷の尾根・蒼晶の氷窟・蒼穹の氷城の四つの浮島で構成されている。教団の氷嶺統括官ヴェスパーが冷却機構を暴走させたため、最奥の氷城は極寒の要塞と化しているそうだ。
+    choices:
+      - id: status_back
+        label: なるほど、覚えておくよ
+  ending_choice5:
+    text: ……見事だ、氷核の執行者クライオ・アルコンを退け、〈蒼氷の核の残滓〉を持ち帰ったか！ヴェスパーは『第三の星片が眠る紅蓮火口』と言い残して去ったらしいな……。だが先に、純化した〈第二の星片〉の帰属を決めねばならない。氷嶺の浮島を安定させる重力錨として現地に再封印するか、オルフェの提案通り共鳴羅針盤として第三の星片探索へ託すか――決断を任せる。
+    choices:
+      - id: choose_anchor
+        label: 氷嶺の重力錨として現地再封印する（氷嶺を守る・氷核のエッセンス追加報酬）
+        next: ending_anchor
+        set_flags: ['ec:flag_ch2_choice5_anchor']
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_ch2_m07_cryo_archon'}
+      - id: choose_resonance
+        label: 共鳴羅針盤として第三の星片解析へ託す（紅蓮火口を探る・伝説交換の蒼氷欠片-5個）
+        next: ending_resonance
+        set_flags: ['ec:flag_ch2_choice5_resonance']
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_ch2_m07_cryo_archon'}
+  ending_anchor:
+    text: 賢明かつ揺るぎない決断だ。蒼氷の核は再び静かな重力錨となり、氷嶺の空を支え続けるだろう。遠征隊からの感謝と追加の氷核エッセンスを受け取ってくれ。――次の戦場は灼熱の〈紅蓮火口〉だ。蒼穹艦隊の先頭、また頼むぞ！
+    choices: []
+  ending_resonance:
+    text: 未来を切り拓く選択だな。オルフェとリラ殿が星片を共鳴させ、既に南方〈紅蓮火口〉の微かな座標を捉え始めたそうだ。鍛冶師ボルカの交換所にも伝説武具の優遇手配を通しておいた。次の旅路へ向け、さらに腕を磨いてくれ！
+    choices: []
+  post_ch2:
+    text: 蒼穹の氷嶺は君のおかげで絶対零度の危機を免れた。だが氷城の最奥では今も氷核の残響が再凝縮を続けている。〈紅蓮火口〉への遠征準備が整うまで、残響の鎮圧に協力してもらえるか？
+    choices:
+      - id: start_s04
+        label: 反復依頼『氷城の残響鎮圧』を受ける
+        condition: {min_level: 19, not_started_quests: ['ec:quest_ch2_s04_citadel_echo']}
+        next: s04_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_ch2_s04_citadel_echo'}
+      - id: complete_s04
+        label: 反復依頼『氷城の残響鎮圧』を報告する
+        condition: {active_quests: ['ec:quest_ch2_s04_citadel_echo']}
+        next: s04_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_ch2_s04_citadel_echo'}
+      - id: post_lore
+        label: 第三の星片〈紅蓮火口〉について聞く
+        next: ch3_tease
+      - id: bye_post
+        label: また報告に来るよ
+  s04_started:
+    text: 頼もしいな。蒼穹の氷城へ向かい、再編成された近衛騎士とクライオ・アルコンの残響を鎮圧してくれ。仲間と挑むのも良い判断だ。
+    choices: []
+  s04_done:
+    text: 見事な戦果だ。回収された蒼氷の欠片と氷核のエッセンスは君のものだ。ボルカの鍛冶場で伝説武具の強化に役立ててくれ！
+    choices: []
+  ch3_tease:
+    text: ヴェスパーが残した暗号と星図の観測結果から、〈第三の星片〉は南方の灼熱浮島〈紅蓮火口〉に眠ると判明した。氷の次は炎――さらなる激戦が待っているはずだ。今のうちに至高の武具を揃えておこう。
+    choices:
+      - id: back_from_tease
+        label: 準備を整えておくよ
+        next: post_ch2

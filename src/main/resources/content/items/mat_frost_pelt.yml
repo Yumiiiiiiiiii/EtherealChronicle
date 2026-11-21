@@ -1,0 +1,14 @@
+schema_version: 1
+id: ec:item_mat_frost_pelt
+type: item
+name: 霧氷オオカミの毛皮
+material: RABBIT_HIDE
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 35
+bound: false
+lore: '極寒の氷嶺を駆ける狼の厚い毛皮。防寒具の裏地や飛空艇の中継灯断熱材に使われる。'

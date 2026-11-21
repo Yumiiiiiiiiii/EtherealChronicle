@@ -1,0 +1,9 @@
+schema_version: 1
+id: ec:npc_freya
+type: npc
+name: 北方遠征隊長フレイヤ
+entity: VILLAGER
+chapter: ec:chapter_2
+area: ec:area_lumina_port
+location: {world: ec_world, x: 18, y: 65, z: -12, yaw: 45}
+dialogue: ec:dlg_freya_hub

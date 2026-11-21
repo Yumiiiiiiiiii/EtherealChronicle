@@ -1,0 +1,20 @@
+schema_version: 1
+id: ec:quest_ch2_m01_northward
+type: quest
+name: 蒼穹の氷嶺への出航
+condition: {min_level: 16, has_flags: ['ec:flag_ch1_completed']}
+objectives:
+  - {id: reach_frostpeak, kind: EXPLORE, target: 'ec:area_frostpeak_outpost', amount: 1}
+  - {id: greet_borka, kind: TALK, target: 'ec:npc_borka', amount: 1}
+  - {id: report_orphe, kind: TALK, target: 'ec:npc_orphe', amount: 1}
+rewards:
+  xp: 2400
+  currency: 520
+  set_flags: ['ec:flag_ch2_started']
+  items:
+    - {item: 'ec:item_con_frostguard_brew', amount: 2}
+    - {item: 'ec:item_con_glacier_feast', amount: 2, condition: {has_flags: ['ec:flag_choice3_guild']}}
+    - {item: 'ec:item_con_aether_crystal_tonic', amount: 2, condition: {has_flags: ['ec:flag_choice3_observatory']}}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

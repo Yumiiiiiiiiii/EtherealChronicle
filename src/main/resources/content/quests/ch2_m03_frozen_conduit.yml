@@ -1,0 +1,21 @@
+schema_version: 1
+id: ec:quest_ch2_m03_frozen_conduit
+type: quest
+name: 凍てつく星片導管
+condition: {min_level: 17, completed_quests: ['ec:quest_ch2_m02_frost_beacons']}
+objectives:
+  - {id: slay_glacier_wraiths, kind: KILL, target: 'ec:enemy_glacier_wraith', amount: 6}
+  - {id: collect_cryo_crystals, kind: COLLECT, target: 'ec:item_mat_cryo_crystal', amount: 4, consume: true}
+  - {id: consult_seraphina, kind: TALK, target: 'ec:npc_seraphina', amount: 1}
+  - {id: decide_conduit_orphe, kind: TALK, target: 'ec:npc_orphe', amount: 1}
+rewards:
+  xp: 4200
+  currency: 820
+  set_flags: ['ec:flag_ch2_cavern_unlocked']
+  items:
+    - {item: 'ec:item_acc_glacier_ward_pendant', amount: 1, condition: {has_flags: ['ec:flag_ch2_choice4_stabilize']}}
+    - {item: 'ec:item_acc_frostbreaker_signet', amount: 1, condition: {has_flags: ['ec:flag_ch2_choice4_overload']}}
+    - {item: 'ec:item_mat_glacial_shard', amount: 5}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

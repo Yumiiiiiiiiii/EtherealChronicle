@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_con_aether_crystal_tonic
+type: item
+name: 蒼晶魔力強壮剤
+material: HONEY_BOTTLE
+rarity: RARE
+slot: NONE
+min_level: 16
+classes: []
+budget: 0
+stats: {}
+price: 160
+lore: '純度の高い氷晶エーテルを溶かし込んだ強壮剤。リソースを55回復し、毒と鈍足を浄化する。'
+effects:
+  - {kind: RESOURCE, amount: 55, cooldown_ms: 10000, chance: 1.0}
+  - {kind: CLEANSE, amount: 0, cooldown_ms: 10000, chance: 1.0}

@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:quest_ch2_s03_defector_ledger
+type: quest
+name: 教団の氷嶺収支台帳
+condition: {min_level: 17, has_flags: ['ec:flag_ch2_choice4_overload']}
+objectives:
+  - {id: intercept_cryo_cultists, kind: KILL, target: 'ec:enemy_cryo_cultist', amount: 5}
+  - {id: seize_glacial_shards, kind: COLLECT, target: 'ec:item_mat_glacial_shard', amount: 4, consume: true}
+  - {id: report_seraphina_ledger, kind: TALK, target: 'ec:npc_seraphina', amount: 1}
+rewards:
+  xp: 3600
+  currency: 760
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_glacial_shard', amount: 8}
+    - {item: 'ec:item_con_frostguard_brew', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

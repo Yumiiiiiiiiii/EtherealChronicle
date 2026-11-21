@@ -1,0 +1,64 @@
+schema_version: 1
+id: ec:dlg_vesper_hub
+type: dialogue
+name: ヴェスパーの宣告
+speaker: ec:npc_vesper
+start: root
+nodes:
+  root:
+    text: ……愚かな。絶対零度の静寂こそが、砕け散った空を永遠に保つ唯一の救済だというのに。近衛騎士を突破してここまで来た勇気だけは評価してやろう。
+    branches:
+      - {condition: {has_flags: ['ec:flag_ch2_archon_defeated']}, next: post_archon}
+      - {condition: {has_flags: ['ec:flag_ch2_citadel_unlocked']}, next: citadel_open}
+    choices:
+      - id: complete_m06
+        label: 蒼氷の核の暴走を止めに来た（氷城の門と統括官ヴェスパー・報告）
+        condition: {active_quests: ['ec:quest_ch2_m06_citadel_gate']}
+        next: m06_done
+        set_flags: ['ec:flag_ch2_vesper_met']
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_ch2_m06_citadel_gate'}
+      - id: bye
+        label: 覚悟しろ、ヴェスパー
+  m06_done:
+    text: ククク……既に〈第二の星片〉は氷城最奥で完全覚醒を遂げた。玉座を守る『氷核の執行者クライオ・アルコン』が、貴様の熱も希望も凍てつかせてくれる。さあ、門は開いた――己の無力を噛み締めに来るがいい！
+    choices:
+      - id: accept_m07_now
+        label: クライオ・アルコンを打ち倒す（氷核の執行者・受注）
+        condition: {min_level: 19, not_started_quests: ['ec:quest_ch2_m07_cryo_archon']}
+        next: m07_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_ch2_m07_cryo_archon'}
+      - id: enter_after_m06
+        label: 協力ダンジョン『蒼穹の氷城』へ挑む
+        actions:
+          - {kind: ENTER_DUNGEON, target: 'ec:dungeon_glacial_citadel'}
+      - id: withdraw_m06
+        label: 態勢を整えてから挑む
+  citadel_open:
+    text: 氷城の玉座は開かれている。クライオ・アルコンの絶対零度に耐えられるか、試してみるがいい。
+    choices:
+      - id: start_m07_open
+        label: クライオ・アルコン討伐を引き受ける（氷核の執行者・受注）
+        condition: {min_level: 19, completed_quests: ['ec:quest_ch2_m06_citadel_gate'], not_started_quests: ['ec:quest_ch2_m07_cryo_archon']}
+        next: m07_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_ch2_m07_cryo_archon'}
+      - id: enter_citadel_vesper
+        label: 協力ダンジョン『蒼穹の氷城』へ入場する
+        actions:
+          - {kind: ENTER_DUNGEON, target: 'ec:dungeon_glacial_citadel'}
+      - id: bye_open
+        label: すぐに戻ってくる
+  m07_started:
+    text: 氷の執行者を倒すつもりか？面白い――ならば最奥の玉座で、蒼氷の核の真価を目に焼き付けろ。
+    choices: []
+  post_archon:
+    text: ……あり得ない、執行者クライオ・アルコンすら砕くとはな。だが喜ぶのは早い。〈第三の星片〉は既に南方の灼熱――〈紅蓮火口〉で目覚めつつある。私はそこで待つぞ、星片の干渉者よ……！（残響だけが氷廊に響き渡った）
+    choices:
+      - id: enter_citadel_rematch
+        label: 蒼穹の氷城の残響へ再挑戦する
+        actions:
+          - {kind: ENTER_DUNGEON, target: 'ec:dungeon_glacial_citadel'}
+      - id: bye_post
+        label: フレイヤ隊長へ報告に戻る

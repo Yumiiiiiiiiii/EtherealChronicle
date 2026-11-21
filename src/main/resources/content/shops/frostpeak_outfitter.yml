@@ -1,0 +1,26 @@
+schema_version: 1
+id: ec:shop_frostpeak_outfitter
+type: shop
+name: 氷嶺の鍛冶師ボルカの装備補給所
+npc: ec:npc_borka
+buyback: true
+discount_flag: ec:flag_ch2_choice4_stabilize
+discount: 0.1
+entries:
+  - {id: frostguard_brew, item: 'ec:item_con_frostguard_brew', amount: 1, price: 260}
+  - {id: aether_crystal_tonic, item: 'ec:item_con_aether_crystal_tonic', amount: 1, price: 160}
+  - {id: glacier_feast, item: 'ec:item_con_glacier_feast', amount: 1, price: 320}
+  - {id: return_scroll, item: 'ec:item_con_return_scroll', amount: 1, price: 35}
+  - {id: revive_feather, item: 'ec:item_con_revive_feather', amount: 1, price: 380, daily_limit: 5}
+  - {id: frostpeak_helm, item: 'ec:item_arm_frostpeak_helm', amount: 1, price: 2600, condition: {min_level: 17}}
+  - {id: glacier_treads, item: 'ec:item_arm_glacier_treads', amount: 1, price: 2800, condition: {has_flags: ['ec:flag_ch2_cavern_unlocked']}}
+  - {id: glacier_greatsword, item: 'ec:item_wpn_glacier_greatsword', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_glacial_shard', amount: 16}], condition: {has_flags: ['ec:flag_ch2_colossus_defeated']}}
+  - {id: frostwind_longbow, item: 'ec:item_wpn_frostwind_longbow', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_glacial_shard', amount: 16}], condition: {has_flags: ['ec:flag_ch2_colossus_defeated']}}
+  - {id: rime_scepter, item: 'ec:item_wpn_rime_scepter', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_glacial_shard', amount: 16}], condition: {has_flags: ['ec:flag_ch2_colossus_defeated']}}
+  - {id: frostguard_cuirass, item: 'ec:item_arm_frostguard_cuirass', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_glacial_shard', amount: 18}], condition: {has_flags: ['ec:flag_ch2_citadel_unlocked']}}
+  - {id: snowstalker_coat, item: 'ec:item_arm_snowstalker_coat', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_glacial_shard', amount: 18}], condition: {has_flags: ['ec:flag_ch2_citadel_unlocked']}}
+  - {id: cryomancer_mantle, item: 'ec:item_arm_cryomancer_mantle', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_glacial_shard', amount: 18}], condition: {has_flags: ['ec:flag_ch2_citadel_unlocked']}}
+  - {id: azure_core_signet, item: 'ec:item_acc_azure_core_signet', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_glacial_core_essence', amount: 4}, {item: 'ec:item_mat_glacial_shard', amount: 25}], condition: {has_flags: ['ec:flag_ch2_archon_defeated']}, token_discount_flag: 'ec:flag_ch2_choice5_resonance', token_discount: [{item: 'ec:item_mat_glacial_shard', amount: 5}]}
+  - {id: azure_sovereign_blade, item: 'ec:item_wpn_azure_sovereign_blade', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_glacial_core_essence', amount: 5}, {item: 'ec:item_mat_glacial_shard', amount: 30}], condition: {has_flags: ['ec:flag_ch2_archon_defeated']}, token_discount_flag: 'ec:flag_ch2_choice5_resonance', token_discount: [{item: 'ec:item_mat_glacial_shard', amount: 5}]}
+  - {id: borealis_bow, item: 'ec:item_wpn_borealis_bow', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_glacial_core_essence', amount: 5}, {item: 'ec:item_mat_glacial_shard', amount: 30}], condition: {has_flags: ['ec:flag_ch2_archon_defeated']}, token_discount_flag: 'ec:flag_ch2_choice5_resonance', token_discount: [{item: 'ec:item_mat_glacial_shard', amount: 5}]}
+  - {id: cryo_eternity_staff, item: 'ec:item_wpn_cryo_eternity_staff', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_glacial_core_essence', amount: 5}, {item: 'ec:item_mat_glacial_shard', amount: 30}], condition: {has_flags: ['ec:flag_ch2_archon_defeated']}, token_discount_flag: 'ec:flag_ch2_choice5_resonance', token_discount: [{item: 'ec:item_mat_glacial_shard', amount: 5}]}

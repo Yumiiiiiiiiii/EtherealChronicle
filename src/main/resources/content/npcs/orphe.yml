@@ -1,0 +1,9 @@
+schema_version: 1
+id: ec:npc_orphe
+type: npc
+name: 氷嶺観測官オルフェ
+entity: VILLAGER
+chapter: ec:chapter_2
+area: ec:area_frostpeak_outpost
+location: {world: ec_world, x: 474, y: 65, z: -6, yaw: 0}
+dialogue: ec:dlg_orphe_hub

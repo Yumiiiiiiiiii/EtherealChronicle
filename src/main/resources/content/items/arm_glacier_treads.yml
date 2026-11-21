@@ -1,0 +1,14 @@
+schema_version: 1
+id: ec:item_arm_glacier_treads
+type: item
+name: 蒼氷踏破の具足
+material: DIAMOND_BOOTS
+rarity: EPIC
+slot: FEET
+min_level: 18
+classes: []
+budget: 33
+stats: {hp: 95, defense: 24, attack: 12, element_resist: 0.08, crit: 0.04}
+price: 2800
+lore: '氷上でも滑らず踏み込める爪鉄を備えた重具足。冷気を遮断し軽快な足捌きを保つ。'
+effects: []

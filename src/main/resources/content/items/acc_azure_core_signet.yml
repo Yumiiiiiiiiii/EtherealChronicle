@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_acc_azure_core_signet
+type: item
+name: 蒼氷核の印章環
+material: HEART_OF_THE_SEA
+rarity: LEGENDARY
+slot: ACCESSORY
+min_level: 20
+classes: []
+budget: 43
+stats: {hp: 150, attack: 28, defense: 22, crit: 0.07, skill_power: 0.36, element_resist: 0.16}
+price: 8800
+lore: '蒼穹の氷城を制した英雄の証。【蒼氷の加護】絶対零度の障壁が持ち主を包み、致命の一撃から命を繋ぎ留める。'
+effects:
+  - {kind: DEFENSE_BUFF, amount: 30, cooldown_ms: 55000, duration_ticks: 120, chance: 1.0}
+  - {kind: REVIVE, amount: 260, cooldown_ms: 180000, chance: 1.0}

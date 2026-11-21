@@ -1,0 +1,22 @@
+schema_version: 1
+id: ec:quest_ch2_m07_cryo_archon
+type: quest
+name: 氷核の執行者
+condition: {min_level: 19, completed_quests: ['ec:quest_ch2_m06_citadel_gate']}
+objectives:
+  - {id: defeat_cryo_archon, kind: KILL, target: 'ec:boss_cryo_archon', amount: 1}
+  - {id: recover_azure_remnant, kind: COLLECT, target: 'ec:item_q_azure_core_remnant', amount: 1, consume: true}
+  - {id: final_report_freya, kind: TALK, target: 'ec:npc_freya', amount: 1}
+rewards:
+  xp: 8500
+  currency: 2200
+  set_flags: ['ec:flag_ch2_archon_defeated', 'ec:flag_ch2_completed']
+  items:
+    - {item: 'ec:item_mat_glacial_core_essence', amount: 1}
+    - {item: 'ec:item_mat_glacial_core_essence', amount: 1, condition: {has_flags: ['ec:flag_ch2_choice5_anchor']}}
+    - {item: 'ec:item_con_frostguard_brew', amount: 3, condition: {has_flags: ['ec:flag_ch2_choice5_anchor']}}
+    - {item: 'ec:item_mat_glacial_shard', amount: 10, condition: {has_flags: ['ec:flag_ch2_choice5_resonance']}}
+    - {item: 'ec:item_con_aether_crystal_tonic', amount: 3, condition: {has_flags: ['ec:flag_ch2_choice5_resonance']}}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

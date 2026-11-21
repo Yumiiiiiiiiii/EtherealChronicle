@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_q_frozen_seal_key
+type: item
+name: 蒼氷城の凍結封鍵
+material: TRIPWIRE_HOOK
+rarity: RARE
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 0
+bound: true
+quest_item: true
+lore: 'フロスト・コロッサスの炉心に収められていた古代の氷鋼鍵。蒼穹の氷城の正門封印を解く。'

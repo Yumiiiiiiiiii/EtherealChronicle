@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:quest_ch2_s02_ice_resonance
+type: quest
+name: 氷晶の共鳴観測
+condition: {min_level: 17, has_flags: ['ec:flag_ch2_choice4_stabilize']}
+objectives:
+  - {id: calm_glacier_wraiths, kind: KILL, target: 'ec:enemy_glacier_wraith', amount: 5}
+  - {id: sample_cryo_crystals, kind: COLLECT, target: 'ec:item_mat_cryo_crystal', amount: 5, consume: true}
+  - {id: report_orphe_resonance, kind: TALK, target: 'ec:npc_orphe', amount: 1}
+rewards:
+  xp: 3600
+  currency: 760
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_glacial_shard', amount: 6}
+    - {item: 'ec:item_con_aether_crystal_tonic', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

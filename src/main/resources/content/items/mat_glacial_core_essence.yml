@@ -1,0 +1,14 @@
+schema_version: 1
+id: ec:item_mat_glacial_core_essence
+type: item
+name: 氷核のエッセンス
+material: NETHER_STAR
+rarity: EPIC
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 0
+bound: true
+lore: 'クライオ・アルコンから抽出された純氷の核。蒼穹の氷嶺を象徴する伝説武具を鍛えるための要となる。'

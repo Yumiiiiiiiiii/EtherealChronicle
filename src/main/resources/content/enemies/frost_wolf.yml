@@ -1,0 +1,27 @@
+schema_version: 1
+id: ec:enemy_frost_wolf
+type: enemy
+name: 霧氷オオカミ
+entity: WOLF
+level: 17
+hp: 3200
+attack: 94
+defense: 66
+xp: 420
+currency: 78
+droptable: ec:drop_frost_wolf
+element: ICE
+weaknesses: [FIRE, LIGHTNING]
+resistances: [ICE]
+speed: 0.31
+size: 1
+elite: false
+aggro_range: 14
+leash_range: 26
+attack_interval_ticks: 36
+traits: [PACK]
+specials:
+  - {id: frost_lunge, name: '氷牙の飛びかかり', shape: LINE, cooldown_ticks: 180, telegraph_ticks: 18, radius: 2.0, range: 8, multiplier: 1.5, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: SLOW}
+spawn_points:
+  - {id: ridge_west_trail, world: ec_world, x: 558, y: 65, z: 10, cap: 3, respawn_ticks: 240}
+  - {id: ridge_north_slope, world: ec_world, x: 586, y: 65, z: -14, cap: 3, respawn_ticks: 240}

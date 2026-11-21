@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_arm_cryomancer_mantle
+type: item
+name: 氷嶺星術師の法衣
+material: LEATHER_CHESTPLATE
+rarity: EPIC
+slot: CHEST
+min_level: 19
+classes: [ec:class_mage]
+budget: 47
+stats: {hp: 105, defense: 24, attack: 22, skill_power: 0.56, resource: 75, element_resist: 0.14}
+price: 3600
+lore: '蒼氷の共鳴紋を織り込んだ星術師の礼装。【氷幕の守護】周囲に薄い氷結界を張り魔術師の身を守る。'
+effects:
+  - {kind: DEFENSE_BUFF, amount: 24, cooldown_ms: 18000, duration_ticks: 100, chance: 1.0}
