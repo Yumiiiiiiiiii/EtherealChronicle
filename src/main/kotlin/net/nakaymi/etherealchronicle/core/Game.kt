@@ -1,4 +1,4 @@
-package dev.mcmmo.rpg.core
+package net.nakaymi.etherealchronicle.core
 
 import java.util.UUID
 import kotlin.math.pow
@@ -81,6 +81,7 @@ data class PlayerProfile(val uuid: UUID, var classId: String? = null, var level:
     fun snapshot() = copy(skillLevels = skillLevels.toMutableMap(), quests = quests.mapValues { it.value.copy() }.toMutableMap())
 }
 data class QuestProgress(var progress: Int = 0, var completed: Boolean = false)
+
 
 
 

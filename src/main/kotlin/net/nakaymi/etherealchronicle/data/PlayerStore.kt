@@ -1,7 +1,7 @@
-package dev.mcmmo.rpg.data
+package net.nakaymi.etherealchronicle.data
 
-import dev.mcmmo.rpg.core.PlayerProfile
-import dev.mcmmo.rpg.core.QuestProgress
+import net.nakaymi.etherealchronicle.core.PlayerProfile
+import net.nakaymi.etherealchronicle.core.QuestProgress
 import org.yaml.snakeyaml.Yaml
 import org.yaml.snakeyaml.LoaderOptions
 import org.yaml.snakeyaml.constructor.SafeConstructor
@@ -81,4 +81,5 @@ class PlayerStore(private val directory: Path): AutoCloseable {
         check(executor.awaitTermination(30,TimeUnit.SECONDS)) { "Player IO did not finish within 30 seconds" }
     }
 }
+
 

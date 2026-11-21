@@ -3,7 +3,7 @@
 Owner: Claude-QA (branch `qa/harness`). Status values: **NOT-RUN** (default), PASS, FAIL, BLOCKED. Nothing below may be marked PASS without a dated log/evidence reference.
 
 ## Strategy (layers)
-1. **Unit tests** (`src/test/kotlin`, JUnit 5 + kotlin.test): all `core.*` logic and `data` loader/validator/migration. No Bukkit. Fixtures in `dev.mcmmo.rpg.qa` (`FakeClock`, `ContentYaml`, `TempDir`, `seededRandom`, `FakePlayers`). Run: `./gradlew test`.
+1. **Unit tests** (`src/test/kotlin`, JUnit 5 + kotlin.test): all `core.*` logic and `data` loader/validator/migration. No Bukkit. Fixtures in `net.nakaymi.etherealchronicle.qa` (`FakeClock`, `ContentYaml`, `TempDir`, `seededRandom`, `FakePlayers`). Run: `./gradlew test`.
 2. **Content validation**: every shipped YAML under `src/main/resources/content` must load and pass the validator (duplicate ids, dangling refs, ranges). Should be a unit test over the real resources plus `ec validate` on a live server.
 3. **Server smoke** (`scripts/smoke-test.ps1`): build -> install jar -> boot Paper offline -> wait `Done` -> console commands -> `stop` -> log analysis (plugin load errors, exceptions, plugin never enabled => FAIL).
 4. **Interactive / protocol bot** (`scripts/bot`): join, chat, commands. See *Bot feasibility*.
@@ -57,3 +57,4 @@ Each item: scope, how to verify, status. Environment for all server items: Paper
 ## Regression rules
 - Every bug found gets a unit test where it is expressible in `core.*`; otherwise a checklist row/note.
 - Reviewer != implementer. Record findings in `docs/AGENT_STATUS.md`.
+

@@ -1,4 +1,4 @@
-package dev.mcmmo.rpg.data
+package net.nakaymi.etherealchronicle.data
 
 import java.nio.file.*
 
@@ -17,3 +17,4 @@ object DefaultContentInstaller {
         return changed
     }
 }
+

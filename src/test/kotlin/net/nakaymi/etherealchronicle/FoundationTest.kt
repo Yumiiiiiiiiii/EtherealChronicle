@@ -1,7 +1,7 @@
-package dev.mcmmo.rpg
+package net.nakaymi.etherealchronicle
 
-import dev.mcmmo.rpg.core.*
-import dev.mcmmo.rpg.data.*
+import net.nakaymi.etherealchronicle.core.*
+import net.nakaymi.etherealchronicle.data.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.*
@@ -180,6 +180,7 @@ class FoundationTest {
         }
     }
 }
+
 
 
 

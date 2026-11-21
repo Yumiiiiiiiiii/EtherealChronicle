@@ -1,7 +1,7 @@
-package dev.mcmmo.rpg.paper
+package net.nakaymi.etherealchronicle.paper
 
-import dev.mcmmo.rpg.core.*
-import dev.mcmmo.rpg.data.*
+import net.nakaymi.etherealchronicle.core.*
+import net.nakaymi.etherealchronicle.data.*
 import net.kyori.adventure.text.Component
 import org.bukkit.*
 import org.bukkit.attribute.Attribute
@@ -388,6 +388,7 @@ class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         sender.sendMessage(Component.text("SIM $operation $name: ${simulated[name]}"))
     }
 }
+
 
 
 
