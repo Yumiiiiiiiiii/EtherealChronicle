@@ -1,6 +1,9 @@
 package net.nakaymi.etherealchronicle.paper
 
+import net.nakaymi.etherealchronicle.core.Position
+import net.nakaymi.etherealchronicle.core.Area
 import org.bukkit.*
+import org.bukkit.entity.Monster
 import org.bukkit.generator.ChunkGenerator
 import org.bukkit.generator.WorldInfo
 import java.nio.file.Files
@@ -57,6 +60,7 @@ object DemoWorld {
             existing.setSpawnLocation(0,65,0)
             migrateToV2(plugin,existing,existing.worldFolder.toPath())
             migrateToV3(plugin,existing,existing.worldFolder.toPath())
+            enforceHubSpawnSafety(plugin,existing)
             return existing
         }
         val candidates=mutableListOf(plugin.server.worldContainer.toPath().resolve(NAME))
@@ -74,6 +78,7 @@ object DemoWorld {
         val marker=folder.resolve(".etherealchronicle-owned")
         Files.writeString(marker,"EtherealChronicle demo world; never delete this marker while the world is in use.\n")
         world.setSpawnLocation(0,65,0)
+        enforceHubSpawnSafety(plugin,world)
         if(!Files.exists(folder.resolve(".etherealchronicle-built"))) {
             build(world); buildChapter2(world); buildLifeProfessionPools(world)
             markFreshBuild(folder,"v3")
@@ -82,6 +87,29 @@ object DemoWorld {
         migrateToV2(plugin,world,world.worldFolder.toPath())
         migrateToV3(plugin,world,world.worldFolder.toPath())
         return world
+    }
+    private fun enforceHubSpawnSafety(plugin:RpgPlugin,world:World) {
+        // Hostile spawn flags are world-wide in Bukkit. Keep passive animal spawning
+        // at its current setting; RPG enemies use explicit CUSTOM spawns and remain enabled.
+        disableVanillaHostileSpawns(world)
+        plugin.logger.info("ec_world のバニラ敵対モブ自然湧きを停止しました (allowMonsters=${world.allowMonsters})。")
+        val safeAreas=plugin.snapshot.world.areas.values.filter { it.safe && it.world==world.name }
+        val enemyKey=NamespacedKey(plugin,"enemy_id")
+        val cleared=removeSafeAreaHostiles(world,world.entities,safeAreas,enemyKey)
+        if(cleared.isNotEmpty()) plugin.logger.info("安全地帯のバニラ敵対モブを${cleared.size}体除去しました。ec_worldでは敵対モブの自然湧きを停止しています。")
+    }
+    fun clearNearbySafeHostiles(plugin:RpgPlugin,world:World,location:Location):Int {
+        if(world.name!=NAME || !runCatching { isOwned(world) }.getOrDefault(false)) return 0
+        val areas=plugin.snapshot.world.areas.values.filter { it.safe && it.world==world.name }
+        val nearby=world.getNearbyEntities(location,40.0,128.0,40.0)
+        return removeSafeAreaHostiles(world,nearby,areas,NamespacedKey(plugin,"enemy_id")).size
+    }
+    private fun removeSafeAreaHostiles(world:World,entities:Iterable<org.bukkit.entity.Entity>,areas:Collection<Area>,enemyKey:NamespacedKey):List<Monster> {
+        val cleared=entities.filterIsInstance<Monster>().filter { entity ->
+            shouldRemoveExistingSafeHostile(true,entity.persistentDataContainer.has(enemyKey),Position(world.name,entity.location.x,entity.location.y,entity.location.z),areas)
+        }
+        cleared.forEach { it.remove() }
+        return cleared
     }
     internal fun migrateToV2(plugin: RpgPlugin,world: World,folder: java.nio.file.Path): Boolean {
         if(!Files.exists(folder.resolve(".etherealchronicle-owned"))) return false
