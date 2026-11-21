@@ -7,6 +7,7 @@ import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.event.player.PlayerResourcePackStatusEvent
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** 同梱リソースパックを起動・配信し、クライアントの適用状態をUUID単位で保持します。 */
 class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoCloseable {
@@ -44,6 +45,12 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
         }.onFailure { plugin.logger.warning("Resource pack distribution is disabled by invalid configuration: ${it.message}") }
             .getOrNull()
     }
+    private val endpointFallback = if (configuredEndpoint?.mode == "game_port" && externalUrl.isNotBlank()) {
+        runCatching { createEndpoint("external_url") }
+            .onFailure { plugin.logger.warning("Could not configure HTTPS pack fallback: ${it.message}") }
+            .getOrNull()
+    } else null
+    private val gamePortFailed = AtomicBoolean(false)
     private val httpServer = if (configuredEndpoint?.mode == "embedded_http") runCatching {
         EmbeddedPackServer(requireNotNull(configuredEndpoint), requireNotNull(artifact), maxConcurrent, maxPerIp,
             idleReadTimeoutMillis, headerDeadlineMillis)
@@ -59,6 +66,7 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
             gamePortHeaderDeadlineMillis,
             gamePortIdleTimeoutMillis,
             gamePortBandwidthKbPerSecond,
+            onFailure = { gamePortFailed.set(true) },
         )
     }.onFailure {
         plugin.logger.warning(
@@ -66,11 +74,6 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
                 if (externalUrl.isNotBlank()) "Using external_url fallback." else "No pack endpoint will be advertised.",
         )
     }.getOrNull() else null
-    private val endpointFallback = if (configuredEndpoint?.mode == "game_port" && gamePortServer == null && externalUrl.isNotBlank()) {
-        runCatching { createEndpoint("external_url") }
-            .onFailure { plugin.logger.warning("Could not configure HTTPS pack fallback: ${it.message}") }
-            .getOrNull()
-    } else null
     private val endpoint = configuredEndpoint?.takeIf {
         (it.mode != "embedded_http" || httpServer != null) && (it.mode != "game_port" || gamePortServer != null)
     } ?: endpointFallback
@@ -82,13 +85,14 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
     /** プレイヤー設定と配信可能状態を確認し、Adventure ResourcePackRequestを送信します。 */
     fun send(player: org.bukkit.entity.Player, preference: PackPreference = PackPreference.AUTO) {
         preferences[player.uniqueId] = preference
-        if (preference == PackPreference.OFF || !enabled || endpoint == null || artifact == null) {
+        val deliveryEndpoint = if (gamePortFailed.get()) endpointFallback else endpoint
+        if (preference == PackPreference.OFF || !enabled || deliveryEndpoint == null || artifact == null) {
             loadedPlayers -= player.uniqueId
             plugin.refreshPackItemModels(player, false)
             return
         }
         val hash = externalSha1.ifBlank { artifact.sha1 }
-        val info = ResourcePackInfo.resourcePackInfo(requestId, endpoint.url(hash), hash)
+        val info = ResourcePackInfo.resourcePackInfo(requestId, deliveryEndpoint.url(hash), hash)
         val prompt = plugin.message(player, "ec.resource_pack.prompt")
         player.sendResourcePacks(ResourcePackRequest.resourcePackRequest().packs(info).required(required).prompt(prompt).replace(false).build())
     }

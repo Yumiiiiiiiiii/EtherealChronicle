@@ -6,6 +6,8 @@ import io.netty.channel.embedded.EmbeddedChannel
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
 
 class GamePortPackServerTest {
     @Test
@@ -69,6 +71,21 @@ class GamePortPackServerTest {
         assertTrue(limiter.acquire("192.0.2.11"))
         limiter.release("192.0.2.10")
         limiter.release("192.0.2.11")
+    }
+
+    @Test
+    fun `concurrent connection attempts cannot exceed the per ip cap`() {
+        val limiter = PackConnectionLimiter(maxConnections = 16, maxPerIp = 2, bandwidthKbPerSecond = 1024)
+        val pool = Executors.newFixedThreadPool(16)
+        try {
+            val results = pool.invokeAll((1..16).map { Callable { limiter.acquire("198.51.100.7") } })
+                .count { it.get() }
+            assertEquals(2, results)
+            limiter.release("198.51.100.7")
+            limiter.release("198.51.100.7")
+        } finally {
+            pool.shutdownNow()
+        }
     }
 
     private fun sniffer(

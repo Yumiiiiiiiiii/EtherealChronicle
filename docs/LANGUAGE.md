@@ -7,8 +7,8 @@
 | キー | 日本語 | English | 使用箇所 | プレースホルダ |
 | --- | --- | --- | --- | --- |
 | `ec.advancement.pack_description` | エセリアルクロニクル: 称号進捗 | Ethereal Chronicle: title advancements | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
-| `ec.advancement.root_description` | 冒険の記録 | Adventure records | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
-| `ec.advancement.root_title` | エセリアルクロニクル | Ethereal Chronicle | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.advancement.root_description` | 冒険の記録 | Adventure records | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdvancementDatapack.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.advancement.root_title` | エセリアルクロニクル | Ethereal Chronicle | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdvancementDatapack.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.area.teleported` | <name>へ転送しました。 | Teleported to <name>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt | `<name>` |
 | `ec.boss.telegraph` | 予兆: <attack>！<cue>範囲から離れてください。 | Telegraph: <attack>! Move away from the <cue> area. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt | `<attack>`, `<cue>` |
 | `ec.boss.telegraph_generic` | 危険な | dangerous | src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt |  |
