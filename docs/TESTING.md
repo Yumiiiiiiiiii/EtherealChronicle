@@ -265,3 +265,26 @@ Processes stopped; `server.properties` / `ops.json` restored; port 25565 closed;
 | Arena (client) | PARTIAL | `/ec dungeon enter ec:dungeon_novice_arena` with flag: entered, wave-1 slimes, JP intro message. 3 waves / rank / first-rank reward once / personal record NOT-RUN on client (needs combat; Codex engine tests only) |
 | Hidden NPC Baldo, advancement tab (L), debug fish | NOT-RUN | time-boxed |
 Notes: Ashwood roadside thorn wolves killed the survival test player twice at (90,0); inventory dropped as designed. Helper fix: `Type-McChat` now maps chars with `VkKeyScan` (JIS layout broke `:`/`_`).
+
+## Final real-client pass (master 48beca1, offline QaFinal, 2026-11-22)
+Screenshots: `D:\test\mcmmo-client-qa\shots\f01..f35*.png` (not in repo).
+| Area | Result | Evidence |
+|---|---|---|
+| Build + tests after refactor | PASS | `gradlew build` green on 48beca1 |
+| Boot / join -> Lumina / class menu / pick class / HUD | PASS | f01, f02 (6 classes shown; archer picked), HUD + welcome message |
+| Skill cast, no-target message | PASS | f03 |
+| NPC dialogue GUI (Seria, Pip) | PASS | f04, f05, f12, f13 |
+| Shop GUI + insufficient-funds reject | PASS | f14, f15 (a successful purchase was not run) |
+| `/ec quest` `codex` `enhance` `title` `party create` | PASS | f08, f09_*, f10 |
+| Death/respawn, other 5 classes, quest accept->complete chain, advancement tab (L) | NOT-RUN | time-boxed (earlier tasks / MockBukkit chains) |
+| Gather | PASS (Task12) | not repeated |
+| Chests ashwood +55G / stargazer +80G once | PASS | f17; 2nd click `この宝箱は空です。` |
+| Baldo / Luna dialogue | PASS | f18, f19 |
+| Night+thunder goblin | NOT-RUN | respawn timer (rain case PASS in Task12) |
+| Debug fishing full reel | PASS | rod_oak + held right-click: CAUGHT, record `ec:fish_sunbeam_trout count 1 max_cm 30.9 crown NONE`. 40 ms taps did not build tension (ended TIMEOUT / LINE_SLACK) |
+| Normal cast -> bite -> reel | NOT-RUN | needs real wait/timing |
+| Arena | PARTIAL | enter + intro; wave 1 cleared via `/damage`; wave 2 (spider + goblins) spawned with telegraph text; bestiary counted. 3-wave clear, rank, first-rank reward, personal record NOT achieved (`/ec dungeon records` = `試練の記録はまだありません。`): wave-2 mobs would not die to `/damage`, and one instance ended on its own without a record |
+| Dungeons sanctum / citadel / crucible | PASS (enter, build, spawn) | f35; `/ec dungeon leave` ok. Boss fights NOT-RUN |
+| Server log | PASS | 0 ERROR/Exception; WARN only `Skipping Entity with id minecraft:*` + offline-mode notice |
+| TPS / memory | PASS | 20.0/20.0/20.0, mspt avg 1.4 (max 18.7/1 min), server java ~1 GB |
+New helper: `scripts/client/qa-helpers.ps1`.

@@ -78,3 +78,6 @@ Processes stopped; `server.properties` / `ops.json` restored.
 | Personal chest once + reconnect | PASS | +35G once, `この宝箱は空です。` after rejoin |
 | Luna night, herbalist rain/dusk, rare goblin night+rain | PASS | appear/disappear with `time set` / `weather` |
 | Arena entry | PASS (entry only) | wave-1 slimes shown; waves/rank/reward NOT-RUN |
+
+## Final real-client pass (48beca1, 2026-11-22)
+See docs/TESTING.md. PASS: join/class/HUD/NPC+shop GUI/quest/codex/enhance/title/party, chests, Baldo/Luna, debug fish CAUGHT+record, dungeon entry, 0 ERROR, TPS 20. PARTIAL: arena (wave 1->2). NOT-RUN: death/respawn, other classes, advancement tab, boss fights, normal-cast fishing, night-thunder goblin.
