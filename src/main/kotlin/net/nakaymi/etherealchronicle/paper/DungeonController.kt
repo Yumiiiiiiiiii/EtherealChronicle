@@ -42,7 +42,7 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
         try { spawnWave(instance,world,x,z) }
         catch(error:Exception) { close(instance); throw error }
         players.forEach { p -> plugin.profiles[p.uniqueId]?.let { profile -> plugin.game.quests.event(profile,net.nakaymi.etherealchronicle.core.ObjectiveKind.EXPLORE,definition.area,1,plugin.inventory(p),false); plugin.markDirty(profile.uuid) } }
-        players.forEach { it.teleport(Location(world,x.toDouble(),65.0,z-12.0)); it.sendMessage(Component.text(definition.entryMessage)) }
+        players.forEach { it.teleport(Location(world,x.toDouble(),65.0,z-12.0)); it.sendMessage(plugin.message(it,"ec.dungeon.entry", "message" to definition.entryMessage)) }
     }
     private fun spawnWave(instance:Instance,world:World,x:Int,z:Int) {
         val definition=instance.definition
@@ -73,7 +73,7 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
             val x=1024+instance.slot*192; val z=1024
             try {
                 spawnWave(instance,world,x,z)
-                instance.members.forEach { Bukkit.getPlayer(it)?.sendMessage(Component.text("試練 第${instance.waveIndex+1}/${waveCount}波が始まります。")) }
+                instance.members.forEach { member -> Bukkit.getPlayer(member)?.let { player -> player.sendMessage(plugin.message(player,"ec.dungeon.wave", "current" to instance.waveIndex+1, "total" to waveCount)) } }
             } catch(error:Exception) {
                 plugin.logger.warning("試練の次ウェーブを配置できません: ${error.message}")
                 instance.members.toList().forEach { Bukkit.getPlayer(it)?.let(::leave) }
@@ -101,13 +101,13 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
                         val current=Bukkit.getPlayer(member)
                         if(current?.isOnline==true) {
                             adventure.claimPending(current)
-                            current.sendMessage(Component.text("初回ランク報酬を受け取りました。"))
+                            current.sendMessage(plugin.message(current,"ec.dungeon.first_rank_reward"))
                         }
                     }
                 } else if(updated) plugin.save(profile)
-                player?.sendMessage(Component.text("${instance.definition.clearMessage} 記録 ${seconds}秒 / ランク$rank（自己ベスト ${best.bestSeconds}秒 / ${best.bestRank}）"))
+                player?.sendMessage(plugin.message(player,"ec.dungeon.result", "message" to instance.definition.clearMessage, "seconds" to seconds, "rank" to rank, "best_seconds" to best.bestSeconds, "best_rank" to best.bestRank))
             } }
-        } else instance.members.forEach { member -> Bukkit.getPlayer(member)?.sendMessage(Component.text(instance.definition.clearMessage)) }
+        } else instance.members.forEach { member -> Bukkit.getPlayer(member)?.let { it.sendMessage(plugin.message(it,"ec.dungeon.clear", "message" to instance.definition.clearMessage)) } }
     }
     fun leave(player: Player) {
         val instance=instances.values.firstOrNull { player.uniqueId in it.members } ?: return
@@ -125,7 +125,7 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
     fun tick() {
         tick+=20
         instances.values.toList().filter { tick-it.started >= plugin.snapshot.world.tuning.instanceTimeout }.forEach { instance ->
-            instance.members.toList().forEach { Bukkit.getPlayer(it)?.let { p -> p.sendMessage(Component.text("聖堂の制限時間を迎えました。")); leave(p) } }; close(instance)
+            instance.members.toList().forEach { Bukkit.getPlayer(it)?.let { p -> p.sendMessage(plugin.message(p,"ec.dungeon.timeout")); leave(p) } }; close(instance)
         }
     }
     @EventHandler(priority=EventPriority.MONITOR,ignoreCancelled=true) fun teleport(e: PlayerTeleportEvent) {

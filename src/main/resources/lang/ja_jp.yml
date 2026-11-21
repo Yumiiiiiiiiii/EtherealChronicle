@@ -22,6 +22,18 @@ ec:
     resource_low: "リソースが足りません。"
     target_missing: "射程内に魔物がいません。"
     cooldown: "まだ使用できません。"
+  treasure:
+    empty: "この宝箱は空です。"
+    busy: "処理中です。少し待ってください。"
+    opened: "隠し宝箱を開けました。通貨 +<currency>G"
+    failed: "宝箱を開けられません。"
+  dungeon:
+    entry: "<message>"
+    wave: "試練 第<current>/<total>波が始まります。"
+    first_rank_reward: "初回ランク報酬を受け取りました。"
+    result: "<message> 記録 <seconds>秒 / ランク<rank>（自己ベスト <best_seconds>秒 / <best_rank>）"
+    clear: "<message>"
+    timeout: "聖堂の制限時間を迎えました。"
   class:
     choose: "職業を選んでください"
   menu:

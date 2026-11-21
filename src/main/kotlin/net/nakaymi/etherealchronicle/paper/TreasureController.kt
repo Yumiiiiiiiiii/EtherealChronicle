@@ -62,15 +62,18 @@ class TreasureController(private val plugin:RpgPlugin):Listener {
         val player=event.player
         val profile=plugin.profiles[player.uniqueId] ?: return
         val chest=plugin.snapshot.world.treasureChests[id] ?: return
-        if(chest.onceFlag in profile.flags) { player.sendMessage(Component.text("この宝箱は空です。")); return }
-        if(plugin.adventure.locked(profile.uuid)) { player.sendMessage(Component.text("処理中です。少し待ってください。")); return }
+        if(chest.onceFlag in profile.flags) { player.sendMessage(plugin.message(player,"ec.treasure.empty")); return }
+        if(plugin.adventure.locked(profile.uuid)) { player.sendMessage(plugin.message(player,"ec.treasure.busy")); return }
         try {
             plugin.adventure.transaction(player,{ _ ->
-                require(claimTreasure(profile,chest,plugin.snapshot.balance.currencyGainCap)) { "この宝箱は空です。" }
+                require(claimTreasure(profile,chest,plugin.snapshot.balance.currencyGainCap)) { "ec.treasure.empty" }
             }) {
-                player.sendMessage(Component.text("隠し宝箱を開けました。通貨 +${chest.currency}G"))
+                player.sendMessage(plugin.message(player,"ec.treasure.opened", "currency" to chest.currency))
             }
-        } catch(error:Exception) { player.sendMessage(Component.text(error.message ?: "宝箱を開けられません。")) }
+        } catch(error:Exception) {
+            val key=error.message?.takeIf { it=="ec.treasure.empty" } ?: "ec.treasure.failed"
+            player.sendMessage(plugin.message(player,key))
+        }
     }
 
     fun close() { entities.values.flatten().forEach { Bukkit.getEntity(it)?.remove() }; entities.clear() }

@@ -22,6 +22,18 @@ ec:
     resource_low: "Not enough resource."
     target_missing: "There is no enemy in range."
     cooldown: "That skill is not ready yet."
+  treasure:
+    empty: "This treasure chest is empty."
+    busy: "An operation is in progress. Please wait."
+    opened: "Opened a hidden treasure chest. Currency +<currency>G"
+    failed: "Could not open the treasure chest."
+  dungeon:
+    entry: "<message>"
+    wave: "Trial wave <current>/<total> is beginning."
+    first_rank_reward: "You received the first-clear rank reward."
+    result: "<message> Time <seconds>s / Rank <rank> (best <best_seconds>s / <best_rank>)"
+    clear: "<message>"
+    timeout: "The trial time limit has been reached."
   class:
     choose: "Choose a class"
   menu:
