@@ -49,6 +49,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private lateinit var enhancementTransactionKey: NamespacedKey
     private lateinit var enemyKey: NamespacedKey
     private lateinit var slotKey: NamespacedKey
+    private lateinit var starterClassKey: NamespacedKey
     /** 現在の不変コンテンツSnapshotをControllerへ公開します。 */
     internal val snapshot get() = content.snapshot()
     /** クライアントlocaleに合わせて翻訳済みComponentを生成します。 */
@@ -81,7 +82,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     /** YAMLを非同期検証した後、メインスレッドで各ゲームControllerを登録します。 */
     override fun onEnable() {
         saveDefaultConfig()
-        itemKey = NamespacedKey(this,"item_id"); enhancementKey=NamespacedKey(this,"enhancement_level"); enhancementTransactionKey=NamespacedKey(this,"enhancement_transaction"); enemyKey = NamespacedKey(this,"enemy_id"); slotKey = NamespacedKey(this,"skill_slot")
+        itemKey = NamespacedKey(this,"item_id"); enhancementKey=NamespacedKey(this,"enhancement_level"); enhancementTransactionKey=NamespacedKey(this,"enhancement_transaction"); enemyKey = NamespacedKey(this,"enemy_id"); slotKey = NamespacedKey(this,"skill_slot"); starterClassKey=NamespacedKey(this,"starter_class")
         val languageDefaults = listOf("ja_jp.yml", "en_us.yml").associate { name ->
             "lang/$name" to getResource("lang/$name")!!.use { it.readBytes() }
         }
@@ -259,7 +260,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             if(error != null) { profile.starterGranted = false; p.sendMessage(message(p,"ec.profile.save_retry")); return@sync }
             if(!p.isOnline || profiles[p.uniqueId] !== profile) return@sync
             if(c.starterItems.size > (0..7).count { p.inventory.getItem(it) == null }) { p.sendMessage(message(p,"ec.profile.starter_space")); return@sync }
-            c.starterItems.forEach { item -> val slot = (0..7).first { p.inventory.getItem(it) == null }; p.inventory.setItem(slot,createItem(item)); profile.discoverItem(item) }
+            c.starterItems.forEach { item -> val slot = (0..7).first { p.inventory.getItem(it) == null }; p.inventory.setItem(slot,createStarterItem(item,id)); profile.discoverItem(item) }
             save(profile)
             skillSlot(p); applyStats(p,profile); p.health=p.getAttribute(Attribute.MAX_HEALTH)!!.value
             p.closeInventory(); p.sendMessage(message(p,"ec.profile.welcome"))
@@ -272,7 +273,52 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             displayName(Component.text(d.name)); lore(listOf(language.component(null,"ec.item.required_level", mapOf("level" to d.minLevel, "rarity" to rarity))))
             snapshot.world.itemProperties[id]?.lore?.takeIf { it.isNotBlank() }?.let { text -> lore((lore() ?: emptyList())+text.chunked(28).map { Component.text(it) }) }
             persistentDataContainer.set(itemKey,PersistentDataType.STRING,id)
+            if(d.material == "POTION") addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ADDITIONAL_TOOLTIP)
         } }
+    }
+    /** 初期支給品の所属クラスをPDCへ記録し、切替時に既存品と重複付与を区別します。 */
+    private fun createStarterItem(id:String,classId:String):ItemStack = createItem(id).also { stack ->
+        stack.itemMeta=stack.itemMeta.apply { persistentDataContainer.set(starterClassKey,PersistentDataType.STRING,classId) }
+    }
+    /** クラス切替時に対象クラスの初期武器を手元へ移し、余剰は保持したまま二重付与を避けます。 */
+    private fun reconcileStarterWeapon(player:Player,profile:PlayerProfile,oldClassId:String?,newClass:ClassDefinition):Boolean {
+        val newWeapon=newClass.starterItems.firstOrNull() ?: return false
+        val inventory=player.inventory
+        val heldSlot=inventory.heldItemSlot
+        val ownedSlot=(0 until inventory.storageContents.size).firstOrNull { slot ->
+            slot != 8 && identify(inventory.getItem(slot)) == newWeapon
+        }
+        if(ownedSlot != null) {
+            val held=inventory.getItem(heldSlot)
+            inventory.setItem(heldSlot,inventory.getItem(ownedSlot))
+            inventory.setItem(ownedSlot,held)
+            inventory.getItem(heldSlot)?.let { switched ->
+                switched.itemMeta=switched.itemMeta.apply { persistentDataContainer.set(starterClassKey,PersistentDataType.STRING,newClass.id) }
+            }
+            profile.discoverItem(newWeapon)
+            return false
+        }
+
+        val held=inventory.getItem(heldSlot)
+        val heldId=identify(held)
+        val oldStarterIds=oldClassId?.let(snapshot.classes::find)?.starterItems.orEmpty().toSet()
+        val canReplaceHeld=held == null || heldId in oldStarterIds
+        val destination=if(canReplaceHeld) heldSlot else
+            (0 until inventory.storageContents.size).firstOrNull { it != 8 && inventory.getItem(it) == null }
+        if(destination == null) {
+            profile.pendingRewards.merge(newWeapon,1,Int::plus)
+            profile.discoverItem(newWeapon)
+            return true
+        }
+
+        if(destination == heldSlot && held != null && heldId != null) {
+            val spare=(0 until inventory.storageContents.size).firstOrNull { it != 8 && it != heldSlot && inventory.getItem(it) == null }
+            if(spare != null) inventory.setItem(spare,held)
+            else profile.pendingRewards.merge(heldId,held.amount,Int::plus)
+        }
+        inventory.setItem(destination,createStarterItem(newWeapon,newClass.id))
+        profile.discoverItem(newWeapon)
+        return false
     }
     internal fun item(stack: ItemStack?): ItemDefinition? = stack?.itemMeta?.persistentDataContainer?.get(itemKey,PersistentDataType.STRING)?.let { content.snapshot().items.find(it) }
     private fun isSkill(stack: ItemStack?) = stack?.itemMeta?.persistentDataContainer?.has(slotKey,PersistentDataType.BYTE) == true
@@ -798,7 +844,17 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     val profile = profiles[p.uniqueId] ?: error("ec.error.profile_loading")
                     val c = content.snapshot().classes[args[2]]
                     require(!adventure.locked(profile.uuid))
-                    game.changeClass(profile,c.id); save(profile); applyStats(p,profile)
+                    val oldClassId=profile.classId
+                    if(oldClassId != c.id && profile.starterGranted) {
+                        require(choosing.add(p.uniqueId)) { "ec.error.class_busy" }
+                        val queued=try { reconcileStarterWeapon(p,profile,oldClassId,c) }
+                        finally { choosing.remove(p.uniqueId) }
+                        game.changeClass(profile,c.id); save(profile); applyStats(p,profile)
+                        if(queued) p.sendMessage(message(p,"ec.class.weapon_queued"))
+                    } else {
+                        game.changeClass(profile,c.id); save(profile); applyStats(p,profile)
+                        if(!profile.starterGranted) starter(p,profile,c.id)
+                    }
                     sender.sendMessage(message(sender,"ec.command.class_set"))
                 }
                 "debug" -> debug(sender,args.drop(1))
@@ -873,7 +929,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     p.quests.forEach { (id,q) ->
                         val definition=snapshot.world.quests[id]
                         player.sendMessage(message(player,"ec.quest.status", "name" to (definition?.name ?: id), "status" to message(player,when { q.completed -> "ec.quest.status_complete"; game.quests.ready(p,id,inventory(player)) -> "ec.quest.status_ready"; else -> "ec.quest.status_active" })))
-                        if(!q.completed) definition?.objectives?.forEach { o -> player.sendMessage(message(player,"ec.quest.objective_progress", "target" to o.target, "progress" to (if(o.kind == ObjectiveKind.COLLECT) inventory(player).count(o.target).coerceAtMost(o.amount) else q.objectives.getOrDefault(o.id,0)), "amount" to o.amount)) }
+                        if(!q.completed) definition?.objectives?.forEach { o -> player.sendMessage(message(player,"ec.quest.objective_progress", "target" to questObjectiveLabel(o.target,snapshot), "progress" to (if(o.kind == ObjectiveKind.COLLECT) inventory(player).count(o.target).coerceAtMost(o.amount) else q.objectives.getOrDefault(o.id,0)), "amount" to o.amount)) }
                     }
                 }
             }

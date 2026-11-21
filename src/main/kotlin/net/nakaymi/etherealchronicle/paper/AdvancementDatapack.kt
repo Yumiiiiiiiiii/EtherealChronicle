@@ -69,7 +69,10 @@ internal object AdvancementDatapack {
     private fun advancementPath(titleId:String):String = titleId.substringAfter(':')
     private fun parentKey(parent:String):String = if(parent.startsWith("ec:title_")) advancementId(parent) else parent
 
-    private fun rootJson(title:String,description:String):String = """{"display":{"icon":{"id":"minecraft:book"},"title":"${escape(title)}","description":"${escape(description)}","background":"minecraft:textures/gui/advancements/backgrounds/adventure.png","frame":"task","show_toast":false,"announce_to_chat":false,"hidden":false},"criteria":{"root":{"trigger":"minecraft:impossible"}}}"""
+    internal fun rootJson(title:String,description:String):String = """{"display":{"icon":{"id":"minecraft:book"},"title":"${escape(title)}","description":"${escape(description)}","background":"${advancementBackground()}","frame":"task","show_toast":false,"announce_to_chat":false,"hidden":false},"criteria":{"root":{"trigger":"minecraft:impossible"}}}"""
+
+    /** 1.21.5以降のテクスチャ識別子形式に合わせ、textures/と拡張子を除いた既存背景を指定します。 */
+    internal fun advancementBackground():String = "minecraft:gui/advancements/backgrounds/adventure"
 
     private fun titleJson(icon:String,displayTitle:String,description:String,frame:String,parent:String):String =
         """{"parent":"${escape(parent)}","display":{"icon":{"id":"minecraft:${icon.lowercase()}"},"title":"${escape(displayTitle)}","description":"${escape(description)}","frame":"${frame.lowercase()}","show_toast":true,"announce_to_chat":false,"hidden":false},"criteria":{"profile_condition_met":{"trigger":"minecraft:impossible"}}}"""

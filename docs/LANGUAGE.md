@@ -15,6 +15,7 @@
 | `ec.boss.telegraph_ice` | 青白い | icy | src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt |  |
 | `ec.boss.telegraph_void` | 紫の | void | src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt |  |
 | `ec.class.choose` | 職業を選んでください | Choose a class | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.class.weapon_queued` | 新しい職業の初期武器は持ち物に送られました。<gold>/ec claim</gold> で受け取れます。 | Your new class starter weapon was sent to your mailbox. Use <gold>/ec claim</gold> to receive it. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.codex.back_areas` | エリア一覧へ戻る | Back to Areas | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.codex.catch_count` | 釣果: <count>匹 | Caught: <count> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<count>` |
 | `ec.codex.defeated_count` | 討伐数: <count> | Defeated: <count> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<count>` |
@@ -85,6 +86,7 @@
 | `ec.error.area_missing` | 転送先エリアが見つかりません。 | Destination area not found. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.argument_missing` | 引数が不足しています: <detail> | Missing argument: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt | `<detail>` |
 | `ec.error.class_already_selected` | 職業は既に選択されています。 | A class has already been selected. | src/main/kotlin/net/nakaymi/etherealchronicle/core/GameService.kt |  |
+| `ec.error.class_busy` | 職業変更を処理中です。しばらくお待ちください。 | A class change is already in progress. Please wait. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.error.class_missing` | 職業が未選択です。 | No class has been selected. | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.error.consumable_cooldown` | まだ使用できません。 | That item is not ready yet. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.currency_cap` | 所持金の上限を超えます。 | This would exceed your currency limit. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/WorldDefinitions.kt |  |

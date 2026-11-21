@@ -125,6 +125,7 @@ ec:
     cleared: "称号表示を解除しました。"
     equipped: "称号を装備しました: <name>"
   error:
+    class_busy: "職業変更を処理中です。しばらくお待ちください。"
     quest_missing: "依頼が見つかりません。"
     quest_prerequisite: "依頼の受注条件を満たしていません。"
     quest_active: "この依頼は受注済みです。"
@@ -230,6 +231,7 @@ ec:
     teleported: "<name>へ転送しました。"
   class:
     choose: "職業を選んでください"
+    weapon_queued: "新しい職業の初期武器は持ち物に送られました。<gold>/ec claim</gold> で受け取れます。"
   menu:
     dialogue: "会話"
     shop: "お店"

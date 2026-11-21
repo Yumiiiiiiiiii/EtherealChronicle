@@ -125,6 +125,7 @@ ec:
     cleared: "Displayed title cleared."
     equipped: "Title equipped: <name>"
   error:
+    class_busy: "A class change is already in progress. Please wait."
     quest_missing: "Quest not found."
     quest_prerequisite: "You do not meet the quest requirements."
     quest_active: "This quest is already active."
@@ -246,6 +247,7 @@ ec:
     teleported: "Teleported to <name>."
   class:
     choose: "Choose a class"
+    weapon_queued: "Your new class starter weapon was sent to your mailbox. Use <gold>/ec claim</gold> to receive it."
   menu:
     dialogue: "Dialogue"
     shop: "Shop"
