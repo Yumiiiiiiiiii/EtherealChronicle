@@ -14,3 +14,7 @@
 - Verified on real Paper 26.3-257 (offline): boot, plugin enable, `ec validate`/`reload`, sim join/class/skill(cooldown+cost)/kill/level-up/quest-once/save, restart + `sim load` identical, clean shutdown. 21 unit tests pass. Evidence: scripts/logs (local, gitignored) excerpts in docs/TESTING.md.
 - BLOCKED: bot join (mineflayer lacks 26.3 protocol data; 26.1 -> ECONNRESET). Real-player paths (GUI, spawn/combat events, HP scale, slot protection, starter grant) remain NOT-RUN.
 - Harness fixes: smoke-test sink crash (pwsh scriptblock handler), UTF-8 console, false-positive on normal "Disabling", `-HoldSeconds`.
+
+## Claude-QA — Task 3 (MockBukkit player-path harness)
+- Bot still blocked (no 26.3 data upstream). MockBukkit 26.3 (4.123.0, paper-api build.200 on test classpath) works; PlayerFlowSmokeTest runs join -> GUI -> starter -> spawn -> swap -> quit -> rejoin. Cast/kill-reward steps BLOCKED(mock: rayTraceEntities / getKiller). Needs `open class RpgPlugin` + test deps in build.gradle.kts (done on qa/harness).
+- Bugs: BUG-1 empty-armor NPE in RpgPlugin.stats; BUG-2 `ec validate` racing async startup. Java client present on PC (26.3), not launched.

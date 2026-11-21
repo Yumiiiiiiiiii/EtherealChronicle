@@ -17,6 +17,8 @@ dependencies {
     implementation(kotlin("stdlib"))
     compileOnly("org.yaml:snakeyaml:2.2")
     testImplementation("org.yaml:snakeyaml:2.2")
+    testImplementation("io.papermc.paper:paper-api:26.3.build.200-stable") // must match MockBukkit manifest Paper-Version
+    testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v26.3:4.123.0") // QA: in-JVM Player/event tests
     testImplementation(kotlin("test"))
     testImplementation(platform("org.junit:junit-bom:5.13.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")

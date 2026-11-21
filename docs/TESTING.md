@@ -26,6 +26,29 @@ Owner: Claude-QA (branch `qa/harness`). Status values: **NOT-RUN** (default), PA
 - Fallbacks: add an admin/debug command set in the plugin (e.g. `/ec debug simulate <player> ...`) so flows can be driven from console without a client; unit-test the pure core for the logic.
 - **GUI / computer-use**: the QA agent has shell, file, an in-app browser (web only) and Chrome devtools tools. No Minecraft client is installed/driven, and no desktop computer-use tools were exposed in this session. Visual/GUI checks (inventory menus, ActionBar, boss bars) are therefore manual-only.
 
+## Real Player paths without a client: MockBukkit (added 2026-11-21, Task 3)
+- **Bot options re-checked**: npm `minecraft-data@3.119.0` / `minecraft-protocol@1.68.0` / `mineflayer@4.39.0` are the latest dist-tags; none has 26.3 data (max 26.1). Still BLOCKED.
+- **MockBukkit works for 26.3**: `org.mockbukkit.mockbukkit:mockbukkit-v26.3:4.123.0` (Maven Central). Requirements discovered:
+  1. test classpath must use the Paper API in the jar manifest (`Paper-Version: 26.3.build.200-stable`), not build 257, else `InternalDataLoadException ... minecraft:world_clock`;
+  2. MockBukkit subclasses the plugin class, so `RpgPlugin` must be `open` (Kotlin classes are final) — a one-word change in src/main that Codex should adopt.
+- **Scenario** `PlayerFlowSmokeTest.scriptedPlayerScenario` (writes `build/qa-steps.txt`): join -> class GUI click -> starter kit -> spawn mob -> swap-hand -> cast -> kill -> quit -> rejoin. Result 2026-11-21:
+
+| Step | Result |
+|---|---|
+| 0 plugin enabled (async startup) | PASS |
+| 1 join -> class menu opens | PASS |
+| 2 GUI click mage -> starter weapon in hotbar + skill star in slot 9 | PASS (only when all 4 armor slots are non-empty, see BUG-1) |
+| 3 health scale 20 applied (max HP 100) | PASS |
+| 4 `/ec spawn ec:forest_slime` | PASS |
+| 5 swap-hand cycles skill (`選択: 星火 2`) | PASS |
+| 6 right-click cast | BLOCKED(mock): `World.rayTraceEntities` unimplemented in MockBukkit |
+| 7 kill -> reward via EntityDeathEvent | BLOCKED(mock): `getKiller()` is null for mock damage, so the reward path is not reached |
+| 8 quit -> rejoin | PASS: profile file saved with `ec:mage`, no class menu on rejoin (vanilla inventory is not persisted by the mock) |
+
+- **BUG-1 (found)**: with empty armor slots `RpgPlugin.stats` throws `NullPointerException: component2(...) must not be null` (RpgPlugin.kt:426, destructuring `(slot, stack)` of `Pair` built from `inventory.helmet` etc.). Real Paper also returns null for empty slots, so every class-select / join / 1 Hz `tick()` for a player without full armor is expected to fail. Repro: `@Disabled` test `emptyArmorSlotsDoNotCrashClassSelection` (enable once fixed). Not yet confirmed on a real client.
+- **BUG-2 (found live)**: `ec validate` sent right after `Done` replied `検証失敗: lateinit property content has not been initialized` (async startup race; the command executor is usable before content is ready).
+- A Java client **is installed** on this PC (`%APPDATA%\.minecraft`, versions `26.3`, `26.4-snapshot-2`, `1.12.2`; Microsoft Store launcher). Nothing was launched, no account data read. Driving it would need a human-supplied login and no GUI automation tools are available to the QA agent; a human can join `127.0.0.1:25565` (offline mode) while `smoke-test.ps1 -HoldSeconds N` or `dev-server.ps1` runs.
+
 ## Checklist
 Each item: scope, how to verify, status. Environment for all server items: Paper 26.3-257, offline mode.
 
@@ -35,8 +58,8 @@ Each item: scope, how to verify, status. Environment for all server items: Paper
 | 1 | Server start | smoke-test reaches `Done`, no exceptions | PASS: Paper 26.3-257 reaches `Done (6.9s)` offline (smoke-20261121-120318.log) |
 | 2 | Plugin load/enable | log has `Enabling EtherealChronicle`, no load errors; `/plugins` green | PASS: `Enabling EtherealChronicle v0.1.0`, `冒険システムの準備が完了しました。`, no WARN/ERROR from plugin; default content copied to `plugins/EtherealChronicle/content` |
 | 3 | `ec validate` / `ec reload` | console output reports 0 errors; reload atomic (bad YAML keeps old content) | PASS: `ec validate` -> `コンテンツ検証成功。`; `ec reload` -> `コンテンツを再読み込みしました。`. Atomic-keep-old-on-bad-YAML NOT-RUN live (unit-tested by Codex only) |
-| 4 | First join | new UUID gets profile file in `playerdata/`, welcome text (JP), spawn in Lumina | NOT-RUN (needs real client; bot BLOCKED). Only simulated: `sim join qa` creates a profile |
-| 5 | Class select | choose each of 3 classes; stats/resource set; cannot re-pick without reset | PARTIAL: simulated `sim class qa ec:mage` -> resource 100, skills ranked 1, tutorial quest assigned; re-select rejected (`職業は既に選択されています`). GUI menu NOT-RUN |
+| 4 | First join | new UUID gets profile file in `playerdata/`, welcome text (JP), spawn in Lumina | PARTIAL: MockBukkit join -> profile loaded -> class menu opens (step 1). Real client NOT-RUN |
+| 5 | Class select | choose each of 3 classes; stats/resource set; cannot re-pick without reset | PARTIAL: simulated `sim class qa ec:mage` -> resource 100, skills ranked 1, tutorial quest assigned; re-select rejected (`職業は既に選択されています`). MockBukkit GUI click -> starter kit PASS (needs BUG-1 workaround) |
 | 6 | Tutorial | steps advance in order, skip works, rewards granted once | PARTIAL: simulated kill auto-completes `ec:tutorial` (progress 1/1, completed) and pays 100 XP once; a second `sim quest` is rejected (`依頼の達成条件を満たしていません`). In-game flow NOT-RUN |
 | 7 | NPC interaction | dialogue opens, branches, no duplicate spawn after restart | NOT-RUN (no NPCs implemented yet) |
 | 8 | Quest | accept -> progress -> complete -> reward once; abandon; prerequisite gating | PARTIAL: only the tutorial quest exists (see 6) |
@@ -49,7 +72,7 @@ Each item: scope, how to verify, status. Environment for all server items: Paper
 | 15 | Party | invite/accept/leave/kick, XP share, disband on leader quit | NOT-RUN (no party yet) |
 | 16 | Boss | spawn, phases, loot per participant, reset on wipe, cleanup of tasks/entities | NOT-RUN (no boss yet) |
 | 17 | Chapter 1 clear | full chain Lumina -> Ashwood -> mine -> boss -> ending flag set | NOT-RUN (content not present) |
-| 18 | Reconnect | quit mid-fight/quest and rejoin: state intact, cooldowns sane, no dupe | NOT-RUN (needs client) |
+| 18 | Reconnect | quit mid-fight/quest and rejoin: state intact, cooldowns sane, no dupe | PARTIAL: MockBukkit quit -> rejoin restores class and does not reopen menu (step 8). Real client NOT-RUN |
 | 19 | Restart persistence | stop server, restart: profile, quests, inventory, currency identical; kill -9 mid-save leaves valid file (tmp+rename) / backup recovers | PASS for simulated profile: save -> stop server -> restart -> `sim load qa` returned identical level/xp/currency/resource/quests/skills; second save kept a valid `.yml` + `.bak`. Real-player persistence and kill -9 mid-save NOT-RUN |
 | 20 | Disable/reload cleanliness | `/reload`-less stop: no leaked schedulers, all profiles flushed, no exceptions | PASS (partial): clean `stop` shows `Disabling EtherealChronicle` with no exceptions in 3 runs; leaked-scheduler check NOT-RUN |
 | 21 | Performance | 10 simulated players / 100 mobs: tick time within budget | NOT-RUN |

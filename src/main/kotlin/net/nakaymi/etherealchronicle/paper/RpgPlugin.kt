@@ -22,7 +22,7 @@ class ClassMenu: InventoryHolder {
     override fun getInventory() = menu
 }
 
-class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
+open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private lateinit var content: ContentService
     private lateinit var store: PlayerStore
     private lateinit var game: GameService
