@@ -85,6 +85,18 @@ data class ItemDefinition(val id: String, val name: String, val material: String
     fun withinBudget() = stats.hp / 10 + stats.resource / 10 + stats.attack + stats.defense + stats.crit * 100 +
         stats.critDamage * 10 + stats.elementResist * 100 + stats.skillPower * 10 <= budget * budgetMultiplier
 }
+fun ItemDefinition.enhancedStats(level:Int,balance:Balance,rate:Double):Stats {
+    require(level in 0..5 && rate in 0.0..0.1)
+    fun candidate(factor:Double)=Stats(
+        (stats.hp*factor).coerceAtMost(balance.statCap),(stats.resource*factor).coerceAtMost(balance.statCap),
+        (stats.attack*factor).coerceAtMost(balance.statCap),(stats.defense*factor).coerceAtMost(balance.statCap),
+        (stats.crit*factor).coerceAtMost(balance.critCap),if(stats.critDamage == 0.0) 0.0 else (stats.critDamage*factor).coerceAtMost(balance.critDamageCap),
+        (stats.elementResist*factor).coerceAtMost(balance.elementCap),(stats.skillPower*factor).coerceAtMost(balance.statCap))
+    val wanted=1.0+level*rate
+    var low=1.0; var high=wanted
+    repeat(40) { val mid=(low+high)/2; if(copy(stats=candidate(mid)).withinBudget()) low=mid else high=mid }
+    return candidate(low)
+}
 data class DropEntry(val item: String, val chance: Double, val min: Int, val max: Int, val pityAfter: Int? = null)
 data class DropTable(val id: String, val entries: List<DropEntry>) {
     fun roll(random: Random, pity: MutableMap<String,Int> = mutableMapOf(), pityCap: Int = 100): Map<String, Int> = buildMap {
@@ -112,8 +124,8 @@ data class PlayerProfile(val uuid: UUID, var classId: String? = null, var level:
     var currency: Long = 0, var resource: Double = 0.0, var selectedSkill: Int = 0,
     var starterGranted: Boolean = false, val quests: MutableMap<String, QuestProgress> = mutableMapOf(),
     val skillLevels: MutableMap<String, Int> = mutableMapOf(), val flags: MutableSet<String> = mutableSetOf(),
-    val dailyPurchases: MutableMap<String, Int> = mutableMapOf(), val transactions: MutableList<String> = mutableListOf(), var accessory: String? = null, val pendingRewards: MutableMap<String,Int> = mutableMapOf(), val dropPity: MutableMap<String,Int> = mutableMapOf(),val challengeRecords: MutableMap<String,ChallengeRecord> = mutableMapOf(),var selectedTitle:String? = null) {
-    fun snapshot() = copy(skillLevels = skillLevels.toMutableMap(), quests = quests.mapValues { it.value.copy(objectives = it.value.objectives.toMutableMap()) }.toMutableMap(), flags = flags.toMutableSet(), dailyPurchases = dailyPurchases.toMutableMap(), transactions = transactions.toMutableList(), pendingRewards = pendingRewards.toMutableMap(), dropPity = dropPity.toMutableMap(),challengeRecords=challengeRecords.mapValues { it.value.copy() }.toMutableMap())
+    val dailyPurchases: MutableMap<String, Int> = mutableMapOf(), val transactions: MutableList<String> = mutableListOf(), var accessory: String? = null, val pendingRewards: MutableMap<String,Int> = mutableMapOf(), val dropPity: MutableMap<String,Int> = mutableMapOf(),val challengeRecords: MutableMap<String,ChallengeRecord> = mutableMapOf(),var selectedTitle:String? = null,val bestiary:MutableMap<String,Int> = mutableMapOf(),val discoveredItems:MutableSet<String> = mutableSetOf()) {
+    fun snapshot() = copy(skillLevels = skillLevels.toMutableMap(), quests = quests.mapValues { it.value.copy(objectives = it.value.objectives.toMutableMap()) }.toMutableMap(), flags = flags.toMutableSet(), dailyPurchases = dailyPurchases.toMutableMap(), transactions = transactions.toMutableList(), pendingRewards = pendingRewards.toMutableMap(), dropPity = dropPity.toMutableMap(),challengeRecords=challengeRecords.mapValues { it.value.copy() }.toMutableMap(),bestiary=bestiary.toMutableMap(),discoveredItems=discoveredItems.toMutableSet())
 }
 data class QuestProgress(var progress: Int = 0, var completed: Boolean = false, val objectives: MutableMap<String,Int> = mutableMapOf(), var completedAt: Long = 0, var repeatAvailableAt: Long = Long.MAX_VALUE, var resetPeriod: String? = null)
 
@@ -130,6 +142,22 @@ fun PlayerProfile.equipTitle(id:String?,titles:Map<String,TitleDefinition>):Bool
     selectedTitle=id
     return true
 }
+fun PlayerProfile.recordEnemyKill(enemy:String,areas:Map<String,Area>,definitions:Map<String,EnemyDefinition>):Set<String> {
+    bestiary[enemy]=(bestiary.getOrDefault(enemy,0)+1).coerceAtMost(1_000_000)
+    val unlocked=mutableSetOf<String>()
+    areas.values.forEach { area ->
+        val all=definitions.values.filter { e -> e.spawns.any { s -> area.contains(Position(s.position.world,s.position.x,s.position.y,s.position.z)) } }.map { it.id }.toSet()
+        if(all.isEmpty()) return@forEach
+        val found=all.count { (bestiary[it] ?: 0) > 0 }
+        val percent=found*100/all.size
+        listOf(25,50,75,100).filter { percent >= it }.forEach { milestone ->
+            val flag="ec:flag_codex_${area.id.removePrefix("ec:area_")}_$milestone"
+            if(flags.add(flag)) unlocked+=flag
+        }
+    }
+    return unlocked
+}
+fun PlayerProfile.discoverItem(id:String):Boolean = discoveredItems.add(id)
 
 
 

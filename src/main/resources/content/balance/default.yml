@@ -43,3 +43,7 @@ drop_pity_attempt_cap: 100
 calendar_reset_zone: UTC
 daily_reset_hour: 20
 weekly_reset_day: MONDAY
+enhancement_cap: 5
+enhancement_rate: 0.03
+enhancement_base_currency: 100
+enhancement_material: ec:item_mat_artisan_whetstone

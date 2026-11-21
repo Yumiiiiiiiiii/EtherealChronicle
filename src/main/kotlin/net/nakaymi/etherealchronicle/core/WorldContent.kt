@@ -140,6 +140,10 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
         }
         validateWorldReferences(documents)
     }
+    fun enemiesInArea(areaId:String):List<EnemyDefinition> {
+        val area=areas[areaId] ?: return emptyList()
+        return enemies.values.filter { enemy -> enemy.spawns.any { spawn -> area.contains(spawn.position) } }.sortedBy { it.id }
+    }
 }
 @Suppress("UNCHECKED_CAST") fun Any?.asMapping(): Map<String,Any?> = this as? Map<String,Any?> ?: error("マッピングが必要です。")
 fun Map<String,Any?>.maps(k: String): List<Map<String,Any?>> = if(k !in this) emptyList() else (this[k] as? List<*> ?: error("リストが必要です: $k")).map { it.asMapping() }

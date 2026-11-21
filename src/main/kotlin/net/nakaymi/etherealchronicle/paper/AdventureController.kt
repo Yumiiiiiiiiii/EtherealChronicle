@@ -14,7 +14,7 @@ import org.bukkit.persistence.PersistentDataType
 import java.util.UUID
 
 class RpgMenu(val kind: String,val contentId: String,val nodeId: String = ""): InventoryHolder {
-    private val menu=Bukkit.createInventory(this,54,Component.text(when(kind) { "dialogue" -> "会話"; "shop" -> "お店"; else -> "装備" }))
+    private val menu=Bukkit.createInventory(this,54,Component.text(when(kind) { "dialogue" -> "会話"; "shop" -> "お店"; "codex-areas" -> "冒険者の図鑑 — エリア"; "codex-area" -> "冒険者の図鑑 — 魔物"; "codex-items" -> "冒険者の図鑑 — アイテム"; else -> "装備" }))
     override fun getInventory() = menu
 }
 class AdventureController(private val plugin: RpgPlugin): Listener {
@@ -310,6 +310,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         val beforeStorage: Array<ItemStack?> = player.inventory.storageContents.map { it?.clone() }.toTypedArray()
         try {
             mutate(staged)
+            staged.add.keys.forEach(p::discoverItem)
             require(inventory.canExchange(staged.remove,staged.add)) { "持ち物に空きがありません。" }
             require(inventory.exchange(staged.remove,emptyMap()))
             staged.add.forEach { (id,n) -> p.pendingRewards.merge(id,n,Int::plus) }

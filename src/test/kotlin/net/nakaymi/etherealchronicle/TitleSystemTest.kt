@@ -26,7 +26,7 @@ class TitleSystemTest {
         profile.equipTitle("ec:title_truth_seeker",titles)
 
         PlayerStore(directory).use { store ->
-            assertEquals(8,store.migrate(mapOf("schema_version" to 7))["schema_version"])
+            assertEquals(9,store.migrate(mapOf("schema_version" to 8))["schema_version"])
             store.save(profile).join()
             val loaded=store.load(profile.uuid).join()
             assertEquals("ec:title_truth_seeker",loaded.selectedTitle)
