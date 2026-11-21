@@ -1,0 +1,5 @@
+name: EtherealChronicle
+version: '${version}'
+main: dev.mcmmo.rpg.EtherealChroniclePlugin
+api-version: '26.3'
+description: Original fantasy MMORPG for PaperMC

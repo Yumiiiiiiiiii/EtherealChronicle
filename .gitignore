@@ -1,0 +1,6 @@
+dev/server/*
+!dev/server/.gitkeep
+build/
+.gradle/
+.idea/
+*.class
