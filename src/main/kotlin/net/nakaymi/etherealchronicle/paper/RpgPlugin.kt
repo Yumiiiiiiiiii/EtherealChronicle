@@ -154,6 +154,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             syncTitleAdvancements(player,profile)
             if(::dungeons.isInitialized) dungeons.recover(player)
             if(!player.hasPlayedBefore() || profile.classId == null) Bukkit.getWorld(DemoWorld.NAME)?.let { player.teleport(DemoWorld.luminaSpawn(it)) }
+            Bukkit.getWorld(DemoWorld.NAME)?.takeIf { player.world==it }?.let { DemoWorld.clearNearbySafeHostiles(this,it,player.location) }
             if(profile.classId == null || !profile.starterGranted) menu(player) else {
                 skillSlot(player); applyStats(player,profile)
                 adventure.whenAvailable(player.uniqueId) { if(player.isOnline && profiles[player.uniqueId] === profile) adventure.claimPending(player) }
@@ -623,6 +624,11 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     }
     @EventHandler fun move(e: PlayerMoveEvent) {
         if(e.from.world != e.to.world || e.from.distanceSquared(e.to) > 0.0) lastMoved[e.player.uniqueId] = Bukkit.getCurrentTick()
+        val safeAreas=snapshot.world.areas.values
+        val to=e.to
+        if(enteredSafeArea(Position(e.from.world.name,e.from.x,e.from.y,e.from.z),Position(to.world.name,to.x,to.y,to.z),safeAreas)) {
+            DemoWorld.clearNearbySafeHostiles(this,to.world,to)
+        }
     }
     @EventHandler fun split(e: SlimeSplitEvent) { if(e.entity.persistentDataContainer.has(enemyKey)) e.isCancelled = true }
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true)
