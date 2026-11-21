@@ -10,5 +10,6 @@ classes: [ec:class_cleric]
 budget: 10
 stats: {attack: 4, resource: 30, skill_power: 0.1}
 weapon: 17
-price: 30
+price: 0
+bound: true
 lore: '星導士見習いが祈りと光の導きを学ぶための木製香炉杖。'

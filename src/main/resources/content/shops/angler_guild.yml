@@ -1,0 +1,24 @@
+schema_version: 1
+id: ec:shop_angler_guild
+type: shop
+name: 蒼穹釣りギルド商店
+npc: ec:npc_minato
+buyback: true
+discount: 0
+entries:
+  - {id: buy_rod_oak, item: 'ec:item_tool_rod_oak', amount: 1, price: 120}
+  - {id: craft_rod_starwood, item: 'ec:item_tool_rod_starwood', amount: 1, price: 420, tokens: [{item: 'ec:item_mat_starwood_log', amount: 3}], condition: {min_level: 7}}
+  - {id: craft_rod_astral, item: 'ec:item_tool_rod_astral', amount: 1, price: 1100, tokens: [{item: 'ec:item_mat_aether_crystal_core', amount: 3}], condition: {min_level: 14}}
+  - {id: buy_bait_earthworm, item: 'ec:item_bait_earthworm', amount: 5, price: 90}
+  - {id: buy_bait_aether_lure, item: 'ec:item_bait_aether_lure', amount: 3, price: 120, condition: {min_level: 5}}
+  - {id: buy_bait_frost_krill, item: 'ec:item_bait_frost_krill', amount: 3, price: 210, condition: {min_level: 12}}
+  - {id: cook_sardine_skewers, item: 'ec:item_con_sardine_skewers', amount: 1, price: 0, tokens: [{item: 'ec:item_fish_silver_sardine', amount: 2}]}
+  - {id: cook_trout_herb_soup, item: 'ec:item_con_trout_herb_soup', amount: 1, price: 0, tokens: [{item: 'ec:item_fish_sunbeam_trout', amount: 1}, {item: 'ec:item_mat_ash_leaf', amount: 1}]}
+  - {id: cook_moon_carp_sashimi, item: 'ec:item_con_moon_carp_sashimi', amount: 1, price: 0, tokens: [{item: 'ec:item_fish_moon_carp', amount: 2}]}
+  - {id: cook_frost_seafood_pot, item: 'ec:item_con_frost_seafood_pot', amount: 1, price: 0, tokens: [{item: 'ec:item_fish_glacier_smelt', amount: 2}, {item: 'ec:item_mat_frostbloom_herb', amount: 1}]}
+  - {id: market_silver_sardine, item: 'ec:item_fish_silver_sardine', amount: 1, price: 140, daily_limit: 5}
+  - {id: market_sunbeam_trout, item: 'ec:item_fish_sunbeam_trout', amount: 1, price: 160, daily_limit: 5, condition: {min_level: 3}}
+  - {id: market_iron_catfish, item: 'ec:item_fish_iron_catfish', amount: 1, price: 220, daily_limit: 3, condition: {min_level: 6}}
+  - {id: market_glacier_smelt, item: 'ec:item_fish_glacier_smelt', amount: 1, price: 280, daily_limit: 3, condition: {min_level: 14}}
+  - {id: market_milkyway_dace, item: 'ec:item_fish_milkyway_dace', amount: 1, price: 360, daily_limit: 3, condition: {min_level: 10}}
+  - {id: market_blizzard_shark, item: 'ec:item_fish_blizzard_shark', amount: 1, price: 420, daily_limit: 2, condition: {min_level: 16}}

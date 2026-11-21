@@ -1,0 +1,20 @@
+schema_version: 1
+id: ec:quest_life_d02_daily_gatherer
+type: quest
+name: 【デイリー】ハナの素材調達依頼
+condition: {min_level: 3, has_flags: ['ec:flag_life_gatherer_enrolled']}
+objectives:
+  - {id: survey_mine, kind: EXPLORE, target: 'ec:area_weeping_mine', amount: 1}
+  - {id: deliver_ash_leaf, kind: COLLECT, target: 'ec:item_mat_ash_leaf', amount: 2, consume: true}
+  - {id: report_hana, kind: TALK, target: 'ec:npc_hana', amount: 1}
+rewards:
+  xp: 380
+  currency: 220
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_starwood_resin', amount: 1}
+    - {item: 'ec:item_mat_artisan_whetstone', amount: 1}
+auto_complete: false
+repeatable: true
+repeat_cooldown_ms: 86400000
+reset_schedule: DAILY

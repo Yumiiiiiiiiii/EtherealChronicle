@@ -1,0 +1,97 @@
+schema_version: 1
+id: ec:dlg_hana_hub
+type: dialogue
+name: 採集案内人ハナの広場
+speaker: ec:npc_hana
+start: root
+nodes:
+  root:
+    text: こんにちは！ここは蒼穹の採集ギルド案内所です。森の薬草、星木の古材、廃坑の星鉄鉱脈、そして星見の結晶——専用の採集具さえあれば、各地の資源ノードから貴重な素材を安全に採取できますよ。
+    choices:
+      - id: open_gatherer_shop
+        label: 星片採集交換所を開く（採集具・霊薬調合・砥石精錬）
+        actions:
+          - {kind: OPEN_SHOP, target: 'ec:shop_gatherer_exchange'}
+      - id: start_g01
+        label: 【採取】星片の大地を採るを受ける（入門・ピッケル＆銀鎌支給）
+        condition: {min_level: 1, has_flags: ['ec:flag_ch1_started'], not_started_quests: ['ec:quest_life_g01_gatherer_intro']}
+        next: g01_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_life_g01_gatherer_intro'}
+      - id: complete_g01
+        label: 【採取】星片の大地を採るを完了する
+        condition: {active_quests: ['ec:quest_life_g01_gatherer_intro']}
+        next: g01_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_life_g01_gatherer_intro'}
+      - id: start_g02
+        label: 【採取】廃坑の星鉄鉱脈調査を受ける（Lv6〜・結晶抽出器支給）
+        condition: {min_level: 6, completed_quests: ['ec:quest_life_g01_gatherer_intro'], not_started_quests: ['ec:quest_life_g02_mine_vein_survey']}
+        next: g02_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_life_g02_mine_vein_survey'}
+      - id: complete_g02
+        label: 【採取】廃坑の星鉄鉱脈調査を報告する
+        condition: {active_quests: ['ec:quest_life_g02_mine_vein_survey']}
+        next: g02_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_life_g02_mine_vein_survey'}
+      - id: start_g03
+        label: 【採取】星見と霧氷の秘宝採集を受ける（Lv14〜・称号解放）
+        condition: {min_level: 14, completed_quests: ['ec:quest_life_g02_mine_vein_survey'], has_flags: ['ec:flag_ch2_started'], not_started_quests: ['ec:quest_life_g03_master_harvest']}
+        next: g03_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_life_g03_master_harvest'}
+      - id: complete_g03
+        label: 【採取】星見と霧氷の秘宝採集を報告する
+        condition: {active_quests: ['ec:quest_life_g03_master_harvest']}
+        next: g03_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_life_g03_master_harvest'}
+      - id: start_d02
+        label: 【デイリー】ハナの素材調達依頼を受ける（毎日更新・Lv3〜）
+        condition: {min_level: 3, has_flags: ['ec:flag_life_gatherer_enrolled'], not_started_quests: ['ec:quest_life_d02_daily_gatherer']}
+        next: d02_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_life_d02_daily_gatherer'}
+      - id: complete_d02
+        label: 【デイリー】素材調達依頼を報告する
+        condition: {active_quests: ['ec:quest_life_d02_daily_gatherer']}
+        next: d02_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_life_d02_daily_gatherer'}
+      - id: gathering_tips
+        label: 採取ノードのルールとパーティ特典を聞く
+        next: tips_node
+      - id: bye
+        label: また素材を集めてくるよ
+  g01_started:
+    text: まずはアッシュウッドの森の植生を視察して、私のもとへ戻ってきてください。基本の『星鉄の採掘ピッケル』と『薬草師の銀鎌』をお渡しします！
+    choices: []
+  g01_done:
+    text: お疲れさまでした！ピッケルと銀鎌、それに採取見本のアッシュリーフを受け取ってください。上位の採集具や研磨砥石の精錬も交換所で承っていますよ。
+    choices: []
+  g02_started:
+    text: 嘆きの廃坑で良質な星鉄鉱脈が見つかりました。廃坑を調査し、星鉄鉱石を3個持ち帰っていただけますか？お礼に『星片結晶抽出器』を支給します！
+    choices: []
+  g02_done:
+    text: 素晴らしい純度の星鉄鉱石ですね！約束の『星片結晶抽出器』と蒼輝石の原石、星木の原木をお渡しします。これで星見の丘の結晶ノードにも挑めますよ！
+    choices: []
+  g03_started:
+    text: 星見の丘と霧氷の尾根には高純度の星片結晶や希少な薬草が眠っています。両エリアを踏査し、蒼穹結晶核を2個届けてください！
+    choices: []
+  g03_done:
+    text: 見事な採集手腕です！あなたに称号『蒼穹の採集匠』の証と、霜花の薬草・月露の霊草・特製『月露と樹脂の霊薬』を贈ります！
+    choices: []
+  d02_started:
+    text: 本日の素材調達依頼です。嘆きの廃坑の安全を確認しつつ、アッシュリーフを2束届けてください。星木の樹脂と名匠の研磨砥石をお礼にご用意しています！
+    choices: []
+  d02_done:
+    text: 助かりました！香りの良いアッシュリーフですね。報酬の星木の樹脂と名匠の研磨砥石をどうぞ。明日もぜひご協力ください！
+    choices: []
+  tips_node:
+    text: 採取ノードはブロックを壊すのではなく、対応する採集具を持って右クリックで採取します。再出現タイマーはプレイヤー個別なので横取りの心配はありませんし、パーティの仲間が近くにいるとレア採取率が上がりますよ！
+    choices:
+      - id: tips_back
+        label: ありがとう、分かりやすかった
+        next: root

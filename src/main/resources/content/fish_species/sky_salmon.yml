@@ -1,0 +1,28 @@
+schema_version: 1
+id: ec:fish_sky_salmon
+type: fish_species
+name: 蒼穹サケ
+item: ec:item_mat_sky_salmon
+rarity: COMMON
+tags: [PORT, FRESHWATER]
+habitats: [ec:area_lumina_port, ec:area_ashwood_forest]
+time_windows: [ANY]
+weather: [ANY]
+min_rod_tier: 1
+min_fishing_level: 1
+base_weight: 45
+min_cm: 35
+max_cm: 85
+silver_crown_cm: 72
+gold_crown_cm: 80
+life_xp: 22
+adventurer_xp: 12
+minigame:
+  bite_window_ms: 2100
+  difficulty: 1.2
+  sweet_width: 36
+  progress_per_sec: 22
+  tension_decay_per_sec: 24
+  thrash_chance_per_sec: 0.12
+  dive_chance_per_sec: 0.04
+lore_hint: '蒼穹サケ。釣り場と時間帯を見極めて狙おう。'

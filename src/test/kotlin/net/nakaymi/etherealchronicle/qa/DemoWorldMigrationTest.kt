@@ -72,4 +72,24 @@ class DemoWorldMigrationTest {
             assertEquals(Material.AIR, world.getBlockAt(480,65,0).type, "fresh world must not run the v1 migration builder")
         } finally { MockBukkit.unmock() }
     }
+
+    @Test
+    fun `v2 life pools migrate once and preserve non air player edits`() {
+        val server=MockBukkit.mock()
+        try {
+            val world=server.addSimpleWorld(DemoWorld.NAME)
+            val plugin=MockBukkit.load(RpgPlugin::class.java)
+            val folder=Files.createTempDirectory("ec-owned-v2")
+            Files.writeString(folder.resolve(".etherealchronicle-owned"),"test-owned\n")
+            Files.writeString(folder.resolve(".etherealchronicle-built"),"v2\n")
+            world.getBlockAt(10,65,28).type=Material.GOLD_BLOCK
+            assertTrue(DemoWorld.migrateToV3(plugin,world,folder))
+            assertEquals("v3",Files.readString(folder.resolve(".etherealchronicle-built")).trim())
+            assertEquals(Material.GOLD_BLOCK,world.getBlockAt(10,65,28).type)
+            assertEquals(Material.WATER,world.getBlockAt(11,65,28).type)
+            assertEquals(Material.PACKED_ICE,world.getBlockAt(13,65,28).type)
+            assertTrue(!DemoWorld.migrateToV3(plugin,world,folder))
+            assertEquals(Material.WATER,world.getBlockAt(11,65,28).type)
+        } finally { MockBukkit.unmock() }
+    }
 }

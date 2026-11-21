@@ -25,7 +25,18 @@ data class Area(val id: String, val name: String, val world: String, val minX: D
 }
 data class DungeonWave(val boss: String, val guards: List<String>, val guardOffsets: List<Pair<Int,Int>>, val bossOffset: Pair<Int,Int>)
 data class ScoreRank(val rank: String,val maxSeconds: Long)
-data class TitleDefinition(val id: String,val name: String,val description: String,val unlockFlag: String)
+enum class TitleConditionType { FLAG, BESTIARY, COLLECTION }
+data class TitleProgressCondition(val type:TitleConditionType,val target:String?,val count:Int) {
+    fun met(profile:PlayerProfile,unlockFlag:String):Boolean = when(type) {
+        TitleConditionType.FLAG -> (target ?: unlockFlag) in profile.flags
+        TitleConditionType.BESTIARY -> (target?.let(profile.bestiary::get) ?: 0) >= count
+        TitleConditionType.COLLECTION -> profile.discoveredItems.size >= count
+    }
+}
+data class TitleAdvancement(val title:String,val description:String,val icon:String,val parent:String?,val frame:String,val condition:TitleProgressCondition)
+data class TitleDefinition(val id: String,val name: String,val description: String,val unlockFlag: String,val advancement:TitleAdvancement? = null) {
+    fun unlocked(profile:PlayerProfile) = unlockFlag in profile.flags || advancement?.condition?.met(profile,unlockFlag) == true
+}
 data class DungeonDefinition(val id: String, val unlockFlag: String, val boss: String, val guards: List<String>, val guardOffsets: List<Pair<Int,Int>>, val area: String, val palette: List<String>, val bossOffset: Pair<Int,Int>, val entryMessage: String, val clearMessage: String,val waves: List<DungeonWave> = emptyList(),val scoreRanks: List<ScoreRank> = emptyList())
 data class NpcDefinition(val id: String, val name: String, val position: Position, val dialogue: String, val shop: String?)
 data class TokenCost(val item: String, val amount: Int)
@@ -42,7 +53,7 @@ data class EnemyDefinition(val id: String, val name: String, val entity: String,
 data class ItemEffect(val kind: String, val amount: Double, val cooldown: Long, val duration: Int, val chance: Double, val element: String)
 data class ItemProperties(val bound: Boolean, val questItem: Boolean, val price: Long, val weapon: Double, val lore: String, val effects: List<ItemEffect>)
 
-class WorldContent(documents: Map<String,Map<String,Any?>>) {
+class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
     val tuning = documents.values.single { it["type"] == "balance" }.tuning()
     val quests = linkedMapOf<String,QuestDefinition>()
     val dialogues = linkedMapOf<String,DialogueDefinition>()
@@ -53,8 +64,23 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
     val titles = linkedMapOf<String,TitleDefinition>()
     val enemies = linkedMapOf<String,EnemyDefinition>()
     val itemProperties = linkedMapOf<String,ItemProperties>()
+    val lifeBalance: LifeBalance
+    val tackle = linkedMapOf<String,TackleDefinition>()
+    val fishingSpots = linkedMapOf<String,FishingSpotDefinition>()
+    val fishSpecies = linkedMapOf<String,FishSpeciesDefinition>()
+    val gatheringNodes = linkedMapOf<String,GatheringNodeDefinition>()
     val chapters = documents.filterValues { it["type"] == "chapter" }
     init {
+        val lifeBalances=documents.values.filter { it["type"] == "life_balance" }
+        require(lifeBalances.size == 1) { "生活バランス定義が1件必要です (現在 ${lifeBalances.size} 件)" }
+        lifeBalance=lifeBalances.single().let { d ->
+            val fishing=d.maps("fishing_score_milestones").map { LifeMilestone(it.int("score"),0,it.string("flag")) }
+            val gathering=d.maps("gathering_milestones").map { LifeMilestone(it.int("total_harvests"),it.integer("unique_nodes",0),it.string("flag")) }
+            LifeBalance(d.integer("life_level_cap",20),d.whole("life_xp_base",80),d.number("life_xp_exponent",1.45),d.number("cast_range_blocks",12.0),d.whole("cast_cooldown_ms",1500),d.integer("max_concurrent_fishing_sessions",100),d.whole("fatigue_window_seconds",600),d.integer("fatigue_soft_threshold",12),d.integer("fatigue_hard_threshold",20),d.whole("fatigue_cooldown_seconds",300),d.whole("reeling_timeout_seconds",45),d.number("slack_fail_seconds",2.5),d.number("party_gather_rare_bonus",0.08),fishing,gathering).also { balance ->
+                require(balance.levelCap in 1..100 && balance.xpBase > 0 && balance.xpExponent in 1.0..3.0 && balance.castRange in 2.0..32.0 && balance.castCooldownMillis in 250..60_000 && balance.maxFishingSessions in 1..1000 && balance.fatigueWindowSeconds in 30..86_400 && balance.fatigueSoftThreshold in 1..1000 && balance.fatigueHardThreshold in balance.fatigueSoftThreshold..2000 && balance.fatigueCooldownSeconds in 1..86_400 && balance.reelingTimeoutSeconds in 5..180 && balance.slackFailSeconds in 0.5..10.0 && balance.partyGatherRareBonus in 0.0..0.25) { "生活バランスの範囲が不正です。" }
+                require((fishing+gathering).all { it.threshold in 1..1_000_000 && it.uniqueNodes in 0..1000 && it.flag.matches(Regex("ec:flag_[a-z0-9_]+")) } && fishing.map { it.threshold }.distinct().size == fishing.size && gathering.map { it.threshold to it.uniqueNodes }.distinct().size == gathering.size) { "生活称号マイルストーンが不正です。" }
+            }
+        }
         documents.forEach { (id,d) ->
           try {
             when(d["type"]) {
@@ -88,7 +114,23 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
                     dialogues[id] = DialogueDefinition(id,start,nodes,globalChoices)
                 }
                 "npc" -> npcs[id] = NpcDefinition(id,d.string("name"),d.mapping("location").position(),d.string("dialogue"),d["shop"] as? String)
-                "title" -> titles[id] = TitleDefinition(id,d.string("name"),d.text("description",""),d.string("unlock_flag"))
+                "title" -> {
+                    val unlockFlag=d.string("unlock_flag")
+                    val advancement=d["advancement"]?.asMapping()?.let { a ->
+                        val raw=a["condition"]?.asMapping() ?: emptyMap()
+                        val type=TitleConditionType.valueOf(raw.text("type","FLAG").uppercase())
+                        val target=when(type) {
+                            TitleConditionType.FLAG -> raw.text("target",unlockFlag)
+                            TitleConditionType.BESTIARY -> raw.string("target")
+                            TitleConditionType.COLLECTION -> null
+                        }
+                        val condition=TitleProgressCondition(type,target,raw.integer("count",1))
+                        val definition=TitleAdvancement(a.text("title",d.string("name")),a.text("description",d.text("description","")),a.string("icon"),a["parent"] as? String,a.text("frame","TASK").uppercase(),condition)
+                        require(definition.title.isNotBlank() && definition.title.length <= 80 && definition.description.length <= 240 && definition.icon.matches(Regex("[A-Z][A-Z0-9_]*")) && (definition.parent == null || definition.parent.matches(Regex("[a-z0-9_.-]+:[a-z0-9_./-]+"))) && definition.frame in setOf("TASK","CHALLENGE","GOAL") && condition.count in 1..1_000_000 && (type == TitleConditionType.COLLECTION || target?.startsWith("ec:") == true)) { "$id: 進捗の表示または条件が不正です。" }
+                        definition
+                    }
+                    titles[id] = TitleDefinition(id,d.string("name"),d.text("description",""),unlockFlag,advancement)
+                }
                 "shop" -> {
                     val entries = d.maps("entries").map { e -> ShopEntry(e.string("id"),e.string("item"),e.integer("amount",1),e.whole("price",0),e.tokens("tokens"),e.condition(),e.integer("daily_limit",0),e["token_discount_flag"] as? String,e.tokens("token_discount")) }
                     require(entries.size in 1..45 && entries.map { it.id }.distinct().size == entries.size && entries.all { it.amount in 1..64 && it.price >= 0 && it.dailyLimit >= 0 && it.tokens.all { t -> t.amount > 0 } })
@@ -130,6 +172,33 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
                 "item" -> itemProperties[id] = ItemProperties(d.bool("bound",false),d.bool("quest_item",false),d.whole("price",0),d.number("weapon",0.0),d.text("lore",""),d.maps("effects").map { e ->
                     ItemEffect(e.string("kind"),e.number("amount",0.0),e.whole("cooldown_ms",0),e.integer("duration_ticks",0),e.number("chance",1.0),e.text("element","PHYSICAL")).also { require(it.kind in setOf("HEAL","RESOURCE","CLEANSE","RETURN","REVIVE","ATTACK_PROC","DEFENSE_BUFF") && it.chance in 0.0..1.0) }
                 })
+                "tackle" -> {
+                    val definition=TackleDefinition(id,d.string("item"),TackleKind.valueOf(d.string("kind")),d.int("tier"),d.integer("min_life_level",1),d.number("wait_reduction",0.0),d.number("sweet_spot_bonus",0.0),d.number("tension_stability",1.0),d.number("size_bonus",0.0),d.number("channel_speed_bonus",0.0),d.number("rare_chance_bonus",0.0),d.mappingOrEmpty("rarity_weights").mapValues { (_,v) -> (v as? Number)?.toDouble() ?: error("rarity_weights は数値が必要です。") },d.strings("preferred_tags").toSet(),d.number("preferred_tag_multiplier",1.0))
+                    require(definition.tier in 1..3 && definition.minLifeLevel in 1..lifeBalance.levelCap && definition.waitReduction in 0.0..0.5 && definition.sweetSpotBonus in 0.0..15.0 && definition.tensionStability in 0.5..1.2 && definition.sizeBonus in 0.0..0.15 && definition.channelSpeedBonus in 0.0..0.4 && definition.rareChanceBonus in 0.0..0.2 && definition.preferredTagMultiplier in 1.0..5.0 && definition.rarityWeights.all { (rarity,weight) -> rarity in Rarity.entries.map { it.name } && weight in 0.0..5.0 }) { "釣具の能力値が上限外です。" }
+                    tackle[id]=definition
+                }
+                "fishing_spot" -> {
+                    val center=d.mapping("center")
+                    val spotWorld=d.string("world")
+                    val definition=FishingSpotDefinition(id,d.string("name"),d.string("area"),spotWorld,Position(spotWorld,center.num("x"),center.num("y"),center.num("z"),center.number("yaw",0.0).toFloat()),d.num("radius"),d.bool("default_for_area",false),d.strings("tags").toSet())
+                    require(definition.name.isNotBlank() && definition.world == "ec_world" && definition.radius in 1.0..128.0 && definition.tags.isNotEmpty()) { "釣り場のワールド・半径・タグが不正です。" }
+                    fishingSpots[id]=definition
+                }
+                "fish_species" -> {
+                    val mini=d.mapping("minigame")
+                    val game=FishMinigame(mini.whole("bite_window_ms",1800),mini.num("difficulty"),mini.num("sweet_width"),mini.num("progress_per_sec"),mini.num("tension_decay_per_sec"),mini.num("thrash_chance_per_sec"),mini.num("dive_chance_per_sec"))
+                    require(game.biteWindowMillis in 500..5000 && game.difficulty in 1.0..5.0 && game.sweetWidth in 22.0..46.0 && game.progressPerSecond in 5.0..40.0 && game.tensionDecayPerSecond in 5.0..50.0 && game.thrashChancePerSecond in 0.0..1.0 && game.diveChancePerSecond in 0.0..1.0 && game.thrashChancePerSecond+game.diveChancePerSecond <= 1.0) { "魚のミニゲーム設定が不正です。" }
+                    val definition=FishSpeciesDefinition(id,d.string("name"),d.string("item"),Rarity.valueOf(d.string("rarity")),d.strings("tags").toSet(),d.strings("habitats").toSet(),d.strings("time_windows").toSet(),d.strings("weather").toSet(),d.int("min_rod_tier"),d.int("min_fishing_level"),d.num("base_weight"),d.num("min_cm"),d.num("max_cm"),d.num("silver_crown_cm"),d.num("gold_crown_cm"),d.whole("life_xp",0),d.whole("adventurer_xp",0),game,d.text("lore_hint",""))
+                    require(definition.tags.isNotEmpty() && definition.habitats.isNotEmpty() && definition.timeWindows.isNotEmpty() && definition.timeWindows.all { it in setOf("ANY","DAY","NIGHT","DAWN_DUSK") } && definition.weather.isNotEmpty() && definition.weather.all { it in setOf("ANY","CLEAR","RAIN","THUNDER") } && definition.minRodTier in 1..3 && definition.minFishingLevel in 1..lifeBalance.levelCap && definition.baseWeight in 0.001..100_000.0 && definition.minCm in 0.1..10_000.0 && definition.maxCm in definition.minCm..10_000.0 && definition.silverCrownCm in definition.minCm..definition.maxCm && definition.goldCrownCm in definition.silverCrownCm..definition.maxCm && definition.lifeXp in 0..100_000 && definition.adventurerXp in 0..100_000) { "魚種の範囲または条件が不正です。" }
+                    fishSpecies[id]=definition
+                }
+                "gathering_node" -> {
+                    fun yields(key: String) = d.maps(key).map { raw -> NodeYield(raw.string("item"),raw.int("min"),raw.int("max"),raw.num("chance"),if("pity_after" in raw) raw.int("pity_after") else null) }
+                    val locations=d.maps("locations").map { raw -> GatheringLocation(raw.string("id"),raw.string("area"),raw.string("world"),raw.int("x"),raw.int("y"),raw.int("z")) }
+                    val definition=GatheringNodeDefinition(id,d.string("name"),NodeKind.valueOf(d.string("node_kind")),d.string("display_material"),d.string("depleted_material"),TackleKind.valueOf(d.string("required_tool_kind")),d.int("min_tool_tier"),d.int("min_gathering_level"),d.whole("channel_ms",0),d.whole("respawn_seconds",0),d.bool("per_player_respawn",true),d.whole("life_xp",0),d.whole("adventurer_xp",0),yields("yields"),yields("rare_yields"),locations)
+                    require(definition.toolKind in setOf(TackleKind.PICKAXE,TackleKind.SICKLE,TackleKind.HATCHET,TackleKind.EXTRACTOR) && definition.minToolTier in 1..3 && definition.minGatheringLevel in 1..lifeBalance.levelCap && definition.channelMillis in 250..60_000 && definition.respawnSeconds in 1..86_400 && definition.lifeXp in 0..100_000 && definition.adventurerXp in 0..100_000 && definition.yields.isNotEmpty() && definition.locations.isNotEmpty() && definition.locations.map { it.id }.distinct().size == definition.locations.size && (definition.yields+definition.rareYields).all { it.min in 1..64 && it.max in it.min..64 && it.chance in 0.0..1.0 && (it.pityAfter == null || it.pityAfter in 1..10000) }) { "採取ノードの範囲または収穫設定が不正です。" }
+                    gatheringNodes[id]=definition
+                }
             }
           } catch(error: Exception) { throw IllegalArgumentException("$id: ${error.message}",error) }
         }
@@ -138,7 +207,33 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
             require(dungeon.area in areas && dungeon.boss in enemies && enemies[dungeon.boss]?.boss == true && dungeon.guards.all { enemies[it] != null } && dungeon.waves.all { wave -> wave.boss in enemies && wave.guards.all { it in enemies } }) { "${dungeon.id}: ダンジョン参照が不正です。" }
             require(dungeon.unlockFlag.startsWith("ec:flag_") && dungeon.palette.all { it.matches(Regex("[A-Z_]+")) }) { "${dungeon.id}: ダンジョン設定が不正です。" }
         }
+        titles.values.forEach { title ->
+            require(title.unlockFlag.matches(Regex("ec:flag_[a-z0-9_]+"))) { "${title.id}: unlock_flag が不正です。" }
+            val advancement=title.advancement ?: return@forEach
+            if(advancement.parent?.startsWith("ec:title_") == true) require(titles[advancement.parent]?.advancement != null) { "${title.id}: 親称号進捗が存在しません: ${advancement.parent}" }
+            if(advancement.condition.type == TitleConditionType.BESTIARY) require(advancement.condition.target in enemies) { "${title.id}: 図鑑進捗の魔物が存在しません: ${advancement.condition.target}" }
+        }
         validateWorldReferences(documents)
+        validateLifeReferences()
+    }
+    private fun validateLifeReferences() {
+        fun ref(id: String,type: String,field: String) { require(documents[id]?.get("type") == type) { "$field -> $id: 参照先は $type が必要です。" } }
+        lifeBalance.fishingMilestones.plus(lifeBalance.gatheringMilestones).forEach { milestone -> require(chapters.values.any { milestone.flag in it.strings("flags") }) { "生活マイルストーンのフラグが章にありません: ${milestone.flag}" } }
+        tackle.values.forEach { ref(it.item,"item","${it.id}.item") }
+        fishingSpots.values.forEach { spot ->
+            require(spot.area in areas && areas.getValue(spot.area).world == spot.world && areas.getValue(spot.area).contains(spot.center)) { "${spot.id}: 釣り場が宣言エリア内にありません。" }
+        }
+        fishSpecies.values.forEach { fish ->
+            ref(fish.item,"item","${fish.id}.item")
+            require(fish.habitats.all { it in areas || it in fishingSpots } && fishingSpots.values.any { spot -> fish.habitats.contains(spot.area) || fish.habitats.contains(spot.id) }) { "${fish.id}: 生息地のエリア/釣り場がありません。" }
+        }
+        gatheringNodes.values.forEach { node ->
+            (node.yields+node.rareYields).forEach { ref(it.item,"item","${node.id}.yields") }
+            node.locations.forEach { location -> require(location.world == "ec_world" && location.area in areas && areas.getValue(location.area).contains(Position(location.world,location.x.toDouble(),location.y.toDouble(),location.z.toDouble()))) { "${node.id}/${location.id}: 採取地点が管理エリア外です。" } }
+        }
+        val nodeCoordinates=gatheringNodes.values.flatMap { node -> node.locations.map { "${it.world}:${it.x},${it.y},${it.z}" } }
+        require(nodeCoordinates.distinct().size == nodeCoordinates.size) { "採取ノード座標が重複しています。" }
+        fishingSpots.values.filter { it.defaultForArea }.groupBy { it.area }.forEach { (area,spots) -> require(spots.size == 1) { "$area: default fishing spot は1件だけ指定できます。" } }
     }
     fun enemiesInArea(areaId:String):List<EnemyDefinition> {
         val area=areas[areaId] ?: return emptyList()
@@ -146,6 +241,7 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
     }
 }
 @Suppress("UNCHECKED_CAST") fun Any?.asMapping(): Map<String,Any?> = this as? Map<String,Any?> ?: error("マッピングが必要です。")
+private fun Map<String,Any?>.mappingOrEmpty(k:String):Map<String,Any?> = if(k !in this) emptyMap() else mapping(k)
 fun Map<String,Any?>.maps(k: String): List<Map<String,Any?>> = if(k !in this) emptyList() else (this[k] as? List<*> ?: error("リストが必要です: $k")).map { it.asMapping() }
 fun Map<String,Any?>.number(k: String,d: Double) = if(k in this) num(k) else d
 fun Map<String,Any?>.integer(k: String,d: Int) = if(k in this) int(k) else d

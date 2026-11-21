@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_tool_rod_oak
+type: item
+name: 樫の蒼穹釣竿
+material: FISHING_ROD
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 120
+lore: 'ルミナ港の職人が組んだ入門用のRPG釣竿。水辺で右クリックすると独自ミニゲームで釣りが始まる（ランク1）。'

@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:tackle_sickle_silver
+type: tackle
+item: ec:item_tool_sickle_silver
+kind: SICKLE
+tier: 1
+min_life_level: 1
+wait_reduction: 0
+sweet_spot_bonus: 0
+tension_stability: 1
+size_bonus: 0
+channel_speed_bonus: 0.04
+rare_chance_bonus: 0.03

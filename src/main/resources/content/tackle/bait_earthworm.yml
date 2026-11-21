@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:tackle_bait_earthworm
+type: tackle
+item: ec:item_bait_earthworm
+kind: BAIT
+tier: 1
+min_life_level: 1
+wait_reduction: 0.15
+sweet_spot_bonus: 0
+tension_stability: 1
+size_bonus: 0
+channel_speed_bonus: 0
+rare_chance_bonus: 0
+preferred_tags: [FRESHWATER, PORT]
+preferred_tag_multiplier: 1.5
+rarity_weights: {COMMON: 1.0, UNCOMMON: 1.25, RARE: 0.35, EPIC: 0.35, LEGENDARY: 0.35}

@@ -1,0 +1,18 @@
+schema_version: 1
+id: ec:quest_life_g01_gatherer_intro
+type: quest
+name: 【採取】星片の大地を採る
+condition: {min_level: 1, has_flags: ['ec:flag_ch1_started']}
+objectives:
+  - {id: scout_forest, kind: EXPLORE, target: 'ec:area_ashwood_forest', amount: 1}
+  - {id: talk_hana, kind: TALK, target: 'ec:npc_hana', amount: 1}
+rewards:
+  xp: 120
+  currency: 100
+  set_flags: ['ec:flag_life_gatherer_enrolled']
+  items:
+    - {item: 'ec:item_tool_pick_iron', amount: 1}
+    - {item: 'ec:item_tool_sickle_silver', amount: 1}
+    - {item: 'ec:item_mat_ash_leaf', amount: 3}
+auto_complete: false
+repeatable: false

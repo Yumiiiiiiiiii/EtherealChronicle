@@ -124,8 +124,10 @@ data class PlayerProfile(val uuid: UUID, var classId: String? = null, var level:
     var currency: Long = 0, var resource: Double = 0.0, var selectedSkill: Int = 0,
     var starterGranted: Boolean = false, val quests: MutableMap<String, QuestProgress> = mutableMapOf(),
     val skillLevels: MutableMap<String, Int> = mutableMapOf(), val flags: MutableSet<String> = mutableSetOf(),
-    val dailyPurchases: MutableMap<String, Int> = mutableMapOf(), val transactions: MutableList<String> = mutableListOf(), var accessory: String? = null, val pendingRewards: MutableMap<String,Int> = mutableMapOf(), val dropPity: MutableMap<String,Int> = mutableMapOf(),val challengeRecords: MutableMap<String,ChallengeRecord> = mutableMapOf(),var selectedTitle:String? = null,val bestiary:MutableMap<String,Int> = mutableMapOf(),val discoveredItems:MutableSet<String> = mutableSetOf()) {
-    fun snapshot() = copy(skillLevels = skillLevels.toMutableMap(), quests = quests.mapValues { it.value.copy(objectives = it.value.objectives.toMutableMap()) }.toMutableMap(), flags = flags.toMutableSet(), dailyPurchases = dailyPurchases.toMutableMap(), transactions = transactions.toMutableList(), pendingRewards = pendingRewards.toMutableMap(), dropPity = dropPity.toMutableMap(),challengeRecords=challengeRecords.mapValues { it.value.copy() }.toMutableMap(),bestiary=bestiary.toMutableMap(),discoveredItems=discoveredItems.toMutableSet())
+    val dailyPurchases: MutableMap<String, Int> = mutableMapOf(), val transactions: MutableList<String> = mutableListOf(), var accessory: String? = null, val pendingRewards: MutableMap<String,Int> = mutableMapOf(), val dropPity: MutableMap<String,Int> = mutableMapOf(),val challengeRecords: MutableMap<String,ChallengeRecord> = mutableMapOf(),var selectedTitle:String? = null,val bestiary:MutableMap<String,Int> = mutableMapOf(),val discoveredItems:MutableSet<String> = mutableSetOf(),
+    val lifeSkills: MutableMap<LifeSkillKind,LifeSkillProgress> = LifeSkillKind.entries.associateWith { LifeSkillProgress() }.toMutableMap(),
+    val fishRecords: MutableMap<String,FishRecord> = mutableMapOf(), val gatheringRecords: MutableMap<String,Int> = mutableMapOf(), val gatheringReadyAt: MutableMap<String,Long> = mutableMapOf(), var fishingBait: String = "AUTO") {
+    fun snapshot() = copy(skillLevels = skillLevels.toMutableMap(), quests = quests.mapValues { it.value.copy(objectives = it.value.objectives.toMutableMap()) }.toMutableMap(), flags = flags.toMutableSet(), dailyPurchases = dailyPurchases.toMutableMap(), transactions = transactions.toMutableList(), pendingRewards = pendingRewards.toMutableMap(), dropPity = dropPity.toMutableMap(),challengeRecords=challengeRecords.mapValues { it.value.copy() }.toMutableMap(),bestiary=bestiary.toMutableMap(),discoveredItems=discoveredItems.toMutableSet(),lifeSkills=lifeSkills.mapValues { it.value.copy() }.toMutableMap(),fishRecords=fishRecords.mapValues { it.value.copy() }.toMutableMap(),gatheringRecords=gatheringRecords.toMutableMap(),gatheringReadyAt=gatheringReadyAt.toMutableMap())
 }
 data class QuestProgress(var progress: Int = 0, var completed: Boolean = false, val objectives: MutableMap<String,Int> = mutableMapOf(), var completedAt: Long = 0, var repeatAvailableAt: Long = Long.MAX_VALUE, var resetPeriod: String? = null)
 
@@ -138,9 +140,14 @@ fun PlayerProfile.recordChallenge(dungeon:String,seconds:Long,rank:String): Pair
     return challengeRecords.getValue(dungeon) to updated
 }
 fun PlayerProfile.equipTitle(id:String?,titles:Map<String,TitleDefinition>):Boolean {
-    if(id != null && (titles[id]?.unlockFlag !in flags)) return false
+    if(id != null && titles[id]?.unlocked(this) != true) return false
     selectedTitle=id
     return true
+}
+/** Profile flags remain the durable source of truth; advancement-backed conditions are promoted to unlock flags. */
+fun PlayerProfile.syncTitleUnlockFlags(titles:Map<String,TitleDefinition>):Set<String> {
+    val newlyUnlocked=titles.values.filter { it.unlocked(this) }.map { it.unlockFlag }.filter(flags::add).toSet()
+    return newlyUnlocked
 }
 fun PlayerProfile.recordEnemyKill(enemy:String,areas:Map<String,Area>,definitions:Map<String,EnemyDefinition>):Set<String> {
     bestiary[enemy]=(bestiary.getOrDefault(enemy,0)+1).coerceAtMost(1_000_000)

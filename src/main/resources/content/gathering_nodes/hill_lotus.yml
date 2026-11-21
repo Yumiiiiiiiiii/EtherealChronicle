@@ -1,0 +1,21 @@
+schema_version: 1
+id: ec:node_hill_lotus
+type: gathering_node
+name: 星光の蓮池
+node_kind: HERB
+display_material: LILY_PAD
+depleted_material: DEAD_BUSH
+required_tool_kind: SICKLE
+min_tool_tier: 2
+min_gathering_level: 8
+channel_ms: 2200
+respawn_seconds: 150
+per_player_respawn: true
+life_xp: 30
+adventurer_xp: 14
+yields:
+  - {item: ec:item_mat_starlight_lotus, min: 1, max: 2, chance: 1.0}
+rare_yields:
+  - {item: ec:item_mat_moondew_herb, min: 1, max: 1, chance: 0.12, pity_after: 12}
+locations:
+  - {id: hill_lotus_1, area: ec:area_stargazer_hill, world: ec_world, x: 308, y: 65, z: -22}

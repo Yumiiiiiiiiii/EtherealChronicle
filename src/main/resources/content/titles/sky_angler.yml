@@ -1,0 +1,14 @@
+schema_version: 1
+id: ec:title_sky_angler
+type: title
+name: 蒼穹の釣り師
+description: 森の清流から蒼穹の魚を釣り上げ、釣りギルドに腕を認められた証。
+unlock_flag: ec:flag_title_sky_angler
+advancement:
+  title: 蒼穹の釣り師
+  description: 森の清流から蒼穹の魚を釣り上げた。
+  icon: FISHING_ROD
+  frame: TASK
+  condition:
+    type: FLAG
+    target: ec:flag_title_sky_angler

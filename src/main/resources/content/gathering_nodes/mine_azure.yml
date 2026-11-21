@@ -1,0 +1,21 @@
+schema_version: 1
+id: ec:node_mine_azure
+type: gathering_node
+name: 蒼輝石鉱脈
+node_kind: ORE
+display_material: DEEPSLATE_DIAMOND_ORE
+depleted_material: COBBLESTONE
+required_tool_kind: PICKAXE
+min_tool_tier: 2
+min_gathering_level: 8
+channel_ms: 2200
+respawn_seconds: 150
+per_player_respawn: true
+life_xp: 28
+adventurer_xp: 12
+yields:
+  - {item: ec:item_mat_azure_gem_ore, min: 1, max: 2, chance: 1.0}
+rare_yields:
+  - {item: ec:item_mat_starshard_fragment, min: 1, max: 1, chance: 0.12, pity_after: 12}
+locations:
+  - {id: mine_azure_1, area: ec:area_weeping_mine, world: ec_world, x: 174, y: 65, z: 22}

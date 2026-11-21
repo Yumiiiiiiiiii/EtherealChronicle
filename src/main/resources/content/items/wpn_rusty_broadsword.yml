@@ -10,5 +10,6 @@ classes: [ec:class_warrior]
 budget: 5
 stats: {attack: 3, hp: 10}
 weapon: 10
-price: 60
+price: 0
+bound: true
 lore: 'ルミナ港のギルドが新人に貸与する無骨な直剣。刃こぼれは多いが、重心は素直で扱いやすい。'

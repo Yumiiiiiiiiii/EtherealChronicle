@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_con_moon_carp_sashimi
+type: item
+name: 月影コイの星光造り
+material: COOKED_SALMON
+rarity: RARE
+slot: NONE
+min_level: 8
+classes: []
+budget: 0
+stats: {}
+price: 160
+lore: '新鮮な月影コイを薄造りにした逸品。リソースを70回復し、毒と鈍足を清める（再使用9秒）。'
+effects:
+  - {kind: RESOURCE, amount: 70, cooldown_ms: 9000}
+  - {kind: CLEANSE, amount: 1, cooldown_ms: 9000}

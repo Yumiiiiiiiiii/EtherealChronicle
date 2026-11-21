@@ -1,0 +1,21 @@
+schema_version: 1
+id: ec:node_port_driftwood
+type: gathering_node
+name: 流木の漂着
+node_kind: WOOD
+display_material: OAK_LOG
+depleted_material: STRIPPED_OAK_LOG
+required_tool_kind: HATCHET
+min_tool_tier: 1
+min_gathering_level: 1
+channel_ms: 2200
+respawn_seconds: 90
+per_player_respawn: true
+life_xp: 22
+adventurer_xp: 8
+yields:
+  - {item: ec:item_mat_starwood_log, min: 1, max: 2, chance: 1.0}
+rare_yields:
+  - {item: ec:item_mat_starwood_resin, min: 1, max: 1, chance: 0.12, pity_after: 12}
+locations:
+  - {id: port_driftwood_1, area: ec:area_lumina_port, world: ec_world, x: -24, y: 65, z: 22}

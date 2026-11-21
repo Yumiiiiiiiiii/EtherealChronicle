@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_moondew_herb
+type: item
+name: 月露の霊草
+material: GLOW_BERRIES
+rarity: RARE
+slot: NONE
+min_level: 10
+classes: []
+budget: 0
+stats: {}
+price: 200
+lore: '星見の丘や霧氷の尾根で稀に採取できる夜露を宿した霊草。高度な回復霊薬の主成分となる。'

@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_aether_crystal_core
+type: item
+name: 蒼穹結晶核
+material: AMETHYST_CLUSTER
+rarity: EPIC
+slot: NONE
+min_level: 12
+classes: []
+budget: 0
+stats: {}
+price: 350
+lore: '星片結晶ノードから抽出器でのみ採取できる高純度結晶核。星核の蒼穹大釣竿の要となる至宝素材。'

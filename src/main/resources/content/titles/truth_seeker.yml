@@ -4,3 +4,11 @@ type: title
 name: 真実を追う者
 description: 忘れられた日記の真相を明らかにした。
 unlock_flag: ec:flag_title_truth_seeker
+advancement:
+  title: 真実を追う者
+  description: 忘れられた日記の真相を明らかにした。
+  icon: WRITABLE_BOOK
+  frame: TASK
+  condition:
+    type: FLAG
+    target: ec:flag_title_truth_seeker

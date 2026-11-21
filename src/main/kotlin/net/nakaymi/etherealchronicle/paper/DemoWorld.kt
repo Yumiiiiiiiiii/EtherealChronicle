@@ -44,6 +44,8 @@ class DemoGenerator: ChunkGenerator() {
 }
 object DemoWorld {
     const val NAME="ec_world"
+    fun luminaSpawn(world: World) = Location(world,0.5,65.0,0.5)
+    fun isOwned(world:World):Boolean = Files.exists(world.worldFolder.toPath().resolve(".etherealchronicle-owned"))
     fun ensure(plugin: RpgPlugin): World? {
         val existing=Bukkit.getWorld(NAME)
         if(existing != null) {
@@ -52,7 +54,9 @@ object DemoWorld {
                 plugin.logger.severe("ec_world は所有マーカーのない既存ワールドです。地形を変更しません: ${existing.worldFolder}")
                 return null
             }
+            existing.setSpawnLocation(0,65,0)
             migrateToV2(plugin,existing,existing.worldFolder.toPath())
+            migrateToV3(plugin,existing,existing.worldFolder.toPath())
             return existing
         }
         val candidates=mutableListOf(plugin.server.worldContainer.toPath().resolve(NAME))
@@ -71,11 +75,12 @@ object DemoWorld {
         Files.writeString(marker,"EtherealChronicle demo world; never delete this marker while the world is in use.\n")
         world.setSpawnLocation(0,65,0)
         if(!Files.exists(folder.resolve(".etherealchronicle-built"))) {
-            build(world)
-            markFreshBuild(folder)
-            plugin.logger.info("ec_world を新規作成しました (v2)。")
+            build(world); buildChapter2(world); buildLifeProfessionPools(world)
+            markFreshBuild(folder,"v3")
+            plugin.logger.info("ec_world を新規作成しました (v3)。")
         }
         migrateToV2(plugin,world,world.worldFolder.toPath())
+        migrateToV3(plugin,world,world.worldFolder.toPath())
         return world
     }
     internal fun migrateToV2(plugin: RpgPlugin,world: World,folder: java.nio.file.Path): Boolean {
@@ -92,12 +97,43 @@ object DemoWorld {
                 plugin.logger.info("ec_world 地形を v1 から v2 に移行しました。第1章の地形は変更していません。")
                 return true
             }
-            "v2" -> return true
+            "v2", "v3" -> return true
             else -> { plugin.logger.warning("ec_world 地形バージョンが不明なため変更しません: $marker"); return false }
         }
     }
     internal fun markFreshBuild(folder: java.nio.file.Path) {
         Files.writeString(folder.resolve(".etherealchronicle-built"),"v2\n")
+    }
+    internal fun markFreshBuild(folder: java.nio.file.Path,version:String) {
+        require(version in setOf("v2","v3"))
+        Files.writeString(folder.resolve(".etherealchronicle-built"),"$version\n")
+    }
+    internal fun migrateToV3(plugin:RpgPlugin,world:World,folder:java.nio.file.Path):Boolean {
+        if(!Files.exists(folder.resolve(".etherealchronicle-owned"))) return false
+        val marker=folder.resolve(".etherealchronicle-built")
+        if(!Files.exists(marker)) return false
+        when(Files.readString(marker).trim()) {
+            "v2" -> {
+                buildLifeProfessionPools(world)
+                Files.writeString(marker,"v3\n")
+                plugin.logger.info("ec_world の釣り場を追加しました (v2→v3)。既存ブロックは変更していません。")
+                return true
+            }
+            "v3" -> return false
+            else -> { plugin.logger.warning("ec_world 地形 v3 へ更新する前に v2 が必要です: $marker"); return false }
+        }
+    }
+    internal fun buildLifeProfessionPools(world:World) {
+        val centers=listOf(10 to 28,92 to 30,190 to 28,280 to 30,380 to 28,480 to 30,570 to 30,670 to 30)
+        fun fillIfAir(x:Int,y:Int,z:Int,material:Material) {
+            val block=world.getBlockAt(x,y,z)
+            if(block.type.isAir) block.setType(material,false)
+        }
+        for((cx,cz) in centers) for(dx in -3..3) for(dz in -3..3) {
+            val edge=kotlin.math.abs(dx)==3 || kotlin.math.abs(dz)==3
+            if(edge) fillIfAir(cx+dx,65,cz+dz,Material.PACKED_ICE)
+            else fillIfAir(cx+dx,65,cz+dz,Material.WATER)
+        }
     }
     private fun build(world: World) {
         // Bounded, one-time structures on freshly generated islands, never user terrain.

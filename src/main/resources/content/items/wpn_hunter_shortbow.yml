@@ -10,5 +10,6 @@ classes: [ec:class_archer]
 budget: 7
 stats: {attack: 4, crit: 0.02}
 weapon: 10
-price: 60
+price: 0
+bound: true
 lore: 'しなやかな枝を削り出した軽弓。引き絞りが軽く、動きながらでも素早く射抜ける。'

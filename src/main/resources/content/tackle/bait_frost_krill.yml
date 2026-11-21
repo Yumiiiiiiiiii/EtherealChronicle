@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:tackle_bait_frost_krill
+type: tackle
+item: ec:item_bait_frost_krill
+kind: BAIT
+tier: 3
+min_life_level: 10
+wait_reduction: 0.25
+sweet_spot_bonus: 0
+tension_stability: 1
+size_bonus: 0
+channel_speed_bonus: 0
+rare_chance_bonus: 0
+preferred_tags: [FROST, ABYSSAL]
+preferred_tag_multiplier: 2.0
+rarity_weights: {COMMON: 1.0, UNCOMMON: 1.0, RARE: 1.6, EPIC: 1.6, LEGENDARY: 1.4}

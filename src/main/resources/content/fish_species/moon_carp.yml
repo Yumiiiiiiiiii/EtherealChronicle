@@ -1,0 +1,28 @@
+schema_version: 1
+id: ec:fish_moon_carp
+type: fish_species
+name: 月影コイ
+item: ec:item_fish_moon_carp
+rarity: RARE
+tags: [NIGHT, FRESHWATER]
+habitats: [ec:area_ashwood_forest]
+time_windows: [NIGHT, DAWN_DUSK]
+weather: [ANY]
+min_rod_tier: 1
+min_fishing_level: 5
+base_weight: 22
+min_cm: 45
+max_cm: 105
+silver_crown_cm: 89
+gold_crown_cm: 101
+life_xp: 28
+adventurer_xp: 18
+minigame:
+  bite_window_ms: 2100
+  difficulty: 2.5
+  sweet_width: 30
+  progress_per_sec: 17
+  tension_decay_per_sec: 21
+  thrash_chance_per_sec: 0.2
+  dive_chance_per_sec: 0.1
+lore_hint: '月影コイ。釣り場と時間帯を見極めて狙おう。'

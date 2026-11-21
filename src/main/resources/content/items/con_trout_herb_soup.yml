@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_con_trout_herb_soup
+type: item
+name: ヤマメと薬草の温スープ
+material: MUSHROOM_STEW
+rarity: UNCOMMON
+slot: NONE
+min_level: 4
+classes: []
+budget: 0
+stats: {}
+price: 85
+lore: '木漏れ日ヤマメとアッシュリーフの滋養スープ。体力320とリソース35を同時に回復する（再使用8秒）。'
+effects:
+  - {kind: HEAL, amount: 320, cooldown_ms: 8000}
+  - {kind: RESOURCE, amount: 35, cooldown_ms: 8000}

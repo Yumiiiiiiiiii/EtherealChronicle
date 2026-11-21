@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_con_frost_seafood_pot
+type: item
+name: 蒼氷の海鮮星鍋
+material: RABBIT_STEW
+rarity: EPIC
+slot: NONE
+min_level: 14
+classes: []
+budget: 0
+stats: {}
+price: 260
+lore: '凍氷ワカサギと霜花の薬草を煮込んだ極寒の星鍋。体力を640回復し15秒間防御+18を得る（再使用10秒）。'
+effects:
+  - {kind: HEAL, amount: 640, cooldown_ms: 10000}
+  - {kind: DEFENSE_BUFF, amount: 18, duration_ticks: 300, cooldown_ms: 10000}
