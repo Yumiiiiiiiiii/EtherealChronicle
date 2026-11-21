@@ -17,7 +17,7 @@ class PartyService(private val cap: () -> Int,private val clock: Clock) {
         invites[target]=leader to (clock.millis()+60_000)
     }
     fun accept(target: UUID) {
-        val (leader,expires)=invites.remove(target) ?: error("招待がありません。")
+        val (leader,expires)=invites.remove(target) ?: error("ec.error.party_invite_missing")
         require(clock.millis() <= expires && target !in membership)
         val party=membership[leader] ?: Party(leader,mutableSetOf(leader)).also { membership[leader]=it }
         require(party.members.size < cap())

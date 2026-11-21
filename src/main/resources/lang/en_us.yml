@@ -112,6 +112,10 @@ ec:
     inventory_full: "Make room in your inventory."
     transaction_rolled_back: "The transaction was rolled back because saving failed."
     invalid_content: "Content definition is invalid. Check the diagnostic details."
+    class_already_selected: "A class has already been selected."
+    enemy_missing: "Enemy not found."
+    party_invite_missing: "There is no party invitation."
+    revive_is_passive: "Equip the Phoenix Star Feather as an accessory. It activates automatically on lethal damage. Use /ec equipment."
   area:
     teleported: "Teleported to <name>."
   class:

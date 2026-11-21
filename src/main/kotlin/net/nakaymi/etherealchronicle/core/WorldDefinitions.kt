@@ -169,9 +169,9 @@ fun claimTreasure(profile: PlayerProfile, chest: TreasureChestDefinition, curren
     if (chest.onceFlag in profile.flags) return false
 
     require(chest.currency >= 0 && currencyCap >= 0 && profile.currency <= Long.MAX_VALUE - chest.currency && profile.currency + chest.currency <= currencyCap) {
-        "所持金の上限に達しています。"
+        "ec.error.currency_cap"
     }
-    require(chest.items.values.all { it in 1..64 }) { "宝箱の報酬数が不正です。" }
+    require(chest.items.values.all { it in 1..64 }) { "ec.error.invalid_content" }
     chest.items.forEach { (item, amount) -> profile.pendingRewards.merge(item, amount, Int::plus) }
     profile.currency += chest.currency
     profile.flags.add(chest.onceFlag)

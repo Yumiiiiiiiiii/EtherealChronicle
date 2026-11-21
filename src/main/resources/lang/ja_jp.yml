@@ -112,6 +112,10 @@ ec:
     inventory_full: "持ち物に空きがありません。"
     transaction_rolled_back: "保存に失敗したため取引を戻しました。"
     invalid_content: "コンテンツ定義が不正です。詳細を確認してください。"
+    class_already_selected: "職業は既に選択されています。"
+    enemy_missing: "魔物が見つかりません。"
+    party_invite_missing: "招待がありません。"
+    revive_is_passive: "不死鳥の星羽は装飾品として装備し、致死ダメージ時に自動発動します。/ec equipment から装備してください。"
   area:
     teleported: "<name>へ転送しました。"
   class:

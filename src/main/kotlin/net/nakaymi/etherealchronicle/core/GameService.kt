@@ -8,7 +8,7 @@ class GameService(private val content: () -> ContentSnapshot, val skills: SkillE
     /** 初回職業選択を適用し、開始flagと最初の依頼を設定します。 */
     fun chooseClass(p: PlayerProfile, id: String) {
         content().classes[id]
-        check(p.classId == null) { "職業は既に選択されています。" }
+        check(p.classId == null) { "ec.error.class_already_selected" }
         changeClass(p,id)
         p.flags.add("ec:flag_class_selected")
         val initial = if("ec:quest_m01_awakening" in content().world.quests) "ec:quest_m01_awakening" else "ec:tutorial"
@@ -32,7 +32,7 @@ class GameService(private val content: () -> ContentSnapshot, val skills: SkillE
     /** 討伐報酬、クエスト進行、ドロップpityをプロフィールへ一度反映します。 */
     fun kill(p: PlayerProfile, enemyId: String, inventory: InventoryAccess = MemoryInventory(), xpAward: Long? = null, currencyAward: Long? = null, rollDrops: Boolean = true): Map<String,Int> {
         val c = content()
-        val enemy = c.documents[enemyId] ?: error("魔物が見つかりません。")
+        val enemy = c.documents[enemyId] ?: error("ec.error.enemy_missing")
         require(enemy.string("type") in setOf("enemy","boss"))
         c.balance.grantXp(p,xpAward ?: enemy.long("xp")); rewardCurrency(p,currencyAward ?: enemy.long("currency"))
         p.flags.addAll(c.world.enemies[enemyId]?.flags ?: emptySet())
