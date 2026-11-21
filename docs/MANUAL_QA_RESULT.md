@@ -162,3 +162,23 @@ Shots: `D:\test\mcmmo-client-qa\shots\k01..k12*.png, w1..w3*.png, l_*.png` (not 
 | TPS | PASS | 20.0/20.0/20.0 |
 | NPC Paper Dialog quest accept, potion tooltip, class-change weapon, forced ja_jp/en_us, en advancement tab, ping, slowloris on 25580 | NOT-RUN | time (language switch script failed) |
 Processes stopped; server.properties/ops.json/config restored; ports closed.
+
+## Task 18 real-client check (master 3564049, offline QaPack/QaPlain, en_us client, 2026-11-22)
+Shots: `D:\test\mcmmo-client-qa\shots\m1_*, m2_*, n*, o*.png` (not in repo).
+| Item | Result | Evidence |
+|---|---|---|
+| Build | PASS | green |
+| Default config: required=true without delivery | PASS | boot WARN `必須リソースパックを配信できないため、必須設定を一時的に無効化しました` (+ game_port opt-in warn); players join normally |
+| GUI icons_only default (class/shop/codex/enhance) | PASS | m1_* clean, titles readable (pack not loaded in that run) |
+| Enhance tooltip raw id | FIXED | shows `名匠の研磨砥石` (m2_enh_tip) |
+| `/ec quest` header on en client | PARTIAL | `Status: In progress` now English; area name stays Japanese (content name) (m2_quest) |
+| required=true with embedded_http: prompt | PASS | client shows "This server requires the use of a custom resource pack" with server message (n5); accept -> download + play (n6) |
+| required: decline | PASS | client disconnects "This server requires a custom resource pack" (n9); the plugin's Japanese kick text is not reached because the client leaves first |
+| required: OP (bypass) decline | PASS | OP gets optional prompt, declines, stays in (o1, o2) |
+| required: new player at first join | OBSERVATION | prompt not shown on the very first join (class menu), only after profile exists/rejoin; first-join players are not forced |
+| Client remembers accepted pack | OBSERVATION | quickplay client re-applied silently after earlier accept; I had to reset servers.dat to see the prompt |
+| Pack SHA-1 change -> re-request | NOT-RUN | needs rebuild |
+| ui.theme full / icons_only / off visual | INCONCLUSIVE | screenshots identical in all three (o3_*); pack may not have been applied in that run (accept click unverified) and config reload may not re-read ui.theme |
+| Codex paging, frost_wolf, Paper Dialog quest accept, potion tooltip, class-change weapon, language forcing, ping | NOT-RUN | time |
+| TPS / log | PASS | 20.0 x3, 0 ERROR |
+Processes stopped; server.properties/ops.json/whitelist/config restored; ports closed.
