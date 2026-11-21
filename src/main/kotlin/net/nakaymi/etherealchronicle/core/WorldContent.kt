@@ -23,6 +23,7 @@ data class Position(val world: String, val x: Double, val y: Double, val z: Doub
 data class Area(val id: String, val name: String, val world: String, val minX: Double, val maxX: Double, val minY: Double, val maxY: Double, val minZ: Double, val maxZ: Double, val safe: Boolean) {
     fun contains(p: Position) = p.world == world && p.x in minX..maxX && p.y in minY..maxY && p.z in minZ..maxZ
 }
+data class DungeonDefinition(val id: String, val unlockFlag: String, val boss: String, val guards: List<String>, val guardOffsets: List<Pair<Int,Int>>, val area: String, val palette: List<String>, val bossOffset: Pair<Int,Int>, val entryMessage: String, val clearMessage: String)
 data class NpcDefinition(val id: String, val name: String, val position: Position, val dialogue: String, val shop: String?)
 data class TokenCost(val item: String, val amount: Int)
 data class ShopEntry(val id: String, val item: String, val amount: Int, val price: Long, val tokens: List<TokenCost>, val condition: Condition, val dailyLimit: Int, val tokenDiscountFlag: String?, val tokenDiscount: List<TokenCost>)
@@ -45,6 +46,7 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
     val npcs = linkedMapOf<String,NpcDefinition>()
     val shops = linkedMapOf<String,ShopDefinition>()
     val areas = linkedMapOf<String,Area>()
+    val dungeons = linkedMapOf<String,DungeonDefinition>()
     val enemies = linkedMapOf<String,EnemyDefinition>()
     val itemProperties = linkedMapOf<String,ItemProperties>()
     val chapters = documents.filterValues { it["type"] == "chapter" }
@@ -84,10 +86,21 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
                     val discount = d.number("discount",0.0); require(discount in 0.0..0.5)
                     shops[id] = ShopDefinition(id,d.string("name"),d.bool("buyback",true),d["discount_flag"] as? String,discount,entries)
                 }
-                "chapter" -> d.maps("areas").forEach { a ->
-                    val area = Area(a.string("id"),a.string("name"),a.string("world"),a.num("min_x"),a.num("max_x"),a.num("min_y"),a.num("max_y"),a.num("min_z"),a.num("max_z"),a.bool("safe",false))
-                    require(area.minX <= area.maxX && area.minY <= area.maxY && area.minZ <= area.maxZ && area.id !in areas)
-                    areas[area.id] = area
+                "chapter" -> {
+                    d.maps("areas").forEach { a ->
+                        val area = Area(a.string("id"),a.string("name"),a.string("world"),a.num("min_x"),a.num("max_x"),a.num("min_y"),a.num("max_y"),a.num("min_z"),a.num("max_z"),a.bool("safe",false))
+                        require(area.minX <= area.maxX && area.minY <= area.maxY && area.minZ <= area.maxZ && area.id !in areas)
+                        areas[area.id] = area
+                    }
+                    d.maps("dungeon_configs").forEach { config ->
+                        val id=config.string("id")
+                        val guards=config.strings("guards")
+                        val offsets=config.maps("guard_offsets").map { it.int("x") to it.int("z") }
+                        val bossOffset=config.mapping("boss_offset").let { it.int("x") to it.int("z") }
+                        val definition=DungeonDefinition(id,config.string("unlock_flag"),config.string("boss"),guards,offsets,config.string("area"),config.strings("palette"),bossOffset,config.string("entry_message"),config.string("clear_message"))
+                        require(id in d.strings("dungeons") && id !in dungeons && definition.unlockFlag in d.strings("flags") && definition.guards.size == definition.guardOffsets.size && definition.palette.size == 3)
+                        dungeons[id]=definition
+                    }
                 }
                 "enemy","boss" -> {
                     val specials = d.maps("specials").map { a -> SpecialAttack(a.string("id"),a.string("name"),a.text("shape","CIRCLE"),a.whole("cooldown_ticks",200),a.whole("telegraph_ticks",26),a.number("radius",3.0),a.number("range",12.0),a.number("multiplier",1.5),a.number("min_hp_ratio",0.0),a.number("max_hp_ratio",1.0),a.text("effect","NONE")) }
@@ -103,6 +116,11 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
                 })
             }
           } catch(error: Exception) { throw IllegalArgumentException("$id: ${error.message}",error) }
+        }
+        require(chapters.values.flatMap { it.strings("dungeons") }.all { it in dungeons }) { "章のダンジョン定義が不足しています。" }
+        dungeons.values.forEach { dungeon ->
+            require(dungeon.area in areas && dungeon.boss in enemies && enemies[dungeon.boss]?.boss == true && dungeon.guards.all { enemies[it] != null }) { "${dungeon.id}: ダンジョン参照が不正です。" }
+            require(dungeon.unlockFlag.startsWith("ec:flag_") && dungeon.palette.all { it.matches(Regex("[A-Z_]+")) }) { "${dungeon.id}: ダンジョン設定が不正です。" }
         }
         validateWorldReferences(documents)
     }

@@ -27,7 +27,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     private val mm=MiniMessage.miniMessage()
     private val npcEntities=mutableMapOf<String,UUID>()
     private val dialogueSessions=mutableMapOf<UUID,Pair<String,String>>()
-    var enterDungeon: (Player) -> Unit = { it.sendMessage(Component.text("ダンジョンを準備しています。")) }
+    var enterDungeon: (Player,String) -> Unit = { p,id -> p.sendMessage(Component.text("ダンジョンを準備しています: $id")) }
     init { plugin.server.pluginManager.registerEvents(this,plugin) }
     fun locked(id: UUID) = id in locks
     fun reloadNpcs() {
@@ -127,7 +127,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                             "COMPLETE_QUEST" -> plugin.game.completeQuest(p,a.target,inventory)
                             "SELECT_CLASS" -> plugin.game.chooseClass(p,a.target)
                             "OPEN_SHOP" -> after.add { showShop(player,a.target) }
-                            "ENTER_DUNGEON" -> after.add { enterDungeon(player) }
+                            "ENTER_DUNGEON" -> after.add { enterDungeon(player,a.target) }
                             "GIVE_ITEM" -> if(a.onceFlag == null || a.onceFlag !in p.flags) {
                                 require(a.onceFlag != null) { "一度限りの配布フラグがありません。" }
                                 require(inventory.exchange(emptyMap(),mapOf(a.target to a.amount)))

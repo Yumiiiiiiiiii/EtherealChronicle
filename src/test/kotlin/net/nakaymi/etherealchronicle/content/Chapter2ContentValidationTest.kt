@@ -103,6 +103,23 @@ class Chapter2ContentValidationTest {
     )
 
     @Test
+    fun `chapter dungeon declarations route to typed runtime definitions`() {
+        val world = loadBundled().world
+        val citadel = world.dungeons.getValue("ec:dungeon_glacial_citadel")
+        assertEquals("ec:flag_ch2_citadel_unlocked", citadel.unlockFlag)
+        assertEquals("ec:boss_cryo_archon", citadel.boss)
+        assertEquals(listOf("ec:enemy_glacial_knight", "ec:enemy_glacial_knight"), citadel.guards)
+        assertEquals(2, citadel.guardOffsets.size)
+        assertEquals("ec:area_glacial_citadel", citadel.area)
+        assertEquals(listOf("PACKED_ICE", "SNOW_BLOCK", "PRISMARINE_BRICKS"), citadel.palette)
+        assertTrue(citadel.entryMessage.contains("蒼穹の氷城"))
+        assertTrue(citadel.clearMessage.contains("氷核の執行者"))
+        val sanctum = world.dungeons.getValue("ec:dungeon_void_sanctum")
+        assertEquals("ec:boss_void_warden", sanctum.boss)
+        assertEquals("ec:flag_sanctum_unlocked", sanctum.unlockFlag)
+    }
+
+    @Test
     fun `ec validate equivalent - zero duplicate YAML ids and all Paper enums resolve cleanly`() {
         val yaml = Yaml()
         val seenIds = mutableMapOf<String, Path>()
