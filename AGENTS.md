@@ -5,7 +5,7 @@ Build: `./gradlew build` -> `build/libs/EtherealChronicle-<ver>.jar`. Test serve
 
 ## Roles
 - Claude (lead): design, integration, balance, release judgement. Owns docs/*.
-- Codex (gpt-6.1-sol, medium): main implementation.
+- Codex (gpt-6-luna, low): main implementation.
 - Antigravity (gemini-4-neon, medium): QA, tests, server integration scripts, independent review.
 Implementer != reviewer. Work on separate git branches/worktrees; merge via lead. Never edit files owned by another active task.
 
@@ -23,3 +23,9 @@ core.stats / core.combat / core.skill / core.item / core.quest / core.economy / 
 
 ## Status files
 docs/AGENT_STATUS.md must be updated by each agent at task end (what done, what verified, what open).
+
+## Context hygiene (all agents)
+- When your context/token usage grows large (roughly >60% of the window, or the harness warns), compact proactively instead of waiting for overflow.
+- Before compacting: write a checkpoint to docs/AGENT_STATUS.md (done / verified / open / branch+commit hash / next step). Commit WIP locally.
+- Compact with a summary that keeps: current task, branch/commit, open findings, exact next action. Drop raw logs, full diffs and file dumps; re-read files from disk afterwards.
+- Never paste large logs/diffs into messages; write them to docs/ or the scratchpad and send the path.
