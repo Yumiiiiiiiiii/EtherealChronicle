@@ -72,6 +72,17 @@ class TitleAdvancementTest {
         assertEquals(listOf(121,0),metadata["max_format"])
     }
 
+    @Test fun `Paper per-dimension folder installs datapack beside level dat`() {
+        val level=directory.resolve("server/world")
+        val dimension=level.resolve("dimensions/minecraft/overworld")
+        Files.createDirectories(dimension)
+        Files.writeString(level.resolve("level.dat"),"fixture")
+        val installation=AdvancementDatapack.install(dimension,listOf(title("ec:title_root","根称号","minecraft:adventure/root")))
+        assertEquals(level.resolve("datapacks/etherealchronicle_advancements"),installation.directory)
+        assertTrue(Files.exists(installation.directory.resolve("pack.mcmeta")))
+        assertFalse(Files.exists(dimension.resolve("datapacks/etherealchronicle_advancements")))
+    }
+
     private fun title(id:String,name:String,parent:String?,description:String="説明") = TitleDefinition(id,name,description,"ec:flag_${id.substringAfter(':')}",TitleAdvancement(name,description,"NETHER_STAR",parent,"TASK",TitleProgressCondition(TitleConditionType.FLAG,"ec:flag_${id.substringAfter(':')}",1)))
 
     @Suppress("UNCHECKED_CAST")

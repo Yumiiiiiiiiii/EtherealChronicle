@@ -284,7 +284,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     }
     /** Data-pack files are generated only inside an owned directory; Paper's supported DatapackManager reloads them. */
     private fun reloadAdvancementPack() {
-        val world=server.worlds.firstOrNull() ?: error("進捗データパックを置くワールドがありません。")
+        val world=server.worlds.firstOrNull { it.environment==World.Environment.NORMAL && it.name!=DemoWorld.NAME }
+            ?: server.worlds.firstOrNull() ?: error("進捗データパックを置くワールドがありません。")
         val installation=AdvancementDatapack.install(world.worldFolder.toPath(),content.snapshot().world.titles.values)
         val manager=server.datapackManager
         manager.refreshPacks()
@@ -469,14 +470,15 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             syncTitleAdvancements(p,profile)
             val c = profile.classId?.let { content.snapshot().classes.find(it) } ?: return@forEach
             if(adventure.locked(p.uniqueId)) return@forEach
-            if(::gathering.isInitialized && gathering.active(p.uniqueId) || ::fishing.isInitialized && fishing.active(p.uniqueId)) return@forEach
+            val gatheringActive=::gathering.isInitialized && gathering.active(p.uniqueId)
+            val fishingActive=::fishing.isInitialized && fishing.active(p.uniqueId)
             val s = effectiveStats(p,profile); applyStats(p,profile); applyTitle(p,profile)
             val beforeResource = profile.resource
             game.regenerate(profile,s.resource,Bukkit.getCurrentTick()-(lastMoved[p.uniqueId] ?: Int.MIN_VALUE/2) < 20)
             if(profile.resource != beforeResource) dirty.add(p.uniqueId)
             profile.selectedSkill = profile.selectedSkill.coerceIn(0,c.skills.lastIndex)
             val skill = c.skills[profile.selectedSkill]
-            p.sendActionBar(Component.text("HP ${p.health.toInt()}/${s.hp.toInt()}  ${when(c.resource){ResourceKind.RAGE -> "怒り";ResourceKind.FOCUS -> "集中";ResourceKind.MANA -> "マナ"}} ${profile.resource.toInt()}/${s.resource.toInt()}  ${content.snapshot().skills[skill].name} CD ${game.skills.remaining(p.uniqueId,skill)/1000.0}秒  仲間 ${adventure.parties.members(p.uniqueId).size}人"))
+            if(shouldSendClassHud(gatheringActive,fishingActive)) p.sendActionBar(Component.text("HP ${p.health.toInt()}/${s.hp.toInt()}  ${when(c.resource){ResourceKind.RAGE -> "怒り";ResourceKind.FOCUS -> "集中";ResourceKind.MANA -> "マナ"}} ${profile.resource.toInt()}/${s.resource.toInt()}  ${content.snapshot().skills[skill].name} CD ${game.skills.remaining(p.uniqueId,skill)/1000.0}秒  仲間 ${adventure.parties.members(p.uniqueId).size}人"))
           } catch(error: Exception) { logger.warning("HUD更新失敗 ${p.uniqueId}: ${error.message}") }
         }
         if(++autosaveSeconds >= 60) {
@@ -623,6 +625,15 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         if(e.from.world != e.to.world || e.from.distanceSquared(e.to) > 0.0) lastMoved[e.player.uniqueId] = Bukkit.getCurrentTick()
     }
     @EventHandler fun split(e: SlimeSplitEvent) { if(e.entity.persistentDataContainer.has(enemyKey)) e.isCancelled = true }
+    @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true)
+    fun suppressVanillaHostilesInSafeAreas(e:CreatureSpawnEvent) {
+        val world=e.location.world
+        if(world.name!=DemoWorld.NAME || e.entity !is Monster || e.spawnReason.name=="CUSTOM") return
+        if(!runCatching { DemoWorld.isOwned(world) }.getOrDefault(false)) return
+        val location=e.location
+        val position=Position(world.name,location.x,location.y,location.z)
+        if(shouldSuppressVanillaHostileSpawn(e.spawnReason.name,true,position,snapshot.world.areas.values)) e.isCancelled=true
+    }
     private fun spawnEnemy(player: Player,id: String) { require(enemies.spawn(id,player.location) != null) { "同じ魔物が既に存在するか、出現上限に達しています。" } }
     @EventHandler fun death(e: EntityDeathEvent) {
         if(!e.entity.persistentDataContainer.has(enemyKey)) return

@@ -73,7 +73,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
             display.setItemStack(org.bukkit.inventory.ItemStack(Material.HEART_OF_THE_SEA)); display.isPersistent=false; display.isInvulnerable=true
             display.persistentDataContainer.set(bobberKey,PersistentDataType.STRING,player.uniqueId.toString())
         }
-        val bar=Bukkit.createBossBar("§bデバッグ釣り: ${fish.name}",BarColor.BLUE,BarStyle.SOLID).apply { addPlayer(player); progress=0.0 }
+        val bar=Bukkit.createBossBar("§bデバッグ釣り: ${fish.name}",BarColor.BLUE,BarStyle.SOLID).apply { addPlayer(player); progress=0.03 }
         val state=FishingState(fish,phase=FishingPhase.REELING,waitSeconds=0.0,tensionStability=rod.tensionStability,sweetSpotBonus=rod.sweetSpotBonus)
         sessions[player.uniqueId]=Session(state,spot,rod,player.location.clone(),bobberAt,bobber.uniqueId,bar)
         return "デバッグ釣りを開始しました: ${fish.id} (左クリックでいなし、右クリックで引く)。"
@@ -174,7 +174,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
             display.isPersistent=false; display.isInvulnerable=true
             display.persistentDataContainer.set(bobberKey,PersistentDataType.STRING,player.uniqueId.toString())
         }
-        val bar=Bukkit.createBossBar("釣り場を探っています…",BarColor.BLUE,BarStyle.SOLID).apply { addPlayer(player); progress=0.0 }
+        val bar=Bukkit.createBossBar("釣り場を探っています…",BarColor.BLUE,BarStyle.SOLID).apply { addPlayer(player); progress=0.03 }
         sessions[player.uniqueId]=Session(state,spot,rod,player.location.clone(),target,bobber.uniqueId,bar,bait=bait,baitCountBefore=bait?.let { plugin.inventory(player).count(it) } ?: 0,softThrottle=macro)
         detector.cast(System.currentTimeMillis())
         player.playSound(target,org.bukkit.Sound.ENTITY_FISHING_BOBBER_SPLASH,0.5f,1.4f)

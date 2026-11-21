@@ -166,7 +166,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         val now=System.currentTimeMillis(); val k=siteKey(site)
         if(!engine.readyAt(profile,k,now)) { player.sendMessage(Component.text("この採取地点は再生中です。あと ${(profile.gatheringReadyAt[k]!!-now+999)/1000}秒お待ちください。")); return }
         val origin=player.location.clone(); val duration=(def.channelMillis*(1-tool.channelSpeedBonus)).toLong().coerceAtLeast(250)
-        val bar=Bukkit.createBossBar("採取中: ${def.name}",BarColor.GREEN,BarStyle.SOLID).apply { addPlayer(player); progress=0.0 }
+        val bar=Bukkit.createBossBar("採取中: ${def.name}",BarColor.GREEN,BarStyle.SOLID).apply { addPlayer(player); progress=0.08 }
         channels[player.uniqueId]=Channel(site,now,duration,origin,bar)
         player.sendActionBar(Component.text("§a採取中… 動かずにお待ちください"))
     }
