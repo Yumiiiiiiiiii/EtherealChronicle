@@ -17,6 +17,16 @@ import java.util.UUID
 import kotlin.math.*
 
 class EnemyController(private val plugin: RpgPlugin,private val adventure: AdventureController): Listener {
+    companion object {
+        internal fun telegraphColor(element: String): Color = when(element.uppercase()) {
+            "ICE" -> Color.fromRGB(150,235,255)
+            "VOID" -> Color.fromRGB(185,90,255)
+            "FIRE" -> Color.fromRGB(255,105,35)
+            "LIGHTNING" -> Color.fromRGB(255,235,80)
+            "AETHER" -> Color.fromRGB(100,255,205)
+            else -> Color.fromRGB(255,65,65)
+        }
+    }
     data class MobState(val entity: LivingEntity,val home: Location,val point: String,val boss: BossState,val participants: Set<UUID>,val bar: BossBar?,var target: UUID?=null,var nextAttack: Long=0,val specials: MutableMap<String,Long> = mutableMapOf(),val pinned: Boolean=false)
     private data class Warning(val owner: UUID,val attack: SpecialAttack,val location: Location,val direction: org.bukkit.util.Vector,val due: Long)
     private val key=NamespacedKey(plugin,"enemy_id")
@@ -96,7 +106,9 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
                 if(direction.lengthSquared() > 0) direction.normalize()
                 warnings += Warning(entity.uniqueId,special,location,direction,tick+special.telegraph)
                 state.specials[special.id]=tick+special.cooldown
-                target.sendMessage(net.kyori.adventure.text.Component.text("予兆: ${special.name}！赤い範囲から離れてください。"))
+                val element=special.element ?: d.element
+                val cue=if(element == "ICE") "青白い" else if(element == "VOID") "紫の" else "色付きの"
+                target.sendMessage(net.kyori.adventure.text.Component.text("予兆: ${special.name}！${cue}範囲から離れてください。"))
                 break // one telegraph per scheduler step
             }
         }
@@ -107,11 +119,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
             if(tick >= warning.due) {
                 warning.location.world!!.players.filter { !it.isDead && it.gameMode !in setOf(GameMode.CREATIVE,GameMode.SPECTATOR) && !isSafe(it) && (state.participants.isEmpty() || it.uniqueId in state.participants) && hits(warning,it.location) }.forEach { p ->
                     attack(state,p,warning.attack.multiplier)
-                    when(warning.attack.effect) {
-                        "SLOW" -> p.addPotionEffect(PotionEffect(PotionEffectType.SLOWNESS,60,0))
-                        "POISON" -> p.addPotionEffect(PotionEffect(PotionEffectType.POISON,100,0))
-                        "KNOCKUP" -> p.velocity=p.velocity.setY(0.6)
-                    }
+                    applySpecialEffect(p,warning.attack)
                 }
                 warnings.remove(warning)
             }
@@ -142,7 +150,8 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
     }
     private fun draw(w: Warning) {
         val world=w.location.world ?: return
-        val dust=Particle.DustOptions(Color.RED,1.3f)
+        val element=w.attack.element ?: states[w.owner]?.boss?.definition?.element ?: "PHYSICAL"
+        val dust=Particle.DustOptions(telegraphColor(element),1.3f)
         for(i in 0 until 24) {
             val point=when(w.attack.shape) {
                 "LINE" -> w.location.clone().add(w.direction.clone().multiply(w.attack.range*i/24))
@@ -150,6 +159,17 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
                 else -> w.location.clone().add(cos(i*Math.PI/12)*w.attack.radius,0.15,sin(i*Math.PI/12)*w.attack.radius)
             }
             world.spawnParticle(Particle.DUST,point,1,0.0,0.0,0.0,0.0,dust)
+        }
+    }
+    internal fun applySpecialEffect(player: Player,attack: SpecialAttack) {
+        when(attack.effect) {
+            "SLOW" -> player.addPotionEffect(PotionEffect(PotionEffectType.SLOWNESS,attack.effectDuration,0))
+            "POISON" -> player.addPotionEffect(PotionEffect(PotionEffectType.POISON,attack.effectDuration,0))
+            "KNOCKUP" -> player.velocity=player.velocity.setY(0.6)
+            "FREEZE" -> {
+                player.freezeTicks=maxOf(player.freezeTicks,attack.effectDuration)
+                player.addPotionEffect(PotionEffect(PotionEffectType.SLOWNESS,attack.effectDuration,10,true,true,true))
+            }
         }
     }
     @EventHandler(priority=EventPriority.LOWEST,ignoreCancelled=true) fun vanillaAttack(e: EntityDamageByEntityEvent) {

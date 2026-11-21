@@ -26,7 +26,7 @@ specials:
   - {id: glacial_ring, name: '氷輪の衝撃波', shape: CIRCLE, cooldown_ticks: 250, telegraph_ticks: 28, radius: 10.5, range: 18, multiplier: 1.65, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: KNOCKUP}
   - {id: starfrost_hail, name: '星霜の雹雨', shape: CIRCLE, cooldown_ticks: 290, telegraph_ticks: 30, radius: 4.0, range: 22, multiplier: 1.55, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: SLOW}
   - {id: absolute_lance, name: '絶対零度の穿光', shape: LINE, cooldown_ticks: 280, telegraph_ticks: 38, radius: 3.0, range: 24, multiplier: 2.45, min_hp_ratio: 0.0, max_hp_ratio: 0.65, effect: SLOW}
-  - {id: cryo_prison, name: '氷牢の拘束', shape: TARGET, cooldown_ticks: 420, telegraph_ticks: 28, radius: 3.5, range: 22, multiplier: 1.6, min_hp_ratio: 0.0, max_hp_ratio: 0.65, effect: SLOW}
+  - {id: cryo_prison, name: '氷牢の拘束', shape: TARGET, cooldown_ticks: 420, telegraph_ticks: 28, radius: 3.5, range: 22, multiplier: 1.6, min_hp_ratio: 0.0, max_hp_ratio: 0.65, element: ICE, effect: FREEZE, effect_duration_ticks: 60}
   - {id: eternal_blizzard, name: '終末の蒼穹吹雪', shape: CIRCLE, cooldown_ticks: 560, telegraph_ticks: 76, radius: 16.0, range: 24, multiplier: 3.0, min_hp_ratio: 0.0, max_hp_ratio: 0.3, effect: KNOCKUP}
 spawn_points:
   - {id: citadel_throne_core, world: ec_world, x: 796, y: 65, z: 0, cap: 1, respawn_ticks: 1800}

@@ -30,7 +30,7 @@ data class ShopEntry(val id: String, val item: String, val amount: Int, val pric
 data class ShopDefinition(val id: String, val name: String, val buyback: Boolean, val discountFlag: String?, val discount: Double, val entries: List<ShopEntry>)
 data class SpawnPoint(val id: String, val position: Position, val cap: Int, val respawnTicks: Long)
 data class SpecialAttack(val id: String, val name: String, val shape: String, val cooldown: Long, val telegraph: Long, val radius: Double,
-    val range: Double, val multiplier: Double, val minHp: Double, val maxHp: Double, val effect: String)
+    val range: Double, val multiplier: Double, val minHp: Double, val maxHp: Double, val effect: String, val element: String? = null, val effectDuration: Int = 30)
 data class BossPhase(val id: String, val below: Double, val damage: Double, val interval: Double)
 data class EnemyDefinition(val id: String, val name: String, val entity: String, val level: Int, val hp: Double, val attack: Double, val defense: Double,
     val element: String, val weaknesses: Set<String>, val resistances: Set<String>, val speed: Double, val size: Int, val aggro: Double, val leash: Double,
@@ -105,8 +105,8 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
                     }
                 }
                 "enemy","boss" -> {
-                    val specials = d.maps("specials").map { a -> SpecialAttack(a.string("id"),a.string("name"),a.text("shape","CIRCLE"),a.whole("cooldown_ticks",200),a.whole("telegraph_ticks",26),a.number("radius",3.0),a.number("range",12.0),a.number("multiplier",1.5),a.number("min_hp_ratio",0.0),a.number("max_hp_ratio",1.0),a.text("effect","NONE")) }
-                    require(specials.all { it.shape in setOf("CIRCLE","LINE","CONE","TARGET") && it.cooldown > 0 && it.telegraph > 0 && it.radius in 0.1..32.0 && it.range in 0.1..128.0 && it.minHp in 0.0..it.maxHp && it.maxHp <= 1.0 && it.effect in setOf("NONE","SLOW","POISON","KNOCKUP") })
+                    val specials = d.maps("specials").map { a -> SpecialAttack(a.string("id"),a.string("name"),a.text("shape","CIRCLE"),a.whole("cooldown_ticks",200),a.whole("telegraph_ticks",26),a.number("radius",3.0),a.number("range",12.0),a.number("multiplier",1.5),a.number("min_hp_ratio",0.0),a.number("max_hp_ratio",1.0),a.text("effect","NONE"),a["element"] as? String,a.integer("effect_duration_ticks",when(a.text("effect","NONE")) { "SLOW" -> 60; "POISON" -> 100; else -> 30 })) }
+                    require(specials.all { it.shape in setOf("CIRCLE","LINE","CONE","TARGET") && it.cooldown > 0 && it.telegraph > 0 && it.radius in 0.1..32.0 && it.range in 0.1..128.0 && it.minHp in 0.0..it.maxHp && it.maxHp <= 1.0 && it.effect in setOf("NONE","SLOW","POISON","KNOCKUP","FREEZE") && (it.element == null || it.element in setOf("PHYSICAL","FIRE","ICE","LIGHTNING","AETHER","VOID")) && it.effectDuration in 1..200 })
                     val spawns = d.maps("spawn_points").map { p -> SpawnPoint(p.string("id"),p.position(),p.integer("cap",1),p.whole("respawn_ticks",200)) }
                     require(spawns.all { it.cap in 1..100 && it.respawnTicks > 0 } && spawns.map { it.id }.distinct().size == spawns.size)
                     val phases = d.maps("phases").map { p -> BossPhase(p.string("id"),p.num("below_hp_ratio"),p.number("damage_multiplier",1.0),p.number("interval_multiplier",1.0)) }

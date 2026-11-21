@@ -138,6 +138,14 @@ class Chapter2ContentValidationTest {
     }
 
     @Test
+    fun `cryo prison carries typed ICE freeze effect and bounded duration`() {
+        val attack=loadBundled().world.enemies.getValue("ec:boss_cryo_archon").specials.single { it.id=="cryo_prison" }
+        assertEquals("ICE",attack.element)
+        assertEquals("FREEZE",attack.effect)
+        assertEquals(60,attack.effectDuration)
+    }
+
+    @Test
     fun `ec validate equivalent - zero duplicate YAML ids and all Paper enums resolve cleanly`() {
         val yaml = Yaml()
         val seenIds = mutableMapOf<String, Path>()
