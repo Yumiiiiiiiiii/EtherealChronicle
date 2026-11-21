@@ -43,3 +43,14 @@ Processes stopped; `server.properties` / `ops.json` restored.
 | Gather boss bar / progress UI | NOT CONFIRMED | no boss bar visible 0.35-3 s after the click |
 | Fishing minigame, anti-macro | NOT-RUN | |
 | Advancement data pack | FAIL | WARN every boot; pack written to `world/dimensions/minecraft/overworld/datapacks`, server reads `world/datapacks` |
+
+## Task 10 real-client check (offline QaFresh, 2026-11-21)
+| Item | Result | Evidence |
+|---|---|---|
+| Datapack WARN on boot | PASS | none on two consecutive boots; pack in `world/datapacks` |
+| Progress tab / toast / `/ec title` | NOT-RUN | |
+| Debug fishing UI | PASS (presentation) | boss bar `格闘中 [安定] 進捗 0%`, fishing action bar replaces the class HUD |
+| Full reel, reward, size/crown record | NOT-RUN | sessions ended before input (hostile mobs at the pier) |
+| Gather boss bar / HUD coexistence | NOT-RUN | |
+| No vanilla hostile mobs at Lumina (night) | FAIL | 5 zombies + 2 skeletons within 24 blocks of the hub after 60 s; zombie + spider on the pier even under Peaceful |
+| Anti-macro debug | NOT-RUN | |
