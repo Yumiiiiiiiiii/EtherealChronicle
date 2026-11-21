@@ -19,45 +19,21 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     private val dialogues=DialogueEngine { plugin.snapshot }
     private val trades=TradeEngine { plugin.snapshot }
     private val locks=mutableSetOf<UUID>()
-    private val npcKey=NamespacedKey(plugin,"npc_id")
     private val entryKey=NamespacedKey(plugin,"entry_id")
     private val mm=MiniMessage.miniMessage()
-    private val npcEntities=mutableMapOf<String,UUID>()
+    private val npcs=NpcController(plugin)
     private val dialogueSessions=mutableMapOf<UUID,Pair<String,String>>()
     var enterDungeon: (Player,String) -> Unit = { p,id -> p.sendMessage(Component.text("ダンジョンを準備しています: $id")) }
     init { plugin.server.pluginManager.registerEvents(this,plugin) }
     /** 非同期保存を含むプロフィール取引中かを返します。 */
     fun locked(id: UUID) = id in locks
-    /** 管理NPCを現在のコンテンツ・ワールド状態に合わせて再配置します。 */
-    fun reloadNpcs() {
-        npcEntities.values.forEach { Bukkit.getEntity(it)?.remove() }; npcEntities.clear()
-        reconcileNpcs()
-    }
-    private fun reconcileNpcs() {
-        plugin.snapshot.world.npcs.values.forEach { d ->
-            val world=Bukkit.getWorld(d.position.world)
-            val shouldExist=world != null && WorldSchedule.matches(d.timeWindows,d.weather,world.time,world.hasStorm(),world.isThundering)
-            val existing=npcEntities[d.id]?.let(Bukkit::getEntity)
-            if(!shouldExist) { existing?.remove(); npcEntities.remove(d.id); return@forEach }
-            if(existing?.isValid == true) return@forEach
-            npcEntities.remove(d.id)
-            world ?: return@forEach
-            require(world.name == "ec_world") { "NPCは管理対象ワールドにのみ配置できます。" }
-            val entity=world.spawn(Location(world,d.position.x,d.position.y,d.position.z,d.position.yaw,0f),Villager::class.java)
-            entity.persistentDataContainer.set(npcKey,PersistentDataType.STRING,d.id)
-            entity.customName(mm.deserialize(d.name)); entity.isCustomNameVisible=true
-            entity.isPersistent=true; entity.isInvulnerable=true; entity.setAI(false); entity.isCollidable=false; entity.isSilent=true
-            npcEntities[d.id]=entity.uniqueId
-        }
-    }
-    @EventHandler fun load(e: org.bukkit.event.world.ChunkLoadEvent) {
-        e.chunk.entities.forEach { entity -> entity.persistentDataContainer.get(npcKey,PersistentDataType.STRING)?.let { id -> if(npcEntities[id] != entity.uniqueId) entity.remove() } }
-    }
-    /** 管理対象NPCを解放します。 */
-    fun close() { npcEntities.values.forEach { Bukkit.getEntity(it)?.remove() }; npcEntities.clear() }
+    /** 時刻・天候条件に応じたNPCの再読込を専用controllerへ委譲します。 */
+    fun reloadNpcs() = npcs.reload()
+    /** 管理対象NPCのspawn entityを解放します。 */
+    fun close() = npcs.close()
     /** NPCの時間・天候条件とオンライン依頼進行を更新します。 */
     fun tick() {
-        reconcileNpcs()
+        npcs.tick()
         val now=System.nanoTime()/1_000_000
         consumableReady.entries.removeIf { it.value <= now }
         plugin.server.onlinePlayers.forEach { player ->
@@ -86,7 +62,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     }
     @EventHandler(ignoreCancelled=true) fun interact(e: PlayerInteractEntityEvent) {
         if(e.hand != EquipmentSlot.HAND) return
-        val id=e.rightClicked.persistentDataContainer.get(npcKey,PersistentDataType.STRING) ?: return
+        val id=npcs.id(e.rightClicked) ?: return
         e.isCancelled=true
         val p=plugin.profiles[e.player.uniqueId] ?: return
         if(locked(p.uuid)) return
@@ -214,7 +190,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         e.drops.removeAll(kept.toSet()); e.itemsToKeep.addAll(kept)
     }
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true) fun safe(e: EntityDamageEvent) {
-        if(e.entity.persistentDataContainer.has(npcKey)) { e.isCancelled=true; return }
+        if(npcs.isManaged(e.entity)) { e.isCancelled=true; return }
         val p=e.entity as? Player ?: return
         if(plugin.snapshot.world.areas.values.any { it.safe && it.contains(Position(p.world.name,p.x,p.y,p.z)) }) e.isCancelled=true
     }

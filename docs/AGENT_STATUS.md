@@ -270,3 +270,5 @@
 - Commit `2068b10` documents content snapshots, install policy, migrations and profile IO; post-commit full build/test passed (180 tests, 0 failures/errors/skips).
 - Paper documentation/source cleanup is ready: Japanese KDocs/comments for core controllers, Japanese explanations of lock/transaction/data-pack/world-safety ordering, and `MenuHolders.kt` extraction. Existing controller and plugin method entry points are unchanged.
 
+- `NpcController` now owns NPC identity PDC, time/weather reconciliation, chunk cleanup, and entity removal; `AdventureController.reloadNpcs()/close()/tick()` remain delegates. This is a behavior-preserving boundary split.
+

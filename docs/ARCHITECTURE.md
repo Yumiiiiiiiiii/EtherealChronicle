@@ -55,7 +55,7 @@ sequenceDiagram
 ## PaperイベントとController
 
 - `RpgPlugin`: 起動、参加/退出、HUD、基本戦闘、コマンドをつなぐエントリーポイントです。`MenuHolders` はGUIの種別と対象IDを保持します。`CodexController` は討伐・生活・アイテム図鑑の描画を担当します。`SimulationCommandController` は仮想プロフィール向けの管理シミュレーション操作を担当します。
-- `AdventureController`: NPC会話、ショップ、クエスト進行、パーティ、取引ロックと報酬配布を扱います。
+- `AdventureController`: 会話、ショップ、クエスト進行、パーティ、取引ロックと報酬配布を扱います。`NpcController` が時間・天候条件付きNPCのspawnとchunk cleanupを担当します。
 - `EnemyController` / `DungeonController`: 管理対象の敵、ボス、ウェーブ、専用ワールド内のダンジョンを扱います。追跡対象を保持し、毎tick全エンティティを走査しません。
 - `FishingController` / `GatheringController`: 有界セッションと短い周期処理で生活コンテンツを扱い、完了時にcore計算と既存取引経路へ結果を渡します。
 - `TreasureController`: 宣言済み座標に表示を置き、claim時はonce flagと同一のプロフィール取引で報酬を確定します。
