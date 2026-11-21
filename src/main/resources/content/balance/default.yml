@@ -39,3 +39,4 @@ player_hp_cap: 1024
 basic_attack_cooldown_ms: 550
 element_res_cap: 0.5
 skill_gcd_ms: 1000
+drop_pity_attempt_cap: 100

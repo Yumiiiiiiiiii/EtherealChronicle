@@ -16,7 +16,7 @@ data class Stats(val hp: Double = 100.0, val resource: Double = 100.0, val attac
 operator fun Stats.times(factor: Double) = Stats(hp*factor,resource*factor,attack*factor,defense*factor,crit*factor,critDamage*factor,elementResist*factor,skillPower*factor)
 data class Balance(val levelCap: Int, val xpBase: Double, val xpExponent: Double, val xpGainCap: Long,
     val currencyGainCap: Long, val damageCap: Double, val statCap: Double, val critCap: Double,
-    val defenseScale: Double, val skillLevelCap: Int, val skillGrowth: Double, val critDamageCap: Double, val elementCap: Double, val xpCurve: String = "POWER", val xpLinear: Double = 45.0, val xpQuadratic: Double = 18.0, val xpRounding: Long = 10, val skillGcdMillis: Long = 800) {
+    val defenseScale: Double, val skillLevelCap: Int, val skillGrowth: Double, val critDamageCap: Double, val elementCap: Double, val xpCurve: String = "POWER", val xpLinear: Double = 45.0, val xpQuadratic: Double = 18.0, val xpRounding: Long = 10, val skillGcdMillis: Long = 800, val dropPityAttemptCap: Int = 100) {
     fun requiredXp(level: Int): Long {
         val l=level.coerceIn(1,levelCap)
         return (if(xpCurve == "POLYNOMIAL") (kotlin.math.round((xpBase+xpLinear*(l-1)+xpQuadratic*(l-1.0)*(l-1))/xpRounding)*xpRounding).toLong() else (xpBase*l.toDouble().pow(xpExponent)).toLong()).coerceAtLeast(1)
@@ -84,18 +84,34 @@ data class ItemDefinition(val id: String, val name: String, val material: String
     fun withinBudget() = stats.hp / 10 + stats.resource / 10 + stats.attack + stats.defense + stats.crit * 100 +
         stats.critDamage * 10 + stats.elementResist * 100 + stats.skillPower * 10 <= budget * budgetMultiplier
 }
-data class DropEntry(val item: String, val chance: Double, val min: Int, val max: Int)
+data class DropEntry(val item: String, val chance: Double, val min: Int, val max: Int, val pityAfter: Int? = null)
 data class DropTable(val id: String, val entries: List<DropEntry>) {
-    fun roll(random: Random): Map<String, Int> = buildMap {
-        this@DropTable.entries.forEach { if (random.nextDouble() < it.chance) put(it.item, getOrDefault(it.item, 0) + random.nextInt(it.min, it.max + 1)) }
+    fun roll(random: Random, pity: MutableMap<String,Int> = mutableMapOf(), pityCap: Int = 100): Map<String, Int> = buildMap {
+        require(pityCap in 1..10000)
+        this@DropTable.entries.forEach { entry ->
+            val chanceSuccess=random.nextDouble() < entry.chance
+            if(entry.pityAfter == null) {
+                if(chanceSuccess) put(entry.item,getOrDefault(entry.item,0)+random.nextInt(entry.min,entry.max+1))
+                return@forEach
+            }
+            val key="$id/${entry.item}"
+            require(entry.pityAfter in 1..pityCap) { "pity_after must be 1..$pityCap" }
+            val success=chanceSuccess
+            val misses=if(success) 0 else (pity.getOrDefault(key,0)+1).coerceAtMost(pityCap)
+            pity[key]=misses
+            if(success || misses >= entry.pityAfter) {
+                pity[key]=0
+                put(entry.item,getOrDefault(entry.item,0)+random.nextInt(entry.min,entry.max+1))
+            }
+        }
     }
 }
 data class PlayerProfile(val uuid: UUID, var classId: String? = null, var level: Int = 1, var xp: Long = 0,
     var currency: Long = 0, var resource: Double = 0.0, var selectedSkill: Int = 0,
     var starterGranted: Boolean = false, val quests: MutableMap<String, QuestProgress> = mutableMapOf(),
     val skillLevels: MutableMap<String, Int> = mutableMapOf(), val flags: MutableSet<String> = mutableSetOf(),
-    val dailyPurchases: MutableMap<String, Int> = mutableMapOf(), val transactions: MutableList<String> = mutableListOf(), var accessory: String? = null, val pendingRewards: MutableMap<String,Int> = mutableMapOf()) {
-    fun snapshot() = copy(skillLevels = skillLevels.toMutableMap(), quests = quests.mapValues { it.value.copy(objectives = it.value.objectives.toMutableMap()) }.toMutableMap(), flags = flags.toMutableSet(), dailyPurchases = dailyPurchases.toMutableMap(), transactions = transactions.toMutableList(), pendingRewards = pendingRewards.toMutableMap())
+    val dailyPurchases: MutableMap<String, Int> = mutableMapOf(), val transactions: MutableList<String> = mutableListOf(), var accessory: String? = null, val pendingRewards: MutableMap<String,Int> = mutableMapOf(), val dropPity: MutableMap<String,Int> = mutableMapOf()) {
+    fun snapshot() = copy(skillLevels = skillLevels.toMutableMap(), quests = quests.mapValues { it.value.copy(objectives = it.value.objectives.toMutableMap()) }.toMutableMap(), flags = flags.toMutableSet(), dailyPurchases = dailyPurchases.toMutableMap(), transactions = transactions.toMutableList(), pendingRewards = pendingRewards.toMutableMap(), dropPity = dropPity.toMutableMap())
 }
 data class QuestProgress(var progress: Int = 0, var completed: Boolean = false, val objectives: MutableMap<String,Int> = mutableMapOf(), var completedAt: Long = 0, var repeatAvailableAt: Long = Long.MAX_VALUE)
 

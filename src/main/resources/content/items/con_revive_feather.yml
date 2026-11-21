@@ -4,12 +4,12 @@ type: item
 name: 不死鳥の星羽
 material: FEATHER
 rarity: RARE
-slot: NONE
+slot: ACCESSORY
 min_level: 12
 classes: []
 budget: 0
 stats: {}
 price: 380
-lore: '淡い金光を帯びた奇跡の羽根。危機に陥った冒険者の生命力を大きく蘇らせる。'
+lore: '淡い金光を帯びた装飾品。装備すると致死ダメージを一度だけ防ぎ、生命力を大きく蘇らせる。'
 effects:
   - {kind: REVIVE, amount: 350, cooldown_ms: 120000, chance: 1.0}

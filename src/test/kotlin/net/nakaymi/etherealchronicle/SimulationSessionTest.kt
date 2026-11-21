@@ -17,6 +17,13 @@ class SimulationSessionTest {
         assertContains(assertFails { s.execute(p,"give",listOf("ec:item_con_minor_hp_potion","999")) }.message!!,"数量")
         assertTrue(s.inventory.contents.isEmpty())
     }
+    @Test fun `revive feather is accessory passive and consumable feedback is explicit`() {
+        val feather=content.items["ec:item_con_revive_feather"]
+        assertEquals(GearSlot.ACCESSORY,feather.slot)
+        assertTrue(content.world.itemProperties.getValue(feather.id).effects.any { it.kind == "REVIVE" })
+        assertContains(reviveUseNotice(),"致死ダメージ時")
+        assertContains(reviveUseNotice(),"装備")
+    }
     @Test fun `console shop shares plans and rejects replay without inventory mutation`() {
         val s=session(); val p=PlayerProfile(UUID.randomUUID()); s.execute(p,"currency",listOf("100"))
         s.execute(p,"buy",listOf("ec:shop_lumina_general","minor_hp_potion_convenience","tx"))

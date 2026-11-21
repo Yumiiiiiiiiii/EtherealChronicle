@@ -193,9 +193,10 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     private val consumableReady=mutableMapOf<Pair<UUID,String>,Long>()
     fun consume(player: Player,stack: ItemStack): Boolean {
         val id=plugin.identify(stack) ?: return false
-        if(plugin.snapshot.items[id].slot != GearSlot.NONE) return false
         val properties=plugin.snapshot.world.itemProperties[id] ?: return false
-        val effects=properties.effects.filter { it.kind in setOf("HEAL","RESOURCE","CLEANSE","RETURN","REVIVE","DEFENSE_BUFF") }
+        if(properties.effects.any { it.kind == "REVIVE" }) { message(player,reviveUseNotice()); return true }
+        if(plugin.snapshot.items[id].slot != GearSlot.NONE) return false
+        val effects=properties.effects.filter { it.kind in setOf("HEAL","RESOURCE","CLEANSE","RETURN","DEFENSE_BUFF") }
         if(effects.isEmpty()) return false
         val p=plugin.profiles[player.uniqueId] ?: return true
         val now=System.nanoTime()/1_000_000
@@ -206,7 +207,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                 effects.filter { it.kind == "RESOURCE" }.forEach { p.resource=(p.resource+it.amount).coerceAtMost(plugin.effectiveStats(player,p).resource) }
             },persistConsumption=false) {
                 effects.forEach { effect -> when(effect.kind) {
-                    "HEAL","REVIVE" -> player.health=(player.health+effect.amount).coerceAtMost(player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH)!!.value)
+                    "HEAL" -> player.health=(player.health+effect.amount).coerceAtMost(player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH)!!.value)
                     "CLEANSE" -> { player.removePotionEffect(org.bukkit.potion.PotionEffectType.POISON); player.removePotionEffect(org.bukkit.potion.PotionEffectType.SLOWNESS) }
                     "RETURN" -> Bukkit.getWorld(DemoWorld.NAME)?.let { player.teleport(it.spawnLocation) }
                     "DEFENSE_BUFF" -> plugin.defenseBuff(player,effect.amount,effect.duration)
@@ -254,7 +255,12 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     fun claimPending(player: Player) {
         val p=plugin.profiles[player.uniqueId] ?: return
         if(p.pendingRewards.isEmpty()) return
-        require(locks.add(p.uuid)) { "受取処理中です。" }
+        // Reconnect may complete while the previous session's persistence callback still owns the lock.
+        if(p.uuid in locks) {
+            whenAvailable(p.uuid) { if(player.isOnline && plugin.profiles[p.uuid] === p) claimPending(player) }
+            return
+        }
+        if(!locks.add(p.uuid)) return
         deliverLocked(player,p) {}
     }
     private fun deliverLocked(player: Player,p: PlayerProfile,success: () -> Unit) {

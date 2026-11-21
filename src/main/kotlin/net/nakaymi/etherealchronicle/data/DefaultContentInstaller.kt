@@ -7,6 +7,7 @@ import java.util.Properties
 /** Non-overwriting installation plus hash-tracked retirement of unchanged shipped defaults. */
 object DefaultContentInstaller {
     data class Retirement(val retired: List<String>,val preserved: List<String>)
+    data class Installation(val changed: List<String>,val updated: List<String>)
     fun hash(bytes: ByteArray): String {
         val text=bytes.toString(Charsets.UTF_8).removePrefix("\uFEFF").replace("\r\n","\n").trimEnd()+"\n"
         return MessageDigest.getInstance("SHA-256").digest(text.toByteArray()).joinToString("") { "%02x".format(it) }
@@ -38,18 +39,34 @@ object DefaultContentInstaller {
         return Retirement(retired,preserved)
     }
     fun install(root: Path,bundled: Map<String,ByteArray>): List<String> {
-        val changed=mutableListOf<String>()
+        return installTracked(root,bundled).changed
+    }
+    /** Updates a prior default only when its bytes still match the last known shipped version. */
+    fun installTracked(root: Path,bundled: Map<String,ByteArray>,legacyDefaults: Map<String,String> = emptyMap()): Installation {
+        val changed=mutableListOf<String>(); val updated=mutableListOf<String>()
+        val previous=legacyDefaults+installed(root)
         bundled.forEach { (name,bytes) ->
             val target=resolve(root,name)
             Files.createDirectories(target.parent)
-            try { Files.write(target,bytes,StandardOpenOption.CREATE_NEW,StandardOpenOption.WRITE) }
-            catch(_: FileAlreadyExistsException) { if(hash(Files.readAllBytes(target)) != hash(bytes)) changed += name }
+            if(!Files.exists(target)) Files.write(target,bytes,StandardOpenOption.CREATE_NEW,StandardOpenOption.WRITE)
+            else {
+                val current=Files.readAllBytes(target); val currentHash=hash(current); val expected=previous[name]; val newHash=hash(bytes)
+                if(currentHash != newHash && expected != null && currentHash == expected) {
+                    // Preserve the exact old file before applying a known-safe default update.
+                    val history=resolve(root,"content-history/${System.nanoTime()}/$name")
+                    Files.createDirectories(history.parent); Files.write(history,current,StandardOpenOption.CREATE_NEW)
+                    val tmp=target.resolveSibling(target.fileName.toString()+".update.tmp")
+                    Files.write(tmp,bytes,StandardOpenOption.CREATE,StandardOpenOption.TRUNCATE_EXISTING)
+                    Files.move(tmp,target,StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING)
+                    updated += name
+                } else if(currentHash != newHash) changed += name
+            }
         }
         val values=Properties().apply { putAll(installed(root)+bundled.mapValues { hash(it.value) }); setProperty("format","1") }
         Files.createDirectories(root)
         val tmp=root.resolve("content-manifest.properties.tmp")
         Files.newBufferedWriter(tmp).use { values.store(it,"EtherealChronicle installed default file set / normalized SHA-256") }
         Files.move(tmp,root.resolve("content-manifest.properties"),StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING)
-        return changed
+        return Installation(changed,updated)
     }
 }
