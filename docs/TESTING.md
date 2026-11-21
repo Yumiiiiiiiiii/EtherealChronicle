@@ -129,3 +129,9 @@ Still unverified: shift-click *from the player inventory into* the shop (right-c
 - P1 PASS: party-member credit queued while that member is mid-transaction, applied exactly once afterwards (currency check; XP was at cap in the test so only currency was asserted).
 - B1/B3 PASS: bound item drop and block placement cancelled. B2 PASS: shift-click into a chest, offhand swap, cursor placement and drag cancelled. Caveat: my number-key variant is not a real assertion (MockBukkit hotbar mapping); NOT verified: item frame / armor stand / allay interaction, crafting-grid ingredients, bundle clicks.
 - Full suite after merge: see Task totals above; everything green.
+
+## Console simulation (codex eec003f, live Paper; scripts/smoke-test.ps1, `{uuid}` placeholder = last `SIM spawn=` UUID)
+Suite after merge: 60 tests, 0 failures.
+- PASS: join; class; currency; `event TALK` x4 -> m01 progress 4/4; `complete` -> +90 xp/+60 currency, rewards in virtual bag; second `complete` rejected (`依頼の達成条件を満たしていません。`); `buy return_scroll tx1` (currency 1060 -> 1025); replay tx1 rejected (`処理済みの取引です。`); unknown entry rejected (`商品が見つかりません。`); `sell` returns 10 G; `party invite/accept` -> 2 members; `party split 101` -> 51/50 exact; `spawn` prints UUID + hp (slime 65, void warden 34000); `dialogue ec:dlg_pip_hub` prints text + choices.
+- FAIL (reported): `hit <uuid> <dmg>` immediately after `spawn` answers `対象が見つかりません。` for both the slime and the boss, so the virtual-HP seam is unreachable via console; invalid damage (100000, 99999999, -5) and a replayed `sell tx3` / `sell ... 999` answer the opaque `Failed requirement.` (buy replay has a proper message).
+- NOT-RUN: choice, give, spawned-enemy kill reward via hit, boss phases via console.

@@ -7,6 +7,7 @@ param(
     [string]$JarPath = 'D:\test\mcmmo\dev\server\paper-26.3-257.jar',
     [string]$ServerDir,
     [switch]$SkipBuild,
+    # a command may contain {uuid}: replaced by the UUID of the last `SIM spawn=<uuid>` log line
     [string[]]$Commands = @('ec validate'),
     [int]$StartTimeoutSec = 180,
     [int]$HoldSeconds = 0,          # keep the server up after the commands (e.g. so scripts/bot can join)
@@ -64,6 +65,7 @@ try {
     if (-not (Wait-Log 'Done \(' $StartTimeoutSec)) { Write-Host '[qa] server did not reach Done' -ForegroundColor Red; $failed = $true }
     else {
         foreach ($c in $Commands) {
+            if ($c -match '\{uuid\}') { Flush-Log; $last = (Select-String -Path $log -Pattern 'SIM spawn=([0-9a-f-]{36})' | Select-Object -Last 1); if ($last) { $c = $c -replace '\{uuid\}', $last.Matches[0].Groups[1].Value } }
             Write-Step "> $c"; $p.StandardInput.WriteLine($c); Start-Sleep -Seconds $CommandWaitSec; Flush-Log
         }
         $mem = Get-Process java -ErrorAction SilentlyContinue | Where-Object { $_.Id -eq $p.Id -or (Get-CimInstance Win32_Process -Filter "ProcessId=$($_.Id)").ParentProcessId -eq $p.Id } | Sort-Object WorkingSet64 -Descending | Select-Object -First 1
