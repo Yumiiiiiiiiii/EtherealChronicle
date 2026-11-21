@@ -34,6 +34,7 @@ ec:
     result: "<message> Time <seconds>s / Rank <rank> (best <best_seconds>s / <best_rank>)"
     clear: "<message>"
     timeout: "The trial time limit has been reached."
+    preparing: "Preparing dungeon: <id>"
     no_records: "No trial records yet."
     record: "<id>: <seconds>s / Rank <rank>"
   dialogue:
@@ -100,6 +101,18 @@ ec:
     sell_items_missing: "You do not have enough items to sell."
     transaction_changed: "The transaction state changed. Please try again."
     reset_schedule: "Reset schedule must be DAILY or WEEKLY."
+    area_missing: "Destination area not found."
+    teleport_world: "Teleporting outside the managed world is not allowed."
+    world_missing: "Destination world is unavailable."
+    teleport_destination: "The teleport destination must be inside the selected area."
+    teleport_condition: "You do not meet the teleport requirements."
+    reward_once_flag: "A one-time reward flag is required."
+    consumable_cooldown: "That item is not ready yet."
+    transaction_busy: "A transaction is already in progress."
+    inventory_full: "Make room in your inventory."
+    transaction_rolled_back: "The transaction was rolled back because saving failed."
+  area:
+    teleported: "Teleported to <name>."
   class:
     choose: "Choose a class"
   menu:

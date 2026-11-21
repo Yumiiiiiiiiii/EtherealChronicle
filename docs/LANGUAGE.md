@@ -6,6 +6,7 @@
 
 | キー | 日本語 | English | 使用箇所 | プレースホルダ |
 | --- | --- | --- | --- | --- |
+| `ec.area.teleported` | <name>へ転送しました。 | Teleported to <name>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt | `<name>` |
 | `ec.class.choose` | 職業を選んでください | Choose a class | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.codex.back_areas` | エリア一覧へ戻る | Back to Areas | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.codex.catch_count` | 釣果: <count>匹 | Caught: <count> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<count>` |
@@ -42,11 +43,14 @@
 | `ec.dungeon.entry` | <message> | <message> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<message>` |
 | `ec.dungeon.first_rank_reward` | 初回ランク報酬を受け取りました。 | You received the first-clear rank reward. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
 | `ec.dungeon.no_records` | 試練の記録はまだありません。 | No trial records yet. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.dungeon.preparing` | ダンジョンを準備しています: <id> | Preparing dungeon: <id> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt | `<id>` |
 | `ec.dungeon.record` | <id>: <seconds>秒 / ランク<rank> | <id>: <seconds>s / Rank <rank> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<id>`, `<rank>`, `<seconds>` |
 | `ec.dungeon.result` | <message> 記録 <seconds>秒 / ランク<rank>（自己ベスト <best_seconds>秒 / <best_rank>） | <message> Time <seconds>s / Rank <rank> (best <best_seconds>s / <best_rank>) | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<best_rank>`, `<best_seconds>`, `<message>`, `<rank>`, `<seconds>` |
 | `ec.dungeon.timeout` | 聖堂の制限時間を迎えました。 | The trial time limit has been reached. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
 | `ec.dungeon.wave` | 試練 第<current>/<total>波が始まります。 | Trial wave <current>/<total> is beginning. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<current>`, `<total>` |
 | `ec.equipment.accessory_equipped` | 装飾品を装備しました。 | Accessory equipped. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
+| `ec.error.area_missing` | 転送先エリアが見つかりません。 | Destination area not found. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
+| `ec.error.consumable_cooldown` | まだ使用できません。 | That item is not ready yet. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.currency_cap` | 所持金の上限を超えます。 | This would exceed your currency limit. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.currency_low` | 所持金が足りません。 | You do not have enough currency. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.daily_limit` | 本日の購入上限に達しています。 | You have reached today's purchase limit. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
@@ -56,6 +60,7 @@
 | `ec.error.dialogue_node_missing` | 会話ノードが見つかりません。 | Dialogue node not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.dialogue_too_deep` | 会話の分岐が長すぎます。 | The dialogue branch is too long. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.inventory_exchange` | 必要品が不足しているか、持ち物に空きがありません。 | Required items are missing or your inventory is full. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
+| `ec.error.inventory_full` | 持ち物に空きがありません。 | Make room in your inventory. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.item_missing` | アイテムが見つかりません。 | Item not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.item_unsellable` | このアイテムは売れません。 | This item cannot be sold. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.materials_or_space` | 必要な素材が不足しているか、持ち物に空きがありません。 | Required materials are missing or your inventory is full. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
@@ -65,14 +70,21 @@
 | `ec.error.quest_missing` | 依頼が見つかりません。 | Quest not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.quest_prerequisite` | 依頼の受注条件を満たしていません。 | You do not meet the quest requirements. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.reset_schedule` | リセット周期は DAILY または WEEKLY です。 | Reset schedule must be DAILY or WEEKLY. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
+| `ec.error.reward_once_flag` | 一度限りの配布フラグがありません。 | A one-time reward flag is required. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.sell_items_missing` | 売却する品が足りません。 | You do not have enough items to sell. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.shop_amount_cap` | 商品の数量が上限を超えています。 | The quantity exceeds the transaction limit. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.shop_condition` | この商品は条件を満たしていません。 | You do not meet this item's requirements. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.shop_entry_missing` | 商品が見つかりません。 | Shop entry not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
-| `ec.error.shop_missing` | 店が見つかりません。 | Shop not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
+| `ec.error.shop_missing` | 店が見つかりません。 | Shop not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.shop_no_buyback` | この店は買取できません。 | This shop does not buy items. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
+| `ec.error.teleport_condition` | 転送条件を満たしていません。 | You do not meet the teleport requirements. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
+| `ec.error.teleport_destination` | 転送座標は対象エリア内で指定してください。 | The teleport destination must be inside the selected area. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
+| `ec.error.teleport_world` | 管理ワールド以外へは転送できません。 | Teleporting outside the managed world is not allowed. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
+| `ec.error.transaction_busy` | 取引の処理中です。 | A transaction is already in progress. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.transaction_changed` | 取引の状態が変化しました。 | The transaction state changed. Please try again. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.transaction_replayed` | 処理済みの取引です。 | This transaction has already been processed. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
+| `ec.error.transaction_rolled_back` | 保存に失敗したため取引を戻しました。 | The transaction was rolled back because saving failed. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
+| `ec.error.world_missing` | 転送先ワールドがありません。 | Destination world is unavailable. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.fishing.actionbar_status` | <aqua>張力 <tension>% \| 進捗 <progress>% | <aqua>Tension <tension>% \| Progress <progress>% | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt | `<progress>`, `<tension>` |
 | `ec.fishing.aim_water` | 水面を狙って竿を投げてください。 | Aim at the water before casting. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
 | `ec.fishing.bait_failed` | 餌を消費できませんでした。 | Could not consume the bait. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |

@@ -23,7 +23,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     private val mm=MiniMessage.miniMessage()
     private val npcs=NpcController(plugin)
     private val dialogueSessions=mutableMapOf<UUID,Pair<String,String>>()
-    var enterDungeon: (Player,String) -> Unit = { p,id -> p.sendMessage(Component.text("ダンジョンを準備しています: $id")) }
+    var enterDungeon: (Player,String) -> Unit = { p,id -> p.sendMessage(plugin.message(p,"ec.dungeon.preparing", "id" to id)) }
     init { plugin.server.pluginManager.registerEvents(this,plugin) }
     /** 非同期保存を含むプロフィール取引中かを返します。 */
     fun locked(id: UUID) = id in locks
@@ -46,20 +46,20 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                 plugin.snapshot.world.areas.values.filter { it.contains(pos) }.forEach { area -> plugin.game.quests.event(p,ObjectiveKind.EXPLORE,area.id,1,inventory) }
                 plugin.game.quests.event(p,ObjectiveKind.COLLECT,"",1,inventory)
                 if(before != p) { plugin.markDirty(p.uuid); if(before.quests.values.count { it.completed } != p.quests.values.count { it.completed }) plugin.save(p) }
-            } catch(e: Exception) { plugin.logger.warning("依頼更新失敗 ${p.uuid}: ${e.message}") }
+            } catch(e: Exception) { plugin.logger.warning("Quest progress update failed ${p.uuid}: ${e.message}") }
         }
     }
     private fun message(player: Player,text: String) = player.sendMessage(Component.text(text))
     private fun message(player: Player,component: Component) = player.sendMessage(component)
     private fun teleportArea(player: Player,id: String,destination: Position?) {
-        val area=plugin.snapshot.world.areas[id] ?: error("転送先エリアが見つかりません: $id")
-        require(area.world == DemoWorld.NAME) { "管理ワールド以外へは転送できません。" }
-        val world=Bukkit.getWorld(area.world) ?: error("転送先ワールドがありません。")
+        val area=plugin.snapshot.world.areas[id] ?: error("ec.error.area_missing")
+        require(area.world == DemoWorld.NAME) { "ec.error.teleport_world" }
+        val world=Bukkit.getWorld(area.world) ?: error("ec.error.world_missing")
         val x=(area.minX+area.maxX)/2.0; val z=(area.minZ+area.maxZ)/2.0
         val target=destination ?: Position(area.world,x,(world.getHighestBlockYAt(x.toInt(),z.toInt())+1).toDouble(),z)
-        require(area.contains(target)) { "転送座標は対象エリア内で指定してください。" }
+        require(area.contains(target)) { "ec.error.teleport_destination" }
         player.teleport(org.bukkit.Location(world,target.x,target.y,target.z,target.yaw,0f))
-        message(player,"${area.name}へ転送しました。")
+        player.sendMessage(plugin.message(player,"ec.area.teleported", "name" to area.name))
     }
     @EventHandler(ignoreCancelled=true) fun interact(e: PlayerInteractEntityEvent) {
         if(e.hand != EquipmentSlot.HAND) return
@@ -89,7 +89,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     /** 条件を満たす商品だけをショップ画面に表示します。 */
     fun showShop(player: Player,id: String) {
         val p=plugin.profiles[player.uniqueId] ?: return
-        val shop=plugin.snapshot.world.shops[id] ?: error("店が見つかりません。")
+        val shop=plugin.snapshot.world.shops[id] ?: error("ec.error.shop_missing")
         val menu=RpgMenu("shop",id,title=plugin.message(player,"ec.menu.shop")).inventory
         shop.entries.forEachIndexed { index,e ->
             if(e.condition.matches(p)) menu.setItem(index,plugin.createItem(e.item,e.amount).apply { itemMeta=itemMeta.apply {
@@ -130,11 +130,11 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                             "OPEN_SHOP" -> after.add { showShop(player,a.target) }
                             "ENTER_DUNGEON" -> after.add { enterDungeon(player,a.target) }
                             "TELEPORT_AREA" -> {
-                                require(a.requiredFlag == null || a.requiredFlag in p.flags) { "転送条件を満たしていません。" }
+                                require(a.requiredFlag == null || a.requiredFlag in p.flags) { "ec.error.teleport_condition" }
                                 after.add { teleportArea(player,a.target,a.destination) }
                             }
                             "GIVE_ITEM" -> if(a.onceFlag == null || a.onceFlag !in p.flags) {
-                                require(a.onceFlag != null) { "一度限りの配布フラグがありません。" }
+                                require(a.onceFlag != null) { "ec.error.reward_once_flag" }
                                 require(inventory.exchange(emptyMap(),mapOf(a.target to a.amount)))
                                 p.flags.add(a.onceFlag)
                             }
@@ -210,7 +210,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         if(effects.isEmpty()) return false
         val p=plugin.profiles[player.uniqueId] ?: return true
         val now=System.nanoTime()/1_000_000
-        if(now < consumableReady.getOrDefault(p.uuid to id,0)) { message(player,"まだ使用できません。"); return true }
+        if(now < consumableReady.getOrDefault(p.uuid to id,0)) { player.sendMessage(plugin.message(player,"ec.error.consumable_cooldown")); return true }
         try {
             transaction(player,{ inventory ->
                 require(inventory.exchange(mapOf(id to 1),emptyMap()))
@@ -224,7 +224,11 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                 } }
                 consumableReady[p.uuid to id]=now+(effects.maxOfOrNull { it.cooldown } ?: 0)
             }
-        } catch(error: Exception) { message(player,"使用できません: ${error.message}") }
+        } catch(error: Exception) {
+            val key=Regex("ec\\.error\\.[a-z0-9_.]+").find(error.message.orEmpty())?.value
+            val reason=key?.let { plugin.message(player,it) } ?: Component.text(error.message.orEmpty())
+            player.sendMessage(plugin.message(player,"ec.command.failed", "reason" to reason))
+        }
         return true
     }
     private val scheduled=mutableSetOf<UUID>()
@@ -243,7 +247,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         plugin.sync {
             scheduled.remove(id)
             if(locked(id)) { waiting.getOrPut(id) { ArrayDeque() }.addFirst(action); return@sync }
-            try { action() } catch(error: Exception) { plugin.logger.warning("保留報酬の処理失敗 $id: ${error.message}") }
+            try { action() } catch(error: Exception) { plugin.logger.warning("Pending reward processing failed $id: ${error.message}") }
             if(!locked(id)) resume(id)
         }
     }
@@ -304,20 +308,20 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                     }
                     plugin.syncTitleAdvancements(player,p)
                     success()
-                } else plugin.logger.warning("報酬の受取確定直後に切断: ${p.uuid} $output。管理者回復が必要です。")
+                } else plugin.logger.warning("Player disconnected immediately after reward claim persistence: ${p.uuid} $output; admin recovery may be required.")
             } finally { deliveries.remove(p.uuid); delivering.remove(p.uuid); unlock(p.uuid) }
         } }
     }
     /** 消費物を先に保存し、プロフィール状態を永続化してから出力報酬を配布します。 */
     fun transaction(player: Player,mutate: (InventoryAccess) -> Unit,persistConsumption: Boolean = true,beforePersist: () -> Unit = {},success: () -> Unit = {}) {
         val p=plugin.profiles[player.uniqueId] ?: return
-        require(locks.add(p.uuid)) { "取引の処理中です。" }
+        require(locks.add(p.uuid)) { "ec.error.transaction_busy" }
         val before=p.snapshot(); val inventory=plugin.inventory(player,persistConsumption); val staged=StagedInventory(inventory)
         val beforeStorage: Array<ItemStack?> = player.inventory.storageContents.map { it?.clone() }.toTypedArray()
         try {
             mutate(staged)
             staged.add.keys.forEach(p::discoverItem)
-            require(inventory.canExchange(staged.remove,staged.add)) { "持ち物に空きがありません。" }
+            require(inventory.canExchange(staged.remove,staged.add)) { "ec.error.inventory_full" }
             require(inventory.exchange(staged.remove,emptyMap()))
             staged.add.forEach { (id,n) -> p.pendingRewards.merge(id,n,Int::plus) }
             beforePersist()
@@ -329,11 +333,11 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                         if(sameSession || offlineWithoutReconnect) {
                             plugin.rollbackEnhancement(p.uuid)
                             p.restore(before); player.inventory.storageContents=beforeStorage
-                            runCatching { player.saveData() }.onFailure { plugin.logger.warning("切断後の持ち物復旧保存に失敗: ${p.uuid}: ${it.message}") }
+                            runCatching { player.saveData() }.onFailure { plugin.logger.warning("Failed to persist inventory rollback after disconnect: ${p.uuid}: ${it.message}") }
                             plugin.save(p)
-                            if(player.isOnline) message(player,"保存に失敗したため取引を戻しました。")
+                            if(player.isOnline) player.sendMessage(plugin.message(player,"ec.error.transaction_rolled_back"))
                         }
-                        plugin.logger.severe("取引の保存に失敗しました ${p.uuid}: ${error.message}")
+                        plugin.logger.severe("Transaction persistence failed ${p.uuid}: ${error.message}")
                     } else if(player.isOnline && plugin.profiles[p.uuid] === p) {
                         deliverLocked(player,p,success)
                         return@sync

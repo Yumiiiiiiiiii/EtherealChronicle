@@ -34,6 +34,7 @@ ec:
     result: "<message> 記録 <seconds>秒 / ランク<rank>（自己ベスト <best_seconds>秒 / <best_rank>）"
     clear: "<message>"
     timeout: "聖堂の制限時間を迎えました。"
+    preparing: "ダンジョンを準備しています: <id>"
     no_records: "試練の記録はまだありません。"
     record: "<id>: <seconds>秒 / ランク<rank>"
   dialogue:
@@ -100,6 +101,18 @@ ec:
     sell_items_missing: "売却する品が足りません。"
     transaction_changed: "取引の状態が変化しました。"
     reset_schedule: "リセット周期は DAILY または WEEKLY です。"
+    area_missing: "転送先エリアが見つかりません。"
+    teleport_world: "管理ワールド以外へは転送できません。"
+    world_missing: "転送先ワールドがありません。"
+    teleport_destination: "転送座標は対象エリア内で指定してください。"
+    teleport_condition: "転送条件を満たしていません。"
+    reward_once_flag: "一度限りの配布フラグがありません。"
+    consumable_cooldown: "まだ使用できません。"
+    transaction_busy: "取引の処理中です。"
+    inventory_full: "持ち物に空きがありません。"
+    transaction_rolled_back: "保存に失敗したため取引を戻しました。"
+  area:
+    teleported: "<name>へ転送しました。"
   class:
     choose: "職業を選んでください"
   menu:
