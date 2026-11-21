@@ -2,7 +2,7 @@ package net.nakaymi.etherealchronicle.data
 
 import net.nakaymi.etherealchronicle.core.*
 
-/** Content-ID migrations are separate from the physical player-file schema. */
+/** コンテンツID置換はPlayerStoreの物理保存schema移行から分離して適用します。 */
 object ProfileContentMigration {
     private val oldClasses=mapOf("ec:warrior" to "ec:class_warrior","ec:archer" to "ec:class_archer","ec:mage" to "ec:class_mage")
     val oldItems=mapOf("ec:warrior_starter" to "ec:item_wpn_rusty_broadsword","ec:archer_starter" to "ec:item_wpn_hunter_shortbow","ec:mage_starter" to "ec:item_wpn_apprentice_wand","ec:field_ration" to "ec:item_con_lumina_stew")

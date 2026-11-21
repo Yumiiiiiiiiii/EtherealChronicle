@@ -3,6 +3,7 @@ package net.nakaymi.etherealchronicle.data
 import java.nio.file.Path
 
 data class ContentStartup(val service: ContentService,val usedFallback: Boolean,val problem: String?)
+/** サーバー側contentが不正でも配布データへ退避し、validate/reloadコマンドを残します。 */
 object ContentBootstrap {
     fun initialize(dataFolder: Path,bundled: Map<String,ByteArray>,validate: (ContentSnapshot) -> Unit = {}): ContentStartup {
         val service=ContentService(dataFolder.resolve("content"))

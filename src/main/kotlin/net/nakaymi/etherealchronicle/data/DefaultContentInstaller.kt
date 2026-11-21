@@ -4,7 +4,7 @@ import java.nio.file.*
 import java.security.MessageDigest
 import java.util.Properties
 
-/** Non-overwriting installation plus hash-tracked retirement of unchanged shipped defaults. */
+/** 既存ファイルを初回上書きせず、配布hashで未編集の旧版だけを更新します。 */
 object DefaultContentInstaller {
     data class Retirement(val retired: List<String>,val preserved: List<String>)
     data class Installation(val changed: List<String>,val updated: List<String>)
@@ -38,10 +38,12 @@ object DefaultContentInstaller {
         }
         return Retirement(retired,preserved)
     }
+    /** 不足ファイルのみ同梱bytesから初回配置し、既存編集を上書きしません。 */
     fun install(root: Path,bundled: Map<String,ByteArray>): List<String> {
         return installTracked(root,bundled).changed
     }
-    /** Updates a prior default only when its bytes still match the last known shipped version. */
+    /** 直前配布版のhashと一致するファイルだけを安全な同梱更新対象にします。 */
+    /** 前回同梱hashに一致する旧版だけ更新し、編集済みファイルは保持します。 */
     fun installTracked(root: Path,bundled: Map<String,ByteArray>,legacyDefaults: Map<String,String> = emptyMap()): Installation {
         val changed=mutableListOf<String>(); val updated=mutableListOf<String>()
         val previous=legacyDefaults+installed(root)
@@ -52,7 +54,7 @@ object DefaultContentInstaller {
             else {
                 val current=Files.readAllBytes(target); val currentHash=hash(current); val expected=previous[name]; val newHash=hash(bytes)
                 if(currentHash != newHash && expected != null && currentHash == expected) {
-                    // Preserve the exact old file before applying a known-safe default update.
+                    // 更新前の旧ファイルを履歴へ保管してから、新しい同梱版を配置します。
                     val history=resolve(root,"content-history/${System.nanoTime()}/$name")
                     Files.createDirectories(history.parent); Files.write(history,current,StandardOpenOption.CREATE_NEW)
                     val tmp=target.resolveSibling(target.fileName.toString()+".update.tmp")

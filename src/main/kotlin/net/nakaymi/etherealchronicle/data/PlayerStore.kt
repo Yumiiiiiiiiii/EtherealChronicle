@@ -12,10 +12,12 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-/** One IO queue serializes loads and saves, including reconnects. Callers supply detached snapshots. */
+/** 読込・保存・再接続を単一IOキューで直列化し、呼び出し側snapshotを原子的に書き込みます。 */
+/** UUIDごとのprofile YAMLを単一非同期キューで移行・読込・原子的保存します。 */
 class PlayerStore(private val directory: Path): AutoCloseable {
     private val executor = Executors.newSingleThreadExecutor { r -> Thread(r,"ec-player-io") }
     private class FutureSchema(message: String): IllegalArgumentException(message)
+    /** backup復旧とschema移行をIO executorで行い、プロフィールを返します。 */
     fun load(uuid: UUID): CompletableFuture<PlayerProfile> = CompletableFuture.supplyAsync({
         Files.createDirectories(directory)
         val file = directory.resolve("$uuid.yml")
@@ -30,6 +32,7 @@ class PlayerStore(private val directory: Path): AutoCloseable {
             } else throw primary
         }
     },executor)
+    /** detached snapshotを一時ファイル・backup・atomic replaceの順に保存します。 */
     fun save(profile: PlayerProfile): CompletableFuture<Void> {
         val detached = profile.snapshot()
         return CompletableFuture.runAsync({ write(detached) },executor)
@@ -80,6 +83,7 @@ class PlayerStore(private val directory: Path): AutoCloseable {
         require(p.fishRecords.size <= 500 && p.gatheringRecords.size <= 500 && p.gatheringReadyAt.size <= 2000)
         return p
     }
+    /** 旧schemaを順に現行schemaへ変換し、不足fieldを初期化します。 */
     fun migrate(raw: Map<String,Any?>): Map<String,Any?> {
         val version = (raw["schema_version"] as? Number)?.toInt() ?: 0
         if(version !in 0..11) throw FutureSchema("Unsupported player schema $version")

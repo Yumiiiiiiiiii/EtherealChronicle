@@ -265,3 +265,5 @@
 - Last complete test run passed: `./gradlew.bat build test --no-daemon --rerun-tasks`, 180 tests, 0 failures/errors/skips. Re-run full command after each upcoming area commit.
 - Next: commit core comments, then data comments, then Paper comments/holder split; run full suite after each. Finish architecture guide/status and report split file list.
 
+- Commit `f5c3b8f` documents core adventure, life-skill and cooperation services; post-commit full build/test passed (180 tests, 0 failures/errors/skips).
+

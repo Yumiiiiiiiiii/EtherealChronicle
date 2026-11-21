@@ -8,22 +8,31 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicReference
 
+/** 安定IDと旧ID aliasから読み取り専用コンテンツを引くregistryです。 */
 class ContentRegistry<T>(entries: Map<String,T>, private val aliases: Map<String,String> = emptyMap()) {
     private val entries = entries.toMap()
     operator fun get(id: String): T = entries[aliases[id] ?: id] ?: error("Unknown content: $id")
+    /** aliasを正規IDへ解決し、該当定義を返します。 */
     fun find(id: String) = entries[aliases[id] ?: id]
+    /** registry内の正規定義だけを返します。aliasは重複しません。 */
     fun all() = entries.values
 }
+/** 一回のreloadでまとめて入れ替える、型付きコンテンツ一式です。 */
 data class ContentSnapshot(val balance: Balance, val classes: ContentRegistry<ClassDefinition>, val skills: ContentRegistry<SkillDefinition>, val items: ContentRegistry<ItemDefinition>, val drops: ContentRegistry<DropTable>, val documents: Map<String,Map<String,Any?>>,val sources: Map<String,Path> = emptyMap()) {
     val world = WorldContent(documents)
 }
 class ContentException(val problems: List<String>): IllegalArgumentException(problems.joinToString("\n"))
 fun interface ContentMigration { fun migrate(doc: Map<String,Any?>): Map<String,Any?> }
+/** YAML文書を読み、検証済みContentSnapshotを原子的に公開します。 */
+/** YAML読込・migrate・validateを行い、成功時だけ現行snapshotを差し替えます。 */
 class ContentService(private val root: Path, private val migration: ContentMigration = ContentMigration(ProfileContentMigration::migrateClassDocument)) {
     private val current = AtomicReference<ContentSnapshot>()
+    /** 現在公開中の不変snapshotを取得します。 */
     fun snapshot() = checkNotNull(current.get())
+    /** 読込・検証を完了してから単一AtomicReferenceで全定義を切り替えます。 */
     fun reload() = load().also { current.set(it) }
     fun install(snapshot: ContentSnapshot) { current.set(snapshot) }
+    /** YAMLを文書単位に読み、schema移行後の全参照・範囲を検証します。 */
     fun load(): ContentSnapshot {
         val errors = mutableListOf<String>()
         val docs = linkedMapOf<String,Map<String,Any?>>()
@@ -42,8 +51,7 @@ class ContentService(private val root: Path, private val migration: ContentMigra
                 errors.addAll(numericErrors.map { "$path [$id]: $it" })
             } catch(e: Exception) { errors += "$path: ${e.message}" }
         } }
-        // Former class files may retain foundation starter IDs after unchanged old item files retire.
-        // Resolve only missing legacy targets, preserving server-authored items that still exist.
+        // 旧職業ファイルに旧スターターIDが残る場合だけ移行し、サーバー独自アイテムは保持します。
         docs.replaceAll { owner,doc ->
           try {
             if(doc["type"] != "class") doc else doc + ("starter_items" to doc.strings("starter_items").map { id ->
