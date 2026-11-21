@@ -4,10 +4,11 @@
   - `docs/reviews/2026-11-22_master_claude-qa.md`（Claude-QA / `9b0cb4b`）
   - `docs/reviews/2026-11-22_master_antigravity.md`（Antigravity-QA-3 / `67cb2a0`）
   - `docs/reviews/2026-11-22_task20_antigravity.md`（Antigravity-QA-3 / `8565cc0` — Task 20 差分 `8f3acfa`）
+  - `docs/reviews/2026-11-22_task20_claude-qa.md`（Claude-QA / `a55b5ad` — Task 20 差分 `8f3acfa`）
 - **運用ルール**: `AGENTS.md` の「Cross-model review loop」に従い、Wave 単位でコミット＋全テスト実行し、完了後に実装者以外の全モデル（Claude / Antigravity）が再確認して全項目クローズ（または理由付き受容）となるまで完了としない。
 - **実行計画**:
   - **Batch 1（Wave 1〜3）**: High / Med のセキュリティ・正しさバグ修正＋回帰テスト
-  - **Batch 2（Wave 3B + Wave 4〜6）**: Task 20 ゲート修正（`FIX-39`〜`FIX-45`）・高速化 (`Perf`)・書き方の違和感 (`Idiom`)・見栄え/構成分割 (`Style` / `Polish`)・残テスト拡充
+  - **Batch 2（Wave 3B + Wave 4〜6）**: Task 20 ゲート修正（`FIX-39`〜`FIX-46`）・高速化 (`Perf`)・書き方の違和感 (`Idiom`)・見栄え/構成分割 (`Style` / `Polish`)・残テスト拡充
 
 ---
 
@@ -91,27 +92,31 @@
 
 ## Wave 3B — Task 20 必須パックゲート修正（Batch 2 冒頭）
 
-- [ ] **FIX-39 `[High][Bug/Perf/Style]`** (`T20-H01, T20-M04, T20-L01, T20-L03, T20-L04, T20-P02`) `RpgPlugin.kt:253-342`
-  - 12 個のロックハンドラを独立クラス `RequiredPackLockListener` へ分離し、全ハンドラを **`EventPriority.LOWEST`**（他 Controller より先頭登録）へ変更する。
-  - `RequiredPackGate.hasWaiters()` による O(1) 早期 return・`isLocked(entity: Any?)` 統一・`PlayerMoveEvent.movedBlock()`（ワールド跨ぎ含む）共通化・非必須設定時は未登録にする。
+- [ ] **FIX-39 `[High][Bug/Perf/Style]`** (`T20-H01, T20-M04, T20-L01, T20-L03, T20-L04, T20-P02`, `T20-C9, T20-C10`) `RpgPlugin.kt:253-342`
+  - 12 個のロックハンドラを独立クラス `RequiredPackLockListener`（必要イベントのテーブル駆動登録＋非必須/配信不能時は未登録）へ分離し、全ハンドラを **`EventPriority.LOWEST`**（他 Controller より先頭登録）へ変更する。
+  - `hasWaiters()` による O(1) 早期 return・`isLocked(entity: Any?)` 統一・ブロック移動判定（`event.hasChangedBlock()` 互換ヘルパー、ワールド跨ぎ含む）共通化。
   - `FishingController.interact` / `GatheringController.interact` 等の `ignoreCancelled` を統一する。`finishLoadedJoin` の未使用引数 `snapshot` 削除、誤記 KDoc と `config.yml` の `10..600` 範囲コメント修正。
 - [ ] **FIX-40 `[High][Security]`** (`T20-H02`) `RequiredPackLockListener`, `RpgPlugin.kt`, `AdventureController.kt`, `EnemyController.kt`
   - `PlayerInteractEntityEvent` / `PlayerInteractAtEntityEvent` / `EntityPickupItemEvent` / `PlayerPortalEvent` / `ProjectileLaunchEvent` / `FoodLevelChangeEvent` / `EntityTargetLivingEntityEvent` をロック対象に追加し、`EntityDamageByEntityEvent` で `Projectile.shooter` も判定する。
   - `RpgPlugin.tick()` / `AdventureController.tick()` / `EnemyController.tick()` で必須パック待機中プレイヤーを除外する。
 - [ ] **FIX-41 `[High][Bug]`** (`T20-H03`) `ResourcePackController.kt:109,115-121,131`
-  - `send()` で要求を送信せずに return する全経路（`!decision.send` / 配信不能 / 既に適用済み `loadedPlayers`）で、`requiredPackGate.isWaiting(playerId)` なら必ず `releaseRequiredWait(playerId, continueJoin = true)` を呼び、永久デッドロックを防ぐ。
-- [ ] **FIX-42 `[High][Bug/Idiom]`** (`T20-H04, T20-L02, T20-P01`) `ResourcePackController.kt:18,45-48,151-157,188-194,238,246-266,363`
-  - 4 並列コレクションを `RequiredWaitSession(var dispatchTask, var timeoutTask, val waiters)` の 1 マップへ集約し、1-tick `runTaskLater` タスクも `releaseRequiredWait` / `onQuit` / `close` で確実に `cancel()` し、セッション同一性 (`requiredSessions[playerId] === session`) を検証して高速リログ競合を解消する。
+  - `send()` で要求を送信せずに return する全経路（`!decision.send` / 配信不能 / 既に適用済み `loadedPlayers`）で、待機中なら必ず `releaseRequiredWait(playerId, continueJoin = true)` を呼び、永久デッドロックを防ぐ。
+- [ ] **FIX-42 `[High][Bug/Idiom/Perf]`** (`T20-H04, T20-L02, T20-P01`, `T20-C7, T20-C8`) `ResourcePackController.kt:18,45-48,151-157,188-194,238,246-266,363`
+  - 4 並列コレクションを `JoinState(var dispatchTask, var timeoutTask, val waiters, var extensions)` の 1 マップへ集約し、1-tick `runTaskLater` タスクも `releaseRequiredWait` / `onQuit` / `close` で確実に `cancel()` し、セッション同一性を検証して高速リログ競合を解消する。
+  - `debugLog` を `private inline fun debugLog(message: () -> String)` にして `debug=false` 時の文字列生成・FINE ログを省く。
   - `10..600` 範囲定数を `RequiredPackGatePolicy` へ一本化し、`onStatus()` の冗長な `terminalFailure` 判定と `player.uniqueId` 反復を整理する。
-- [ ] **FIX-43 `[Med][Bug]`** (`T20-M01, T20-M03, T20-M06`) `ResourcePackController.kt:106-140,197-198,220-244`
+- [ ] **FIX-43 `[Med][Bug]`** (`T20-M01, T20-M03, T20-M06`, `T20-C2, T20-C3, T20-C4, T20-C5`) `ResourcePackController.kt:106-140,197-198,220-244`
   - `required: true` 下で過去に `OFF` 保存済みの非 bypass プレイヤーが必須適用後も `hasResourcePack() == true` になるよう修正する。
-  - `onStatus()` で中間ステータス（`ACCEPTED` / `DOWNLOADED`）も `debugLog` 出力する。
-  - `send()` で `deliveryEndpoint` 判定を 1 回に統一し、送信例外時はプレイヤー側設定拒否文言ではなくサーバー送信失敗向けの案内キーでキックする。
-- [ ] **FIX-44 `[Med][Bug]`** (`T20-M02`) `RpgPlugin.kt:242-261,344-350`
+  - `onStatus()` で中間ステータス（`ACCEPTED` / `DOWNLOADED`）を `debugLog` 出力するとともに、ダウンロード進行中のタイムアウトを上限付き（例: 最大 3 回）で延長再武装する。
+  - `bypass` を dispatch tick とタイムアウトキック直前にも再評価し、`request sent` デバッグログへ `bypass` を含める（LuckPerms 等の非同期権限読込対策）。
+  - `DISCARDED` は待機中のみ扱い、適用済みプレイヤーを他プラグインのパック差し替えで誤キックしないようにする。終端ステータス別/送信例外別に適切なキック案内キーを使う。
+  - `/ec reload` の案内に `resource_pack.*` は再起動が必要であることを明記する（FIX-16 と連動）。
+- [ ] **FIX-44 `[Med][Bug]`** (`T20-M02`, `T20-C1`) `RpgPlugin.kt:242-261,344-350`
+  - 必須パック待機開始時に安全ハブ（`DemoWorld.luminaSpawn`）へ移動＋一時的無敵（`isInvulnerable = true`、解放・切断時に必ず復元）にし、バニラ初期ワールドのランダム座標放置と空中スポーンの `Flying is not enabled` キックを防ぐ。
   - 必須パック拒否/タイムアウトで未プレイ切断した初回プレイヤーのプロファイル新規書き出しを抑止する（`finishLoadedJoin` まで `profiles` 未登録、または未入場保存ガード）。
-  - 待機中の `lockMovementUntilPack` が空中スポーン時の落下着地まで止めて `Flying is not enabled` キックを誘発しないよう、水平移動・上昇のみ抑止（または安全位置固定）する。
-- [ ] **FIX-45 `[Med][Test]`** (`T20-M05`) `src/test/kotlin/net/nakaymi/etherealchronicle/paper/`
-  - 重複している `RequiredPackGatePolicy.shouldWait` テストを 1 箇所へ統合し、MockBukkit 結合テスト（優先順位 `LOWEST` ブロック・NPC/アイテム拾得ブロック・`SUCCESSFULLY_LOADED` 解除・`DECLINED`/タイムアウト/高速リログ/`bypass` 変化でデッドロック無し）を追加する。
+- [ ] **FIX-45 `[Med][Test]`** (`T20-M05`, `T20-C6`) `src/test/kotlin/net/nakaymi/etherealchronicle/paper/`
+  - 重複している `RequiredPackGatePolicy.shouldWait` テストを 1 箇所へ統合し、状態遷移決定テーブル（`status × required × bypass → release/kick/extend/ignore`）を純粋単体テストで網羅する。
+  - MockBukkit 結合テスト（優先順位 `LOWEST` ブロック・NPC/アイテム拾得ブロック・`SUCCESSFULLY_LOADED` 解除・`ACCEPTED`/`DOWNLOADED` 延長・`DECLINED`/タイムアウト/高速リログ/`bypass` 変化でデッドロック無し・未入場者プロファイル非保存）を追加する。
 
 ---
 
