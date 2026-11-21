@@ -47,7 +47,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             val entity=world.spawn(Location(world,d.position.x,d.position.y,d.position.z,d.position.yaw,0f),Villager::class.java)
             entity.persistentDataContainer.set(npcKey,PersistentDataType.STRING,d.id)
             entity.customName(mm.deserialize(d.name)); entity.isCustomNameVisible=true
-            entity.isInvulnerable=true; entity.setAI(false); entity.isCollidable=false; entity.isSilent=true; entity.removeWhenFarAway=false
+            entity.isPersistent=true; entity.isInvulnerable=true; entity.setAI(false); entity.isCollidable=false; entity.isSilent=true
             npcEntities[d.id]=entity.uniqueId
         }
     }

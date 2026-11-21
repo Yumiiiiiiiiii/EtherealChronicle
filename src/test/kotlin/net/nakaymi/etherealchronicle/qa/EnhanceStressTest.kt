@@ -30,8 +30,9 @@ class EnhanceStressTest {
     fun enhancementScenarios() {
         val server = MockBukkit.mock()
         try {
+            val world=OwnedWorldMock.add(server, DemoWorld.NAME)
+            File(world.worldFolder, ".etherealchronicle-built").writeText("v4\n")
             val plugin = MockBukkit.load(RpgPlugin::class.java)
-            server.addSimpleWorld(DemoWorld.NAME)
             val uuid = UUID.nameUUIDFromBytes("enh".toByteArray())
             val player = QaPlayerMock(server, "Smithy", uuid); server.addPlayer(player)
             server.pump { uuid in plugin.profiles }

@@ -19,10 +19,11 @@ import kotlin.test.assertTrue
 /** BUG-7 re-verification: missing inputs, GUI click spam, reload mid-flight, result item removed (refund exactly once), quit then rejoin. Report: build/qa-enhance-flight.txt */
 class EnhanceFlightTest {
     private val out = mutableListOf<String>()
-    private fun rec(n: String, body: () -> String?) { try { out += "PASS  $n  ${body() ?: ""}" } catch (t: Throwable) { out += (if (t is org.mockbukkit.mockbukkit.exception.UnimplementedOperationException) "BLOCKED(mock)" else "FAIL") + "  $n  ${(t::class.simpleName + ": " + t.message).take(400)}" } }
+    private fun rec(n: String, body: () -> String?) { try { out += "PASS  $n  ${body() ?: ""}" } catch (t: Throwable) { out += (if (t is org.mockbukkit.mockbukkit.exception.UnimplementedOperationException) "BLOCKED(mock)" else "FAIL") + "  $n  ${(t::class.simpleName + ": " + t.message + " @ " + t.stackTrace.take(3).joinToString(" <- ")).take(700)}" } }
     private fun ServerMock.pump(timeoutMs: Long = 4000, cond: () -> Boolean): Boolean {
         val end = System.currentTimeMillis() + timeoutMs
-        while (System.currentTimeMillis() < end) { scheduler.waitAsyncTasksFinished(); scheduler.performOneTick(); if (cond()) return true; Thread.sleep(20) }
+        // waitAsyncTasksFinished() spins forever with MockBukkit's repeating plugin tasks during /ec reload.
+        while (System.currentTimeMillis() < end) { scheduler.performOneTick(); if (cond()) return true; Thread.sleep(20) }
         return cond()
     }
 
@@ -30,13 +31,16 @@ class EnhanceFlightTest {
     fun enhancementFlights() {
         val server = MockBukkit.mock()
         try {
+            val world = OwnedWorldMock.add(server, DemoWorld.NAME)
+            File(world.worldFolder, ".etherealchronicle-built").writeText("v4\n")
             val plugin = MockBukkit.load(RpgPlugin::class.java)
-            server.addSimpleWorld(DemoWorld.NAME)
             val mat = "ec:item_mat_artisan_whetstone"; val weapon = "ec:item_wpn_rusty_broadsword"
             val lvKey = NamespacedKey(plugin, "enhancement_level")
             fun newPlayer(name: String): Pair<QaPlayerMock, net.nakaymi.etherealchronicle.core.PlayerProfile> {
                 val id = UUID.nameUUIDFromBytes("ef-$name".toByteArray()); val pl = QaPlayerMock(server, name, id); server.addPlayer(pl)
-                server.pump { id in plugin.profiles }; val pr = plugin.profiles.getValue(id)
+                val loaded = server.pump { id in plugin.profiles }
+                check(loaded) { "プロフィール読込待機がタイムアウト: online=${pl.isOnline}, enabled=${plugin.isEnabled}, onlinePlayers=${server.onlinePlayers.map { it.name }}, profiles=${plugin.profiles.keys}, messages=${pl.nextMessage()}" }
+                val pr = plugin.profiles.getValue(id)
                 pr.classId = "ec:class_warrior"; pr.level = 20; pr.currency = 10_000
                 pl.inventory.setItemInMainHand(plugin.createItem(weapon)); return pl to pr
             }
@@ -84,7 +88,9 @@ class EnhanceFlightTest {
                 val saved = File(plugin.dataFolder, "playerdata/${pl.uniqueId}.yml").readText()
                 val gold = Regex("currency: (\\d+)").find(saved)!!.groupValues[1].toLong()
                 val back = QaPlayerMock(server, "Quitter", pl.uniqueId); back.inventory.setItemInMainHand(pl.inventory.itemInMainHand)   // the mock does not persist inventories: carry the item over
-                server.addPlayer(back); server.pump(3000) { pl.uniqueId in plugin.profiles }; server.pump(1500) { false }
+                server.addPlayer(back)
+                check(server.pump(3000) { pl.uniqueId in plugin.profiles }) { "再接続プロフィール読込がタイムアウト" }
+                server.pump(1500) { false }
                 val pr2 = plugin.profiles.getValue(pl.uniqueId)
                 assertTrue(gold == c0 - 100 || (gold == c0 && lvl(pl) == 0), "saved gold $gold with level ${lvl(pl)} (start $c0)")
                 assertEquals(gold, pr2.currency, "currency changed again on rejoin (double debit/refund)"); "gold=$gold level=${lvl(pl)} after rejoin currency=${pr2.currency}"
