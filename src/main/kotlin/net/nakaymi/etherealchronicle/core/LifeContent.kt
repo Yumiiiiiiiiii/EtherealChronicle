@@ -2,6 +2,7 @@ package net.nakaymi.etherealchronicle.core
 
 import kotlin.math.pow
 
+/** 生活スキルの保存・成長カテゴリです。 */
 enum class LifeSkillKind { FISHING, GATHERING }
 enum class TackleKind { ROD, BAIT, PICKAXE, SICKLE, HATCHET, EXTRACTOR }
 enum class NodeKind { ORE, HERB, WOOD, CRYSTAL }
@@ -10,6 +11,7 @@ enum class Crown { NONE, SILVER, GOLD }
 data class LifeMilestone(val threshold: Int, val uniqueNodes: Int = 0, val flag: String)
 data class LifeSkillProgress(var level: Int = 1, var xp: Long = 0)
 data class FishRecord(var count: Int = 0, var maxCm: Double = 0.0, var crown: Crown = Crown.NONE)
+/** 釣り・採取の全体上限、疲労、経験値、pityをまとめた設定です。 */
 data class LifeBalance(
     val levelCap: Int = 20,
     val xpBase: Long = 80,
@@ -31,6 +33,7 @@ data class LifeBalance(
     val macroCastIntervalDeviationMillis: Double = 120.0,
     val macroRareWeightMultiplier: Double = 0.1
 )
+/** 釣具・餌の効果と装備条件を表します。 */
 data class TackleDefinition(
     val id: String,
     val item: String,
@@ -52,6 +55,7 @@ fun selectFishingSpot(spots:Collection<FishingSpotDefinition>,world:String,x:Dou
     spots.asSequence().filter { s -> s.world==world && (s.unlockFlag==null || s.unlockFlag in flags) && s.center.let { center -> val dx=x-center.x; val dz=z-center.z; dx*dx+dz*dz<=s.radius*s.radius } }
         .sortedWith(compareByDescending<FishingSpotDefinition> { it.priority }.thenBy { it.radius }.thenBy { it.id }).firstOrNull()
 data class FishMinigame(val biteWindowMillis: Long, val difficulty: Double, val sweetWidth: Double, val progressPerSecond: Double, val tensionDecayPerSecond: Double, val thrashChancePerSecond: Double, val diveChancePerSecond: Double)
+/** 釣り場条件、サイズ記録、報酬、ミニゲームを持つ魚種です。 */
 data class FishSpeciesDefinition(
     val id: String, val name: String, val item: String, val rarity: Rarity, val tags: Set<String>, val habitats: Set<String>,
     val timeWindows: Set<String>, val weather: Set<String>, val minRodTier: Int, val minFishingLevel: Int, val baseWeight: Double,
@@ -60,6 +64,7 @@ data class FishSpeciesDefinition(
 )
 data class NodeYield(val item: String, val min: Int, val max: Int, val chance: Double, val pityAfter: Int? = null)
 data class GatheringLocation(val id: String, val area: String, val world: String, val x: Int, val y: Int, val z: Int)
+/** 必要道具・再出現・収穫表・配置を持つ採取ノードです。 */
 data class GatheringNodeDefinition(
     val id: String, val name: String, val kind: NodeKind, val displayMaterial: String, val depletedMaterial: String,
     val toolKind: TackleKind, val minToolTier: Int, val minGatheringLevel: Int, val channelMillis: Long,
@@ -67,11 +72,14 @@ data class GatheringNodeDefinition(
     val yields: List<NodeYield>, val rareYields: List<NodeYield>, val locations: List<GatheringLocation>
 )
 
+/** 生活スキルの必要経験値と上限付きレベル成長を計算します。 */
 class LifeSkillEngine(private val balance: LifeBalance) {
+    /** 現在レベルから次のレベルに必要な経験値を返します。 */
     fun requiredXp(level: Int): Long {
         val safe=level.coerceIn(1,balance.levelCap)
         return (balance.xpBase.toDouble()*safe.toDouble().pow(balance.xpExponent)).toLong().coerceAtLeast(1)
     }
+    /** 加算オーバーフローを避け、上限までのレベル上昇数を返します。 */
     fun grant(progress: LifeSkillProgress,amount: Long): Int {
         require(amount >= 0)
         val before=progress.level
@@ -85,16 +93,13 @@ class LifeSkillEngine(private val balance: LifeBalance) {
 }
 
 data class GatherResult(val item: String,val amount: Int,val rare: Boolean)
+/** 採取条件、抽選、pity、個人再出現を副作用範囲を限定して処理します。 */
 class GatheringEngine(private val random: kotlin.random.Random = kotlin.random.Random.Default) {
+    /** ノードの道具種・tier・生活レベルの条件を判定します。 */
     fun canHarvest(node: GatheringNodeDefinition,toolKind: TackleKind,toolTier: Int,lifeLevel: Int): Boolean =
         toolKind == node.toolKind && toolTier >= node.minToolTier && lifeLevel >= node.minGatheringLevel
 
-    /**
-     * Rare pity is stored in the existing profile dropPity map. A failed rare roll
-     * advances its own node/item counter; a success (including pity) resets it.
-     * This is per recipient, so party proximity changes chance but never multiplies
-     * the number of attempts or rewards.
-     */
+    /** 稀少報酬のpityをノード・アイテムごとに保存します。成功時は0へ戻し、パーティ補正は確率のみへ加えて抽選回数を増やしません。 */
     fun roll(node: GatheringNodeDefinition,toolTier: Int,lifeLevel: Int,partyNearby: Boolean,partyBonus: Double,
              pity: MutableMap<String,Int> = mutableMapOf(),attemptCap: Int = 100): List<GatherResult> {
         require(toolTier in 1..3 && lifeLevel >= 1 && partyBonus in 0.0..0.25)
@@ -114,7 +119,9 @@ class GatheringEngine(private val random: kotlin.random.Random = kotlin.random.R
             }
         }
     }
+    /** 指定プレイヤーの採取地点が再出現時刻に達したかを返します。 */
     fun readyAt(profile: PlayerProfile,nodeId: String,nowMillis: Long) = (profile.gatheringReadyAt[nodeId] ?: 0L) <= nowMillis
+    /** 再出現可能な地点を予約し、成功した場合だけ状態を更新します。 */
     fun reserve(profile: PlayerProfile,locationKey: String,respawnSeconds: Long,nowMillis: Long): Boolean {
         require(respawnSeconds in 1..86_400 && nowMillis >= 0)
         if(!readyAt(profile,locationKey,nowMillis)) return false

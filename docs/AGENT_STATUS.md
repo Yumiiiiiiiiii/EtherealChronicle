@@ -250,3 +250,10 @@
 - Verification for the codex split: `./gradlew.bat build test --no-daemon --rerun-tasks` SUCCESS, 180 tests, 0 failures/errors/skips. Current simulation extraction has compiled and passed the same full command. `git diff --check` checked before committing.
 - Next: commit simulation controller, then complete smaller controller/core/data Japanese KDocs and readability cleanup, update final architecture/status notes, and compare final full suite to baseline.
 
+
+## Codex-Impl — Task13 core documentation follow-up
+- Added Japanese KDocs to `GameService`, `SimulationSession`, life-skill models/engines and `WorldContent`, plus YAML reader helpers. Replaced the prior English core comments touched in this slice with Japanese explanations.
+- Preserved the core method bodies and existing rules; no YAML, commands, persistence schema, or event behavior changed.
+- Verification: `./gradlew.bat build test --no-daemon --rerun-tasks` SUCCESS; 180 tests, 0 failures/errors/skips. `git diff --check` clean.
+- Next: commit this core-only slice, then document/split the Paper controllers and finalize architecture notes.
+

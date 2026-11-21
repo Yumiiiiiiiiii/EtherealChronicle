@@ -3,20 +3,21 @@ package net.nakaymi.etherealchronicle.core
 import net.nakaymi.etherealchronicle.data.ContentSnapshot
 import java.util.UUID
 
-/** Console-only virtual inventory. Profile persistence is separate; bags deliberately reset on load. */
+/** コンソール検証用の仮想持ち物と会話状態です。保存対象はプロフィールのみで、バッグはロード時に再作成します。 */
 class SimulationSession(private val content: () -> ContentSnapshot, private val game: GameService) {
     val inventory = MemoryInventory()
     private val dialogues = DialogueEngine(content)
     private val trades = TradeEngine(content)
     private var conversation: Pair<String,String>? = null
 
-    /** Roll back both stores if a dialogue action or transaction fails. */
+    /** 会話処理が失敗した場合、プロフィール・仮想バッグ・会話位置をまとめて戻します。 */
     private fun atomic(p: PlayerProfile, operation: () -> String): String {
         val before=p.snapshot(); val bag=inventory.contents.toMap(); val oldConversation=conversation
         return try { operation() } catch(e: Exception) {
             p.restore(before); inventory.contents.clear(); inventory.contents.putAll(bag); conversation=oldConversation; throw e
         }
     }
+    /** 同じcoreサービスを使って仮想プロフィールの操作を実行します。 */
     fun execute(p: PlayerProfile, operation: String, args: List<String>): String = atomic(p) {
         fun arg(i: Int) = args.getOrNull(i) ?: error("引数が不足しています: $operation")
         when(operation) {
@@ -60,6 +61,7 @@ class SimulationSession(private val content: () -> ContentSnapshot, private val 
             else -> error("不明なシミュレーション操作: $operation")
         }
     }
+    /** 初回選択後のスターター権利を仮想バッグへ反映します。 */
     fun starter(p: PlayerProfile) {
         if(p.starterGranted) return
         val items=content().classes[p.classId ?: error("職業未選択")].starterItems.groupingBy { it }.eachCount()

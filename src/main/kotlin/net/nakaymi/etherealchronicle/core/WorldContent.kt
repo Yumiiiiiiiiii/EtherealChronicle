@@ -2,6 +2,7 @@ package net.nakaymi.etherealchronicle.core
 
 import net.nakaymi.etherealchronicle.data.*
 
+/** 検証済みYAML文書を型付きのゲーム定義へ変換し、文書間参照を確認します。 */
 class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
     val tuning = documents.values.single { it["type"] == "balance" }.tuning()
     val quests = linkedMapOf<String,QuestDefinition>()
@@ -21,6 +22,7 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
     val treasureChests = linkedMapOf<String,TreasureChestDefinition>()
     val chapters = documents.filterValues { it["type"] == "chapter" }
     init {
+        // 各文書を型ごとに構築し、後段で章・ダンジョン・生活コンテンツの参照をまとめて検証します。
         val lifeBalances=documents.values.filter { it["type"] == "life_balance" }
         require(lifeBalances.size == 1) { "生活バランス定義が1件必要です (現在 ${lifeBalances.size} 件)" }
         lifeBalance=lifeBalances.single().let { d ->
@@ -222,6 +224,7 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
         require(nodeCoordinates.distinct().size == nodeCoordinates.size) { "採取ノード座標が重複しています。" }
         fishingSpots.values.filter { it.defaultForArea }.groupBy { it.area }.forEach { (area,spots) -> require(spots.size == 1) { "$area: default fishing spot は1件だけ指定できます。" } }
     }
+    /** 指定エリア内に出現点を持つ魔物をID順で返します。 */
     fun enemiesInArea(areaId:String):List<EnemyDefinition> {
         val area=areas[areaId] ?: return emptyList()
         return enemies.values.filter { enemy -> enemy.spawns.any { spawn -> area.contains(spawn.position) } }.sortedBy { it.id }
