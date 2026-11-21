@@ -38,6 +38,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private var autosaveSeconds = 0
     private lateinit var simStore: PlayerStore
     private val simulated = mutableMapOf<String,PlayerProfile>()
+    private val simSessions = mutableMapOf<String,SimulationSession>()
     private lateinit var itemKey: NamespacedKey
     private lateinit var enemyKey: NamespacedKey
     private lateinit var slotKey: NamespacedKey
@@ -421,8 +422,9 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     @EventHandler fun playerDeath(e: PlayerDeathEvent) { e.drops.removeIf(::isSkill) }
     @EventHandler fun respawn(e: PlayerRespawnEvent) { sync { skillSlot(e.player); profiles[e.player.uniqueId]?.let { applyStats(e.player,it); e.player.health=e.player.getAttribute(Attribute.MAX_HEALTH)!!.value } } }
     private fun validatePaperContent(c: ContentSnapshot) {
-        c.items.all().forEach { require(Material.valueOf(it.material).isItem) }
-        c.documents.values.filter { it["type"] in setOf("enemy","boss") }.forEach { require(EntityType.valueOf(it.string("entity")).isAlive) }
+        fun validate(id: String, action: () -> Unit) { try { action() } catch(e: Exception) { throw IllegalArgumentException("${c.sources[id]} [$id]: ${e.message}",e) } }
+        c.items.all().forEach { item -> validate(item.id) { require(Material.valueOf(item.material).isItem) { "material はアイテムである必要があります。" } } }
+        c.documents.values.filter { it["type"] in setOf("enemy","boss") }.forEach { d -> validate(d.string("id")) { require(EntityType.valueOf(d.string("entity")).isAlive) { "entity は生物である必要があります。" } } }
     }
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if(!ready) { sender.sendMessage(Component.text("冒険システムは起動中です。しばらくお待ちください。")); return true }
@@ -548,32 +550,57 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         }
     }
     private fun debug(sender: CommandSender, args: List<String>) {
-        require(args.size >= 3 && args[0] == "sim") { "/ec debug sim join|class|kill|skill|quest|dump|save|load <name> [id]" }
+        require(args.size >= 3 && args[0] == "sim") { "/ec debug sim <操作> <name> [引数] — join/class/kill/skill/accept/event/complete/dialogue/choice/give/inventory/currency/level/flag/buy/sell/party/spawn/hit/dump/save/load" }
         val operation = args[1]; val name = args[2]
         val uuid = UUID.nameUUIDFromBytes("ec:simulation:$name".toByteArray())
         if(operation == "join") {
             require(name !in simulated) { "既に参加しています。" }
             simulated[name] = PlayerProfile(uuid)
+            simSessions[name] = SimulationSession(content::snapshot,game)
         } else if(operation == "load") {
             simStore.load(uuid).whenComplete { p,error -> sync {
                 if(error != null) sender.sendMessage(Component.text("SIM load 失敗: ${error.message}"))
-                else { simulated[name] = p; sender.sendMessage(Component.text("SIM load $name: $p")) }
+                else { simulated[name] = p; simSessions[name]=SimulationSession(content::snapshot,game); sender.sendMessage(Component.text("SIM load $name: $p (仮想持ち物はリセット)")) }
             } }; return
         } else {
             val p = simulated[name] ?: error("先に sim join を実行してください。")
+            val session=simSessions.getOrPut(name) { SimulationSession(content::snapshot,game) }
             when(operation) {
-                "class" -> { game.chooseClass(p,args[3]); p.starterGranted = true }
-                "kill" -> sender.sendMessage(Component.text("SIM drops: ${game.kill(p,args[3])}"))
+                "class" -> { game.chooseClass(p,args[3]); session.starter(p) }
+                "party" -> {
+                    val parties=adventure.parties
+                    when(args.getOrNull(3)) {
+                        "invite" -> parties.invite(p.uuid,(simulated[args.getOrNull(4)] ?: error("相手が未参加です。")).uuid)
+                        "accept" -> parties.accept(p.uuid)
+                        "leave" -> parties.leave(p.uuid)
+                        "split" -> sender.sendMessage(Component.text("SIM XP配分=${parties.splitXp(args[4].toLong(),parties.members(p.uuid))}"))
+                    }
+                    sender.sendMessage(Component.text("SIM party=${parties.members(p.uuid)}"))
+                }
+                "spawn" -> {
+                    val world=server.getWorld("ec_world") ?: error("専用ワールドがありません。")
+                    val id=args[3]; val definition=snapshot.world.enemies[id] ?: error("魔物が見つかりません。")
+                    val pos=definition.spawns.firstOrNull()?.position
+                    val location=pos?.let { Location(world,it.x,it.y,it.z) } ?: world.spawnLocation
+                    val mob=enemies.spawn(id,location,"sim:$name:$id",1,setOf(p.uuid)) ?: error("出現上限です。")
+                    sender.sendMessage(Component.text("SIM spawn=${mob.uniqueId} hp=${enemies.state(mob.uniqueId)?.boss?.hp}"))
+                }
+                "hit" -> {
+                    val entity=UUID.fromString(args[3]); val damage=args[4].toDouble(); require(damage.isFinite() && damage > 0 && damage <= snapshot.balance.damageCap)
+                    val state=enemies.state(entity) ?: error("対象が見つかりません。")
+                    require(state.participants.isEmpty() || p.uuid in state.participants) { "参加者が一致しません。" }
+                    val killed=enemies.applyVirtualDamage(entity,p.uuid,damage)
+                    sender.sendMessage(Component.text("SIM hit hp=${state.boss.hp} killed=$killed (実Playerの討伐報酬は発生しません)"))
+                }
                 "skill" -> {
                     val c = content.snapshot().classes[p.classId ?: error("職業未選択")]
                     val skill = content.snapshot().skills[args.getOrNull(3) ?: c.skills[p.selectedSkill]]
                     require(skill.id in c.skills)
                     sender.sendMessage(Component.text("SIM cast: ${game.skills.cast(p,skill)}"))
                 }
-                "quest" -> game.completeQuest(p,args[3])
                 "save" -> { simStore.save(p).whenComplete { _,error -> sync { sender.sendMessage(Component.text(if(error == null) "SIM save 成功 $name" else "SIM save 失敗: ${error.message}")) } }; return }
                 "dump" -> Unit
-                else -> error("不明な操作")
+                else -> sender.sendMessage(Component.text("SIM ${session.execute(p,operation,args.drop(3))}"))
             }
         }
         sender.sendMessage(Component.text("SIM $operation $name: ${simulated[name]}"))

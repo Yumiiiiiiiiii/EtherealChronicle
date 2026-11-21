@@ -31,7 +31,7 @@ class ContentService(private val root: Path, private val migration: ContentMigra
         val yaml = Yaml(SafeConstructor(LoaderOptions().apply { isAllowDuplicateKeys = false; maxAliasesForCollections = 20 }))
         Files.walk(root).use { paths -> paths.filter { Files.isRegularFile(it) && it.toString().endsWith(".yml") }.sorted().forEach { path ->
             try {
-                val raw = Files.newBufferedReader(path).use { yaml.load<Any>(it) } as Map<*,*>
+                val raw = Files.newBufferedReader(path).use { yaml.load<Any>(it) } as? Map<*,*> ?: error("YAMLのルートにマッピングが必要です。")
                 val doc = migration.migrate(raw.entries.associate { it.key.toString() to it.value })
                 require(doc.int("schema_version") == 1) { "Unsupported schema_version" }
                 val id = doc.string("id")
@@ -44,17 +44,21 @@ class ContentService(private val root: Path, private val migration: ContentMigra
         } }
         // Former class files may retain foundation starter IDs after unchanged old item files retire.
         // Resolve only missing legacy targets, preserving server-authored items that still exist.
-        docs.replaceAll { _,doc ->
+        docs.replaceAll { owner,doc ->
+          try {
             if(doc["type"] != "class") doc else doc + ("starter_items" to doc.strings("starter_items").map { id ->
                 if(id in docs) id else ProfileContentMigration.oldItems[id]?.takeIf { it in docs } ?: id
             })
+          } catch(e: Exception) { errors += "${sources[owner]} [$owner]: ${e.message}"; doc }
         }
         val aliases = linkedMapOf<String,String>()
-        docs.forEach { (id,d) -> d.strings("aliases").forEach { alias ->
+        docs.forEach { (id,d) -> try { d.strings("aliases").forEach { alias ->
             if(alias in docs || aliases.putIfAbsent(alias,id) != null) errors += "別名が重複しています: $alias"
-        } }
+        } } catch(e: Exception) { errors += "${sources[id]} [$id]: ${e.message}" } }
         val declarations = docs.values.filter { it["type"] == "chapter" }.flatMap { d ->
+          try {
             d.strings("flags")+d.strings("dungeons")+d.maps("areas").map { it.string("id") }
+          } catch(e: Exception) { val id=d["id"]; errors += "${sources[id]} [$id]: ${e.message}"; emptyList() }
         }
         if(declarations.distinct().size != declarations.size) errors += "章内の宣言IDが重複しています。"
         val knownIds = docs.keys + aliases.keys + declarations
@@ -93,16 +97,16 @@ class ContentService(private val root: Path, private val migration: ContentMigra
             require(docs.values.all { it.string("type") in supported }) { "Unknown content type" }
             val skills = typed("skill").associate { d -> parsingId=d.string("id"); d.string("id") to SkillDefinition(d.string("id"),d.string("name"),d.num("cost"),d.long("cooldown_ms"),d.num("multiplier"),d.num("range"),d.text("element","PHYSICAL"),d.number("radius",0.0),d.number("heal",0.0),d.number("defense_buff",0.0),d.integer("buff_ticks",0)) }
             val classes = typed("class").associate { d -> parsingId=d.string("id"); d.string("id") to ClassDefinition(d.string("id"),d.string("name"),ResourceKind.valueOf(d.string("resource")),d.stats(),d.num("regeneration"),d.num("hit_gain"),d.strings("skills"),d.strings("starter_items"),(d["growth"] ?: emptyMap<String,Any?>()).asMapping().let { mapOf("stats" to it).stats(Stats.ZERO) }) }
-            require(classes.values.all { c -> c.skills.size in 1..4 && c.skills.distinct().size == c.skills.size && c.stats.hp in 1.0..balance.statCap && c.stats.resource in 1.0..balance.statCap && c.skills.all { id -> skills[id]?.cost?.let { it <= c.stats.resource } == true } }) { "Invalid class skills/stats" }
+            classes.values.forEach { c -> parsingId=c.id; require(c.skills.size in 1..4 && c.skills.distinct().size == c.skills.size && c.stats.hp in 1.0..balance.statCap && c.stats.resource in 1.0..balance.statCap && c.skills.all { id -> skills[id]?.cost?.let { it <= c.stats.resource } == true }) { "Invalid class skills/stats" } }
             val items = typed("item").associate { d -> parsingId=d.string("id"); d.string("id") to ItemDefinition(d.string("id"),d.string("name"),d.string("material"),Rarity.valueOf(d.string("rarity")),d.int("min_level"),d.strings("classes").map { aliases[it] ?: it },d.stats(Stats.ZERO),d.num("budget"),b.mapping("rarities").mapping(d.string("rarity")).num("budget_multiplier"),b.mapping("rarities").mapping(d.string("rarity")).int("affixes"),GearSlot.valueOf(d["slot"] as? String ?: "HAND")) }
-            require(items.values.all { i -> i.withinBudget() && i.minLevel in 1..balance.levelCap && i.affixes in 0..4 && i.budgetMultiplier > 0 && i.classes.all { (aliases[it] ?: it) in classes } }) { "Item budget/level invalid" }
+            items.values.forEach { i -> parsingId=i.id; require(i.withinBudget() && i.minLevel in 1..balance.levelCap && i.affixes in 0..4 && i.budgetMultiplier > 0 && i.classes.all { (aliases[it] ?: it) in classes }) { "Item budget/level invalid" } }
             val drops = typed("droptable").associate { d -> parsingId=d.string("id"); d.string("id") to DropTable(d.string("id"),(d["entries"] as List<*>).map { raw ->
                 @Suppress("UNCHECKED_CAST") val e = raw as Map<String,Any?>
                 DropEntry(e.string("item"),e.num("chance"),e.int("min"),e.int("max")).also { require(it.min in 1..64 && it.max in it.min..64) }
             }) }
-            require(drops.values.all { t -> t.entries.map { it.item }.distinct().size == t.entries.size && t.entries.all { it.item in items } }) { "Duplicate/invalid drop item" }
-            require(classes.values.all { c -> c.starterItems.size in 1..8 && c.starterItems.all { it in items } }) { "Invalid starter items" }
-            require(skills.values.all { it.range in 0.1..128.0 && it.multiplier in 0.0..balance.statCap && it.cooldownMillis in 1..3_600_000 }) { "Invalid skill range/multiplier/cooldown" }
+            drops.values.forEach { t -> parsingId=t.id; require(t.entries.map { it.item }.distinct().size == t.entries.size && t.entries.all { it.item in items }) { "Duplicate/invalid drop item" } }
+            classes.values.forEach { c -> parsingId=c.id; require(c.starterItems.size in 1..8 && c.starterItems.all { it in items }) { "Invalid starter items" } }
+            skills.values.forEach { s -> parsingId=s.id; require(s.range in 0.1..128.0 && s.multiplier in 0.0..balance.statCap && s.cooldownMillis in 1..3_600_000 && s.radius in 0.0..32.0 && s.heal >= 0) { "Invalid skill range/multiplier/cooldown/radius/heal" } }
             (typed("enemy")+typed("boss")).forEach { d ->
                 parsingId=d.string("id")
                 require(d.num("hp") in 1.0..balance.statCap) { "hp=${d["hp"]} は 1..${balance.statCap} の範囲外です (balance.stat_cap)。" }
@@ -131,11 +135,11 @@ fun Map<String,Any?>.string(k: String) = this[k] as? String ?: error("Missing st
 fun Map<String,Any?>.num(k: String) = (this[k] as? Number)?.toDouble() ?: error("Missing number $k")
 fun Map<String,Any?>.int(k: String): Int = long(k).also { require(it in Int.MIN_VALUE..Int.MAX_VALUE) { "整数範囲外: $k" } }.toInt()
 fun Map<String,Any?>.long(k: String): Long = (this[k] as? Number)?.toString()?.toLongOrNull() ?: error("整数が必要です: $k")
-fun Map<String,Any?>.strings(k: String) = (this[k] as? List<*>)?.map { it as String } ?: emptyList()
+fun Map<String,Any?>.strings(k: String): List<String> = if(k !in this) emptyList() else (this[k] as? List<*> ?: error("リストが必要です: $k")).map { it as? String ?: error("文字列が必要です: $k") }
 @Suppress("UNCHECKED_CAST")
 fun Map<String,Any?>.stats(d: Stats = Stats()): Stats {
-    val s = this["stats"] as? Map<String,Any?> ?: emptyMap()
-    fun n(k: String, v: Double) = (s[k] as? Number)?.toDouble() ?: v
+    val s = if("stats" in this) mapping("stats") else emptyMap()
+    fun n(k: String, v: Double) = if(k in s) s.num(k) else v
     return Stats(n("hp",d.hp),n("resource",d.resource),n("attack",d.attack),n("defense",d.defense),n("crit",d.crit),n("crit_damage",d.critDamage),n("element_resist",d.elementResist),n("skill_power",d.skillPower))
 }
 

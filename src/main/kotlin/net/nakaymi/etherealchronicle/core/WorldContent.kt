@@ -104,17 +104,18 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
             }
           } catch(error: Exception) { throw IllegalArgumentException("$id: ${error.message}",error) }
         }
+        validateWorldReferences(documents)
     }
 }
 @Suppress("UNCHECKED_CAST") fun Any?.asMapping(): Map<String,Any?> = this as? Map<String,Any?> ?: error("マッピングが必要です。")
-fun Map<String,Any?>.maps(k: String): List<Map<String,Any?>> = (this[k] as? List<*>)?.map { it.asMapping() } ?: emptyList()
+fun Map<String,Any?>.maps(k: String): List<Map<String,Any?>> = if(k !in this) emptyList() else (this[k] as? List<*> ?: error("リストが必要です: $k")).map { it.asMapping() }
 fun Map<String,Any?>.number(k: String,d: Double) = if(k in this) num(k) else d
 fun Map<String,Any?>.integer(k: String,d: Int) = if(k in this) int(k) else d
 fun Map<String,Any?>.whole(k: String,d: Long) = if(k in this) long(k) else d
 fun Map<String,Any?>.text(k: String,d: String) = this[k] as? String ?: d
 fun Map<String,Any?>.bool(k: String,d: Boolean) = if(k in this) this[k] as? Boolean ?: error("真偽値が必要です: $k") else d
 fun Map<String,Any?>.position() = Position(string("world"),num("x"),num("y"),num("z"),number("yaw",0.0).toFloat())
-fun Map<String,Any?>.condition(): Condition = (this["condition"] as? Map<*,*>)?.let { it.asMapping().conditionValue() } ?: Condition()
+fun Map<String,Any?>.condition(): Condition = if("condition" in this) mapping("condition").conditionValue() else Condition()
 fun Map<String,Any?>.conditionValue(): Condition = Condition(integer("min_level",1),strings("has_flags").toSet(),strings("not_flags").toSet(),strings("completed_quests").toSet(),strings("active_quests").toSet(),strings("not_started_quests").toSet(),strings("classes").toSet(),maps("any").map { it.conditionValue() })
 fun Map<String,Any?>.rewards() = Rewards(whole("xp",0),whole("currency",0),maps("items").map { ItemReward(it.string("item"),it.integer("amount",1),it.condition()) },strings("set_flags").toSet())
 fun Map<String,Any?>.tokens(key: String) = maps(key).map { TokenCost(it.string("item"),it.int("amount")) }
