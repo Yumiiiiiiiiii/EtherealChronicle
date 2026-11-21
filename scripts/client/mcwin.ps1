@@ -47,6 +47,9 @@ public class McWin {
   public static void Mouse(uint flags, int dx, int dy) { var i = new INPUT[1]; i[0].type = 0; i[0].u.mi.flags = flags; i[0].u.mi.dx = dx; i[0].u.mi.dy = dy; SendInput(1, i, Marshal.SizeOf(typeof(INPUT))); }
 }
 '@
+if (-not ('McWinLayout' -as [type])) {
+    Add-Type -TypeDefinition 'using System.Runtime.InteropServices; public static class McWinLayout { [DllImport("user32.dll")] public static extern short VkKeyScan(char ch); }'
+}
 Add-Type -AssemblyName System.Drawing
 
 function Get-McHandle([int]$ProcessId) { $h = [McWin]::FindByPid([uint32]$ProcessId); if ($h -eq [IntPtr]::Zero) { throw "no visible window for pid $ProcessId" }; $h }
@@ -71,8 +74,9 @@ function Type-McChat([int]$ProcessId, [string]$Text) {
     Assert-McFocused $ProcessId; Press-McKey $ProcessId 'T'; Start-Sleep -Milliseconds 250
     foreach ($ch in $Text.ToCharArray()) {
         Assert-McFocused $ProcessId
-        $up = [char]::ToUpper($ch); $needShift = ($ch -cmatch '[A-Z]') -or ($ch -in '_', ':', '+')
-        $vk = switch -Regex ($ch) { '[a-zA-Z]' { [uint16][int][char]$up } '[0-9]' { [uint16][int][char]$ch } ' ' { 0x20 } '/' { 0xBF } '_' { 0xBD } '-' { 0xBD } ':' { 0xBA } '\.' { 0xBE } default { throw "unsupported char '$ch'" } }
+        # VkKeyScan maps the char under the ACTIVE keyboard layout (JIS vs US put ':' and '_' on different keys)
+        $scan = [McWinLayout]::VkKeyScan($ch); if ($scan -eq -1) { throw "unsupported char '$ch'" }
+        $vk = [uint16]($scan -band 0xFF); $needShift = (($scan -shr 8) -band 1) -eq 1
         if ($needShift) { [McWin]::Key(0x10, $false) }
         [McWin]::Key($vk, $false); Start-Sleep -Milliseconds 15; [McWin]::Key($vk, $true)
         if ($needShift) { [McWin]::Key(0x10, $true) }

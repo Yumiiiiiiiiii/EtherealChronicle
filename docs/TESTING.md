@@ -250,3 +250,18 @@ Real client: at tension 0% the action bar now reads `張力 0% | 進捗 0% 張�
 | Gather boss bar (real client) | NOT CONFIRMED (3rd attempt) | no boss bar 0.35-3 s after right-click; profile `gathering_records` stayed empty on the last attempt (node likely on cooldown or click not registering) |
 | Hidden NPC Luna, Baldo, arena dialogue, advancement tab (L), debug fish | NOT-RUN | time-boxed |
 Processes stopped; `server.properties` / `ops.json` restored; port 25565 closed; 0 ERROR lines.
+
+## Task 12 verification (master d7d8cc5, 2026-11-21)
+| Area | Result | Evidence |
+|---|---|---|
+| Build + tests | PASS | `gradlew build` green on merged master |
+| Gather (real client) | PASS | boss bar `採取中: 流木の漂着`, action bar progress %, start message, reward 2x starwood log, life xp 22, `gathering_records {node:1}`, `gathering_ready_at` set; `/ec debug gather status` showed `採取中 ... BossBar=true progress=96%` then `cooldown=82249ms` |
+| Earlier "no boss bar" (3 runs) | CAUSE = aim | clicks hit the floor tile in front of the log; now answered by `採取地点 流木の漂着 の表示または足元を右クリックしてください。` (clear). Cooldown click: `この採取地点は再生中です。あと 75秒お待ちください。` PASS |
+| Personal chest `ec:chest_early_lumina_jetty` | PASS | click: `隠し宝箱を開けました。通貨 +35G`, 3 dew grubs, flag `ec:flag_early_cache_lumina`; 2nd click `この宝箱は空です。`; still empty after client reconnect; held left-click (15 s) did not remove it |
+| Other two chests (ashwood/stargazer) | NOT-RUN | same code path; time-boxed |
+| Luna (NIGHT) | PASS | absent at `time set day`, present `星灯りの番人ルナ` at midnight, absent again at day |
+| Moonshower herbalist (DAWN_DUSK + RAIN/THUNDER) | PASS | entity count 0 clear / 1 rain / 0 clear again (`advance_time=false`, time 12500) |
+| Rare moss goblin (NIGHT + RAIN/THUNDER) | PASS (rain) | 0 night-clear, 1 night-rain, 0 after clear, 0 day-thunder; night-thunder not valid (respawn timer 6000 after despawn) |
+| Arena (client) | PARTIAL | `/ec dungeon enter ec:dungeon_novice_arena` with flag: entered, wave-1 slimes, JP intro message. 3 waves / rank / first-rank reward once / personal record NOT-RUN on client (needs combat; Codex engine tests only) |
+| Hidden NPC Baldo, advancement tab (L), debug fish | NOT-RUN | time-boxed |
+Notes: Ashwood roadside thorn wolves killed the survival test player twice at (90,0); inventory dropped as designed. Helper fix: `Type-McChat` now maps chars with `VkKeyScan` (JIS layout broke `:`/`_`).

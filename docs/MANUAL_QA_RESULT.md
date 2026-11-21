@@ -70,3 +70,11 @@ Processes stopped; `server.properties` / `ops.json` restored.
 | `/ec title` list | PASS | check mark on rookie_slayer |
 | Gather boss bar | NOT CONFIRMED | still no boss bar; see TESTING.md |
 | Hidden chest, time-window NPC, arena on client | NOT-RUN | no shipped content (chest/time) / time-boxed (arena, MockBukkit only) |
+
+## Task 12 real-client check (offline QaFresh, 2026-11-21)
+| Item | Result | Evidence |
+|---|---|---|
+| Gather boss bar / channel / reward / records / cooldown text | PASS | see TESTING.md; earlier misses were aiming at the wrong tile |
+| Personal chest once + reconnect | PASS | +35G once, `この宝箱は空です。` after rejoin |
+| Luna night, herbalist rain/dusk, rare goblin night+rain | PASS | appear/disappear with `time set` / `weather` |
+| Arena entry | PASS (entry only) | wave-1 slimes shown; waves/rank/reward NOT-RUN |
