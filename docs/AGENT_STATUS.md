@@ -2,6 +2,7 @@
 | Agent | Model | Task | State |
 |---|---|---|---|
 | Claude | sonnet 5.5 | lead | active |
+| Claude-QA | sonnet 5.5 | QA harness (branch qa/harness) | Task 1 done: scripts/{lib,dev-server,smoke-test}.ps1, scripts/bot (mineflayer, 26.1 max), docs/TESTING.md, qa fixtures (4 unit tests pass). Verified: PS syntax, gradle build/test, EULA-block path. NOT verified: actual server boot (EULA not accepted by human), bot join, log-analysis against real output. |
 
 ## Codex-Impl — Task 1 foundation
 - Branch: codex/foundation. Implemented typed content registry/validation/migration hooks and atomic reload, generated default-content index/non-overwriting install, core combat/XP/levels/classes/resource/skills/items/drops, schema-2 async player persistence, join/quit handling, class GUI/starter/tutorial flow, HUD, F/right-click casting, explicit RPG mob spawning/combat/drops, equipment stats and permission-gated admin/simulation commands.
