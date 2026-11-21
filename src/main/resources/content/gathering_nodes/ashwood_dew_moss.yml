@@ -1,0 +1,22 @@
+schema_version: 1
+id: ec:node_ashwood_dew_moss
+type: gathering_node
+name: 朝露苔の群生
+node_kind: HERB
+display_material: MOSS_BLOCK
+depleted_material: DIRT
+required_tool_kind: SICKLE
+min_tool_tier: 1
+min_gathering_level: 1
+channel_ms: 2100
+respawn_seconds: 85
+per_player_respawn: true
+life_xp: 18
+adventurer_xp: 9
+yields:
+  - {item: ec:item_mat_dew_moss, min: 1, max: 2, chance: 1.0}
+rare_yields:
+  - {item: ec:item_mat_amber_sap, min: 1, max: 1, chance: 0.14, pity_after: 10}
+locations:
+  - {id: ashwood_dew_moss_1, area: ec:area_ashwood_forest, world: ec_world, x: 68, y: 65, z: -24}
+  - {id: ashwood_dew_moss_2, area: ec:area_ashwood_forest, world: ec_world, x: 118, y: 65, z: -26}

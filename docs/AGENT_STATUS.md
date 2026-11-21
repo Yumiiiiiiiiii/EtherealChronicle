@@ -157,6 +157,8 @@
 - Verification: `./gradlew.bat build` SUCCESS; 149 tests, 0 failures/errors/skips. `git diff --check` clean. Commit `a7f07e8` on `codex/foundation`.
 - Remaining release QA: repeat the real-client gather start/BossBar check after these fixes; the channel and BossBar attachment are verified in MockBukkit and can be inspected with `/ec debug gather status <player>`. Verify the title advancement datapack warning on a second Paper boot. This environment has no `dev/server/eula.txt`, so no Paper server was started and no EULA was accepted. Controller repeating tasks use Paper's main-thread `runTaskTimer(...,2,2)` and controller-owned sessions; QA's scheduler non-completion observation remains MockBukkit-only and is not reproduced as a product bug here.
 
+## Claude-QA — checkpoint before Task10 client check
+- qa/harness @f3dcf76. Next: merge master 7535d36, build/tests, live: datapack warn, night mobs, offline client: /ec title + advancement tab/toast, `/ec debug fish start`, gather boss bar, anti-macro debug. Restore server.properties/ops.json, stop processes.
 ## Codex-Impl — Task10 QA follow-up
 - Merged master `f3dcf76` into `codex/foundation` before implementation.
 - Advancement datapack installation now walks from Paper's per-dimension `World.worldFolder` to the level root containing `level.dat`, then writes into that root's `datapacks/`. Regression test models `<level>/dimensions/minecraft/overworld` and asserts the pack is created beside `level.dat`.

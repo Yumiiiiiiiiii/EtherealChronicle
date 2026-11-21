@@ -1,0 +1,18 @@
+schema_version: 1
+id: ec:quest_early_e01_first_temper
+type: quest
+name: 【強化入門】粗砥石と初めての武具鍛錬
+condition: {min_level: 3, has_flags: ['ec:flag_ch1_started']}
+objectives:
+  - {id: collect_shards, kind: COLLECT, target: 'ec:item_mat_whetstone_shard', amount: 3, consume: true}
+  - {id: collect_pebbles, kind: COLLECT, target: 'ec:item_mat_river_pebble_ore', amount: 2, consume: true}
+  - {id: report_leila, kind: TALK, target: 'ec:npc_leila', amount: 1}
+rewards:
+  xp: 350
+  currency: 180
+  set_flags: ['ec:flag_early_enhance_guide_done']
+  items:
+    - {item: 'ec:item_mat_artisan_whetstone', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 0

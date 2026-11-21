@@ -1,0 +1,28 @@
+schema_version: 1
+id: ec:fish_dawn_minnow
+type: fish_species
+name: 朝焼けハヤ
+item: ec:item_fish_dawn_minnow
+rarity: UNCOMMON
+tags: [PORT, FRESHWATER, FOREST]
+habitats: [ec:area_lumina_port, ec:area_ashwood_forest]
+time_windows: [DAWN_DUSK]
+weather: [ANY]
+min_rod_tier: 1
+min_fishing_level: 3
+base_weight: 22
+min_cm: 18
+max_cm: 44
+silver_crown_cm: 36
+gold_crown_cm: 41
+life_xp: 32
+adventurer_xp: 18
+minigame:
+  bite_window_ms: 1800
+  difficulty: 1.55
+  sweet_width: 31
+  progress_per_sec: 19
+  tension_decay_per_sec: 20
+  thrash_chance_per_sec: 0.19
+  dive_chance_per_sec: 0.07
+lore_hint: '朝夕の薄明どきにだけ姿を現す朱色の渓流魚。朝露ミミズ虫を使うと狙いやすい。'

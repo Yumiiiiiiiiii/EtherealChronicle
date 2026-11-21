@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_acc_rookie_charm
+type: item
+name: 見習い冒険者の星守り
+material: AMETHYST_SHARD
+rarity: UNCOMMON
+slot: ACCESSORY
+min_level: 4
+classes: []
+budget: 12
+stats: {hp: 35, defense: 6, crit: 0.03}
+price: 420
+lore: 'ルミナ港の依頼掲示板で活躍した見習いへ贈られる星片のお守り。最初の+1〜+3強化にも最適。'

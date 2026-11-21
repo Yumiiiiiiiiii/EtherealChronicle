@@ -1,0 +1,23 @@
+schema_version: 1
+id: ec:node_ashwood_amber_tree
+type: gathering_node
+name: 琥珀の星木
+node_kind: WOOD
+display_material: BIRCH_LOG
+depleted_material: STRIPPED_BIRCH_LOG
+required_tool_kind: HATCHET
+min_tool_tier: 1
+min_gathering_level: 3
+channel_ms: 2300
+respawn_seconds: 100
+per_player_respawn: true
+life_xp: 26
+adventurer_xp: 12
+yields:
+  - {item: ec:item_mat_starwood_log, min: 1, max: 2, chance: 1.0}
+  - {item: ec:item_mat_amber_sap, min: 1, max: 1, chance: 0.55}
+rare_yields:
+  - {item: ec:item_mat_starwood_resin, min: 1, max: 1, chance: 0.14, pity_after: 10}
+locations:
+  - {id: ashwood_amber_tree_1, area: ec:area_ashwood_forest, world: ec_world, x: 70, y: 65, z: 22}
+  - {id: ashwood_amber_tree_2, area: ec:area_ashwood_forest, world: ec_world, x: 126, y: 65, z: 22}

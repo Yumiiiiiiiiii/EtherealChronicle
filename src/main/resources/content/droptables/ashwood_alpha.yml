@@ -1,0 +1,8 @@
+schema_version: 1
+id: ec:drop_ashwood_alpha
+type: droptable
+entries:
+  - {item: ec:item_mat_alpha_fang, min: 1, max: 2, chance: 1.0}
+  - {item: ec:item_mat_whetstone_shard, min: 1, max: 2, chance: 0.85}
+  - {item: ec:item_mat_rookie_crest, min: 1, max: 1, chance: 0.6}
+  - {item: ec:item_acc_alpha_fang_talisman, min: 1, max: 1, chance: 0.15, pity_after: 8}

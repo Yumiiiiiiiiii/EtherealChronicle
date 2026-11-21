@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_amber_sap
+type: item
+name: 森の琥珀樹液
+material: HONEYCOMB
+rarity: UNCOMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 48
+lore: '琥珀の星木から滲み出る芳醇な樹液。柳の精密入門竿の塗料や特製釣り餌の調合に使われる。'

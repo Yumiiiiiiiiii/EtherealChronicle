@@ -102,6 +102,7 @@ class LifeContentSchemaTest {
 
     @Test
     fun `loads all life profession schemas with typed references`() {
+        val baseline=ContentService(Path.of("src/main/resources/content")).load().world
         val content=ContentService(fixture()).load().world
         assertEquals(20,content.lifeBalance.levelCap)
         assertEquals(2,content.lifeBalance.fishingMilestones.size)
@@ -109,11 +110,11 @@ class LifeContentSchemaTest {
         assertEquals("ec:area_lumina_port",content.fishingSpots.getValue("ec:spot_test").area)
         assertEquals("ec:item_fish_silver_sardine",content.fishSpecies.getValue("ec:fish_test").item)
         assertEquals(NodeKind.HERB,content.gatheringNodes.getValue("ec:node_test_herb").kind)
-        assertEquals(13,content.tackle.size)
-        assertEquals(9,content.fishingSpots.size)
-        assertEquals(10,content.fishSpecies.size)
-        assertEquals(13,content.gatheringNodes.size)
-        assertEquals(17,content.gatheringNodes.values.sumOf { it.locations.size })
+        assertEquals(baseline.tackle.size+1,content.tackle.size)
+        assertEquals(baseline.fishingSpots.size+1,content.fishingSpots.size)
+        assertEquals(baseline.fishSpecies.size+1,content.fishSpecies.size)
+        assertEquals(baseline.gatheringNodes.size+1,content.gatheringNodes.size)
+        assertEquals(baseline.gatheringNodes.values.sumOf { it.locations.size }+1,content.gatheringNodes.values.sumOf { it.locations.size })
         assertEquals(8,content.lifeBalance.macroMinSamples)
         assertEquals(18.0,content.lifeBalance.macroResponseDeviationMillis)
         assertEquals(120.0,content.lifeBalance.macroCastIntervalDeviationMillis)

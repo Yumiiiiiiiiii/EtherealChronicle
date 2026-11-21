@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_tool_rod_willow
+type: item
+name: 柳の精密入門竿
+material: FISHING_ROD
+rarity: UNCOMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 220
+lore: 'しなやかな柳材に琥珀樹液を塗り込んだ序盤向け高級竿。釣りLv3から使え、スイートスポットが少し広がる。'

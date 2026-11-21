@@ -1,0 +1,20 @@
+schema_version: 1
+id: ec:quest_early_d03_supply_gather
+type: quest
+name: 【序盤デイリー】港町の朝露・星鉄納品
+condition: {min_level: 2, has_flags: ['ec:flag_ch1_started']}
+objectives:
+  - {id: gather_dew_moss, kind: COLLECT, target: 'ec:item_mat_dew_moss', amount: 2, consume: true}
+  - {id: gather_pebble_ore, kind: COLLECT, target: 'ec:item_mat_river_pebble_ore', amount: 2, consume: true}
+  - {id: report_leila, kind: TALK, target: 'ec:npc_leila', amount: 1}
+rewards:
+  xp: 260
+  currency: 110
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_rookie_crest', amount: 2}
+    - {item: 'ec:item_bait_dew_grub', amount: 2}
+auto_complete: false
+repeatable: true
+repeat_cooldown_ms: 86400000
+reset_schedule: DAILY

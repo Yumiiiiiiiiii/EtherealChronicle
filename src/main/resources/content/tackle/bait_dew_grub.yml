@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:tackle_bait_dew_grub
+type: tackle
+item: ec:item_bait_dew_grub
+kind: BAIT
+tier: 1
+min_life_level: 2
+wait_reduction: 0.2
+sweet_spot_bonus: 2.0
+tension_stability: 0.96
+size_bonus: 0.02
+channel_speed_bonus: 0
+rare_chance_bonus: 0.05
+preferred_tags: [FRESHWATER, FOREST]
+preferred_tag_multiplier: 1.65
+rarity_weights: {COMMON: 0.9, UNCOMMON: 1.5, RARE: 1.15, EPIC: 0.65, LEGENDARY: 0.4}

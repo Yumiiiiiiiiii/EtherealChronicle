@@ -1,0 +1,28 @@
+schema_version: 1
+id: ec:fish_rain_eel
+type: fish_species
+name: 雨夜ウナギ
+item: ec:item_fish_rain_eel
+rarity: RARE
+tags: [FRESHWATER, FOREST, CAVERN]
+habitats: [ec:area_ashwood_forest, ec:area_weeping_mine]
+time_windows: [NIGHT]
+weather: [RAIN, THUNDER]
+min_rod_tier: 1
+min_fishing_level: 5
+base_weight: 16
+min_cm: 40
+max_cm: 96
+silver_crown_cm: 78
+gold_crown_cm: 90
+life_xp: 56
+adventurer_xp: 30
+minigame:
+  bite_window_ms: 1550
+  difficulty: 2.0
+  sweet_width: 27
+  progress_per_sec: 17
+  tension_decay_per_sec: 18
+  thrash_chance_per_sec: 0.25
+  dive_chance_per_sec: 0.11
+lore_hint: '雨や雷雨の夜に限って灰森の清流や嘆きの廃坑の水脈へ姿を見せる艶やかなウナギ。'

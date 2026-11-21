@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:quest_early_t01_arena_trial
+type: quest
+name: 【試練】見習い闘技場・獣王アルファ討伐
+condition: {min_level: 5, has_flags: ['ec:flag_early_trial_unlocked']}
+objectives:
+  - {id: defeat_alpha, kind: KILL, target: 'ec:boss_ashwood_alpha', amount: 1}
+  - {id: report_rook, kind: TALK, target: 'ec:npc_rook', amount: 1}
+rewards:
+  xp: 780
+  currency: 320
+  set_flags: ['ec:flag_early_trial_cleared']
+  items:
+    - {item: 'ec:item_mat_rookie_crest', amount: 3}
+    - {item: 'ec:item_mat_alpha_fang', amount: 2}
+    - {item: 'ec:item_mat_artisan_whetstone', amount: 1}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 0

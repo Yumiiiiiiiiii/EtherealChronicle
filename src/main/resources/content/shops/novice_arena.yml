@@ -1,0 +1,12 @@
+schema_version: 1
+id: ec:shop_novice_arena
+type: shop
+name: 見習い闘技場褒賞所
+npc: ec:npc_rook
+buyback: true
+discount: 0
+entries:
+  - {id: exchange_alpha_talisman, item: 'ec:item_acc_alpha_fang_talisman', amount: 1, price: 340, tokens: [{item: 'ec:item_mat_alpha_fang', amount: 4}, {item: 'ec:item_mat_rookie_crest', amount: 3}], condition: {min_level: 6}}
+  - {id: exchange_arena_whetstone, item: 'ec:item_mat_artisan_whetstone', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_alpha_fang', amount: 2}]}
+  - {id: exchange_arena_broth, item: 'ec:item_con_loach_broth', amount: 2, price: 0, tokens: [{item: 'ec:item_mat_alpha_fang', amount: 1}, {item: 'ec:item_mat_rookie_crest', amount: 2}]}
+  - {id: buy_arena_goby_fritter, item: 'ec:item_con_goby_fritter', amount: 2, price: 90}

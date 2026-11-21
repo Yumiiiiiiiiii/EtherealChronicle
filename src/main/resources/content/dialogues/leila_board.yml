@@ -1,0 +1,199 @@
+schema_version: 1
+id: ec:dlg_leila_board
+type: dialogue
+name: 依頼掲示板係レイラの窓口
+speaker: ec:npc_leila
+start: root
+nodes:
+  root:
+    text: ようこそルミナ港の『見習い依頼掲示板』へ！デイリー・ウィークリー討伐、採取納品、収集図鑑、それに初めての装備強化（+1〜+3）の案内まで引き受けているよ。
+    choices:
+      - id: open_rookie_shop
+        label: 見習い交換所・調理・砥石精錬を開く
+        actions:
+          - {kind: OPEN_SHOP, target: 'ec:shop_rookie_board'}
+      - id: claim_rookie_pack
+        label: 掲示板の初回登録祝いを受け取る（初回限定）
+        condition: {has_flags: ['ec:flag_ch1_started'], not_flags: ['ec:flag_early_board_registered']}
+        next: registered_done
+        actions:
+          - {kind: GIVE_ITEM, target: 'ec:item_con_goby_fritter', amount: 2, once_flag: 'ec:flag_early_board_registered'}
+      - id: menu_bounties
+        label: デイリー・ウィークリー・反復依頼を見る
+        next: bounty_menu
+      - id: menu_collection
+        label: 収集図鑑・装備強化（+1〜+3）入門を見る
+        next: collection_menu
+      - id: enhance_guide
+        label: 装備強化（/ec enhance）のやり方を聞く
+        next: enhance_tips
+      - id: bye
+        label: また依頼を見に来るよ
+  registered_done:
+    text: 登録ありがとう！長旅の腹ごしらえに『港ハゼの香草揚げ』を2つ渡しておくね。デイリーで『蒼穹見習いの証』と『粗砥の欠片』を集めれば、序盤から装備を+1〜+3まで鍛えられるよ！
+    choices:
+      - id: back_from_reg
+        label: 掲示板メニューへ戻る
+        next: root
+  bounty_menu:
+    text: 現在の掲示板依頼だよ。デイリーは毎日、ウィークリーは毎週月曜日に更新されるよ。反復依頼は4時間おきに何度でも受けられるから稼ぎにもぴったり！
+    choices:
+      - id: start_d01
+        label: 【序盤デイリー】港外のスライム掃討を受ける（Lv1〜）
+        condition: {min_level: 1, has_flags: ['ec:flag_ch1_started'], not_started_quests: ['ec:quest_early_d01_slime_patrol']}
+        next: d01_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_early_d01_slime_patrol'}
+      - id: complete_d01
+        label: 【序盤デイリー】港外のスライム掃討を報告する
+        condition: {active_quests: ['ec:quest_early_d01_slime_patrol']}
+        next: d01_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_early_d01_slime_patrol'}
+      - id: start_d02
+        label: 【序盤デイリー】灰森の獣・小鬼駆除を受ける（Lv3〜）
+        condition: {min_level: 3, has_flags: ['ec:flag_ch1_started'], not_started_quests: ['ec:quest_early_d02_forest_bounty']}
+        next: d02_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_early_d02_forest_bounty'}
+      - id: complete_d02
+        label: 【序盤デイリー】灰森の獣・小鬼駆除を報告する
+        condition: {active_quests: ['ec:quest_early_d02_forest_bounty']}
+        next: d02_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_early_d02_forest_bounty'}
+      - id: start_d03
+        label: 【序盤デイリー】港町の朝露・星鉄納品を受ける（Lv2〜）
+        condition: {min_level: 2, has_flags: ['ec:flag_ch1_started'], not_started_quests: ['ec:quest_early_d03_supply_gather']}
+        next: d03_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_early_d03_supply_gather'}
+      - id: complete_d03
+        label: 【序盤デイリー】港町の朝露・星鉄納品を報告する
+        condition: {active_quests: ['ec:quest_early_d03_supply_gather']}
+        next: d03_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_early_d03_supply_gather'}
+      - id: start_w01
+        label: 【序盤ウィークリー】灰森の大掃討作戦を受ける（Lv5〜）
+        condition: {min_level: 5, has_flags: ['ec:flag_ch1_started'], not_started_quests: ['ec:quest_early_w01_ashwood_campaign']}
+        next: w01_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_early_w01_ashwood_campaign'}
+      - id: complete_w01
+        label: 【序盤ウィークリー】灰森の大掃討作戦を報告する
+        condition: {active_quests: ['ec:quest_early_w01_ashwood_campaign']}
+        next: w01_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_early_w01_ashwood_campaign'}
+      - id: start_r01
+        label: 【反復】灰森の星鉄礫と胞子回収を受ける（Lv4〜・4時間反復）
+        condition: {min_level: 4, has_flags: ['ec:flag_ch1_started'], not_started_quests: ['ec:quest_early_r01_spider_silk_rush']}
+        next: r01_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_early_r01_spider_silk_rush'}
+      - id: complete_r01
+        label: 【反復】灰森の星鉄礫と胞子回収を報告する
+        condition: {active_quests: ['ec:quest_early_r01_spider_silk_rush']}
+        next: r01_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_early_r01_spider_silk_rush'}
+      - id: back_from_bounty
+        label: 最初のメニューへ戻る
+        next: root
+  collection_menu:
+    text: 港と灰森の魚・採取素材を集める収集図鑑依頼と、初めての装備強化（+1〜+3）を応援する強化入門依頼だよ！アイテムを15種・35種集めると収集称号も自動で解放されるよ。
+    choices:
+      - id: start_c01
+        label: 【収集】ルミナ港の恵み図鑑を受ける（Lv2〜）
+        condition: {min_level: 2, has_flags: ['ec:flag_ch1_started'], not_started_quests: ['ec:quest_early_c01_port_atlas']}
+        next: c01_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_early_c01_port_atlas'}
+      - id: complete_c01
+        label: 【収集】ルミナ港の恵み図鑑を報告する
+        condition: {active_quests: ['ec:quest_early_c01_port_atlas']}
+        next: c01_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_early_c01_port_atlas'}
+      - id: start_c02
+        label: 【収集】灰森の珍魚と琥珀図鑑を受ける（Lv5〜）
+        condition: {min_level: 5, has_flags: ['ec:flag_ch1_started'], not_started_quests: ['ec:quest_early_c02_ashwood_atlas']}
+        next: c02_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_early_c02_ashwood_atlas'}
+      - id: complete_c02
+        label: 【収集】灰森の珍魚と琥珀図鑑を報告する
+        condition: {active_quests: ['ec:quest_early_c02_ashwood_atlas']}
+        next: c02_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_early_c02_ashwood_atlas'}
+      - id: start_e01
+        label: 【強化入門】粗砥石と初めての武具鍛錬を受ける（Lv3〜）
+        condition: {min_level: 3, has_flags: ['ec:flag_ch1_started'], not_started_quests: ['ec:quest_early_e01_first_temper']}
+        next: e01_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_early_e01_first_temper'}
+      - id: complete_e01
+        label: 【強化入門】粗砥石と初めての武具鍛錬を報告する
+        condition: {active_quests: ['ec:quest_early_e01_first_temper']}
+        next: e01_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_early_e01_first_temper'}
+      - id: back_from_collection
+        label: 最初のメニューへ戻る
+        next: root
+  enhance_tips:
+    text: 装備を強化するには『名匠の研磨砥石』と少しのゴールドを持って /ec enhance を開くだけ！+1で全能力+3%、+3なら+9%も強くなるよ。港西端の星鉄礫や灰森の表層鉱脈で『粗砥の欠片』を集めれば、私の交換所で研磨砥石へ精錬できるからぜひ試してみて！
+    choices:
+      - id: back_from_tips
+        label: わかった、試してみるよ
+        next: root
+  d01_started:
+    text: エーテルスライム5体の掃討だね！10体倒すと称号『港町の新鋭討伐者』の進捗も解放されるよ。気をつけて行ってらっしゃい！
+    choices: []
+  d01_done:
+    text: お疲れさま！蒼穹見習いの証と粗砥の欠片を受け取ってね。また明日も頼りにしてるよ！
+    choices: []
+  d02_started:
+    text: アッシュウッドの森でイバラオオカミ4体とコケゴブリン4体の駆除をお願い！装備を+1にしておくとだいぶ楽になるよ。
+    choices: []
+  d02_done:
+    text: 見事な腕前だね！報酬の証と粗砥の欠片をどうぞ。交換所で星守りや研磨砥石にするのがおすすめだよ！
+    choices: []
+  d03_started:
+    text: 朝露苔2つと川底の星鉄礫2つの納品だね。港の西端と灰森の入口付近ですぐ採取できるよ！
+    choices: []
+  d03_done:
+    text: 助かったよ！お礼に『朝露ミミズ虫』も添えておくね。灰森の清流で薄明の珍魚を狙うときに使ってみて！
+    choices: []
+  w01_started:
+    text: 今週の灰森大掃討作戦だね！イバラオオカミ8体、胞子グモ6体、そして深部の星蝕トレント1体を制覇して報告してね！
+    choices: []
+  w01_done:
+    text: すごい！星蝕トレントまで打ち倒すとはね！見習いの証6枚と名匠の研磨砥石2個、しっかり受け取って！
+    choices: []
+  r01_started:
+    text: 胞子グモ3体の討伐と川底の星鉄礫2つの回収だね！4時間ごとに受けられるから、素材集めのついでにどうぞ。
+    choices: []
+  r01_done:
+    text: お帰りなさい！星鉄礫と胞子掃除、ばっちりだね。また4時間後によろしく！
+    choices: []
+  c01_started:
+    text: ルミナ港の恵み図鑑だね！桟橋の港ハゼ2匹、西岸の星鉄礫2つ、森の朝露苔2つを集めて見せてね。
+    choices: []
+  c01_done:
+    text: 立派な港図鑑が完成したね！お祝いに港ハゼの香草揚げと見習いの証を贈るよ。次は灰森の珍魚図鑑にも挑戦してみて！
+    choices: []
+  c02_started:
+    text: 灰森の珍魚と琥珀図鑑だね！苔ドジョウ2匹、朝夕の薄明に現れる朝焼けハヤ1匹、それに森の琥珀樹液2つを集めてきて！
+    choices: []
+  c02_done:
+    text: 薄明の朝焼けハヤまで釣り上げたんだね！お礼に名匠の研磨砥石と見習いの証をどうぞ。港の北西端にいるルナも喜ぶと思うよ！
+    choices: []
+  e01_started:
+    text: 強化入門だね！まずは港西岸か灰森表層の鉱脈、またはデイリーで『粗砥の欠片』3つと『川底の星鉄礫』2つを集めて持ってきて。研磨砥石を仕上げてあげるよ！
+    choices: []
+  e01_done:
+    text: ばっちり！これで『名匠の研磨砥石』を2個渡すから、さっそく /ec enhance で武器か『見習い冒険者の星守り』を+1〜+2へ鍛えてみてね！+3に育てれば闘技場の獣王アルファにも十分渡り合えるよ！
+    choices: []

@@ -1,0 +1,28 @@
+schema_version: 1
+id: ec:fish_amber_koi
+type: fish_species
+name: 琥珀ニシキゴイ
+item: ec:item_fish_amber_koi
+rarity: EPIC
+tags: [FRESHWATER, FOREST]
+habitats: [ec:area_ashwood_forest]
+time_windows: [DAWN_DUSK, NIGHT]
+weather: [ANY]
+min_rod_tier: 1
+min_fishing_level: 7
+base_weight: 9
+min_cm: 48
+max_cm: 112
+silver_crown_cm: 92
+gold_crown_cm: 106
+life_xp: 88
+adventurer_xp: 48
+minigame:
+  bite_window_ms: 1350
+  difficulty: 2.55
+  sweet_width: 24
+  progress_per_sec: 15
+  tension_decay_per_sec: 16
+  thrash_chance_per_sec: 0.31
+  dive_chance_per_sec: 0.15
+lore_hint: '琥珀樹液が流れ込む灰森の清流に棲む幻の錦鯉。薄明か夜に柳の竿と朝露ミミズ虫で挑もう。'

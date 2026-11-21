@@ -1,0 +1,20 @@
+schema_version: 1
+id: ec:quest_early_c02_ashwood_atlas
+type: quest
+name: 【収集】灰森の珍魚と琥珀図鑑
+condition: {min_level: 5, has_flags: ['ec:flag_ch1_started']}
+objectives:
+  - {id: atlas_loach, kind: COLLECT, target: 'ec:item_fish_moss_loach', amount: 2, consume: true}
+  - {id: atlas_minnow, kind: COLLECT, target: 'ec:item_fish_dawn_minnow', amount: 1, consume: true}
+  - {id: atlas_amber, kind: COLLECT, target: 'ec:item_mat_amber_sap', amount: 2, consume: true}
+  - {id: report_leila, kind: TALK, target: 'ec:npc_leila', amount: 1}
+rewards:
+  xp: 620
+  currency: 280
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_rookie_crest', amount: 3}
+    - {item: 'ec:item_mat_artisan_whetstone', amount: 1}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 0

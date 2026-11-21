@@ -1,0 +1,10 @@
+schema_version: 1
+id: ec:npc_rook
+type: npc
+name: 見習い試練教官ルーク
+entity: VILLAGER
+chapter: ec:chapter_early_adventures
+area: ec:area_lumina_port
+location: {world: ec_world, x: 18, y: 65, z: 14, yaw: -135}
+dialogue: ec:dlg_rook_arena
+shop: ec:shop_novice_arena

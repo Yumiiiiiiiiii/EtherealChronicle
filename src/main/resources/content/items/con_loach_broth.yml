@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_con_loach_broth
+type: item
+name: 苔ドジョウと朝露苔の滋養汁
+material: MUSHROOM_STEW
+rarity: UNCOMMON
+slot: NONE
+min_level: 2
+classes: []
+budget: 0
+stats: {}
+price: 60
+lore: '苔ドジョウと朝露苔をじっくり煮込んだ温かいスープ。HPを70、リソースを22回復する。'
+effects:
+  - {kind: HEAL, amount: 70, cooldown_ms: 12000, chance: 1.0}
+  - {kind: RESOURCE, amount: 22, cooldown_ms: 12000, chance: 1.0}

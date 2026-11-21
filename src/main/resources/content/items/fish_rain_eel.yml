@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_fish_rain_eel
+type: item
+name: 雨夜ウナギ
+material: COD
+rarity: RARE
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 130
+lore: '雨や雷雨の夜に限って灰森の清流や廃坑の水脈へ這い出てくる艶やかなウナギ。熟練見習い釣師の憧れ。'

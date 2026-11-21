@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_fish_dawn_minnow
+type: item
+name: 朝焼けハヤ
+material: SALMON
+rarity: UNCOMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 65
+lore: '朝夕の薄明どきだけ水面に姿を見せる朱色の渓流魚。ルミナ港とアッシュウッドの森の双方で稀に釣れる。'
