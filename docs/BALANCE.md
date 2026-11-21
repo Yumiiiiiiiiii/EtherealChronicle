@@ -14,6 +14,8 @@ Basic attacks have a configurable 550 ms gate and do not multiply by SKILL_POWER
 
 Rare gear entries may set `pity_after`, the number of consecutive failed rolls before the next eligible roll guarantees one item. Counters are per profile, drop table and item; a natural success resets the counter. The balance field `drop_pity_attempt_cap` (default 100, valid 1..10000) caps authored thresholds and saved counters. Current drops author 12 attempts for Void Warden rare gear, 20 for its 3% relics, and 50 for selected 1–2.5% field gear. Only the chosen party loot recipient rolls/increments pity once per kill; other members receive no duplicate counter advance.
 
+The REVIVE feather is an accessory passive that triggers only when it prevents lethal damage. Right-click displays a Japanese equip instruction and does not consume it.
+
 ---
 
 ## Chapter 1 Tuned Balance Summary
