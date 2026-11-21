@@ -10,5 +10,6 @@ classes: [ec:class_assassin]
 budget: 10
 stats: {attack: 5, crit: 0.04}
 weapon: 19
-price: 30
+price: 0
+bound: true
 lore: '影刃見習いが携える軽量な鉄短剣。素早い切り返しで急所を突く。'

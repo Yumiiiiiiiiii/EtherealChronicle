@@ -10,5 +10,6 @@ classes: [ec:class_paladin]
 budget: 10
 stats: {attack: 4, defense: 3, hp: 20}
 weapon: 18
-price: 30
+price: 0
+bound: true
 lore: '聖騎士見習いに授けられる無骨な石槌。派手さはないが受け止めと一撃の安定感に優れる。'

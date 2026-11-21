@@ -112,8 +112,6 @@
 - Not run: live Paper or a real client. Residual crash window remains across Paper player-file save and async profile save; normal quit and plugin disable are covered, but process/power loss between the two stores is not an atomic cross-file transaction.
 - Next: commit Task 6 fix and report the branch/hash and test total. Other unresolved real-client checks remain those already listed in `docs/TESTING.md`; no additional QA bug was assigned beyond BUG-7 in this checkpoint.
 
-## Claude-QA — checkpoint before real-client offline debugging
-- qa/harness @a837474 (BUG-7 re-verified). Task now: launch official 26.3 client offline (no MS account) from official Mojang URLs into a fresh empty dir, screenshots of the Minecraft window only, input only while it is focused, run MANUAL_QA A-I, write docs/MANUAL_QA_RESULT.md + docs/CLIENT_OFFLINE.md, report bugs to Codex f5e3b614. Stop all processes at the end.
 ## Codex-Impl — Task 7 title / Minecraft advancement integration
 - Merged latest `master` at `a837474` before Task7 work.
 - Extended `titles/*.yml` with optional advancement presentation and conditions (`FLAG`, `BESTIARY`, `COLLECTION`). Existing `unlock_flag` remains compatible and is still the authoritative persisted unlock; advancement conditions promote their unlock flag into the profile. `/ec title` and `applyTitle` continue to use that same flag state.
@@ -121,4 +119,13 @@
 - API decision: use Paper 26.3's supported `DatapackManager.refreshPacks`, `Datapack.setEnabled`, `Server.reloadData`, `Server.updateResources`, `AdvancementProgress.awardCriteria/revokeCriteria`; did not use deprecated `UnsafeValues.loadAdvancement`. Pack metadata targets data pack format 121.0 (`min_format`/`max_format`). References: Paper API `DatapackManager`, `Datapack`, `UnsafeValues`; Minecraft 26.3 release notes.
 - Tests cover all shipped title loading, unlock synchronization for flag/bestiary/collection conditions, JSON emission/escaping and parent mapping, datapack collision protection and idempotence. Verified `./gradlew.bat build test`: SUCCESS, 119 tests, 0 failures, 0 errors, 0 skipped. `git diff --check` clean (Git CRLF normalization warnings only).
 - Not run: live Paper pack enable/reload or real-client advancement screen/toast. Current implementation logs a warning and retains profile-backed titles if datapack registration fails. Lead-owned `docs/CONTENT_SCHEMA.md` should document `titles[].advancement` (`title`, `description`, `icon`, `parent`, `frame`, `condition.type` and `target`/`count`).
-- Next: commit Task7, then proceed with the already-assigned Task8 after reviewing the authoring branch content/master state.
+- Task7 final implementation commit: `abc1178` (`Integrate title unlocks with Minecraft advancements`).
+- Next: address the real-client spawn/respawn and starter-weapon findings, then proceed with Task8.
+
+## Codex-Impl — real-client QA follow-up before Task8
+- Branch `codex/foundation`; merged latest `master` (`295e2a6`) at `6329367` before fixing the client findings.
+- Fixed first-arrival routing to Lumina for a new Minecraft account, established the Lumina coordinates as the managed world's spawn on boot, and set `PlayerRespawnEvent.respawnLocation` synchronously at LOWEST priority. DungeonController's normal-priority handler can still override this for dungeon instance returns.
+- Marked all six class starter weapons as bound and non-sellable (zero price); bound death handling preserves them in `itemsToKeep`. Duplicate capped `/ec spawn` and simulation spawn now return a Japanese cap explanation.
+- Added `ManualClientFindingsTest` for first join/respawn world and coordinates, starter bound + death preservation, and duplicate-spawn feedback. Updated the advancement test to account for the three optional advancement definitions among the six shipped titles now present after master merge.
+- Verification: focused regressions passed; `./gradlew.bat build test` SUCCESS (125 tests, 0 failures/errors/skips); `git diff --check` clean apart from Git's CRLF normalization notices.
+- Not yet verified on a live server/client. Next: commit these fixes, then continue Task8 from the authored design/content branch.
