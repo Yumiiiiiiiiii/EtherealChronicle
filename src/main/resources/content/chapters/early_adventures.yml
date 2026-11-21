@@ -1,0 +1,73 @@
+schema_version: 1
+id: ec:chapter_early_adventures
+type: chapter
+name: 外伝「ルミナ見習い冒険録」
+min_level: 1
+max_level: 10
+quests:
+  - ec:quest_early_d01_slime_patrol
+  - ec:quest_early_d02_forest_bounty
+  - ec:quest_early_d03_supply_gather
+  - ec:quest_early_w01_ashwood_campaign
+  - ec:quest_early_r01_spider_silk_rush
+  - ec:quest_early_c01_port_atlas
+  - ec:quest_early_c02_ashwood_atlas
+  - ec:quest_early_e01_first_temper
+  - ec:quest_early_t01_arena_trial
+  - ec:quest_early_t02_arena_daily
+  - ec:quest_early_h01_luna_twilight_catch
+  - ec:quest_early_h02_baldo_grove_secret
+npcs:
+  - ec:npc_leila
+  - ec:npc_rook
+  - ec:npc_luna
+  - ec:npc_baldo
+dungeons:
+  - ec:dungeon_novice_arena
+dungeon_configs:
+  - id: ec:dungeon_novice_arena
+    unlock_flag: ec:flag_early_trial_unlocked
+    boss: ec:boss_ashwood_alpha
+    guards: [ec:enemy_thorn_wolf]
+    guard_offsets: [{x: -6, z: -2}]
+    area: ec:area_ashwood_forest
+    palette: [OAK_PLANKS, MOSSY_COBBLESTONE, STONE_BRICKS]
+    boss_offset: {x: 0, z: 9}
+    entry_message: 見習い試練の闘技場へ入場しました！3ウェーブを突破して獣王アルファを討伐しましょう。/ec dungeon leave で帰還できます。
+    clear_message: 灰森の獣王アッシュウッド・アルファを撃破しました！ルーク教官へ報告しましょう。
+    waves:
+      - boss: ec:enemy_thorn_wolf
+        guards: [ec:enemy_aether_slime, ec:enemy_aether_slime]
+        guard_offsets: [{x: -6, z: -2}, {x: 6, z: -2}]
+        boss_offset: {x: 0, z: 6}
+      - boss: ec:enemy_spore_spider
+        guards: [ec:enemy_moss_goblin, ec:enemy_moss_goblin]
+        guard_offsets: [{x: -6, z: -2}, {x: 6, z: -2}]
+        boss_offset: {x: 0, z: 7}
+      - boss: ec:boss_ashwood_alpha
+        guards: [ec:enemy_thorn_wolf]
+        guard_offsets: [{x: -6, z: -2}]
+        boss_offset: {x: 0, z: 9}
+    score_ranks:
+      - {rank: S, max_seconds: 120}
+      - {rank: A, max_seconds: 210}
+      - {rank: B, max_seconds: 330}
+      - {rank: C, max_seconds: 600}
+flags:
+  - ec:flag_early_board_registered
+  - ec:flag_early_enhance_guide_done
+  - ec:flag_early_trial_unlocked
+  - ec:flag_early_trial_cleared
+  - ec:flag_early_luna_found
+  - ec:flag_early_luna_cache
+  - ec:flag_early_luna_fish_done
+  - ec:flag_early_baldo_found
+  - ec:flag_early_baldo_cache
+  - ec:flag_early_hermit_secret
+  - ec:flag_title_rookie_slayer
+  - ec:flag_title_ashwood_hunter
+  - ec:flag_title_early_collector
+  - ec:flag_title_lumina_curator
+  - ec:flag_title_novice_gladiator
+  - ec:flag_title_grove_secret_finder
+areas: []

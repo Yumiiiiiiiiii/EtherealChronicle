@@ -9,7 +9,7 @@ import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** Real join with a legacy schema-9 file (no life/fishing/gathering fields): progress kept, life fields default, file rewritten as the current schema. */
+/** Legacy profile migration retains progress and adds current life/enhancement fields. */
 class SchemaNineToTenTest {
     @Test
     fun schemaNineJoinsAndIsRewritten() {
@@ -34,7 +34,7 @@ class SchemaNineToTenTest {
             plugin.persist(pr).join()
             val saved = File(dir, "$uuid.yml").readText()
             val ver = Regex("schema_version: (\\d+)").find(saved)!!.groupValues[1].toInt()
-            assertTrue(ver >= 10, "file not rewritten with schema >= 10 (is $ver)"); assertTrue(saved.contains("currency: 4242") && saved.contains("aether_gel"), "progress lost in rewrite")
+            assertTrue(ver >= 11, "file not rewritten with schema >= 11 (is $ver)"); assertTrue(saved.contains("currency: 4242") && saved.contains("aether_gel"), "progress lost in rewrite")
         } finally { MockBukkit.unmock() }
     }
     private fun org.mockbukkit.mockbukkit.ServerMock.pump(ms: Long, c: () -> Boolean): Boolean { val e = System.currentTimeMillis() + ms; while (System.currentTimeMillis() < e) { scheduler.waitAsyncTasksFinished(); scheduler.performOneTick(); if (c()) return true; Thread.sleep(20) }; return c() }

@@ -102,6 +102,7 @@ class LifeContentSchemaTest {
 
     @Test
     fun `loads all life profession schemas with typed references`() {
+        val baseline=ContentService(Path.of("src/main/resources/content")).load().world
         val content=ContentService(fixture()).load().world
         assertEquals(20,content.lifeBalance.levelCap)
         assertEquals(2,content.lifeBalance.fishingMilestones.size)
@@ -109,11 +110,11 @@ class LifeContentSchemaTest {
         assertEquals("ec:area_lumina_port",content.fishingSpots.getValue("ec:spot_test").area)
         assertEquals("ec:item_fish_silver_sardine",content.fishSpecies.getValue("ec:fish_test").item)
         assertEquals(NodeKind.HERB,content.gatheringNodes.getValue("ec:node_test_herb").kind)
-        assertEquals(13,content.tackle.size)
-        assertEquals(9,content.fishingSpots.size)
-        assertEquals(10,content.fishSpecies.size)
-        assertEquals(13,content.gatheringNodes.size)
-        assertEquals(17,content.gatheringNodes.values.sumOf { it.locations.size })
+        assertEquals(baseline.tackle.size+1,content.tackle.size)
+        assertEquals(baseline.fishingSpots.size+1,content.fishingSpots.size)
+        assertEquals(baseline.fishSpecies.size+1,content.fishSpecies.size)
+        assertEquals(baseline.gatheringNodes.size+1,content.gatheringNodes.size)
+        assertEquals(baseline.gatheringNodes.values.sumOf { it.locations.size }+1,content.gatheringNodes.values.sumOf { it.locations.size })
         assertEquals(8,content.lifeBalance.macroMinSamples)
         assertEquals(18.0,content.lifeBalance.macroResponseDeviationMillis)
         assertEquals(120.0,content.lifeBalance.macroCastIntervalDeviationMillis)
@@ -145,7 +146,8 @@ class LifeContentSchemaTest {
         val directory=Files.createTempDirectory("ec-life-player")
         PlayerStore(directory).use { store ->
             val migration=store.migrate(mapOf("schema_version" to 9))
-            assertEquals(10,migration["schema_version"])
+            assertEquals(11,migration["schema_version"])
+            assertEquals(0,migration["best_enhancement_level"])
             assertEquals("AUTO",migration["fishing_bait"])
             assertTrue((migration["life_skills"] as Map<*,*>).containsKey("FISHING"))
             val profile=PlayerProfile(UUID.randomUUID())
@@ -154,6 +156,7 @@ class LifeContentSchemaTest {
             profile.gatheringRecords["ec:node_hill_crystal_1"]=4
             profile.gatheringReadyAt["ec:node_hill_crystal_1"]=123456789
             profile.fishingBait="ec:item_bait_aether_lure"
+            profile.bestEnhancementLevel=4
             store.save(profile).join()
             val loaded=store.load(profile.uuid).join()
             assertEquals(profile.lifeSkills,loaded.lifeSkills)
@@ -161,6 +164,7 @@ class LifeContentSchemaTest {
             assertEquals(profile.gatheringRecords,loaded.gatheringRecords)
             assertEquals(profile.gatheringReadyAt,loaded.gatheringReadyAt)
             assertEquals(profile.fishingBait,loaded.fishingBait)
+            assertEquals(profile.bestEnhancementLevel,loaded.bestEnhancementLevel)
         }
     }
 }

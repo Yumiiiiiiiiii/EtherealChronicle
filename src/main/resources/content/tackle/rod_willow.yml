@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:tackle_rod_willow
+type: tackle
+item: ec:item_tool_rod_willow
+kind: ROD
+tier: 1
+min_life_level: 3
+wait_reduction: 0.08
+sweet_spot_bonus: 3.0
+tension_stability: 0.96
+size_bonus: 0.03
+channel_speed_bonus: 0
+rare_chance_bonus: 0.03

@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_river_pebble_ore
+type: item
+name: 川底の星鉄礫
+material: RAW_IRON
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 20
+lore: 'ルミナ港の西岸や灰森の表層鉱脈に混じる細かな星鉄の礫。序盤の納品依頼や砥石精錬の素材になる。'

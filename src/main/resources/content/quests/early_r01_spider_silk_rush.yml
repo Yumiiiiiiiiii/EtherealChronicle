@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:quest_early_r01_spider_silk_rush
+type: quest
+name: 【反復】灰森の星鉄礫と胞子回収
+condition: {min_level: 4, has_flags: ['ec:flag_ch1_started']}
+objectives:
+  - {id: hunt_spiders, kind: KILL, target: 'ec:enemy_spore_spider', amount: 3}
+  - {id: bring_pebble_ore, kind: COLLECT, target: 'ec:item_mat_river_pebble_ore', amount: 2, consume: true}
+  - {id: report_leila, kind: TALK, target: 'ec:npc_leila', amount: 1}
+rewards:
+  xp: 280
+  currency: 95
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_rookie_crest', amount: 1}
+    - {item: 'ec:item_mat_whetstone_shard', amount: 1}
+auto_complete: false
+repeatable: true
+repeat_cooldown_ms: 14400000

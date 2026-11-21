@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:quest_early_h01_luna_twilight_catch
+type: quest
+name: 【隠し】星灯りの番人と薄明の魚
+condition: {min_level: 3, has_flags: ['ec:flag_early_luna_found']}
+objectives:
+  - {id: catch_dawn_minnow, kind: COLLECT, target: 'ec:item_fish_dawn_minnow', amount: 1, consume: true}
+  - {id: catch_rain_eel, kind: COLLECT, target: 'ec:item_fish_rain_eel', amount: 1, consume: true}
+  - {id: report_luna, kind: TALK, target: 'ec:npc_luna', amount: 1}
+rewards:
+  xp: 580
+  currency: 260
+  set_flags: ['ec:flag_early_luna_fish_done']
+  items:
+    - {item: 'ec:item_tool_rod_willow', amount: 1}
+    - {item: 'ec:item_bait_dew_grub', amount: 3}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 0

@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:title_lumina_curator
+type: title
+name: 蒼穹博物収集家
+description: 35種類もの品々を収集図鑑へ収め、ルミナ港に名を知られた博物収集家の証。
+unlock_flag: ec:flag_title_lumina_curator
+advancement:
+  title: 蒼穹博物収集家
+  description: 収集図鑑へ35種類のアイテムを登録した。
+  icon: CHEST
+  parent: ec:title_early_collector
+  frame: GOAL
+  condition:
+    type: COLLECTION
+    count: 35

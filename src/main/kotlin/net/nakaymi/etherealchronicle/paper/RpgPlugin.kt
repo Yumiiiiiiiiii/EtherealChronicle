@@ -29,6 +29,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal lateinit var dungeons: DungeonController
     internal lateinit var gathering: GatheringController
     internal lateinit var fishing: FishingController
+    internal lateinit var treasures: TreasureController
     private lateinit var content: ContentService
     private lateinit var store: PlayerStore
     internal lateinit var game: GameService
@@ -75,7 +76,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 installation.changed.forEach { name ->
                     logger.info("サーバー編集を優先します: $name（配布版と異なります。更新時は必須項目を比較してください）")
                 }
-                listOf("balance","classes","skills","items","enemies","bosses","npcs","quests","dialogues","chapters","droptables","shops","titles","tackle","fishing_spots","fish_species","gathering_nodes").forEach { java.nio.file.Files.createDirectories(dataFolder.toPath().resolve("content").resolve(it)) }
+                listOf("balance","classes","skills","items","enemies","bosses","npcs","quests","dialogues","chapters","droptables","shops","titles","tackle","fishing_spots","fish_species","gathering_nodes","treasure_chests").forEach { java.nio.file.Files.createDirectories(dataFolder.toPath().resolve("content").resolve(it)) }
                 val startup=ContentBootstrap.initialize(dataFolder.toPath(),bundled,::validatePaperContent)
                 content=startup.service
                 if(startup.usedFallback) logger.warning("サーバーのコンテンツに不備があります。配布版で起動し /ec validate と /ec reload を有効にします: ${startup.problem}")
@@ -90,6 +91,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     catch(error: Exception) { logger.severe("専用ワールドを準備できませんでした: ${error.message}。基盤機能のみ有効です。") }
                     gathering=GatheringController(this)
                     fishing=FishingController(this)
+                    treasures=TreasureController(this).also { it.reload() }
                     runCatching { reloadAdvancementPack() }.onFailure { advancementWarning(it) }
                     server.scheduler.runTaskTimer(this,Runnable { enemies.tick() },10,10)
                     ready = true
@@ -119,6 +121,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         if(::dungeons.isInitialized) runCatching { dungeons.shutdown() }.onFailure { logger.severe("聖堂の終了処理に失敗: ${it.message}") }
         if(::enemies.isInitialized) runCatching { enemies.close() }.onFailure { logger.severe("魔物の終了処理に失敗: ${it.message}") }
         if(::adventure.isInitialized) runCatching { adventure.close() }.onFailure { logger.severe("NPCの終了処理に失敗: ${it.message}") }
+        if(::treasures.isInitialized) runCatching { treasures.close() }.onFailure { logger.severe("宝箱の終了処理に失敗: ${it.message}") }
         server.scheduler.cancelTasks(this)
         if (::store.isInitialized) {
             profiles.values.forEach { store.save(it) }
@@ -428,6 +431,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             require(p.currency >= cost) { "所持金が足りません。" }
             require(inventory.exchange(mapOf(tuning.enhancementMaterial to 1),emptyMap())) { "強化素材が足りません。" }
             p.currency -= cost
+            p.bestEnhancementLevel=maxOf(p.bestEnhancementLevel,current+1)
+            game.quests.event(p,ObjectiveKind.ENHANCE_GEAR,(current+1).toString(),1,inventory)
         },beforePersist={
             val held=player.inventory.itemInMainHand
             require(identify(held) == definition.id && (held.itemMeta.persistentDataContainer.get(enhancementKey,PersistentDataType.INTEGER) ?: 0) == current) { "強化対象の装備が変わりました。費用は発生しません。" }
@@ -440,6 +445,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             enhancementFlights[player.uniqueId]=flight
         },success={
             if(settleEnhancement(player,p)) {
+                syncTitleAdvancements(player,p)
                 applyStats(player,p)
                 player.sendMessage(Component.text("装備を +${current+1} に強化しました。"))
             } else player.sendMessage(Component.text("強化対象が持ち物から見つからず、費用を返却しました。"))
@@ -720,6 +726,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                                 enemies.close(); adventure.reloadNpcs()
                                 if(::gathering.isInitialized) gathering.reload()
                                 if(::fishing.isInitialized) fishing.reload()
+                    if(::treasures.isInitialized) treasures.reload()
                             }
                             sender.sendMessage(Component.text(if(reload) "コンテンツを再読み込みしました。" else "コンテンツ検証成功。"))
                         }

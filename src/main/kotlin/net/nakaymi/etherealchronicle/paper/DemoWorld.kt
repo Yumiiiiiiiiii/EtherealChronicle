@@ -60,6 +60,7 @@ object DemoWorld {
             existing.setSpawnLocation(0,65,0)
             migrateToV2(plugin,existing,existing.worldFolder.toPath())
             migrateToV3(plugin,existing,existing.worldFolder.toPath())
+            migrateToV4(plugin,existing,existing.worldFolder.toPath())
             enforceHubSpawnSafety(plugin,existing)
             return existing
         }
@@ -80,12 +81,13 @@ object DemoWorld {
         world.setSpawnLocation(0,65,0)
         enforceHubSpawnSafety(plugin,world)
         if(!Files.exists(folder.resolve(".etherealchronicle-built"))) {
-            build(world); buildChapter2(world); buildLifeProfessionPools(world)
-            markFreshBuild(folder,"v3")
-            plugin.logger.info("ec_world を新規作成しました (v3)。")
+            build(world); buildChapter2(world); buildLifeProfessionPools(world); buildSecretSpring(world)
+            markFreshBuild(folder,"v4")
+            plugin.logger.info("ec_world を新規作成しました (v4)。")
         }
         migrateToV2(plugin,world,world.worldFolder.toPath())
         migrateToV3(plugin,world,world.worldFolder.toPath())
+        migrateToV4(plugin,world,world.worldFolder.toPath())
         return world
     }
     private fun enforceHubSpawnSafety(plugin:RpgPlugin,world:World) {
@@ -125,7 +127,7 @@ object DemoWorld {
                 plugin.logger.info("ec_world 地形を v1 から v2 に移行しました。第1章の地形は変更していません。")
                 return true
             }
-            "v2", "v3" -> return true
+            "v2", "v3", "v4" -> return true
             else -> { plugin.logger.warning("ec_world 地形バージョンが不明なため変更しません: $marker"); return false }
         }
     }
@@ -133,7 +135,7 @@ object DemoWorld {
         Files.writeString(folder.resolve(".etherealchronicle-built"),"v2\n")
     }
     internal fun markFreshBuild(folder: java.nio.file.Path,version:String) {
-        require(version in setOf("v2","v3"))
+        require(version in setOf("v2","v3","v4"))
         Files.writeString(folder.resolve(".etherealchronicle-built"),"$version\n")
     }
     internal fun migrateToV3(plugin:RpgPlugin,world:World,folder:java.nio.file.Path):Boolean {
@@ -147,8 +149,33 @@ object DemoWorld {
                 plugin.logger.info("ec_world の釣り場を追加しました (v2→v3)。既存ブロックは変更していません。")
                 return true
             }
-            "v3" -> return false
+            "v3", "v4" -> return false
             else -> { plugin.logger.warning("ec_world 地形 v3 へ更新する前に v2 が必要です: $marker"); return false }
+        }
+    }
+    internal fun migrateToV4(plugin:RpgPlugin,world:World,folder:java.nio.file.Path):Boolean {
+        if(!Files.exists(folder.resolve(".etherealchronicle-owned"))) return false
+        val marker=folder.resolve(".etherealchronicle-built")
+        if(!Files.exists(marker)) return false
+        when(Files.readString(marker).trim()) {
+            "v3" -> {
+                buildSecretSpring(world)
+                Files.writeString(marker,"v4\n")
+                plugin.logger.info("ec_world の隠し水辺を追加しました (v3→v4)。既存ブロックは変更していません。")
+                return true
+            }
+            "v4" -> return false
+            else -> { plugin.logger.warning("ec_world 地形 v4 へ更新する前に v3 が必要です: $marker"); return false }
+        }
+    }
+    internal fun buildSecretSpring(world:World) {
+        val cx=124; val cz=-24
+        for(dx in -3..3) for(dz in -3..3) {
+            val edge=kotlin.math.abs(dx)==3 || kotlin.math.abs(dz)==3
+            // Build one block above the old generated surface. Air-only placement protects
+            // any player construction in a world that was already in use.
+            val block=world.getBlockAt(cx+dx,65,cz+dz)
+            if(block.type.isAir) block.setType(if(edge) Material.PACKED_ICE else Material.WATER,false)
         }
     }
     internal fun buildLifeProfessionPools(world:World) {

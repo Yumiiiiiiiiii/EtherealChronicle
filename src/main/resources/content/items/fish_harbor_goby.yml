@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_fish_harbor_goby
+type: item
+name: 港ハゼ
+material: COD
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 28
+lore: 'ルミナ港の石積み付近に群れる小魚。初心者でも釣り上げやすく、香草揚げにすると絶品。'

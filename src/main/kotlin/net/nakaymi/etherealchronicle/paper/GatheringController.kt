@@ -218,7 +218,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
                 LifeSkillEngine(plugin.snapshot.world.lifeBalance).grant(progress,node.lifeXp)
                 profile.gatheringRecords[node.id]=(profile.gatheringRecords[node.id] ?: 0)+1
                 plugin.snapshot.balance.grantXp(profile,node.adventurerXp)
-                plugin.game.quests.event(profile,ObjectiveKind.COLLECT,"",1,inv)
+                plugin.game.quests.event(profile,ObjectiveKind.GATHER_NODE,node.id,1,inv,alsoTargets=setOf(node.kind.name))
                 val total=profile.gatheringRecords.values.sum()
                 plugin.snapshot.world.lifeBalance.gatheringMilestones.filter { total>=it.threshold && profile.gatheringRecords.size>=it.uniqueNodes }.forEach { profile.flags.add(it.flag) }
             },success={

@@ -1,0 +1,35 @@
+schema_version: 1
+id: ec:boss_ashwood_alpha
+type: boss
+name: 灰森の獣王アッシュウッド・アルファ
+entity: WOLF
+level: 7
+hp: 7600
+attack: 26
+defense: 26
+xp: 480
+currency: 130
+droptable: ec:drop_ashwood_alpha
+element: PHYSICAL
+weaknesses: [FIRE, AETHER]
+resistances: [ICE]
+speed: 0.30
+size: 2
+elite: true
+aggro_range: 16
+leash_range: 28
+attack_interval_ticks: 44
+traits: [KNOCKBACK_RESIST]
+set_flags_on_kill: [ec:flag_early_trial_cleared]
+specials:
+  - {id: alpha_lunge, name: '星牙突進', shape: LINE, cooldown_ticks: 200, telegraph_ticks: 24, radius: 2.2, range: 10, multiplier: 1.45, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: NONE}
+  - {id: thorn_howl, name: '荊棘の咆哮', shape: CIRCLE, cooldown_ticks: 260, telegraph_ticks: 28, radius: 5.0, range: 8, multiplier: 1.25, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: SLOW}
+  - {id: feral_pounce, name: '獣王の大跳躍', shape: CIRCLE, cooldown_ticks: 240, telegraph_ticks: 30, radius: 3.8, range: 12, multiplier: 1.55, min_hp_ratio: 0.0, max_hp_ratio: 0.45, effect: KNOCKUP}
+spawn_points: []
+phases:
+  - {id: phase_hunt, below_hp_ratio: 1.0, damage_multiplier: 1.0, interval_multiplier: 1.0}
+  - {id: phase_feral_howl, below_hp_ratio: 0.45, damage_multiplier: 1.15, interval_multiplier: 0.88}
+enrage_ticks: 7200
+enrage_multiplier: 1.4
+coop_hp_per_player: 0.6
+coop_damage_per_player: 0.04

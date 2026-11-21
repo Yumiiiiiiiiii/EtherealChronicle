@@ -1,0 +1,28 @@
+schema_version: 1
+id: ec:fish_moss_loach
+type: fish_species
+name: 苔ドジョウ
+item: ec:item_fish_moss_loach
+rarity: COMMON
+tags: [FRESHWATER, FOREST]
+habitats: [ec:area_ashwood_forest]
+time_windows: [ANY]
+weather: [ANY]
+min_rod_tier: 1
+min_fishing_level: 2
+base_weight: 32
+min_cm: 15
+max_cm: 38
+silver_crown_cm: 31
+gold_crown_cm: 36
+life_xp: 20
+adventurer_xp: 11
+minigame:
+  bite_window_ms: 1950
+  difficulty: 1.3
+  sweet_width: 34
+  progress_per_sec: 21
+  tension_decay_per_sec: 22
+  thrash_chance_per_sec: 0.15
+  dive_chance_per_sec: 0.05
+lore_hint: 'アッシュウッドの森の清流底に棲む縞模様のドジョウ。朝露苔と合わせて滋養汁に調理できる。'

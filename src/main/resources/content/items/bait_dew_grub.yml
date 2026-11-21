@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_bait_dew_grub
+type: item
+name: 朝露ミミズ虫
+material: SLIME_BALL
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 22
+lore: '朝露苔と琥珀樹液の香りをまとわせた渓流向け釣り餌。淡水・森の魚や薄明の珍魚がかかりやすくなる。'

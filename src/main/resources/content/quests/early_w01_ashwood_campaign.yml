@@ -1,0 +1,21 @@
+schema_version: 1
+id: ec:quest_early_w01_ashwood_campaign
+type: quest
+name: 【序盤ウィークリー】灰森の大掃討作戦
+condition: {min_level: 5, has_flags: ['ec:flag_ch1_started']}
+objectives:
+  - {id: camp_wolves, kind: KILL, target: 'ec:enemy_thorn_wolf', amount: 8}
+  - {id: camp_spiders, kind: KILL, target: 'ec:enemy_spore_spider', amount: 6}
+  - {id: camp_treant, kind: KILL, target: 'ec:enemy_corrupted_treant', amount: 1}
+  - {id: report_leila, kind: TALK, target: 'ec:npc_leila', amount: 1}
+rewards:
+  xp: 1400
+  currency: 480
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_rookie_crest', amount: 6}
+    - {item: 'ec:item_mat_artisan_whetstone', amount: 2}
+auto_complete: false
+repeatable: true
+repeat_cooldown_ms: 604800000
+reset_schedule: WEEKLY

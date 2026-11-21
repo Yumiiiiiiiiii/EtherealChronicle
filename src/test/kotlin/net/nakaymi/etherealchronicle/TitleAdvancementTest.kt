@@ -37,11 +37,19 @@ class TitleAdvancementTest {
     @Test fun `all shipped title definitions have advancement-ready data`() {
         val content=ContentService(Path.of("src/main/resources/content")).load()
         val advancementTitles=content.world.titles.values.filter { it.advancement != null }
-        assertEquals(6,advancementTitles.size)
+        assertTrue(advancementTitles.size >= 6)
+        assertEquals(content.world.titles.size,advancementTitles.size)
         advancementTitles.forEach { title ->
-            assertNotNull(title.advancement)
-            assertEquals(TitleConditionType.FLAG,title.advancement!!.condition.type)
-            assertEquals(title.unlockFlag,title.advancement.condition.target)
+            val adv=assertNotNull(title.advancement)
+            when(adv.condition.type) {
+                TitleConditionType.FLAG -> assertTrue(adv.condition.target?.startsWith("ec:") == true)
+                TitleConditionType.BESTIARY -> assertTrue(adv.condition.target in content.world.enemies)
+                TitleConditionType.COLLECTION -> assertNull(adv.condition.target)
+                TitleConditionType.FISH_SPECIES_COUNT,TitleConditionType.ENHANCE_LEVEL -> assertNull(adv.condition.target)
+                TitleConditionType.LIFE_LEVEL -> assertTrue(adv.condition.target in LifeSkillKind.entries.map { it.name })
+                TitleConditionType.CHALLENGE_RANK -> assertTrue(adv.condition.target in content.world.dungeons)
+            }
+            assertTrue(adv.condition.count >= 1)
         }
     }
 

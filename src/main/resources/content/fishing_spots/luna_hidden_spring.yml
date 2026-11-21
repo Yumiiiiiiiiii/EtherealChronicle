@@ -1,0 +1,12 @@
+schema_version: 1
+id: ec:spot_luna_hidden_spring
+type: fishing_spot
+name: ルナの隠し泉
+area: ec:area_ashwood_forest
+world: ec_world
+center: {x: 124.5, y: 65, z: -23.5}
+radius: 4.0
+default_for_area: false
+tags: [FRESHWATER, HIDDEN, SPRING]
+priority: 25
+unlock_flag: ec:flag_early_luna_found

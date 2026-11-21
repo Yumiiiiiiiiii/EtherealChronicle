@@ -46,12 +46,21 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
         val consume=q.objectives.filter { it.kind == ObjectiveKind.COLLECT && it.consume }.groupBy { it.target }.mapValues { (_,objectives) -> objectives.sumOf { it.amount.toLong() } }
         return !state.completed && consume.all { (item,n) -> inventory.count(item).toLong() >= n } && q.objectives.all { progress(p,q,it,inventory) >= it.amount }
     }
-    fun event(p: PlayerProfile,kind: ObjectiveKind,target: String,amount: Int,inventory: InventoryAccess,allowAutoComplete: Boolean = true) {
+    fun event(p: PlayerProfile,kind: ObjectiveKind,target: String,amount: Int,inventory: InventoryAccess,allowAutoComplete: Boolean = true,alsoTargets:Set<String> = emptySet()) {
         require(amount > 0)
         p.quests.filterValues { !it.completed }.keys.toList().forEach { id ->
             val q = content().world.quests[id] ?: return@forEach
             val o = q.objectives.firstOrNull { progress(p,q,it,inventory) < it.amount }
-            if(o != null && o.kind == kind && (o.target == target || o.target == "*")) {
+            val targetMatches=o?.let {
+                when(kind) {
+                    ObjectiveKind.ENHANCE_GEAR -> {
+                        val required=it.target.toIntOrNull(); val achieved=target.toIntOrNull()
+                        it.target == "ANY" || it.target == "*" || (required != null && achieved != null && achieved >= required)
+                    }
+                    else -> it.target == target || it.target == "*" || it.target == "ANY" || it.target in alsoTargets
+                }
+            } ?: false
+            if(o != null && o.kind == kind && targetMatches) {
                 val state = p.quests.getValue(id)
                 state.objectives[o.id] = (state.objectives.getOrDefault(o.id,0).toLong()+amount).coerceAtMost(o.amount.toLong()).toInt()
                 state.progress = state.objectives.values.sum()
@@ -180,7 +189,7 @@ class StagedInventory(private val base: InventoryAccess): InventoryAccess {
 }
 fun PlayerProfile.restore(other: PlayerProfile) {
     classId=other.classId; level=other.level; xp=other.xp; currency=other.currency; resource=other.resource; selectedSkill=other.selectedSkill; starterGranted=other.starterGranted; accessory=other.accessory
-    selectedTitle=other.selectedTitle; fishingBait=other.fishingBait
+    selectedTitle=other.selectedTitle; fishingBait=other.fishingBait; bestEnhancementLevel=other.bestEnhancementLevel
     skillLevels.clear(); skillLevels.putAll(other.skillLevels); flags.clear(); flags.addAll(other.flags)
     quests.clear(); quests.putAll(other.snapshot().quests); dailyPurchases.clear(); dailyPurchases.putAll(other.dailyPurchases); transactions.clear(); transactions.addAll(other.transactions); pendingRewards.clear(); pendingRewards.putAll(other.pendingRewards); dropPity.clear(); dropPity.putAll(other.dropPity)
     challengeRecords.clear(); challengeRecords.putAll(other.snapshot().challengeRecords)

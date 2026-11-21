@@ -23,6 +23,9 @@ internal fun WorldContent.validateWorldReferences(documents: Map<String,Map<Stri
             ObjectiveKind.COLLECT -> ref(o.target,setOf("item"),"objectives.COLLECT")
             ObjectiveKind.TALK -> ref(o.target,setOf("npc"),"objectives.TALK")
             ObjectiveKind.EXPLORE -> require(o.target in areas) { "objectives.EXPLORE -> ${o.target}: エリアが必要です。" }
+            ObjectiveKind.CATCH_FISH -> if(o.target !in setOf("ANY","*")) ref(o.target,setOf("fish_species"),"objectives.CATCH_FISH")
+            ObjectiveKind.GATHER_NODE -> if(o.target !in setOf("ANY","*","HERB","ORE","WOOD","CRYSTAL")) ref(o.target,setOf("gathering_node"),"objectives.GATHER_NODE")
+            ObjectiveKind.ENHANCE_GEAR -> require(o.target in setOf("ANY","*") || (o.target.toIntOrNull() ?: -1) in 1..tuning.enhancementCap) { "objectives.ENHANCE_GEAR は ANY または強化段階 1..${tuning.enhancementCap} で指定してください。" }
         } }
         q.rewards.items.forEach { require(it.amount in 1..64) { "rewards.items.amount は1..64です。" }; ref(it.item,setOf("item"),"rewards.items"); condition(it.condition) }
     } }

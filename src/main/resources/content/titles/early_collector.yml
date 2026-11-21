@@ -1,0 +1,14 @@
+schema_version: 1
+id: ec:title_early_collector
+type: title
+name: ルミナ収集見習い
+description: 15種類のアイテム・素材・魚を収集図鑑へ登録した熱心な収集家の証。
+unlock_flag: ec:flag_title_early_collector
+advancement:
+  title: ルミナ収集見習い
+  description: 収集図鑑へ15種類のアイテムを登録した。
+  icon: SPYGLASS
+  frame: TASK
+  condition:
+    type: COLLECTION
+    count: 15

@@ -1,0 +1,62 @@
+schema_version: 1
+id: ec:dlg_luna_hidden
+type: dialogue
+name: 星灯りの番人ルナの密談
+speaker: ec:npc_luna
+start: root
+nodes:
+  root:
+    text: ……あら、港の北西の隅まで歩いてくるなんて珍しい冒険者ね。私は星灯りの番人ルナ。時間や天候によってだけ姿を現す、秘密の魚たちを見守っているの。
+    branches:
+      - {condition: {has_flags: ['ec:flag_early_luna_found']}, next: found_root}
+    choices:
+      - id: greet_luna
+        label: こんな場所に隠れて何を見ているの？
+        next: found_root
+        set_flags: ['ec:flag_early_luna_found']
+      - id: bye_first
+        label: 邪魔してごめんね
+  found_root:
+    text: せっかく私を見つけてくれたんだもの、特別な秘密と隠しておいた釣り餌を分けてあげるわ。水辺は時間帯と空模様で顔を変えるのよ。
+    choices:
+      - id: claim_luna_cache
+        label: 星灯りの隠し小箱を開ける（初回限定）
+        condition: {has_flags: ['ec:flag_early_luna_found'], not_flags: ['ec:flag_early_luna_cache']}
+        next: luna_cache_done
+        actions:
+          - {kind: GIVE_ITEM, target: 'ec:item_bait_dew_grub', amount: 3, once_flag: 'ec:flag_early_luna_cache'}
+      - id: start_h01
+        label: 【隠し】星灯りの番人と薄明の魚を受ける（Lv3〜）
+        condition: {min_level: 3, has_flags: ['ec:flag_early_luna_found'], not_started_quests: ['ec:quest_early_h01_luna_twilight_catch']}
+        next: h01_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_early_h01_luna_twilight_catch'}
+      - id: complete_h01
+        label: 【隠し】薄明と雨夜の魚をルナへ見せる
+        condition: {active_quests: ['ec:quest_early_h01_luna_twilight_catch']}
+        next: h01_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_early_h01_luna_twilight_catch'}
+      - id: fish_secrets
+        label: 時間・天候限定の希少魚のヒントを聞く
+        next: secret_hints
+      - id: bye_found
+        label: また夜風にあたりに来るよ
+  luna_cache_done:
+    text: ふふ、よく見つけたわね。隠し小箱に入っていた『朝露ミミズ虫』を3つ差し上げるわ。灰森の清流や港の桟橋で使ってみて。
+    choices:
+      - id: back_from_cache
+        label: ありがとう、大切にするよ
+        next: found_root
+  secret_hints:
+    text: 覚えておいて。『朝焼けハヤ』は朝夕の薄明どきだけ港と灰森に現れるわ。『雨夜ウナギ』は雨か雷雨の夜に限って灰森か廃坑の水脈へ出てくるの。そして釣りLv7に達したら、薄明か夜の灰森で幻の『琥珀ニシキゴイ』に挑んでみて！
+    choices:
+      - id: back_from_hints
+        label: すごい情報だ、メモしておくよ
+        next: found_root
+  h01_started:
+    text: 私の秘密の依頼を受けてくれるのね！薄明の『朝焼けハヤ』1匹と、雨夜の『雨夜ウナギ』1匹を釣って見せてくれたら、秘蔵の『柳の精密入門竿』を譲ってあげるわ。
+    choices: []
+  h01_done:
+    text: まあ、本当に二匹とも揃えてきたのね……お見事！約束の『柳の精密入門竿』と『朝露ミミズ虫』を受け取って。灰森の北東の奥には、私と同じようにひっそり暮らす隠者バルドもいるらしいわよ。
+    choices: []

@@ -89,6 +89,9 @@ class Chapter1ChainTest {
                 ObjectiveKind.KILL -> if (o.target !in world.enemies && o.target != "*") problems += "${q.id}/${o.id}: unknown enemy ${o.target}"
                 ObjectiveKind.TALK -> if (o.target !in world.npcs) problems += "${q.id}/${o.id}: unknown npc ${o.target}"
                 ObjectiveKind.EXPLORE -> if (o.target !in world.areas) problems += "${q.id}/${o.id}: unknown area ${o.target}"
+                ObjectiveKind.CATCH_FISH -> if (o.target !in world.fishSpecies && o.target !in setOf("ANY","*")) problems += "${q.id}/${o.id}: unknown fish ${o.target}"
+                ObjectiveKind.GATHER_NODE -> if (o.target !in world.gatheringNodes && o.target !in setOf("ANY","*","HERB","ORE","WOOD","CRYSTAL")) problems += "${q.id}/${o.id}: unknown node ${o.target}"
+                ObjectiveKind.ENHANCE_GEAR -> if (o.target !in setOf("ANY","*") && o.target.toIntOrNull() !in 1..world.tuning.enhancementCap) problems += "${q.id}/${o.id}: invalid enhancement target ${o.target}"
             }
         } }
         // Each branch flag must be settable by a dialogue choice.

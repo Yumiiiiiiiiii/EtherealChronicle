@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:title_novice_gladiator
+type: title
+name: 見習い闘技場の勝者
+description: 見習い試練の闘技場で3ウェーブを突破し、灰森の獣王アルファを制した証。
+unlock_flag: ec:flag_title_novice_gladiator
+advancement:
+  title: 見習い闘技場の勝者
+  description: 見習い試練の闘技場で獣王アッシュウッド・アルファを撃破した。
+  icon: SHIELD
+  parent: ec:title_rookie_slayer
+  frame: CHALLENGE
+  condition:
+    type: FLAG
+    target: ec:flag_early_trial_cleared

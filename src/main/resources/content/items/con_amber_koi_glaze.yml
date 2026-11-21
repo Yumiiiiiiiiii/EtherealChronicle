@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_con_amber_koi_glaze
+type: item
+name: 琥珀コイの照り焼き
+material: COOKED_SALMON
+rarity: RARE
+slot: NONE
+min_level: 5
+classes: []
+budget: 0
+stats: {}
+price: 180
+lore: '幻の琥珀ニシキゴイを香ばしく焼き上げた極上の一皿。HPを135回復し、防御を12高める。'
+effects:
+  - {kind: HEAL, amount: 135, cooldown_ms: 18000, chance: 1.0}
+  - {kind: DEFENSE_BUFF, amount: 12, cooldown_ms: 18000, chance: 1.0}

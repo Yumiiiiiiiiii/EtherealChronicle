@@ -32,7 +32,7 @@ class CodexSystemTest {
         p.bestiary["ec:enemy_test"]=12
         assertTrue(p.discoverItem("ec:item_test")); assertFalse(p.discoverItem("ec:item_test"))
         PlayerStore(directory).use { store ->
-            assertEquals(10,store.migrate(mapOf("schema_version" to 8))["schema_version"])
+        assertEquals(11,store.migrate(mapOf("schema_version" to 8))["schema_version"])
             store.save(p).join()
             val loaded=store.load(p.uuid).join()
             assertEquals(12,loaded.bestiary["ec:enemy_test"])

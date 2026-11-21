@@ -1,0 +1,21 @@
+schema_version: 1
+id: ec:node_port_pebble_ore
+type: gathering_node
+name: 港西岸の星鉄礫
+node_kind: ORE
+display_material: COBBLESTONE
+depleted_material: GRAVEL
+required_tool_kind: PICKAXE
+min_tool_tier: 1
+min_gathering_level: 1
+channel_ms: 2100
+respawn_seconds: 85
+per_player_respawn: true
+life_xp: 16
+adventurer_xp: 8
+yields:
+  - {item: ec:item_mat_river_pebble_ore, min: 1, max: 2, chance: 1.0}
+rare_yields:
+  - {item: ec:item_mat_whetstone_shard, min: 1, max: 1, chance: 0.22, pity_after: 6}
+locations:
+  - {id: port_pebble_ore_1, area: ec:area_lumina_port, world: ec_world, x: -24, y: 65, z: -4}

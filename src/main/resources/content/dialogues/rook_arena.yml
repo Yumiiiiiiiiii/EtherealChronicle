@@ -1,0 +1,102 @@
+schema_version: 1
+id: ec:dlg_rook_arena
+type: dialogue
+name: 見習い試練教官ルークの案内
+speaker: ec:npc_rook
+start: root
+nodes:
+  root:
+    text: おう、新進の冒険者だな！俺は見習い試練教官のルークだ。Lv5を越えたら『見習い試練の闘技場』で3ウェーブ連続の実戦訓練とタイムアタックに挑んでみるといい！
+    branches:
+      - {condition: {has_flags: ['ec:flag_early_trial_unlocked']}, next: unlocked_root}
+    choices:
+      - id: unlock_novice_arena
+        label: 見習い試練の闘技場の参加証を受け取る（Lv5〜）
+        condition: {min_level: 5, has_flags: ['ec:flag_ch1_started'], not_flags: ['ec:flag_early_trial_unlocked']}
+        next: arena_unlocked
+        set_flags: ['ec:flag_early_trial_unlocked']
+      - id: open_arena_shop_locked
+        label: 闘技場褒賞所を見る
+        actions:
+          - {kind: OPEN_SHOP, target: 'ec:shop_novice_arena'}
+      - id: arena_explain
+        label: 見習い試練の闘技場のルールを聞く
+        next: arena_info
+      - id: bye_locked
+        label: Lv5になって装備を強化したらまた来るよ
+  arena_info:
+    text: 見習い試練の闘技場は、灰森の魔物で構成された3ウェーブ制のソロ・小隊向けミニチャレンジだ。最終ウェーブには『灰森の獣王アッシュウッド・アルファ』が待ち受ける。120秒以内でSランク、210秒以内でAランクとして自己ベストが記録されるぞ！
+    choices:
+      - id: back_from_info
+        label: わかった、腕を磨いて挑むよ
+        next: root
+  arena_unlocked:
+    text: よし、参加資格を認めた！まずは初回制覇依頼を受けてから闘技場へ踏み込んでみろ。武器や星守りを+1〜+3に強化し、港ハゼの香草揚げや滋養汁を携えておけば万全だ！
+    choices:
+      - id: accept_t01_now
+        label: 【試練】見習い闘技場・獣王アルファ討伐を受ける
+        condition: {min_level: 5, not_started_quests: ['ec:quest_early_t01_arena_trial']}
+        next: t01_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_early_t01_arena_trial'}
+      - id: go_unlocked_menu
+        label: 闘技場メニューへ進む
+        next: unlocked_root
+  unlocked_root:
+    text: 見習い試練の闘技場はいつでも開いているぞ！タイムを縮めてSランク（120秒以内）を狙うもよし、獣王の星牙を集めて『獣王星牙の護符』や研磨砥石へ替えるもよしだ！
+    choices:
+      - id: enter_novice_arena
+        label: 見習い試練の闘技場へ入場する（Lv5〜8・3ウェーブ）
+        actions:
+          - {kind: ENTER_DUNGEON, target: 'ec:dungeon_novice_arena'}
+      - id: open_arena_shop
+        label: 闘技場褒賞所を開く（星牙交換・回復食）
+        actions:
+          - {kind: OPEN_SHOP, target: 'ec:shop_novice_arena'}
+      - id: start_t01
+        label: 【試練】見習い闘技場・獣王アルファ討伐を受ける（初回）
+        condition: {min_level: 5, not_started_quests: ['ec:quest_early_t01_arena_trial']}
+        next: t01_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_early_t01_arena_trial'}
+      - id: complete_t01
+        label: 【試練】獣王アルファ初回討伐を報告する
+        condition: {active_quests: ['ec:quest_early_t01_arena_trial']}
+        next: t01_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_early_t01_arena_trial'}
+      - id: start_t02
+        label: 【試練デイリー】見習い闘技場のタイムアタックを受ける（Lv6〜）
+        condition: {min_level: 6, has_flags: ['ec:flag_early_trial_cleared'], not_started_quests: ['ec:quest_early_t02_arena_daily']}
+        next: t02_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_early_t02_arena_daily'}
+      - id: complete_t02
+        label: 【試練デイリー】タイムアタック挑戦を報告する
+        condition: {active_quests: ['ec:quest_early_t02_arena_daily']}
+        next: t02_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_early_t02_arena_daily'}
+      - id: alpha_tips
+        label: 獣王アルファ攻略のコツを聞く
+        next: alpha_strategy
+      - id: bye_unlocked
+        label: 準備を整えてまた挑むよ
+  alpha_strategy:
+    text: 獣王アルファは炎とエーテル属性に弱いが、氷には耐性を持つ。HP45%を切ると『獣王の大跳躍』を繰り出し、攻撃間隔も速まるぞ。赤い予兆を見たら横へ避け、スキルを叩き込め！
+    choices:
+      - id: back_from_strat
+        label: 覚えておくよ
+        next: unlocked_root
+  t01_started:
+    text: 依頼を受理した！3ウェーブ目の獣王アルファを討ち倒したら俺に報告しろ。初回制覇で称号『見習い闘技場の勝者』も解放されるぞ！
+    choices: []
+  t01_done:
+    text: 見事だ、獣王アルファを討ち倒したな！褒美の『獣王の星牙』と『名匠の研磨砥石』を受け取れ。これからは毎日のタイムアタック依頼にも挑戦できるぞ！
+    choices: []
+  t02_started:
+    text: 今日のタイムアタック依頼だな！自己ベスト更新を目指して3ウェーブを一気に駆け抜けろ！
+    choices: []
+  t02_done:
+    text: いい動きだったぞ！星牙と証を受け取って、褒賞所で『獣王星牙の護符』や研磨砥石と交換していくといい！
+    choices: []

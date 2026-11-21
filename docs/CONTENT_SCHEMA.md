@@ -135,3 +135,13 @@ Five content types (all `schema_version: 1`, `ec:` IDs) plus a balance document.
 Sessions are bounded and ticked only for active anglers; no per-tick world scans. Repeated casts follow an anti-macro check and fatigue. Fish records (size, crowns), fishing score and harvest counts persist in the profile and feed `/ec codex`, titles and advancements.
 
 Anti-macro settings in `life_balance`: `macro_min_samples` (8), `macro_response_deviation_ms` (18.0), `macro_cast_interval_deviation_ms` (120.0), `macro_rare_weight_multiplier` (0.1). A player whose reaction or cast-interval deviation stays below the thresholds over the sample window is flagged and gets reduced rare-fish weight and fatigue. Admin QA commands: `/ec debug fish start|status|cancel <player> [species]` (starts at the reel phase through the real UI/reward path) and `/ec debug gather status <player>`.
+
+## Early-game engine additions (Task 11)
+
+- **Quest objectives:** `CATCH_FISH` (fish species), `GATHER_NODE` (gathering node) and `ENHANCE_GEAR` join KILL/COLLECT/TALK/EXPLORE. Unknown objective strings fail typed parsing.
+- **Title conditions:** `FISH_SPECIES_COUNT`, `LIFE_LEVEL`, `ENHANCE_LEVEL` and `CHALLENGE_RANK` join FLAG/BESTIARY/COLLECTION. Profile schema is now 11.
+- **`treasure_chest`** (`treasure_chests/*.yml`): `world`/`x`/`y`/`z` (or `location`), `once_flag`, `items` (map or list), `currency`, `hint_particle`. Shown as an invulnerable BlockDisplay with an Interaction; claimed once per player through the transactional pending-reward mailbox. Item rewards require a declared once flag.
+- **Fishing spots:** optional `priority` and `unlock_flag`; selection is deterministic by priority, then radius.
+- **Time/weather conditions:** NPCs and enemy `spawn_points` accept `time_windows` (`ANY|DAY|NIGHT|DAWN_DUSK`) and `weather` (`ANY|CLEAR|RAIN|THUNDER`). NPCs reconcile once per second; spawn checks only touch definitions and active point budgets.
+- **Dungeon ranks:** `score_ranks[]` entries accept `first_clear_flag` and `first_clear_items`; rewards are awarded once (idempotency flag and mailbox saved together).
+- **World:** `ec_world` v3 to v4 adds the Ashwood hidden spring (additive, idempotent, air-only).

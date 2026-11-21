@@ -131,6 +131,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
         plugin.snapshot.world.enemies.values.forEach { d -> d.spawns.forEach { point ->
             val id="${d.id}/${point.id}"; val world=Bukkit.getWorld(point.position.world) ?: return@forEach
             if(world.name != DemoWorld.NAME || tick < nextSpawn.getOrDefault(id,0) || !world.isChunkLoaded(point.position.x.toInt() shr 4,point.position.z.toInt() shr 4)) return@forEach
+            if(!WorldSchedule.matches(point.timeWindows,point.weather,world.time,world.hasStorm(),world.isThundering)) return@forEach
             if(world.players.none { it.location.distanceSquared(Location(world,point.position.x,point.position.y,point.position.z)) < 64*64 }) return@forEach
             if(budget.count(id) < point.cap) spawn(d.id,Location(world,point.position.x,point.position.y,point.position.z),id,point.cap)
             nextSpawn[id]=tick+point.respawnTicks
