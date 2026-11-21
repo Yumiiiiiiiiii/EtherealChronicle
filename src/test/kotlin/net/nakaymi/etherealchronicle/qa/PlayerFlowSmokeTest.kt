@@ -121,7 +121,7 @@ class PlayerFlowSmokeTest {
                 server.pluginManager.callEvent(e)
                 assertTrue(e.isCancelled, "swap not cancelled by plugin")
                 val msgs = generateSequence { player.nextMessage() }.toList()
-                assertTrue(msgs.any { it.contains("選択") }, "no skill-selected message; messages=$msgs")
+                assertTrue(msgs.any { it.contains("Selected:") || it.contains("選択:") }, "no skill-selected message; messages=$msgs")
                 msgs.last()
             }
             step("6 cast via shared seam castSkill(player, mob)") {
