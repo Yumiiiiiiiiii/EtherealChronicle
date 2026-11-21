@@ -13,9 +13,11 @@ resource_pack:
   enabled: true
   # 配信先が有効な場合は必須です。配信不能なら締め出し防止のため起動時に一時解除します。
   required: true
-  mode: game_port # experimental; requires same_port_netty.enabled: true
+  mode: game_port # experimental; requires same_port_netty.enabled: true; use external_managed when another plugin/server.properties sends the pack
   external_url: ""
   external_sha1: ""
+  # external_managed では空なら全配信元のPackStatusを監視し、UUID指定時はそのIDだけを対象にします。
+  expected_pack_id: ""
   embedded_http:
     # 公開サーバーではポート開放が不要なHTTPS対応 external_url を推奨します。
     bind_host: "0.0.0.0"

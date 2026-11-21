@@ -148,7 +148,7 @@ Anti-macro settings in `life_balance`: `macro_min_samples` (8), `macro_response_
 
 ## Resource pack, datapack and UI additions (Task 15)
 
-- **Config:** `config.yml` `language` (auto|ja_jp|en_us) and `resource_pack` (`enabled`, `required`, `mode: embedded_http|external_url`, `external_url`, `external_sha1`, `embedded_http {bind_host, public_host, port, max_concurrent}`). The embedded server only serves the built pack (GET/HEAD, validated paths, bounded concurrency) with SHA-1 sent through Adventure `ResourcePackRequest`; per-player accept/decline status is tracked in the profile (schema 12).
+- **Config:** `config.yml` `language` (auto|ja_jp|en_us) and `resource_pack` (`enabled`, `required`, `mode: embedded_http|external_url|game_port|external_managed`, `external_url`, `external_sha1`, `expected_pack_id`, `embedded_http {bind_host, public_host, port, max_concurrent}`). The embedded server only serves the built pack (GET/HEAD, validated paths, bounded concurrency) with SHA-1 sent through Adventure `ResourcePackRequest`; per-player accept/decline status is tracked in profile schema 13.
 - **Datapack:** the plugin registers a bundled datapack through the Paper lifecycle API (custom wolf variants and six biomes).
 - **Content visuals (optional):** class/item `item_model` (namespaced model ID from `resourcepack/`) and enemy `visual.variant` (namespaced wolf-variant ID). Without a confirmed pack the UI falls back to built-in Materials, so content never requires the pack.
 - **UI:** class selection, shops, codex and enhancement use InvUI (shaded, relocated, MIT notice); dialogue uses the Paper Dialog API; the HUD stays on the existing ActionBar.

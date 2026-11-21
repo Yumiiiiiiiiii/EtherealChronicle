@@ -340,6 +340,10 @@
 | `ec.resource.focus` | 集中 | Focus | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.resource.mana` | マナ | Mana | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.resource.rage` | 怒り | Rage | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.resource_pack.external_managed` | リソースパックの配信は外部管理です。表示設定は配信側プラグインで変更してください。 | Resource pack delivery is managed externally. Change pack preferences in the delivery plugin. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.resource_pack.pack_info` | 同梱リソースパック: SHA-1 <sha1> / <size> bytes | Bundled resource pack: SHA-1 <sha1> / <size> bytes | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<sha1>`, `<size>` |
+| `ec.resource_pack.pack_info_missing` | 生成済みリソースパックがプラグイン内にありません。Gradleの resourcePackSha1 タスクを実行して再ビルドしてください。 | The generated resource pack is missing from the plugin jar. Run the Gradle resourcePackSha1 task and rebuild. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.resource_pack.pack_info_usage` | 使用方法: /ec pack info | Usage: /ec pack info | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.resource_pack.preference_auto` | 自動 | automatic | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.resource_pack.preference_off` | オフ | off | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.resource_pack.preference_on` | オン | on | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |

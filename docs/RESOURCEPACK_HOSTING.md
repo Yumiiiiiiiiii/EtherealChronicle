@@ -4,7 +4,7 @@
 
 公開サーバーでは GitHub Releases、オブジェクトストレージ、または自分の HTTPS サイトを使います。別ポートの開放やゲーム通信への介入が不要です。
 
-1. `./gradlew packageResourcePack resourcePackSha1` を実行します。
+1. `./gradlew packageResourcePack resourcePackSha1` を実行します。`resourcePackSha1` はZIPを生成し、Gradle出力にSHA-1も表示します。
 2. `build/generated/resourcepack/etherealchronicle-resourcepack.zip` を HTTPS で取得できる場所へアップロードします。
 3. 同じ出力ディレクトリの `.sha1` を読み、SHA-1 値を控えます。
 4. `plugins/EtherealChronicle/config.yml` を次のように設定し、サーバーを再起動します。
@@ -59,8 +59,64 @@ DNS名が `server.properties` の `server-ip` と異なる場合は、`resource_
 | `external_url` | 公開サーバー向け推奨 | 外部 HTTPS |
 | `embedded_http` | 開発・検証用。別ポートを設定可能 | `embedded_http.port` |
 | `game_port` | 実験的な同一ポート配信。明示的な二重 opt-in が必要 | Minecraft ゲームポート |
+| `external_managed` | ForcePack、ResourcePackManager、server.properties等が送信・必須化を担当。当プラグインは状態監視だけ | 管理側の配信方式 |
 
 `external_url` が設定されていれば、同一ポート機能の起動に失敗したときの配布先にもなります。
+
+## 推奨構成: 既存プラグイン管理・追加ポートなし
+
+CIでPackSquash等を使ってパックを最適化し、GitHub ReleasesまたはCloudflare R2などの静的HTTPS URLに配置します。ForcePackを別プラグインとして導入し、URL・SHA-1・拒否時の必須化を管理させます。EtherealChronicle側は `external_managed` にすると、自前の `ResourcePackRequest` を送らず、外部配信結果だけを監視します。これでポート追加や二重プロンプトを避けられます。
+
+ForcePack公式Paper設定例です。`packs.all` の `urls` と `hashes` は同じ順序・個数にし、生成したZIPのSHA-1を設定します。拒否・ダウンロード失敗等は `Actions` でキックし、`bypass-permission` を有効にすると `forcepack.bypass` を持つ運用担当者が回避できます。ForcePackの設定形式やステータス名は利用バージョンの生成済み `plugins/ForcePack/config.yml` と公式設定ページで再確認してください。
+
+```yaml
+# plugins/ForcePack/config.yml の該当箇所
+Server:
+  packs:
+    all:
+      urls: ["https://downloads.example.net/etherealchronicle-resourcepack.zip"]
+      generate-hash: false
+      hashes: ["生成ZIPのSHA-1"]
+  Actions:
+    ACCEPTED:
+      kick: false
+      Commands: []
+    DOWNLOADED:
+      kick: false
+      Commands: []
+    SUCCESSFULLY_LOADED:
+      kick: false
+      Commands: []
+    DECLINED:
+      kick: true
+      Commands: []
+    FAILED_DOWNLOAD:
+      kick: true
+      Commands: []
+    FAILED_RELOAD:
+      kick: true
+      Commands: []
+    DISCARDED:
+      kick: true
+      Commands: []
+  bypass-permission: true
+```
+
+上記は公式Paper設定ファイルの階層に合わせた抜粋です。ForcePackは大文字小文字を区別する設定キー (`Server`, `Actions`, `Commands`) を使います。拒否時の切断を必須とするため `DECLINED`、`FAILED_DOWNLOAD`、`FAILED_RELOAD`、`DISCARDED` を `kick: true` にしています。`forcepack.bypass` は ForcePack の権限ノードで、公式設定の `Server.bypass-permission: true` がバイパス権限判定を有効にします。既定の権限割当は利用中の権限プラグインで確認してください。
+
+このサーバー側は次のようにします。`expected_pack_id` を空にすると受け取ったリソースパック状態を監視し、UUIDを指定するとそのIDのイベントだけ反映します。UUIDが分かる管理構成では指定を推奨します。外部管理モードでは `/ec ui pack on|off` は配信要求を出さず、配信側プラグインで設定するよう案内します。`/ec pack info` は管理者向けにJAR同梱ZIPのSHA-1とサイズを表示します。
+
+```yaml
+resource_pack:
+  enabled: true
+  required: true # 必須化はForcePack側が担当。当プラグインは拒否者を切断しません。
+  mode: external_managed
+  expected_pack_id: "" # 任意UUID。空なら全pack statusイベントを監視
+```
+
+ForcePack公式Paper設定では `Server.packs.all.urls`, `generate-hash`, `hashes` を設定し、`Server.Actions` でstatusごとのkick/commandを設定します。バイパス権限は `forcepack.bypass`、設定は `Server.bypass-permission` です。[ForcePack公式設定](https://fortitude.islandearth.net/forcepack/configuration/)・[ForcePack公式設定ファイル](https://github.com/SamB440/ForcePack/blob/master/paper/src/main/resources/config.yml)。
+
+外部ホストのZIPを更新したら、新しいSHA-1と配布URLをForcePack側へ反映し、ForcePackの再配信/リロード手順を使います。`/ec pack info` はEtherealChronicleのJARに同梱されたZIPを表示するため、マージ済みの総合パックを配布する場合はCIまたは配布プラグインが計算した最終ZIPのSHA-1を正としてください。
 
 ## BetterModel 連携
 

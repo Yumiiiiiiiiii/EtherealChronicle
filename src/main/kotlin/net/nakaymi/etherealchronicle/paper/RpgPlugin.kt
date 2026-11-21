@@ -236,6 +236,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             }
             profiles[player.uniqueId] = profile
             resourcePacks.send(player,runCatching { PackPreference.valueOf(profile.resourcePackPreference) }.getOrDefault(PackPreference.AUTO))
+            resourcePacks.applyObservedStatus(player,profile)
             syncTitleAdvancements(player,profile)
             if(::dungeons.isInitialized) dungeons.recover(player)
             if(!player.hasPlayedBefore() || profile.classId == null) Bukkit.getWorld(DemoWorld.NAME)?.let { player.teleport(DemoWorld.luminaSpawn(it)) }
@@ -915,6 +916,11 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     logger.info("Admin flag update: ${sender.name} -> ${p.name} $flag $operation")
                     sender.sendMessage(message(sender,if(changed) "ec.command.flag_changed" else "ec.command.flag_unchanged", "flag" to flag, "operation" to message(sender,if(operation == "set") "ec.command.flag_set" else "ec.command.flag_clear")))
                 }
+                "pack" -> {
+                    require(args.size == 2 && args[1] == "info") { "ec.resource_pack.pack_info_usage" }
+                    val info = resourcePacks.buildInfo() ?: error("ec.resource_pack.pack_info_missing")
+                    sender.sendMessage(message(sender,"ec.resource_pack.pack_info", "sha1" to info.sha1, "size" to info.sizeBytes))
+                }
                 "admin" -> {
                     require(args.size == 5 && args[1] == "lifeskill") { "ec.error.usage: /ec admin lifeskill <player> <FISHING|GATHERING> <level>" }
                     val p=server.getPlayerExact(args[2]) ?: error("ec.error.player_missing")
@@ -992,6 +998,10 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             "codex" -> openCodex(player)
             "ui" -> {
                 require(args.getOrNull(1) == "pack") { "ec.resource_pack.usage" }
+                if(resourcePacks.isExternallyManaged()) {
+                    player.sendMessage(message(player,"ec.resource_pack.external_managed"))
+                    return
+                }
                 val preference = when (args.getOrNull(2)?.lowercase()) {
                     "auto" -> PackPreference.AUTO
                     "on" -> PackPreference.ON

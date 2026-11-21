@@ -15,6 +15,10 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
     private val enabled = settings.getBoolean("resource_pack.enabled", true)
     private val required = settings.getBoolean("resource_pack.required", true)
     private val mode = settings.getString("resource_pack.mode", "embedded_http") ?: "embedded_http"
+    private val externalManaged = mode == "external_managed"
+    private val expectedPackIdText = settings.getString("resource_pack.expected_pack_id", "")?.trim().orEmpty()
+    private val expectedPackId = expectedPackIdText.takeIf(String::isNotBlank)?.let { value -> runCatching { UUID.fromString(value) }.getOrNull() }
+    private val invalidExpectedPackId = expectedPackIdText.isNotBlank() && expectedPackId == null
     private val gamePortEnabled = settings.getBoolean("resource_pack.same_port_netty.enabled", false)
     private val bindHost = settings.getString("resource_pack.embedded_http.bind_host", "0.0.0.0") ?: "0.0.0.0"
     private val configuredHost = settings.getString("resource_pack.embedded_http.public_host", "") ?: ""
@@ -36,8 +40,9 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
     private val requestId = UUID.nameUUIDFromBytes("etherealchronicle-resource-pack-v1".toByteArray())
     private data class PendingRequest(val id: UUID, val required: Boolean)
     private val pendingRequests = mutableMapOf<UUID, PendingRequest>()
-    private val artifact: ResourcePackArtifact? = if (enabled) loadArtifact() else null
-    private val configuredEndpoint: ResourcePackEndpoint? = artifact?.let {
+    private val observedManagedStatuses = mutableMapOf<UUID, String>()
+    private val artifact: ResourcePackArtifact? = if (enabled && !externalManaged) loadArtifact() else null
+    private val configuredEndpoint: ResourcePackEndpoint? = if (externalManaged) null else artifact?.let {
         runCatching {
             require(externalSha1.isBlank() || externalSha1.matches(Regex("[a-f0-9]{40}")))
             if (mode == "game_port" && !gamePortEnabled) {
@@ -82,12 +87,15 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
     } ?: endpointFallback
 
     init {
-        if (enabled && artifact != null) plugin.server.pluginManager.registerEvents(this, plugin)
-        if (required && !isDeliveryAvailable()) warnRequiredUnavailable()
+        if (externalManaged || enabled && artifact != null) plugin.server.pluginManager.registerEvents(this, plugin)
+        if (externalManaged && invalidExpectedPackId) plugin.logger.warning("resource_pack.expected_pack_id is not a UUID; external pack status events will be ignored.")
+        if (required && !externalManaged && !isDeliveryAvailable()) warnRequiredUnavailable()
     }
 
     /** プレイヤー設定と配信可能状態を確認し、Adventure ResourcePackRequestを送信します。 */
     fun send(player: org.bukkit.entity.Player, preference: PackPreference = PackPreference.AUTO) {
+        // 外部管理モードでは別プラグインやserver.propertiesが唯一の送信元です。
+        if (!ManagedPackPolicy.sendsPack(mode)) return
         preferences[player.uniqueId] = preference
         val deliveryEndpoint = if (gamePortFailed.get()) endpointFallback else endpoint
         val bypass = player.hasPermission("etherealchronicle.pack.bypass")
@@ -110,9 +118,34 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
     }
 
     /** 状態が成功適用で、かつ利用者設定がOFFでない場合だけリソパ表現を許可します。 */
-    fun hasResourcePack(playerId: UUID): Boolean = playerId in loadedPlayers && preferences[playerId] != PackPreference.OFF
+    fun hasResourcePack(playerId: UUID): Boolean = playerId in loadedPlayers &&
+        (externalManaged || preferences[playerId] != PackPreference.OFF)
+
+    /** ログイン直後に届いた状態イベントを、プロフィール読込後に反映します。 */
+    fun applyObservedStatus(player: org.bukkit.entity.Player, profile: net.nakaymi.etherealchronicle.core.PlayerProfile) {
+        if (!externalManaged) return
+        observedManagedStatuses.remove(player.uniqueId)?.let { applyManagedStatus(player, profile, it) }
+    }
+
+    /** 管理者へ、JARに格納された生成済みパックのハッシュとサイズを返します。 */
+    internal fun buildInfo(): ResourcePackBuildInfo? {
+        val pack = artifact ?: runCatching {
+            val bytes = requireNotNull(plugin.getResource("resourcepack/etherealchronicle-resourcepack.zip")).use { it.readBytes() }
+            val expected = requireNotNull(plugin.getResource("resourcepack/etherealchronicle-resourcepack.sha1"))
+                .bufferedReader().use { it.readLine().trim() }
+            ResourcePackArtifact(bytes, expected)
+        }.getOrNull() ?: return null
+        return ResourcePackBuildInfo(pack.sha1, pack.bytes.size.toLong())
+    }
+
+    /** 配布要求を送らず状態だけ監視する設定か返します。 */
+    fun isExternallyManaged(): Boolean = externalManaged
 
     @EventHandler fun onStatus(event: PlayerResourcePackStatusEvent) {
+        if (externalManaged) {
+            handleManagedStatus(event)
+            return
+        }
         val request = pendingRequests[event.player.uniqueId]?.takeIf { it.id == event.id } ?: return
         if (event.status == PlayerResourcePackStatusEvent.Status.SUCCESSFULLY_LOADED) {
             pendingRequests.remove(event.player.uniqueId)
@@ -123,7 +156,7 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
             loadedPlayers -= event.player.uniqueId
             plugin.refreshPackItemModels(event.player, false)
             if (required && !isDeliveryAvailable()) warnRequiredUnavailable()
-            if (ResourcePackPolicy.disconnectOnFailure(request.required && isDeliveryAvailable(),event.status in terminalStatuses) && event.player.isOnline) {
+            if (ManagedPackPolicy.disconnectsOnFailure(mode, request.required && isDeliveryAvailable(), event.status in terminalStatuses) && event.player.isOnline) {
                 event.player.kick(plugin.message(event.player,"ec.resource_pack.required_declined"))
             }
         }
@@ -133,6 +166,7 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
         loadedPlayers -= event.player.uniqueId
         preferences -= event.player.uniqueId
         pendingRequests -= event.player.uniqueId
+        observedManagedStatuses -= event.player.uniqueId
     }
 
     override fun close() {
@@ -165,6 +199,29 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
         return ResourcePackPolicy.deliveryAvailable(enabled,artifact != null,deliveryEndpoint?.mode,externalSha1)
     }
 
+    /** 他の配信元の結果を記録し、適用成功したクライアントだけにリソパUIを使います。 */
+    private fun handleManagedStatus(event: PlayerResourcePackStatusEvent) {
+        if (invalidExpectedPackId || !ManagedPackPolicy.matches(expectedPackId, event.id)) return
+        val status = event.status.name
+        val profile = plugin.profiles[event.player.uniqueId]
+        if (profile == null) {
+            observedManagedStatuses[event.player.uniqueId] = status
+            return
+        }
+        applyManagedStatus(event.player, profile, status)
+    }
+
+    private fun applyManagedStatus(
+        player: org.bukkit.entity.Player,
+        profile: net.nakaymi.etherealchronicle.core.PlayerProfile,
+        status: String,
+    ) {
+        if (ManagedPackPolicy.recordStatus(profile, status)) plugin.save(profile)
+        val loaded = ManagedPackPolicy.isLoaded(status)
+        if (loaded) loadedPlayers += player.uniqueId else loadedPlayers -= player.uniqueId
+        plugin.refreshPackItemModels(player, loaded)
+    }
+
     /** 配信設定が壊れている時に一度だけ翻訳済みの安全解除警告を記録します。 */
     private fun warnRequiredUnavailable() {
         if(requiredWarningLogged.compareAndSet(false,true)) {
@@ -183,6 +240,26 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
             PlayerResourcePackStatusEvent.Status.FAILED_RELOAD,
             PlayerResourcePackStatusEvent.Status.DISCARDED,
         )
+    }
+}
+
+/** ビルド済みZIPの識別情報を管理者コマンドへ渡します。 */
+internal data class ResourcePackBuildInfo(val sha1: String, val sizeBytes: Long)
+
+/** 外部配信のイベント監視で、送信・ID照合・適用状態の規則を集約します。 */
+internal object ManagedPackPolicy {
+    fun sendsPack(mode: String): Boolean = mode != "external_managed"
+    fun matches(expectedId: UUID?, eventId: UUID): Boolean = expectedId == null || expectedId == eventId
+    fun isLoaded(status: String): Boolean = status == "SUCCESSFULLY_LOADED"
+    fun disconnectsOnFailure(mode: String, requestRequired: Boolean, terminalFailure: Boolean): Boolean =
+        mode != "external_managed" && ResourcePackPolicy.disconnectOnFailure(requestRequired, terminalFailure)
+
+    /** 最後に観測した同意/拒否状態をプロフィールへ記録し、変更時だけ保存を促します。 */
+    fun recordStatus(profile: net.nakaymi.etherealchronicle.core.PlayerProfile, status: String): Boolean {
+        require(status.matches(Regex("[A-Z_]{1,48}")))
+        if (profile.resourcePackStatus == status) return false
+        profile.resourcePackStatus = status
+        return true
     }
 }
 

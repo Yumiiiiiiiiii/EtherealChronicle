@@ -146,7 +146,7 @@ class LifeContentSchemaTest {
         val directory=Files.createTempDirectory("ec-life-player")
         PlayerStore(directory).use { store ->
             val migration=store.migrate(mapOf("schema_version" to 9))
-        assertEquals(12,migration["schema_version"])
+        assertEquals(13,migration["schema_version"])
             assertEquals(0,migration["best_enhancement_level"])
             assertEquals("AUTO",migration["fishing_bait"])
             assertTrue((migration["life_skills"] as Map<*,*>).containsKey("FISHING"))

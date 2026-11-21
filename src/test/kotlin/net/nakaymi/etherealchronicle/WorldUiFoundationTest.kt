@@ -190,7 +190,7 @@ class WorldUiFoundationTest {
         val store = PlayerStore(directory)
         try {
             val schema11 = store.migrate(mapOf("schema_version" to 11, "resource_pack_preference" to "OFF"))
-            assertEquals(12, schema11["schema_version"])
+            assertEquals(13, schema11["schema_version"])
             assertEquals("OFF", schema11["resource_pack_preference"])
             val defaulted = store.migrate(mapOf("schema_version" to 11))
             assertEquals("AUTO", defaulted["resource_pack_preference"])
@@ -198,7 +198,7 @@ class WorldUiFoundationTest {
             store.save(profile).join()
             val loaded = store.load(profile.uuid).join()
             assertEquals("ON", loaded.resourcePackPreference)
-            assertTrue(Files.readString(directory.resolve("${profile.uuid}.yml")).contains("schema_version: 12"))
+            assertTrue(Files.readString(directory.resolve("${profile.uuid}.yml")).contains("schema_version: 13"))
         } finally {
             store.close()
             directory.toFile().deleteRecursively()

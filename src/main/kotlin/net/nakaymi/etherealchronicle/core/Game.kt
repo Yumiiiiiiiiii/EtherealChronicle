@@ -147,7 +147,7 @@ data class PlayerProfile(val uuid: UUID, var classId: String? = null, var level:
     val skillLevels: MutableMap<String, Int> = mutableMapOf(), val flags: MutableSet<String> = mutableSetOf(),
     val dailyPurchases: MutableMap<String, Int> = mutableMapOf(), val transactions: MutableList<String> = mutableListOf(), var accessory: String? = null, val pendingRewards: MutableMap<String,Int> = mutableMapOf(), val dropPity: MutableMap<String,Int> = mutableMapOf(),val challengeRecords: MutableMap<String,ChallengeRecord> = mutableMapOf(),var selectedTitle:String? = null,val bestiary:MutableMap<String,Int> = mutableMapOf(),val discoveredItems:MutableSet<String> = mutableSetOf(),
     val lifeSkills: MutableMap<LifeSkillKind,LifeSkillProgress> = LifeSkillKind.entries.associateWith { LifeSkillProgress() }.toMutableMap(),
-    val fishRecords: MutableMap<String,FishRecord> = mutableMapOf(), val gatheringRecords: MutableMap<String,Int> = mutableMapOf(), val gatheringReadyAt: MutableMap<String,Long> = mutableMapOf(), var fishingBait: String = "AUTO", var bestEnhancementLevel:Int = 0, var resourcePackPreference:String = "AUTO") {
+    val fishRecords: MutableMap<String,FishRecord> = mutableMapOf(), val gatheringRecords: MutableMap<String,Int> = mutableMapOf(), val gatheringReadyAt: MutableMap<String,Long> = mutableMapOf(), var fishingBait: String = "AUTO", var bestEnhancementLevel:Int = 0, var resourcePackPreference:String = "AUTO", var resourcePackStatus:String = "UNKNOWN") {
     /** 非同期保存が同時進行中の更新を読み取らないよう、mutable値を独立したコピーにします。 */
     fun snapshot() = copy(
         skillLevels = skillLevels.toMutableMap(),

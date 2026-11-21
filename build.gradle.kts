@@ -83,6 +83,7 @@ val resourcePackSha1 = tasks.register("resourcePackSha1") {
             parentFile.mkdirs()
             writeText("$hash\n")
         }
+        logger.lifecycle("Resource pack SHA-1: $hash")
     }
 }
 
