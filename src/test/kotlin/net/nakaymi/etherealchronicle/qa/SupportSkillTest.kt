@@ -52,7 +52,7 @@ class SupportSkillTest {
             tank.teleport(org.bukkit.Location(world,900.0,65.0,900.0))
             val tp=PlayerProfile(tank.uniqueId); plugin.profiles[tank.uniqueId]=tp; plugin.game.changeClass(tp,"ec:class_paladin"); tp.resource=100.0
             tank.inventory.setItemInMainHand(plugin.createItem("ec:item_wpn_recruit_mace"))
-            val mob=plugin.enemies.spawn("ec:enemy_aether_slime",org.bukkit.Location(world,903.0,65.0,900.0),"test:taunt",1,pinForSimulation=true)!!
+            val mob=plugin.enemies.spawn("ec:enemy_aether_slime",org.bukkit.Location(world,903.0,65.0,900.0),"test:taunt",1,pinForSimulation=false)!!
             tp.selectedSkill=0
             assertEquals(CastResult.SUCCESS,plugin.castSkill(tank,null))
             assertEquals(tank.uniqueId,plugin.enemies.state(mob.uniqueId)!!.tauntTarget)

@@ -23,7 +23,7 @@ class EnhancementGuiTest {
         try {
             val plugin=MockBukkit.load(RpgPlugin::class.java)
             server.addSimpleWorld(DemoWorld.NAME)
-            val player=PlayerMock(server,"Smith",UUID.randomUUID()); server.addPlayer(player)
+            val player=QaPlayerMock(server,"Smith",UUID.randomUUID()); server.addPlayer(player)
             assertTrue(server.pump { player.uniqueId in plugin.profiles })
             val profile=plugin.profiles.getValue(player.uniqueId)
             profile.classId="ec:class_warrior"; profile.level=20; profile.currency=1000
