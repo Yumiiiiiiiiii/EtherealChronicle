@@ -59,7 +59,7 @@ class SchemaMigrationJoinTest {
             assertTrue(!PlainTextComponentSerializer.plainText().serialize(p.openInventory.title()).contains("職業"), "class menu reopened for a profile with a class")
             plugin.persist(prof).join()
             val saved = File(dir, "$uuid.yml").readText()
-            assertTrue(saved.contains("schema_version: 10"), "file not rewritten as schema 10:$lf$saved")
+        assertTrue(saved.contains("schema_version: 11"), "file not rewritten as schema 11:$lf$saved")
             assertTrue(saved.contains("currency: 7777") && saved.contains("crystal_recurve': 17") && saved.contains("kill_slimes"), "progress lost in rewrite")
         } finally { MockBukkit.unmock() }
     }
