@@ -46,7 +46,7 @@ class SimulationSession(private val content: () -> ContentSnapshot, private val 
                     "GIVE_ITEM" -> if(a.onceFlag !in p.flags) {
                         require(a.onceFlag != null && inventory.exchange(emptyMap(),mapOf(a.target to a.amount))); p.flags.add(a.onceFlag)
                     }
-                    "OPEN_SHOP", "ENTER_DUNGEON" -> effects.add("${a.kind}:${a.target} (画面・移動は実行しません)")
+                    "OPEN_SHOP", "ENTER_DUNGEON", "TELEPORT_AREA" -> effects.add("${a.kind}:${a.target} (画面・移動は実行しません)")
                 } }
                 conversation=choice.next?.takeIf { it.isNotEmpty() }?.let { id to dialogues.node(p,id,it).first }
                 "会話=${conversation ?: "終了"} 効果=$effects"

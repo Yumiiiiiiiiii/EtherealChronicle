@@ -98,29 +98,40 @@ class FlagReviveReconnectTest {
                 server.pluginManager.callEvent(ev); assertTrue(!ev.isCancelled, "revive fired although the ring is not owned"); null
             }
 
-            rec("P1 party kills: pity counted once per kill (no double accounting) and persisted") {
-                val pm = (RpgPlugin::class.java.getDeclaredField("adventure").also { it.isAccessible = true }.get(plugin)).let { adv -> adv.javaClass.getMethod("getParties").invoke(adv) }
-                pm.javaClass.getMethod("invite", UUID::class.java, UUID::class.java).invoke(pm, a.uniqueId, b.uniqueId)
-                pm.javaClass.getMethod("accept", UUID::class.java).invoke(pm, b.uniqueId)
-                val pityKey = "ec:drop_crystal_bat/ec:item_wpn_crystal_recurve"
-                var attempts = 0; var info = ""
-                while (attempts < 12) {
-                    attempts++; pa.dropPity.clear(); pb.dropPity.clear(); pa.pendingRewards.clear(); pb.pendingRewards.clear()
-                    (0..35).forEach { i -> listOf(a, b).forEach { pl -> if (pl.inventory.getItem(i)?.persistentDataContainer?.get(itemKey, PersistentDataType.STRING) == "ec:item_wpn_crystal_recurve") pl.inventory.setItem(i, null) } }
-                    val kills = 12
-                    repeat(kills) {
-                        server.executeConsole("ec", "spawn", "ec:enemy_crystal_bat", a.name); server.pump(200) { false }
-                        val m = world.livingEntities.last { it.persistentDataContainer.has(enemyKey, PersistentDataType.STRING) }
-                        plugin.rewardKill(a, m); m.remove(); server.pump(400) { false }
-                    }
-                    server.pump(1500) { false }
-                    fun owned(pl: PlayerMock) = (0..35).sumOf { i -> pl.inventory.getItem(i)?.takeIf { it.persistentDataContainer.get(itemKey, PersistentDataType.STRING) == "ec:item_wpn_crystal_recurve" }?.amount ?: 0 }
-                    // a delivered rare is moved from pendingRewards into the inventory, so count both places (a 2% hit resets that member's pity)
-                    val hits = (pa.pendingRewards["ec:item_wpn_crystal_recurve"] ?: 0) + (pb.pendingRewards["ec:item_wpn_crystal_recurve"] ?: 0) + owned(a) + owned(b)
-                    val sum = (pa.dropPity[pityKey] ?: 0) + (pb.dropPity[pityKey] ?: 0)
-                    info = "attempt $attempts: kills=$kills pity a=${pa.dropPity[pityKey]} b=${pb.dropPity[pityKey]} sum=$sum rare drops=$hits"
-                    if (hits == 0) { assertEquals(kills, sum, "pity total must equal number of kills (each kill rolls once): $info"); break }
+            rec("P1 party kills: pity counts one chosen-recipient roll per kill and persists") {
+                val parties=plugin.adventure.parties
+                parties.invite(a.uniqueId,b.uniqueId); parties.accept(b.uniqueId)
+                val pityKey="ec:drop_crystal_bat/ec:item_wpn_crystal_recurve"
+                val itemId="ec:item_wpn_crystal_recurve"
+                fun ownedRare(p: PlayerMock,profile: net.nakaymi.etherealchronicle.core.PlayerProfile) =
+                    (profile.pendingRewards[itemId] ?: 0) + p.inventory.storageContents.sumOf { stack -> if(plugin.identify(stack)==itemId) stack!!.amount else 0 }
+                pa.dropPity.clear(); pb.dropPity.clear(); pa.pendingRewards.clear(); pb.pendingRewards.clear()
+                val kills=12
+                val sequence=RpgPlugin::class.java.getDeclaredField("lootSequence").also { it.isAccessible=true }
+                repeat(kills) { index ->
+                    val seq=sequence.getLong(plugin)
+                    val selected=parties.lootRecipient(setOf(a.uniqueId,b.uniqueId),seq)!!
+                    val selectedProfile=if(selected==a.uniqueId) pa else pb
+                    val otherProfile=if(selected==a.uniqueId) pb else pa
+                    val selectedBefore=selectedProfile.dropPity[pityKey] ?: 0
+                    val otherBefore=otherProfile.dropPity[pityKey] ?: 0
+                    val dropsBefore=ownedRare(a,pa)+ownedRare(b,pb)
+                    val m=world.spawn(a.location,org.bukkit.entity.Phantom::class.java)
+                    m.persistentDataContainer.set(enemyKey,PersistentDataType.STRING,"ec:enemy_crystal_bat")
+                    plugin.rewardKill(a,m); m.remove()
+                    assertTrue(server.pump(10000) { !plugin.adventure.hasTransactions() },"party rewards did not drain at kill ${index+1}")
+                    val dropsAfter=ownedRare(a,pa)+ownedRare(b,pb)
+                    val delta=dropsAfter-dropsBefore
+                    assertTrue(delta in 0..1,"exactly one loot roll is expected per party kill, got $delta at ${index+1}")
+                    val selectedAfter=selectedProfile.dropPity[pityKey] ?: 0
+                    val otherAfter=otherProfile.dropPity[pityKey] ?: 0
+                    if(delta == 1) assertEquals(0,selectedAfter,"successful rare drop must reset only its recipient's pity")
+                    else assertEquals(selectedBefore+1,selectedAfter,"one unsuccessful kill must add exactly one miss")
+                    assertEquals(otherBefore,otherAfter,"non-recipient pity must remain unchanged")
                 }
+                val sum=(pa.dropPity[pityKey] ?: 0)+(pb.dropPity[pityKey] ?: 0)
+                val info="kills=$kills currency=${pa.currency}+${pb.currency} pity a=${pa.dropPity[pityKey]} b=${pb.dropPity[pityKey]} misses=$sum"
+                assertEquals(kills*43L,pa.currency+pb.currency,"all tagged rewardKill calls must grant currency; $info")
                 info
             }
 

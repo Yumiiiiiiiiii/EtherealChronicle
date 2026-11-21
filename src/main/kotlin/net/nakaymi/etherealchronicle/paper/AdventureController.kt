@@ -27,7 +27,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     private val mm=MiniMessage.miniMessage()
     private val npcEntities=mutableMapOf<String,UUID>()
     private val dialogueSessions=mutableMapOf<UUID,Pair<String,String>>()
-    var enterDungeon: (Player) -> Unit = { it.sendMessage(Component.text("ダンジョンを準備しています。")) }
+    var enterDungeon: (Player,String) -> Unit = { p,id -> p.sendMessage(Component.text("ダンジョンを準備しています: $id")) }
     init { plugin.server.pluginManager.registerEvents(this,plugin) }
     fun locked(id: UUID) = id in locks
     fun reloadNpcs() {
@@ -63,6 +63,16 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         }
     }
     private fun message(player: Player,text: String) = player.sendMessage(Component.text(text))
+    private fun teleportArea(player: Player,id: String,destination: Position?) {
+        val area=plugin.snapshot.world.areas[id] ?: error("転送先エリアが見つかりません: $id")
+        require(area.world == DemoWorld.NAME) { "管理ワールド以外へは転送できません。" }
+        val world=Bukkit.getWorld(area.world) ?: error("転送先ワールドがありません。")
+        val x=(area.minX+area.maxX)/2.0; val z=(area.minZ+area.maxZ)/2.0
+        val target=destination ?: Position(area.world,x,(world.getHighestBlockYAt(x.toInt(),z.toInt())+1).toDouble(),z)
+        require(area.contains(target)) { "転送座標は対象エリア内で指定してください。" }
+        player.teleport(org.bukkit.Location(world,target.x,target.y,target.z,target.yaw,0f))
+        message(player,"${area.name}へ転送しました。")
+    }
     @EventHandler(ignoreCancelled=true) fun interact(e: PlayerInteractEntityEvent) {
         if(e.hand != EquipmentSlot.HAND) return
         val id=e.rightClicked.persistentDataContainer.get(npcKey,PersistentDataType.STRING) ?: return
@@ -127,7 +137,11 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                             "COMPLETE_QUEST" -> plugin.game.completeQuest(p,a.target,inventory)
                             "SELECT_CLASS" -> plugin.game.chooseClass(p,a.target)
                             "OPEN_SHOP" -> after.add { showShop(player,a.target) }
-                            "ENTER_DUNGEON" -> after.add { enterDungeon(player) }
+                            "ENTER_DUNGEON" -> after.add { enterDungeon(player,a.target) }
+                            "TELEPORT_AREA" -> {
+                                require(a.requiredFlag == null || a.requiredFlag in p.flags) { "転送条件を満たしていません。" }
+                                after.add { teleportArea(player,a.target,a.destination) }
+                            }
                             "GIVE_ITEM" -> if(a.onceFlag == null || a.onceFlag !in p.flags) {
                                 require(a.onceFlag != null) { "一度限りの配布フラグがありません。" }
                                 require(inventory.exchange(emptyMap(),mapOf(a.target to a.amount)))
@@ -236,7 +250,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         }
     }
     private fun unlock(id: UUID) { locks.remove(id); resume(id) }
-    fun hasTransactions() = locks.isNotEmpty() || scheduled.isNotEmpty()
+    fun hasTransactions() = locks.isNotEmpty() || scheduled.isNotEmpty() || waiting.values.any { it.isNotEmpty() } || delivering.isNotEmpty()
     fun bound(stack: ItemStack?): Boolean = plugin.identify(stack)?.let { plugin.snapshot.world.itemProperties[it]?.let { p -> p.bound || p.questItem } } == true
     private val delivering=mutableSetOf<UUID>()
     private data class Delivery(val profile: PlayerProfile,val output: Map<String,Int>)

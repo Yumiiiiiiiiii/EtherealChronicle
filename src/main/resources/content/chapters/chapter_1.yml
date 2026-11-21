@@ -38,6 +38,17 @@ npcs:
   - ec:npc_kain
 dungeons:
   - ec:dungeon_void_sanctum
+dungeon_configs:
+  - id: ec:dungeon_void_sanctum
+    unlock_flag: ec:flag_sanctum_unlocked
+    boss: ec:boss_void_warden
+    guards: [ec:enemy_void_sentinel, ec:enemy_void_sentinel]
+    guard_offsets: [{x: -8, z: -3}, {x: 8, z: -3}]
+    area: ec:area_void_sanctum
+    palette: [DEEPSLATE_TILES, POLISHED_BLACKSTONE_BRICKS, POLISHED_BLACKSTONE_BRICKS]
+    boss_offset: {x: 0, z: 10}
+    entry_message: 虚核の聖堂へ入場しました。/ec dungeon leave で帰還できます。
+    clear_message: 虚核の守護者を撃破しました！帰還して報告しましょう。
 flags:
   - ec:flag_class_selected
   - ec:flag_ch1_started

@@ -7,13 +7,30 @@ import java.nio.file.Files
 import java.util.Random
 
 class DemoGenerator: ChunkGenerator() {
+    companion object {
+        fun surfaceAt(wx: Int,wz: Int): Material? {
+            val island=(0..8).firstOrNull { kotlin.math.abs(wx-it*96) <= 36 && kotlin.math.abs(wz) <= 36 }
+            if(island != null) return when(island) {
+                in 0..4 -> if(wx in 60..132) Material.GRASS_BLOCK else if(wx in 156..228) Material.DEEPSLATE_BRICKS else Material.SMOOTH_STONE
+                else -> when {
+                    kotlin.math.abs(wx-island*96) <= 2 && kotlin.math.abs(wz) <= 2 -> Material.BLUE_ICE
+                    kotlin.math.abs(wz) <= 3 -> Material.PACKED_ICE
+                    else -> Material.SNOW_BLOCK
+                }
+            }
+            if(wx in -36..420 && kotlin.math.abs(wz) <= 3) return Material.SMOOTH_STONE
+            if(wx in 421..804 && kotlin.math.abs(wz) <= 3) return if(kotlin.math.abs(wz)==0 && wx%48==0) Material.BLUE_ICE else Material.PACKED_ICE
+            return null
+        }
+    }
     override fun generateNoise(info: WorldInfo,random: Random,chunkX: Int,chunkZ: Int,data: ChunkData) {
         for(x in 0..15) for(z in 0..15) {
             val wx=chunkX*16+x; val wz=chunkZ*16+z
-            val island=(0..4).any { kotlin.math.abs(wx-it*96) <= 36 && kotlin.math.abs(wz) <= 36 }
-            if(island || wx in -36..420 && kotlin.math.abs(wz) <= 3) {
-                data.setBlock(x,62,z,Material.BEDROCK); data.setBlock(x,63,z,Material.STONE)
-                data.setBlock(x,64,z,if(wx in 60..132) Material.GRASS_BLOCK else if(wx in 156..228) Material.DEEPSLATE_BRICKS else Material.SMOOTH_STONE)
+            val surface=surfaceAt(wx,wz)
+            if(surface != null) {
+                data.setBlock(x,62,z,Material.BEDROCK)
+                data.setBlock(x,63,z,if(wx >= 444) Material.PACKED_ICE else Material.STONE)
+                data.setBlock(x,64,z,surface)
             }
         }
     }
@@ -35,6 +52,7 @@ object DemoWorld {
                 plugin.logger.severe("ec_world は所有マーカーのない既存ワールドです。地形を変更しません: ${existing.worldFolder}")
                 return null
             }
+            migrateToV2(plugin,existing,existing.worldFolder.toPath())
             return existing
         }
         val candidates=mutableListOf(plugin.server.worldContainer.toPath().resolve(NAME))
@@ -56,7 +74,26 @@ object DemoWorld {
             build(world)
             Files.writeString(folder.resolve(".etherealchronicle-built"),"v1\n")
         }
+        migrateToV2(plugin,world,world.worldFolder.toPath())
         return world
+    }
+    internal fun migrateToV2(plugin: RpgPlugin,world: World,folder: java.nio.file.Path): Boolean {
+        if(!Files.exists(folder.resolve(".etherealchronicle-owned"))) return false
+        val marker=folder.resolve(".etherealchronicle-built")
+        if(!Files.exists(marker)) {
+            plugin.logger.warning("管理済みec_worldに地形バージョンがありません。既存ブロック保護のため移行を行いません: $marker")
+            return false
+        }
+        when(Files.readString(marker).trim()) {
+            "v1" -> {
+                buildChapter2(world)
+                Files.writeString(marker,"v2\n")
+                plugin.logger.info("ec_world 地形を v1 から v2 に移行しました。第1章の地形は変更していません。")
+                return true
+            }
+            "v2" -> return true
+            else -> { plugin.logger.warning("ec_world 地形バージョンが不明なため変更しません: $marker"); return false }
+        }
     }
     private fun build(world: World) {
         // Bounded, one-time structures on freshly generated islands, never user terrain.
@@ -80,6 +117,25 @@ object DemoWorld {
         for(x in 282..294) for(z in -6..6) if((x-288)*(x-288)+z*z <= 36) world.getBlockAt(x,64,z).type=Material.CALCITE
         world.getBlockAt(288,65,0).type=Material.LODESTONE
         world.getBlockAt(384,65,0).type=Material.CRYING_OBSIDIAN
+    }
+    private fun buildChapter2(world: World) {
+        // Fill only missing bridge blocks in the new span; never replace existing player blocks.
+        for(x in 421..804) for(z in -3..3) {
+            val floor=world.getBlockAt(x,64,z)
+            if(floor.type.isAir) floor.type=if(z==0 && x%48==0) Material.BLUE_ICE else Material.PACKED_ICE
+            val support=world.getBlockAt(x,63,z)
+            if(support.type.isAir) support.type=Material.PACKED_ICE
+        }
+        fun placeIfAir(x: Int,y: Int,z: Int,material: Material) {
+            val block=world.getBlockAt(x,y,z)
+            if(block.type.isAir) block.type=material
+        }
+        // Four small, additive landmarks. All edits are above the island surface and air-only.
+        for(x in 472..488) for(z in -8..8) if(kotlin.math.abs(x-480)==8 || kotlin.math.abs(z)==8) placeIfAir(x,65,z,Material.PRISMARINE_BRICKS)
+        for(y in 65..72) placeIfAir(576,y,0,Material.BLUE_ICE)
+        for(y in 65..68) { placeIfAir(667,y,0,Material.PACKED_ICE); placeIfAir(677,y,0,Material.PACKED_ICE) }
+        for(x in 667..677) placeIfAir(x,69,0,Material.PRISMARINE_BRICKS)
+        for(cx in listOf(756,780)) for(cz in listOf(-12,12)) for(y in 65..72) placeIfAir(cx,y,cz,Material.PRISMARINE_BRICKS)
     }
 }
 

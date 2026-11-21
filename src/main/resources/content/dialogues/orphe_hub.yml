@@ -4,6 +4,15 @@ type: dialogue
 name: オルフェの観測記録
 speaker: ec:npc_orphe
 start: root
+global_choices:
+  - id: airship_to_lumina
+    label: 飛空艇でルミナ港へ帰還する
+    condition: {has_flags: ['ec:flag_ch2_started']}
+    actions:
+      - kind: TELEPORT_AREA
+        target: ec:area_lumina_port
+        required_flag: ec:flag_ch2_started
+        destination: {world: ec_world, x: 18, y: 65, z: -12}
 nodes:
   root:
     text: ここは〈蒼氷の前哨基地〉の観測天幕です。リラ師匠の門下、氷嶺観測官のオルフェといいます。星片の冷気波形が激しく乱れています……。

@@ -536,7 +536,12 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         when(args[0]) {
             "claim" -> adventure.claimPending(player)
             "equipment" -> adventure.equipment(player)
-            "dungeon" -> if(args.getOrNull(1) == "leave") dungeons.leave(player) else dungeons.enter(player)
+            "dungeon" -> when(args.getOrNull(1)) {
+                "leave" -> dungeons.leave(player)
+                "enter" -> dungeons.enter(player,args.getOrNull(2) ?: "ec:dungeon_void_sanctum")
+                null -> dungeons.enter(player)
+                else -> dungeons.enter(player,args[1])
+            }
             "shop" -> {
                 val id=args.getOrNull(1) ?: error("/ec shop <id>")
                 val npc=snapshot.world.npcs.values.firstOrNull { it.shop == id } ?: error("この店を開くNPCが見つかりません。")

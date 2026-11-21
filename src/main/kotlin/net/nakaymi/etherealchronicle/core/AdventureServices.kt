@@ -79,7 +79,7 @@ class DialogueEngine(private val content: () -> ContentSnapshot) {
             require(visited.add(at)) { "会話の分岐が循環しています。" }
             val node=dialogue.nodes[at] ?: error("会話ノードが見つかりません。")
             val next=node.branches.firstOrNull { it.first.matches(p) }?.second
-            if(next == null) return at to node.copy(choices=node.choices.filter { it.condition.matches(p) })
+            if(next == null) return at to node.copy(choices=(node.choices+dialogue.globalChoices).filter { it.condition.matches(p) })
             at=next
         }
         error("会話の分岐が長すぎます。")

@@ -103,6 +103,49 @@ class Chapter2ContentValidationTest {
     )
 
     @Test
+    fun `chapter dungeon declarations route to typed runtime definitions`() {
+        val world = loadBundled().world
+        val citadel = world.dungeons.getValue("ec:dungeon_glacial_citadel")
+        assertEquals("ec:flag_ch2_citadel_unlocked", citadel.unlockFlag)
+        assertEquals("ec:boss_cryo_archon", citadel.boss)
+        assertEquals(listOf("ec:enemy_glacial_knight", "ec:enemy_glacial_knight"), citadel.guards)
+        assertEquals(2, citadel.guardOffsets.size)
+        assertEquals("ec:area_glacial_citadel", citadel.area)
+        assertEquals(listOf("PACKED_ICE", "SNOW_BLOCK", "PRISMARINE_BRICKS"), citadel.palette)
+        assertTrue(citadel.entryMessage.contains("蒼穹の氷城"))
+        assertTrue(citadel.clearMessage.contains("氷核の執行者"))
+        val sanctum = world.dungeons.getValue("ec:dungeon_void_sanctum")
+        assertEquals("ec:boss_void_warden", sanctum.boss)
+        assertEquals("ec:flag_sanctum_unlocked", sanctum.unlockFlag)
+    }
+
+    @Test
+    fun `airship dialogue choices are global gated and resolve to chapter areas`() {
+        val snapshot=loadBundled()
+        val engine=DialogueEngine { snapshot }
+        val p=PlayerProfile(UUID.randomUUID(),classId="ec:class_warrior",level=16)
+        assertFalse(engine.node(p,"ec:dlg_freya_hub").second.choices.any { it.id=="airship_to_frostpeak" })
+        assertFalse(engine.node(p,"ec:dlg_orphe_hub").second.choices.any { it.id=="airship_to_lumina" })
+        p.flags += "ec:flag_ch2_started"
+        val outbound=engine.node(p,"ec:dlg_freya_hub").second.choices.single { it.id=="airship_to_frostpeak" }.actions.single()
+        assertEquals("TELEPORT_AREA",outbound.kind)
+        assertEquals("ec:area_frostpeak_outpost",outbound.target)
+        assertEquals("ec:flag_ch2_started",outbound.requiredFlag)
+        assertEquals(480.0,outbound.destination?.x)
+        val returnTrip=engine.node(p,"ec:dlg_orphe_hub").second.choices.single { it.id=="airship_to_lumina" }.actions.single()
+        assertEquals("ec:area_lumina_port",returnTrip.target)
+        assertEquals(18.0,returnTrip.destination?.x)
+    }
+
+    @Test
+    fun `cryo prison carries typed ICE freeze effect and bounded duration`() {
+        val attack=loadBundled().world.enemies.getValue("ec:boss_cryo_archon").specials.single { it.id=="cryo_prison" }
+        assertEquals("ICE",attack.element)
+        assertEquals("FREEZE",attack.effect)
+        assertEquals(60,attack.effectDuration)
+    }
+
+    @Test
     fun `ec validate equivalent - zero duplicate YAML ids and all Paper enums resolve cleanly`() {
         val yaml = Yaml()
         val seenIds = mutableMapOf<String, Path>()

@@ -24,6 +24,17 @@ npcs:
   - ec:npc_vesper
 dungeons:
   - ec:dungeon_glacial_citadel
+dungeon_configs:
+  - id: ec:dungeon_glacial_citadel
+    unlock_flag: ec:flag_ch2_citadel_unlocked
+    boss: ec:boss_cryo_archon
+    guards: [ec:enemy_glacial_knight, ec:enemy_glacial_knight]
+    guard_offsets: [{x: -8, z: -3}, {x: 8, z: -3}]
+    area: ec:area_glacial_citadel
+    palette: [PACKED_ICE, SNOW_BLOCK, PRISMARINE_BRICKS]
+    boss_offset: {x: 0, z: 10}
+    entry_message: 蒼穹の氷城へ入場しました。/ec dungeon leave で帰還できます。
+    clear_message: 氷核の執行者を撃破しました！
 flags:
   - ec:flag_ch2_started
   - ec:flag_ch2_ridge_secured

@@ -4,6 +4,15 @@ type: dialogue
 name: フレイヤの遠征指令
 speaker: ec:npc_freya
 start: root
+global_choices:
+  - id: airship_to_frostpeak
+    label: 飛空艇で蒼氷の前哨基地へ向かう
+    condition: {has_flags: ['ec:flag_ch2_started']}
+    actions:
+      - kind: TELEPORT_AREA
+        target: ec:area_frostpeak_outpost
+        required_flag: ec:flag_ch2_started
+        destination: {world: ec_world, x: 480, y: 65, z: 0}
 nodes:
   root:
     text: 北方遠征隊の駐留桟橋へようこそ。私は遠征隊長フレイヤ。北の〈蒼穹の氷嶺〉に異変が確認された。第1章の戦いを潜り抜けた実力者なら、ぜひ力を貸してほしい。
