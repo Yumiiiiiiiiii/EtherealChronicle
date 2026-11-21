@@ -104,8 +104,9 @@ class FlagReviveReconnectTest {
                 pm.javaClass.getMethod("accept", UUID::class.java).invoke(pm, b.uniqueId)
                 val pityKey = "ec:drop_crystal_bat/ec:item_wpn_crystal_recurve"
                 var attempts = 0; var info = ""
-                while (attempts < 6) {
+                while (attempts < 12) {
                     attempts++; pa.dropPity.clear(); pb.dropPity.clear(); pa.pendingRewards.clear(); pb.pendingRewards.clear()
+                    (0..35).forEach { i -> listOf(a, b).forEach { pl -> if (pl.inventory.getItem(i)?.persistentDataContainer?.get(itemKey, PersistentDataType.STRING) == "ec:item_wpn_crystal_recurve") pl.inventory.setItem(i, null) } }
                     val kills = 12
                     repeat(kills) {
                         server.executeConsole("ec", "spawn", "ec:enemy_crystal_bat", a.name); server.pump(200) { false }
@@ -113,7 +114,9 @@ class FlagReviveReconnectTest {
                         plugin.rewardKill(a, m); m.remove(); server.pump(400) { false }
                     }
                     server.pump(1500) { false }
-                    val hits = (pa.pendingRewards["ec:item_wpn_crystal_recurve"] ?: 0) + (pb.pendingRewards["ec:item_wpn_crystal_recurve"] ?: 0)
+                    fun owned(pl: PlayerMock) = (0..35).sumOf { i -> pl.inventory.getItem(i)?.takeIf { it.persistentDataContainer.get(itemKey, PersistentDataType.STRING) == "ec:item_wpn_crystal_recurve" }?.amount ?: 0 }
+                    // a delivered rare is moved from pendingRewards into the inventory, so count both places (a 2% hit resets that member's pity)
+                    val hits = (pa.pendingRewards["ec:item_wpn_crystal_recurve"] ?: 0) + (pb.pendingRewards["ec:item_wpn_crystal_recurve"] ?: 0) + owned(a) + owned(b)
                     val sum = (pa.dropPity[pityKey] ?: 0) + (pb.dropPity[pityKey] ?: 0)
                     info = "attempt $attempts: kills=$kills pity a=${pa.dropPity[pityKey]} b=${pb.dropPity[pityKey]} sum=$sum rare drops=$hits"
                     if (hits == 0) { assertEquals(kills, sum, "pity total must equal number of kills (each kill rolls once): $info"); break }
