@@ -11,10 +11,10 @@ class SimulationSessionTest {
     private val content=ContentService(Path.of("src/main/resources/content")).load()
     private val game=GameService({content},SkillEngine(Clock { 1000 },content.balance))
     private fun session()=SimulationSession({content},game)
-    @Test fun `invalid virtual grants explain item and quantity in Japanese`() {
+    @Test fun `invalid virtual grants return translatable diagnostics`() {
         val s=session(); val p=PlayerProfile(UUID.randomUUID())
-        assertContains(assertFails { s.execute(p,"give",listOf("ec:item_nope")) }.message!!,"アイテムが見つかりません")
-        assertContains(assertFails { s.execute(p,"give",listOf("ec:item_con_minor_hp_potion","999")) }.message!!,"数量")
+        assertContains(assertFails { s.execute(p,"give",listOf("ec:item_nope")) }.message!!,"ec.error.item_missing")
+        assertContains(assertFails { s.execute(p,"give",listOf("ec:item_con_minor_hp_potion","999")) }.message!!,"ec.error.quantity_range")
         assertTrue(s.inventory.contents.isEmpty())
     }
     @Test fun `revive feather is accessory passive and consumable feedback is explicit`() {
@@ -31,8 +31,8 @@ class SimulationSessionTest {
         assertEquals(72,p.currency); assertEquals(1,s.inventory.count("ec:item_con_minor_hp_potion"))
         s.execute(p,"sell",listOf("ec:shop_lumina_general","ec:item_con_minor_hp_potion","1","sell"))
         assertEquals(79,p.currency); assertEquals(0,s.inventory.count("ec:item_con_minor_hp_potion"))
-        assertContains(assertFails { s.execute(p,"sell",listOf("ec:shop_lumina_general","ec:item_con_minor_hp_potion","1","sell")) }.message!!,"処理済み")
-        assertContains(assertFails { s.execute(p,"sell",listOf("ec:shop_lumina_general","ec:item_con_minor_hp_potion","999","oversize")) }.message!!,"数量")
+        assertContains(assertFails { s.execute(p,"sell",listOf("ec:shop_lumina_general","ec:item_con_minor_hp_potion","1","sell")) }.message!!,"ec.error.transaction_replayed")
+        assertContains(assertFails { s.execute(p,"sell",listOf("ec:shop_lumina_general","ec:item_con_minor_hp_potion","999","oversize")) }.message!!,"ec.error.quantity_range")
     }
     @Test fun `console dialogue acceptance objective sequence and rewards use chapter engines`() {
         val s=session(); val p=PlayerProfile(UUID.randomUUID())

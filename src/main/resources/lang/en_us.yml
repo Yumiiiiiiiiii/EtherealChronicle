@@ -116,6 +116,9 @@ ec:
     enemy_missing: "Enemy not found."
     party_invite_missing: "There is no party invitation."
     revive_is_passive: "Equip the Phoenix Star Feather as an accessory. It activates automatically on lethal damage. Use /ec equipment."
+    argument_missing: "Missing argument: <detail>"
+    sim_operation_unknown: "Unknown simulation operation: <detail>"
+    class_missing: "No class has been selected."
   area:
     teleported: "Teleported to <name>."
   class:

@@ -50,25 +50,27 @@
 | `ec.dungeon.wave` | 試練 第<current>/<total>波が始まります。 | Trial wave <current>/<total> is beginning. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<current>`, `<total>` |
 | `ec.equipment.accessory_equipped` | 装飾品を装備しました。 | Accessory equipped. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.area_missing` | 転送先エリアが見つかりません。 | Destination area not found. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
+| `ec.error.argument_missing` | 引数が不足しています: <detail> | Missing argument: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt | `<detail>` |
 | `ec.error.class_already_selected` | 職業は既に選択されています。 | A class has already been selected. | src/main/kotlin/net/nakaymi/etherealchronicle/core/GameService.kt |  |
+| `ec.error.class_missing` | 職業が未選択です。 | No class has been selected. | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt |  |
 | `ec.error.consumable_cooldown` | まだ使用できません。 | That item is not ready yet. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.currency_cap` | 所持金の上限を超えます。 | This would exceed your currency limit. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/WorldDefinitions.kt |  |
 | `ec.error.currency_low` | 所持金が足りません。 | You do not have enough currency. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.daily_limit` | 本日の購入上限に達しています。 | You have reached today's purchase limit. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.dialogue_choice` | この選択肢は選べません。 | That dialogue choice is unavailable. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.dialogue_cycle` | 会話の分岐が循環しています。 | The dialogue branch contains a cycle. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
-| `ec.error.dialogue_missing` | 会話が見つかりません。 | Dialogue not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
+| `ec.error.dialogue_missing` | 会話が見つかりません。 | Dialogue not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt |  |
 | `ec.error.dialogue_node_missing` | 会話ノードが見つかりません。 | Dialogue node not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.dialogue_too_deep` | 会話の分岐が長すぎます。 | The dialogue branch is too long. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.enemy_missing` | 魔物が見つかりません。 | Enemy not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/GameService.kt |  |
 | `ec.error.invalid_content` | コンテンツ定義が不正です。詳細を確認してください。 | Content definition is invalid. Check the diagnostic details. | src/main/kotlin/net/nakaymi/etherealchronicle/core/ContentMapReaders.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/WorldContent.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/WorldDefinitions.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/WorldValidation.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/data/Content.kt |  |
 | `ec.error.inventory_exchange` | 必要品が不足しているか、持ち物に空きがありません。 | Required items are missing or your inventory is full. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
-| `ec.error.inventory_full` | 持ち物に空きがありません。 | Make room in your inventory. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
-| `ec.error.item_missing` | アイテムが見つかりません。 | Item not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
+| `ec.error.inventory_full` | 持ち物に空きがありません。 | Make room in your inventory. | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
+| `ec.error.item_missing` | アイテムが見つかりません。 | Item not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt |  |
 | `ec.error.item_unsellable` | このアイテムは売れません。 | This item cannot be sold. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.materials_or_space` | 必要な素材が不足しているか、持ち物に空きがありません。 | Required materials are missing or your inventory is full. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.party_invite_missing` | 招待がありません。 | There is no party invitation. | src/main/kotlin/net/nakaymi/etherealchronicle/core/Cooperation.kt |  |
-| `ec.error.quantity_range` | 指定した数量は許容範囲外です。 | The quantity is outside the allowed range. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
+| `ec.error.quantity_range` | 指定した数量は許容範囲外です。 | The quantity is outside the allowed range. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt |  |
 | `ec.error.quest_active` | この依頼は受注済みです。 | This quest is already active. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.quest_incomplete` | 依頼の達成条件を満たしていません。 | You have not met the quest objectives. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.quest_missing` | 依頼が見つかりません。 | Quest not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
@@ -82,6 +84,7 @@
 | `ec.error.shop_entry_missing` | 商品が見つかりません。 | Shop entry not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.shop_missing` | 店が見つかりません。 | Shop not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.shop_no_buyback` | この店は買取できません。 | This shop does not buy items. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
+| `ec.error.sim_operation_unknown` | 不明なシミュレーション操作です: <detail> | Unknown simulation operation: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt | `<detail>` |
 | `ec.error.teleport_condition` | 転送条件を満たしていません。 | You do not meet the teleport requirements. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.teleport_destination` | 転送座標は対象エリア内で指定してください。 | The teleport destination must be inside the selected area. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.teleport_world` | 管理ワールド以外へは転送できません。 | Teleporting outside the managed world is not allowed. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
