@@ -21,8 +21,7 @@ class SimulationSessionTest {
         val feather=content.items["ec:item_con_revive_feather"]
         assertEquals(GearSlot.ACCESSORY,feather.slot)
         assertTrue(content.world.itemProperties.getValue(feather.id).effects.any { it.kind == "REVIVE" })
-        assertContains(reviveUseNotice(),"致死ダメージ時")
-        assertContains(reviveUseNotice(),"装備")
+        assertEquals("ec.error.revive_is_passive",reviveUseNotice())
     }
     @Test fun `console shop shares plans and rejects replay without inventory mutation`() {
         val s=session(); val p=PlayerProfile(UUID.randomUUID()); s.execute(p,"currency",listOf("100"))
