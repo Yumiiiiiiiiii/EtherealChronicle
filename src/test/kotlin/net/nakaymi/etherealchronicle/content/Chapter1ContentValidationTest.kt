@@ -328,8 +328,8 @@ class Chapter1ContentValidationTest {
         assertTrue(warden.boss && grinder.boss)
         assertEquals(3, warden.phases.size)
         assertEquals(3, grinder.phases.size)
-        assertEquals(34000.0, warden.hp)
-        assertEquals(7800.0, grinder.hp)
+        assertEquals(55000.0, warden.hp)
+        assertEquals(15000.0, grinder.hp)
         assertTrue("ec:flag_void_warden_defeated" in warden.flags)
         assertTrue("ec:flag_iron_grinder_defeated" in grinder.flags)
 

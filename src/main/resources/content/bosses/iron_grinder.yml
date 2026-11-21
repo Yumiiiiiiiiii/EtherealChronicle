@@ -4,7 +4,7 @@ type: boss
 name: 星蝕の採掘巨兵アイアン・グラインダー
 entity: IRON_GOLEM
 level: 12
-hp: 7800
+hp: 15000
 attack: 72
 defense: 54
 xp: 1250

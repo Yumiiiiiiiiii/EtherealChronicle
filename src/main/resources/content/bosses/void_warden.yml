@@ -4,8 +4,8 @@ type: boss
 name: 虚核の守護者ヴォイド・ウォーデン
 entity: WARDEN
 level: 18
-hp: 34000
-attack: 115
+hp: 55000
+attack: 108
 defense: 85
 xp: 3200
 currency: 750
@@ -38,5 +38,5 @@ phases:
   - {id: phase_cataclysm_judgment, below_hp_ratio: 0.3, damage_multiplier: 1.3, interval_multiplier: 0.78}
 enrage_ticks: 12000
 enrage_multiplier: 1.5
-coop_hp_per_player: 0.75
+coop_hp_per_player: 0.9
 coop_damage_per_player: 0.04

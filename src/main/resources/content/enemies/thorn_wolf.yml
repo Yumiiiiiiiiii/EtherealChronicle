@@ -4,7 +4,7 @@ type: enemy
 name: イバラオオカミ
 entity: WOLF
 level: 3
-hp: 140
+hp: 310
 attack: 18
 defense: 12
 xp: 39

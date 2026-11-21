@@ -4,7 +4,7 @@ type: enemy
 name: 結晶コウモリ
 entity: PHANTOM
 level: 10
-hp: 520
+hp: 1200
 attack: 56
 defense: 34
 xp: 187

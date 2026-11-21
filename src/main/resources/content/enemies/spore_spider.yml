@@ -4,7 +4,7 @@ type: enemy
 name: 胞子グモ
 entity: CAVE_SPIDER
 level: 6
-hp: 295
+hp: 650
 attack: 32
 defense: 23
 xp: 88

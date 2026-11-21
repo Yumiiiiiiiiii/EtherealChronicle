@@ -4,7 +4,7 @@ type: enemy
 name: エーテルスライム
 entity: SLIME
 level: 1
-hp: 65
+hp: 140
 attack: 10
 defense: 5
 xp: 18

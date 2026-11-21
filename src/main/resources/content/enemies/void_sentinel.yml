@@ -4,11 +4,11 @@ type: enemy
 name: 虚核の衛兵
 entity: PIGLIN_BRUTE
 level: 17
-hp: 3200
+hp: 6800
 attack: 102
 defense: 77
 xp: 780
-currency: 138
+currency: 95
 droptable: ec:drop_void_sentinel
 element: VOID
 weaknesses: [AETHER]

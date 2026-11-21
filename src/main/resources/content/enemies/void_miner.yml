@@ -4,7 +4,7 @@ type: enemy
 name: 虚ろの坑夫
 entity: WITHER_SKELETON
 level: 12
-hp: 756
+hp: 1750
 attack: 66
 defense: 50
 xp: 251

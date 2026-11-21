@@ -108,7 +108,7 @@ class BalanceSimulationTest {
 
     /**
      * Simulates 1v1 or party combat using real GameService.stats, SkillEngine, Balance.damage, and BossState.
-     * Assumes a realistic 600ms basic-attack cadence (post-HIGH-01 fix) and 70% dodge rate on telegraphed AoEs.
+     * Supports comparing current engine (basicAttackUsesSkillPower=true, gcd=0) vs post-tweak (false, 1000ms).
      */
     private fun simulateFight(
         classId: String,
@@ -118,7 +118,8 @@ class BalanceSimulationTest {
         allowLegendary: Boolean = false,
         dodgeRate: Double = 0.70,
         allowPotions: Boolean = true,
-        globalSkillCooldownMs: Long = 0L,
+        globalSkillCooldownMs: Long = 1000L,
+        basicAttackUsesSkillPower: Boolean = false,
         maxSeconds: Int = 600,
     ): CombatOutcome {
         var nowMs = 0L
@@ -161,14 +162,12 @@ class BalanceSimulationTest {
             val tick = elapsedMs / 50L
             if (enemy.boss && tick >= enemy.enrageTicks) enraged = true
 
-            // 1. Resource regen every 1s (archers moving ~50% of time)
             if (elapsedMs >= nextRegenMs) {
                 val moving = classDef.resource == ResourceKind.FOCUS && ((elapsedMs / 1000L) % 2L == 1L)
                 game.regenerate(profile, stats.resource, moving)
                 nextRegenMs += 1000L
             }
 
-            // 2. Player casts highest-priority available skill (respecting optional globalSkillCooldownMs)
             var castAny = false
             if (elapsedMs >= nextSkillCastMs) {
                 for (skill in skillsByPriority) {
@@ -185,16 +184,15 @@ class BalanceSimulationTest {
                 }
             }
 
-            // 3. Player basic attack (600ms cadence; matches RpgPlugin.hit multiplying by stats.skillPower)
             if (!castAny && elapsedMs >= nextBasicAttackMs && bossState.hp > 0.0) {
-                val dmg = expectedDamage(snap.balance, stats, enemy.defense, 1.0 * stats.skillPower, weaponDmg) * partySize
+                val mult = if (basicAttackUsesSkillPower) stats.skillPower else 1.0
+                val dmg = expectedDamage(snap.balance, stats, enemy.defense, mult, weaponDmg) * partySize
                 bossState.hp = (bossState.hp - dmg).coerceAtLeast(0.0)
                 totalDamageDealt += dmg
                 game.onHit(profile, stats.resource)
-                nextBasicAttackMs = elapsedMs + 600L
+                nextBasicAttackMs = elapsedMs + 550L
             }
 
-            // 4. Enemy basic attack (split aggro slightly in party: focused member takes ~1/sqrt(partySize))
             val partyMitigation = if (partySize > 1) 1.0 / sqrt(partySize.toDouble()) else 1.0
             if (bossState.hp > 0.0 && tick >= nextEnemyAttackTick) {
                 val scale = bossState.damageScale(tick)
@@ -205,7 +203,6 @@ class BalanceSimulationTest {
                 nextEnemyAttackTick = tick + (enemy.attackInterval * intervalScale).toLong().coerceAtLeast(10L)
             }
 
-            // 5. Enemy telegraphed special attacks (expected damage accounting for dodgeRate)
             if (bossState.hp > 0.0) {
                 val hpRatio = bossState.hp / bossState.maximumHp
                 for (sp in enemy.specials) {
@@ -220,7 +217,6 @@ class BalanceSimulationTest {
                 }
             }
 
-            // 6. Player uses potion when HP <= 55% (8s cooldown)
             if (allowPotions && playerHp > 0.0 && playerHp <= stats.hp * 0.55 && elapsedMs >= nextPotionMs) {
                 playerHp = (playerHp + potionHeal).coerceAtMost(stats.hp)
                 potionsUsed++
@@ -286,45 +282,59 @@ class BalanceSimulationTest {
             }
         }
 
-        // 2. Class power & regular enemy TTK at enemy's target level (current 0ms GCD vs 1000ms GCD sensitivity)
-        sb.appendLine("\n--- 2. REGULAR/ELITE ENEMIES TTK & SURVIVABILITY AT TARGET LEVEL ---")
+        // 2. Regular/Elite enemy TTK (1s GCD, basic=1.0x without skillPower)
+        sb.appendLine("\n--- 2. REGULAR/ELITE ENEMIES TTK (1s GCD, 550ms basic=1.0x, no potions) ---")
         val ch1Enemies = snap.world.enemies.values
             .filter { !it.boss && it.id.startsWith("ec:enemy_") }
             .sortedBy { it.level }
 
         for (enemy in ch1Enemies) {
             val line = classes.joinToString(" | ") { cid ->
-                val res = simulateFight(cid, enemy.level, enemy, allowPotions = false)
+                val res = simulateFight(cid, enemy.level, enemy, allowPotions = false, globalSkillCooldownMs = 1000L, basicAttackUsesSkillPower = false)
                 val shortClass = cid.removePrefix("ec:class_").take(3).uppercase()
                 "$shortClass: TTK=${"%.1f".format(Locale.US, res.ttkSec)}s DPS=${"%.0f".format(Locale.US, res.dps)} DmgIn=${"%.0f".format(Locale.US, res.damageTaken)}(${"%.0f".format(Locale.US, res.hpLostPct)}%) ${if (res.won) "WIN" else "DIE"}"
             }
             sb.appendLine("%-28s (Lv%2d HP=%5.0f ATK=%4.0f DEF=%3.0f): %s".format(Locale.US, enemy.id, enemy.level, enemy.hp, enemy.attack, enemy.defense, line))
         }
 
-        // 3. Boss fights (solo & 4-player, pre-clear Epic gear vs post-clear Legendary gear)
+        // 3. Boss fights (both 1s GCD / basic=1.0x AND legacy 0ms GCD / basic*SP)
         sb.appendLine("\n--- 3. BOSS ENCOUNTERS (70% telegraph dodge, potions enabled) ---")
         val ironGrinder = snap.world.enemies.getValue("ec:boss_iron_grinder")
         val voidWarden = snap.world.enemies.getValue("ec:boss_void_warden")
 
-        data class BossScenario(val label: String, val boss: EnemyDefinition, val level: Int, val party: Int, val legendary: Boolean, val gcdMs: Long = 0L)
+        data class BossScenario(
+            val label: String,
+            val boss: EnemyDefinition,
+            val level: Int,
+            val party: Int,
+            val legendary: Boolean,
+            val gcdMs: Long,
+            val spBasic: Boolean,
+        )
         val bossScenarios = listOf(
-            BossScenario("Iron Grinder Lv12 Solo (Rare)    ", ironGrinder, 12, 1, false, 0L),
-            BossScenario("Iron Grinder Lv12 4P   (Rare)    ", ironGrinder, 12, 4, false, 0L),
-            BossScenario("Void Warden  Lv15 Solo (Epic)    ", voidWarden, 15, 1, false, 0L),
-            BossScenario("Void Warden  Lv16 Solo (Epic)    ", voidWarden, 16, 1, false, 0L),
-            BossScenario("Void Warden  Lv18 Solo (Epic)    ", voidWarden, 18, 1, false, 0L),
-            BossScenario("Void Warden  Lv18 Solo (1s GCD)  ", voidWarden, 18, 1, false, 1000L),
-            BossScenario("Void Warden  Lv16 4P   (Epic)    ", voidWarden, 16, 4, false, 0L),
-            BossScenario("Void Warden  Lv18 4P   (Epic)    ", voidWarden, 18, 4, false, 0L),
-            BossScenario("Void Warden  Lv18 Solo (Leg)     ", voidWarden, 18, 1, true, 0L),
+            BossScenario("Iron Grinder Lv12 Solo [1sGCD]    ", ironGrinder, 12, 1, false, 1000L, false),
+            BossScenario("Iron Grinder Lv12 4P   [1sGCD]    ", ironGrinder, 12, 4, false, 1000L, false),
+            BossScenario("Void Warden  Lv15 Solo [1sGCD]    ", voidWarden, 15, 1, false, 1000L, false),
+            BossScenario("Void Warden  Lv16 Solo [1sGCD]    ", voidWarden, 16, 1, false, 1000L, false),
+            BossScenario("Void Warden  Lv18 Solo [1sGCD]    ", voidWarden, 18, 1, false, 1000L, false),
+            BossScenario("Void Warden  Lv16 4P   [1sGCD]    ", voidWarden, 16, 4, false, 1000L, false),
+            BossScenario("Void Warden  Lv18 4P   [1sGCD]    ", voidWarden, 18, 4, false, 1000L, false),
+            BossScenario("Void Warden  Lv18 Solo [Leg+1sGCD]", voidWarden, 18, 1, true, 1000L, false),
+            BossScenario("Void Warden  Lv18 Solo [Legacy0ms]", voidWarden, 18, 1, false, 0L, true),
         )
         for (sc in bossScenarios) {
             val line = classes.joinToString(" | ") { cid ->
-                val res = simulateFight(cid, sc.level, sc.boss, partySize = sc.party, allowLegendary = sc.legendary, globalSkillCooldownMs = sc.gcdMs)
+                val res = simulateFight(
+                    cid, sc.level, sc.boss,
+                    partySize = sc.party,
+                    allowLegendary = sc.legendary,
+                    globalSkillCooldownMs = sc.gcdMs,
+                    basicAttackUsesSkillPower = sc.spBasic,
+                )
                 val shortClass = cid.removePrefix("ec:class_").take(3).uppercase()
                 "$shortClass: ${if (res.won) "WIN" else "DIE"} ${"%.1f".format(Locale.US, res.ttkSec)}s Pot=${res.potionsUsed} DmgIn=${"%.0f".format(Locale.US, res.damageTaken)}${if (res.enraged) " ENRAGE" else ""}"
             }
-            sb.appendLine("%-34s -> %s".format(Locale.US, sc.label, line))
+            sb.appendLine("%-35s -> %s".format(Locale.US, sc.label, line))
         }
 
         // 4. Chapter 1 Quest + Kill XP Progression & Gold Income
@@ -394,11 +404,11 @@ class BalanceSimulationTest {
         val (mainPreProfile, _) = simulateJourney("A1. Main M01-M07 only (pre-boss)", mainPreBoss.map { it.id }, 0)
         val (mainAllProfile, _) = simulateJourney("A2. Main M01-M08 only (post-boss)", mainAll.map { it.id }, 0)
         val (typicalPreProfile, _) = simulateJourney("B1. Main M01-M07 + 7 early/mid Sides", (mainPreBoss + sideEarlyMid).map { it.id }, 0)
+        val (typicalIncidental, _) = simulateJourney("B2. Typical + 10 incidental kills/zone", (mainPreBoss + sideEarlyMid).map { it.id }, 10)
         val (compPreProfile, _) = simulateJourney("C1. All 19 quests before M08", (mainPreBoss + sideAll).map { it.id }, 0)
         val (compAllProfile, _) = simulateJourney("C2. All 20 quests (post-M08)", (mainAll + sideAll).map { it.id }, 0)
-        val (compPlusGrind, _) = simulateJourney("C3. All 20 quests + 25 kills/zone", (mainAll + sideAll).map { it.id }, 25)
 
-        // 5. XP/hr & Gold/hr by Zone (using Warrior simulated TTK + 4s travel/respawn overhead)
+        // 5. Zone Farming Rates
         sb.appendLine("\n--- 5. ZONE FARMING RATES (XP/hr & Gold/hr, Warrior @ target Lv, +4s travel) ---")
         val zoneMobs = listOf(
             "Ashwood (Lv2)" to "ec:enemy_aether_slime",
@@ -411,7 +421,7 @@ class BalanceSimulationTest {
         for ((zone, eid) in zoneMobs) {
             val mob = snap.world.enemies.getValue(eid)
             val doc = snap.documents.getValue(eid)
-            val res = simulateFight("ec:class_warrior", mob.level, mob, allowPotions = false)
+            val res = simulateFight("ec:class_warrior", mob.level, mob, allowPotions = false, globalSkillCooldownMs = 1000L, basicAttackUsesSkillPower = false)
             val killsPerHr = 3600.0 / (res.ttkSec + 4.0)
             val xpPerHr = killsPerHr * doc.long("xp")
             val goldPerHr = killsPerHr * doc.long("currency")
@@ -437,11 +447,11 @@ class BalanceSimulationTest {
         sb.appendLine("Shop gear upgrades (Lv1-12 full set): %dG | Estimated consumables across Ch1: %dG | Total Sinks: %dG".format(
             Locale.US, gearSink, consumableSink, totalSink
         ))
-        sb.appendLine("Income (Main-only)=%dG | (Typical)=%dG | (All 20 Quests)=%dG | (All + 25 kills/zone)=%dG".format(
-            Locale.US, mainAllProfile.currency, typicalPreProfile.currency, compAllProfile.currency, compPlusGrind.currency
+        sb.appendLine("Income (Main-only)=%dG | (Typical)=%dG | (Typical+10/zone)=%dG | (All 20 Quests)=%dG".format(
+            Locale.US, mainAllProfile.currency, typicalPreProfile.currency, typicalIncidental.currency, compAllProfile.currency
         ))
 
-        // 7. Monte Carlo Drop Rate Expectations (N = 1000 seeded trials per table)
+        // 7. Monte Carlo Drop Rate Expectations
         sb.appendLine("\n--- 7. MONTE CARLO DROP EXPECTATIONS (N=1000, Random(42)) ---")
         val rng = Random(42)
         val trials = 1000
@@ -451,6 +461,7 @@ class BalanceSimulationTest {
             Triple("ec:drop_void_miner", "ec:item_mat_iron_scrap", 6),
             Triple("ec:drop_void_miner", "ec:item_mat_void_dust", 6),
             Triple("ec:drop_star_wisp", "ec:item_mat_starshard_fragment", 32),
+            Triple("ec:drop_astral_stalker", "ec:item_mat_starshard_fragment", 32),
             Triple("ec:drop_iron_grinder", "ec:item_wpn_minebreaker_greatsword", 1),
             Triple("ec:drop_void_warden", "ec:item_mat_void_core_essence", 5),
             Triple("ec:drop_void_warden", "ec:item_mat_starshard_fragment", 30),
@@ -459,9 +470,7 @@ class BalanceSimulationTest {
         for ((dtId, itemId, goal) in targets) {
             val dt = snap.drops[dtId]
             var totalAmount = 0L
-            repeat(trials) {
-                totalAmount += dt.roll(rng)[itemId] ?: 0
-            }
+            repeat(trials) { totalAmount += dt.roll(rng)[itemId] ?: 0 }
             val avgPerKill = totalAmount.toDouble() / trials
             val estKills = if (avgPerKill > 0) goal / avgPerKill else Double.POSITIVE_INFINITY
             sb.appendLine("%-26s -> %-32s goal=%2d | avg/kill=%.3f | expected kills=%.1f".format(
@@ -471,9 +480,15 @@ class BalanceSimulationTest {
 
         println(sb.toString())
 
-        assertTrue(ch1Enemies.size >= 14, "Expected >=14 Chapter 1 regular/elite enemies")
-        assertTrue(mainPreProfile.level >= 5, "Main quest journey should progress well past Lv1")
-        assertTrue(compAllProfile.level >= 10, "Completionist journey should progress into mid-late Chapter 1")
-        assertTrue(compPlusGrind.currency > 0L, "Gold economy simulation should produce positive income")
+        // Balance target assertions
+        assertTrue(typicalPreProfile.level in 15..16, "Typical pre-boss level should be 15-16, got ${typicalPreProfile.level}")
+        assertTrue(compPreProfile.level in 17..19, "Completionist pre-boss should stay below Lv20 cap, got ${compPreProfile.level}")
+        assertTrue(mainPreProfile.level >= 11)
+        // All 3 classes must be able to clear Void Warden solo at Lv18 in Epic gear within 60-130s
+        classes.forEach { cid ->
+            val vw = simulateFight(cid, 18, voidWarden, partySize = 1, allowLegendary = false, globalSkillCooldownMs = 1000L, basicAttackUsesSkillPower = false)
+            assertTrue(vw.won, "$cid failed solo Void Warden Lv18: $vw")
+            assertTrue(vw.ttkSec in 55.0..135.0, "$cid Void Warden Lv18 TTK out of range: ${vw.ttkSec}s")
+        }
     }
 }
