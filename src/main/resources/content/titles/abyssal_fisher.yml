@@ -4,3 +4,11 @@ type: title
 name: 星海の大公
 description: 星見の泉と氷窟の深淵を制し、伝説の魚影に辿り着いた釣り師の称号。
 unlock_flag: ec:flag_title_abyssal_fisher
+advancement:
+  title: 星海の大公
+  description: 伝説の魚影に辿り着いた。
+  icon: HEART_OF_THE_SEA
+  frame: CHALLENGE
+  condition:
+    type: FLAG
+    target: ec:flag_title_abyssal_fisher
