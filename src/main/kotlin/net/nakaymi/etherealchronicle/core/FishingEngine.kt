@@ -28,6 +28,7 @@ data class FishingState(
 )
 data class FishCatch(val species: FishSpeciesDefinition,val sizeCm: Double,val crown: Crown)
 
+/** 応答時間・pull間隔・cast間隔の有界履歴から周期botらしさを判定します。 */
 class FishingMacroDetector(private val capacity:Int=12) {
     private val responses=ArrayDeque<Long>()
     private val intervals=ArrayDeque<Long>()
@@ -61,7 +62,8 @@ class FishingMacroDetector(private val capacity:Int=12) {
     }
 }
 
-/** Pure state machine and reward selection for the custom fishing loop. */
+/** 独自釣りの状態遷移、魚種抽選、記録更新を行うPaper非依存エンジンです。 */
+/** 釣り候補の適格性、重み抽選、ミニゲーム、サイズ記録を計算します。 */
 class FishingEngine(private val balance: LifeBalance,private val random: Random = Random.Default) {
     fun eligible(species: Collection<FishSpeciesDefinition>,spot: FishingSpotDefinition,rodTier:Int,lifeLevel:Int,time:Long,weather:String):List<FishSpeciesDefinition> =
         species.filter { fish ->

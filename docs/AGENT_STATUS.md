@@ -257,3 +257,11 @@
 - Verification: `./gradlew.bat build test --no-daemon --rerun-tasks` SUCCESS; 180 tests, 0 failures/errors/skips. `git diff --check` clean.
 - Next: commit this core-only slice, then document/split the Paper controllers and finalize architecture notes.
 
+
+## Codex-Impl — Task13 ongoing documentation and Paper organization
+- Branch `codex/foundation`; current commits `8de7018`, `e39db5e`, `5226815`, `9bbede4`.
+- `RpgPlugin.kt` has been reduced from 991 to 850 lines by extracting codex views and console simulation; GUI inventory holders now live in `paper/MenuHolders.kt`. `WorldContent.kt` model/map parsing helpers are in separate `WorldDefinitions.kt` and `ContentMapReaders.kt`.
+- Added Japanese KDocs and inline explanations across core, data and Paper lifecycle/transaction code. No YAML, commands, config keys, save schema or event behavior has been intentionally changed.
+- Last complete test run passed: `./gradlew.bat build test --no-daemon --rerun-tasks`, 180 tests, 0 failures/errors/skips. Re-run full command after each upcoming area commit.
+- Next: commit core comments, then data comments, then Paper comments/holder split; run full suite after each. Finish architecture guide/status and report split file list.
+

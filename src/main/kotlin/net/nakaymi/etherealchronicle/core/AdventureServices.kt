@@ -5,11 +5,13 @@ import java.util.UUID
 import kotlin.math.ceil
 import kotlin.math.floor
 
+/** YAML item IDを数えて差分交換する、Paper非依存の所持品取引境界です。 */
 interface InventoryAccess {
     fun count(item: String): Int
     fun canExchange(remove: Map<String,Int>, add: Map<String,Int>): Boolean
     fun exchange(remove: Map<String,Int>, add: Map<String,Int>): Boolean
 }
+/** ユニットテストとコンソールsim向けの容量制限付き仮想所持品です。 */
 class MemoryInventory(val contents: MutableMap<String,Int> = mutableMapOf(), private val capacity: Int = Int.MAX_VALUE): InventoryAccess {
     override fun count(item: String) = contents.getOrDefault(item,0)
     private fun after(remove: Map<String,Int>,add: Map<String,Int>): Map<String,Int>? {
@@ -25,7 +27,9 @@ class MemoryInventory(val contents: MutableMap<String,Int> = mutableMapOf(), pri
         contents.clear(); contents.putAll(result); return true
     }
 }
+/** objective条件、消費アイテム、依頼報酬をプロフィール上で進行します。 */
 class QuestEngine(private val content: () -> ContentSnapshot, private val clock: Clock) {
+    /** 前提条件を満たす依頼を開始し、progress状態を初期化します。 */
     fun start(p: PlayerProfile,id: String) {
         val q = content().world.quests[id] ?: error("依頼が見つかりません。")
         require(q.condition.matches(p)) { "依頼の受注条件を満たしていません。" }
@@ -40,12 +44,14 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
     }
     private fun progress(p: PlayerProfile,q: QuestDefinition,o: Objective,inventory: InventoryAccess): Int =
         if(o.kind == ObjectiveKind.COLLECT) inventory.count(o.target).coerceAtMost(o.amount) else p.quests[q.id]?.objectives?.get(o.id) ?: 0
+    /** 全objectiveが揃ったかを所持品状態と合わせて確認します。 */
     fun ready(p: PlayerProfile,id: String,inventory: InventoryAccess): Boolean {
         val q = content().world.quests[id] ?: return false
         val state = p.quests[id] ?: return false
         val consume=q.objectives.filter { it.kind == ObjectiveKind.COLLECT && it.consume }.groupBy { it.target }.mapValues { (_,objectives) -> objectives.sumOf { it.amount.toLong() } }
         return !state.completed && consume.all { (item,n) -> inventory.count(item).toLong() >= n } && q.objectives.all { progress(p,q,it,inventory) >= it.amount }
     }
+    /** 対象イベントを一致するobjectiveへ加算し、必要なら自動完了させます。 */
     fun event(p: PlayerProfile,kind: ObjectiveKind,target: String,amount: Int,inventory: InventoryAccess,allowAutoComplete: Boolean = true,alsoTargets:Set<String> = emptySet()) {
         require(amount > 0)
         p.quests.filterValues { !it.completed }.keys.toList().forEach { id ->
@@ -70,6 +76,7 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
             }
         }
     }
+    /** 報酬と消費物を一度だけ反映し、repeat/reset状態を記録します。 */
     fun complete(p: PlayerProfile,id: String,inventory: InventoryAccess) {
         val q = content().world.quests[id] ?: error("依頼が見つかりません。")
         require(ready(p,id,inventory)) { "依頼の達成条件を満たしていません。" }
@@ -86,6 +93,7 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
         p.flags.addAll(q.rewards.flags)
     }
 }
+/** flag・プロフィール条件と分岐に従って会話ノード・選択肢を解決します。 */
 class DialogueEngine(private val content: () -> ContentSnapshot) {
     fun node(p: PlayerProfile,id: String,start: String? = null): Pair<String,DialogueNode> {
         val dialogue=content().world.dialogues[id] ?: error("会話が見つかりません。")
@@ -103,6 +111,7 @@ class DialogueEngine(private val content: () -> ContentSnapshot) {
         node(p,id,node).second.choices.firstOrNull { it.id == choice } ?: error("この選択肢は選べません。")
 }
 data class TradePlan(val id: String,val currencyBefore: Long,val currencyAfter: Long,val remove: Map<String,Int>,val add: Map<String,Int>,val dailyKey: String?,val dailyCount: Int)
+/** 二重実行IDと上限を確認し、所持品を変更せず取引planを作成します。 */
 class TradeEngine(private val content: () -> ContentSnapshot) {
     fun buy(p: PlayerProfile,shopId: String,entryId: String,inventory: InventoryAccess,transaction: String,day: Long): TradePlan {
         require(transaction !in p.transactions) { "処理済みの取引です。" }
@@ -132,6 +141,7 @@ class TradeEngine(private val content: () -> ContentSnapshot) {
         require(inventory.canExchange(mapOf(item to amount),emptyMap())) { "売却する品が足りません。" }
         return TradePlan(transaction,p.currency,p.currency+gain,mapOf(item to amount),emptyMap(),null,0)
     }
+    /** 事前計算planが古くないことを確認してprofile側の通貨・日次数を確定します。 */
     fun commit(p: PlayerProfile,plan: TradePlan) {
         require(plan.id !in p.transactions && p.currency == plan.currencyBefore) { "取引の状態が変化しました。" }
         p.currency=plan.currencyAfter
@@ -166,7 +176,8 @@ object ResetPeriods {
     }
 }
 
-/** Stages multiple quest/dialogue inventory effects, allowing one validated commit boundary. */
+/** 依頼・会話の複数アイテム操作を一時化し、すべて検証してから一度に確定します。 */
+/** 複数操作の追加・消費差分を保持し、取引の単一commit境界を作ります。 */
 class StagedInventory(private val base: InventoryAccess): InventoryAccess {
     val remove=mutableMapOf<String,Int>()
     val add=mutableMapOf<String,Int>()

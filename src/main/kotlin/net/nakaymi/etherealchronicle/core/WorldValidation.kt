@@ -2,7 +2,7 @@ package net.nakaymi.etherealchronicle.core
 
 import net.nakaymi.etherealchronicle.data.*
 
-/** Semantic references whose type depends on the enclosing objective/action/condition. */
+/** objective・action・conditionの親定義に応じた参照先の型を検証します。 */
 internal fun WorldContent.validateWorldReferences(documents: Map<String,Map<String,Any?>>) {
     val aliases=documents.flatMap { (id,d) -> d.strings("aliases").map { it to id } }.toMap()
     fun ref(target: String, types: Set<String>, field: String) {

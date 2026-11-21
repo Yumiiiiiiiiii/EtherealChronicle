@@ -3,6 +3,7 @@ package net.nakaymi.etherealchronicle.core
 import java.util.UUID
 
 data class Party(val leader: UUID,val members: MutableSet<UUID>)
+/** 招待期限、leader、参加上限、XP分配、周回loot順を管理します。 */
 class PartyService(private val cap: () -> Int,private val clock: Clock) {
     private val membership=mutableMapOf<UUID,Party>()
     private val invites=mutableMapOf<UUID,Pair<UUID,Long>>()
@@ -40,7 +41,8 @@ class PartyService(private val cap: () -> Int,private val clock: Clock) {
         return if(sorted.isEmpty()) null else sorted[Math.floorMod(sequence,sorted.size.toLong()).toInt()]
     }
 }
-/** Pure accounting prevents a spawn point and the whole server exceeding their caps. */
+/** 出現地点ごとの上限とサーバー全体上限を同時に守る純粋な予約台帳です。 */
+/** 出現個体の地点別・全体予約数を保持し、上限を超えるspawnを拒否します。 */
 class SpawnBudget(private val globalCap: () -> Int) {
     private val owners=mutableMapOf<UUID,String>()
     fun reserve(entity: UUID,point: String,pointCap: Int): Boolean {
@@ -51,6 +53,7 @@ class SpawnBudget(private val globalCap: () -> Int) {
     fun count(point: String) = owners.values.count { it == point }
     fun total() = owners.size
 }
+/** 仮想体力と協力人数補正、フェーズ・enrage時間を管理します。 */
 data class BossState(val definition: EnemyDefinition,val partySize: Int,val started: Long) {
     val maximumHp = definition.hp*(1+(partySize.coerceAtLeast(1)-1)*definition.coopHp)
     var hp = maximumHp
@@ -59,7 +62,7 @@ data class BossState(val definition: EnemyDefinition,val partySize: Int,val star
         (if(tick-started >= definition.enrageTicks) definition.enrageMultiplier else 1.0)
 }
 
-/** Paper may change a mob's attribute maximum (notably Slime size); virtual HP remains authoritative. */
+/** Slimeの大きさ等でPaperが属性最大値を変えても、敵HPの正本は仮想HPです。 */
 fun displayedHealth(hp: Double, virtualMaximum: Double, liveMaximum: Double): Double {
     require(virtualMaximum.isFinite() && virtualMaximum > 0 && liveMaximum.isFinite() && liveMaximum > 0)
     if(hp <= 0) return 0.0
