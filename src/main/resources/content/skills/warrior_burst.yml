@@ -1,0 +1,8 @@
+schema_version: 1
+id: ec:warrior_burst
+type: skill
+name: 斬撃 2
+cost: 20
+cooldown_ms: 4000
+multiplier: 2
+range: 4

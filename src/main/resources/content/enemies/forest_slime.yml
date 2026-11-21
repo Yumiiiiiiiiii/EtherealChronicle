@@ -1,0 +1,12 @@
+schema_version: 1
+id: ec:forest_slime
+type: enemy
+name: 星片スライム
+entity: SLIME
+level: 1
+hp: 30
+attack: 5
+defense: 2
+xp: 25
+currency: 2
+droptable: ec:starter_drops

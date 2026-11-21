@@ -1,0 +1,22 @@
+schema_version: 1
+id: ec:balance
+type: balance
+level_cap: 20
+xp_base: 100
+xp_exponent: 1.5
+xp_gain_cap: 10000
+currency_gain_cap: 1000
+damage_cap: 10000
+stat_cap: 10000
+crit_cap: 0.75
+defense_scale: 100
+skill_level_cap: 5
+skill_growth: 0.1
+crit_damage_cap: 3.0
+element_cap: 2.0
+rarities:
+  COMMON: {budget_multiplier: 1.0, affixes: 0}
+  UNCOMMON: {budget_multiplier: 1.2, affixes: 1}
+  RARE: {budget_multiplier: 1.5, affixes: 2}
+  EPIC: {budget_multiplier: 1.8, affixes: 3}
+  LEGENDARY: {budget_multiplier: 2.2, affixes: 4}

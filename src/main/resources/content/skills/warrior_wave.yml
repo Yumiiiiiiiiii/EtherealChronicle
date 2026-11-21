@@ -1,0 +1,8 @@
+schema_version: 1
+id: ec:warrior_wave
+type: skill
+name: 斬撃 3
+cost: 30
+cooldown_ms: 6000
+multiplier: 2.5
+range: 4

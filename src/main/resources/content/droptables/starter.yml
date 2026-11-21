@@ -1,0 +1,6 @@
+schema_version: 1
+id: ec:starter_drops
+type: droptable
+entries:
+  - {item: 'ec:field_ration', chance: 0.1, min: 1, max: 1}
+

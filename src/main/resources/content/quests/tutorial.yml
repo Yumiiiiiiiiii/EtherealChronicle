@@ -1,0 +1,8 @@
+schema_version: 1
+id: ec:tutorial
+type: quest
+name: 冒険の第一歩
+objective: 魔物を一体倒す
+required_kills: 1
+xp: 100
+currency: 10

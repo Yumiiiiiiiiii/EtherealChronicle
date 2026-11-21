@@ -1,0 +1,11 @@
+schema_version: 1
+id: ec:field_ration
+type: item
+name: 野営のパン
+material: BREAD
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}

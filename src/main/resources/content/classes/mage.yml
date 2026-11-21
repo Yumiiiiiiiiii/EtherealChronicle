@@ -1,0 +1,10 @@
+schema_version: 1
+id: ec:mage
+type: class
+name: 魔法使い
+resource: MANA
+regeneration: 8
+hit_gain: 0
+skills: [ec:mage_strike, ec:mage_burst, ec:mage_wave, ec:mage_ultimate]
+starter_items: [ec:mage_starter]
+stats: {hp: 100, resource: 100, attack: 10, defense: 5, crit: 0.05, crit_damage: 1.5, element_resist: 0, skill_power: 1}
