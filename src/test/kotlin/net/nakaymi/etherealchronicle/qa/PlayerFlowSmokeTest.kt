@@ -139,7 +139,7 @@ class PlayerFlowSmokeTest {
                 server.pump { false.also { } || true }
                 server.pump(1500) { false }
                 val msgs = generateSequence { player.nextMessage() }.toList()
-                assertTrue(msgs.any { it.contains("討伐") }, "no kill message; messages=$msgs")
+                assertTrue(msgs.any { it.contains("討伐") || it.contains("Enemy defeated") }, "no kill message; messages=$msgs")
                 msgs.joinToString(" | ")
             }
             step("8 quit -> save -> rejoin restores class, no second menu, no duplicate starter") {

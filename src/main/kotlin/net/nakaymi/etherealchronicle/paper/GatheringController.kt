@@ -66,10 +66,24 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
     /** 対象プレイヤーが採取チャネル中かを返します。 */
     fun active(player: UUID)=player in channels
     /** 状態、進捗、BossBarの接続先を管理ログ用に返します。 */
-    fun debugStatus(player:UUID):String=channels[player]?.let { c ->
-        val progress=((System.currentTimeMillis()-c.started).toDouble()/c.duration).coerceIn(0.0,1.0)
-        "採取中 node=${c.site.node.id}/${c.site.location.id} progress=${(progress*100).toInt()}% BossBar=${c.bar.players.any { it.uniqueId==player }} visible=${c.bar.isVisible} duration=${c.duration}ms"
-    } ?: "採取チャンネルなし last=${lastAttempt[player] ?: "まだ採取操作がありません"}"
+    fun debugStatus(player:UUID):String {
+        val locale = Bukkit.getPlayer(player)?.locale()?.toString()
+        val channel = channels[player]
+        if (channel != null) {
+            val progress = ((System.currentTimeMillis() - channel.started).toDouble() / channel.duration).coerceIn(0.0, 1.0)
+            return plugin.message(locale, "ec.debug.gathering_active", mapOf(
+                "node" to "${channel.site.node.id}/${channel.site.location.id}",
+                "progress" to (progress * 100).toInt(),
+                "bossbar" to channel.bar.players.any { it.uniqueId == player },
+                "visible" to channel.bar.isVisible,
+                "duration" to channel.duration
+            )).let(::plain)
+        }
+        val last = lastAttempt[player]
+        val lastText = last?.takeIf { it.startsWith("ec.") }?.let { plain(plugin.message(locale, it)) }
+            ?: last ?: plain(plugin.message(locale, "ec.debug.none"))
+        return plain(plugin.message(locale, "ec.debug.gathering_inactive", mapOf("last" to lastText)))
+    }
     /** プレイヤー周辺の装備・条件・距離・ロックを併記した採取診断を返します。 */
     fun debugStatus(player:org.bukkit.entity.Player):String {
         val active=debugStatus(player.uniqueId)
@@ -81,11 +95,22 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         }
         val nearestText=nearest?.let { site ->
             val distance=kotlin.math.sqrt(player.location.distanceSquared(Location(player.world,site.location.x+0.5,site.location.y.toDouble(),site.location.z+0.5)))
-            "${site.node.id}/${site.location.id} distance=${"%.2f".format(distance)} expected=${site.node.toolKind}/T${site.node.minToolTier}/採取Lv${site.node.minGatheringLevel} cooldown=${profile?.gatheringReadyAt?.get(siteKey(site))?.let { maxOf(0,it-System.currentTimeMillis()) } ?: 0}ms"
-        } ?: "なし"
+            plugin.message(player,"ec.debug.gathering_nearest",
+                "site" to "${site.node.id}/${site.location.id}", "distance" to "%.2f".format(distance),
+                "kind" to site.node.toolKind, "tier" to site.node.minToolTier, "level" to site.node.minGatheringLevel,
+                "cooldown" to (profile?.gatheringReadyAt?.get(siteKey(site))?.let { maxOf(0,it-System.currentTimeMillis()) } ?: 0)
+            ).let(::plain)
+        } ?: plain(plugin.message(player,"ec.debug.none"))
         val owned=runCatching { player.world.name==DemoWorld.NAME && DemoWorld.isOwned(player.world) }.getOrDefault(false)
-        return "$active world=${player.world.name} owned=$owned pos=${player.location.blockX},${player.location.blockY},${player.location.blockZ} profile=${profile!=null} gatheringLv=${profile?.lifeSkills?.get(LifeSkillKind.GATHERING)?.level ?: "?"} held=$held tackle=${tackle?.kind ?: "なし"}/T${tackle?.tier ?: 0} nearest=$nearestText lock=${profile?.let { plugin.adventure.locked(it.uuid) } ?: false}"
+        return plugin.message(player,"ec.debug.gathering_details",
+            "active" to active, "world" to player.world.name, "owned" to owned,
+            "x" to player.location.blockX, "y" to player.location.blockY, "z" to player.location.blockZ,
+            "profile" to (profile!=null), "level" to (profile?.lifeSkills?.get(LifeSkillKind.GATHERING)?.level ?: "?"),
+            "held" to held, "tool" to "${tackle?.kind ?: "none"}/T${tackle?.tier ?: 0}",
+            "nearest" to nearestText, "locked" to (profile?.let { plugin.adventure.locked(it.uuid) } ?: false)
+        ).let(::plain)
     }
+    private fun plain(component:Component):String = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(component)
     /** 戦闘ダメージを受けた採取者だけを中断します。 */
     fun interrupt(player: UUID) { Bukkit.getPlayer(player)?.let { cancel(it,"ec.gathering.cancel_damage") } }
     /** タスク、チャネルBossBar、管理表示を解除します。 */
@@ -107,7 +132,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         // 一地点のワールド・表示失敗を局所化し、起動やプロフィール読込を巻き込みません。
         sites.values.forEach { site ->
             runCatching { renderSite(site) }.onFailure { error ->
-                plugin.logger.warning("採取ノード表示を配置できません (${site.node.id}/${site.location.id}): ${error.message}")
+                plugin.logger.warning("Could not render gathering node ${site.node.id}/${site.location.id}: ${error.message}")
             }
         }
     }
@@ -136,7 +161,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
             entity.persistentDataContainer.set(hitboxKey,PersistentDataType.STRING,k)
         }
         displays[k]=listOf(display.uniqueId,label.uniqueId,hitbox.uniqueId)
-        if(!block.type.isAir && block.type!=Material.WATER) plugin.logger.fine("採取ノード表示位置が空気ではありません: $k")
+        if(!block.type.isAir && block.type!=Material.WATER) plugin.logger.fine("Gathering node display location is obstructed: $k")
     }
 
     /** 採取地点のバニラブロック破壊を抑止します。 */
@@ -220,7 +245,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
             .serialize(plugin.message(player,"ec.gathering.bossbar", "name" to def.name))
         val bar=Bukkit.createBossBar(barTitle,BarColor.GREEN,BarStyle.SOLID).apply { addPlayer(player); progress=0.08 }
         channels[player.uniqueId]=Channel(site,now,duration,origin,bar)
-        lastAttempt[player.uniqueId]="開始成功 node=${site.node.id}/${site.location.id}"
+        lastAttempt[player.uniqueId]="ec.gathering.channel_started"
         player.sendActionBar(plugin.message(player,"ec.gathering.actionbar_start"))
         player.sendMessage(plugin.message(player,"ec.gathering.start_notice", "name" to def.name))
     }
@@ -242,10 +267,12 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         return true
     }
     private fun reject(player:org.bukkit.entity.Player,key:String,vararg values:Pair<String,Any?>) {
-        lastAttempt[player.uniqueId]=key
+        // 診断表示にもその時点のプレースホルダーを反映し、未展開のキーを残しません。
+        val rendered = plain(plugin.message(player, key, *values))
+        lastAttempt[player.uniqueId]=rendered
         if(lastAttempt.size>1000) lastAttempt.keys.firstOrNull()?.let(lastAttempt::remove)
         plugin.logger.fine("GATHER ${player.name}: $key")
-        if(player.isOnline) player.sendMessage(plugin.message(player,key,*values))
+        if(player.isOnline) player.sendMessage(net.kyori.adventure.text.Component.text(rendered))
     }
     private fun tick() {
         val now=System.currentTimeMillis()

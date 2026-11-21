@@ -73,9 +73,9 @@ class ManualClientFindingsTest {
             player.teleport(DemoWorld.luminaSpawn(world))
 
             assertTrue(player.performCommand("ec spawn ec:enemy_aether_slime ${player.name}"))
-            assertTrue(server.pump { player.nextMessage()?.contains("魔物を召喚しました") == true }, "first spawn did not complete")
+            assertTrue(server.pump { player.nextMessage()?.let { it.contains("魔物を召喚しました") || it.contains("Enemy spawned") } == true }, "first spawn did not complete")
             assertTrue(player.performCommand("ec spawn ec:enemy_aether_slime ${player.name}"))
-            assertTrue(server.pump { player.nextMessage()?.contains("同じ魔物が既に存在するか、出現上限に達しています") == true }, "duplicate spawn did not explain the cap")
+            assertTrue(server.pump { player.nextMessage()?.let { it.contains("同じ魔物") || it.contains("already exists or the spawn limit") } == true }, "duplicate spawn did not explain the cap")
         } finally {
             MockBukkit.unmock()
         }

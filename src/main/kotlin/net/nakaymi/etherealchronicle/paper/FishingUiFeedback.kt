@@ -8,7 +8,7 @@ import net.nakaymi.etherealchronicle.core.FishingSpotDefinition
 internal enum class FishingEndReason { CAUGHT, ESCAPED_BITE, LINE_SNAP, LINE_SLACK, TIMEOUT, CANCELLED, QUIT, DEATH, DAMAGE, ROD_CHANGED, LEFT_SPOT, WORLD_UNLOAD, REWARD_FAILED }
 
 internal fun fishingEndLogLine(subject:String,reason:FishingEndReason,fishId:String,progress:Int,tension:Int):String =
-    "FISH $subject: 終了 reason=${reason.name} fish=$fishId progress=${progress}% tension=${tension}%"
+    "FISH $subject: ended reason=${reason.name} fish=$fishId progress=${progress}% tension=${tension}%"
 
 internal fun fishingReelAdvice(behavior:FishBehavior,tension:Double=50.0):String = when(behavior) {
     FishBehavior.CALM -> when {

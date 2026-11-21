@@ -57,7 +57,7 @@ object DemoWorld {
         if(existing != null) {
             val marker=existing.worldFolder.toPath().resolve(".etherealchronicle-owned")
             if(!Files.exists(marker)) {
-                plugin.logger.severe("ec_world は所有マーカーのない既存ワールドです。地形を変更しません: ${existing.worldFolder}")
+                plugin.logger.severe("ec_world exists without an ownership marker; leaving terrain unchanged: ${existing.worldFolder}")
                 return null
             }
             existing.setSpawnLocation(0,65,0)
@@ -72,7 +72,7 @@ object DemoWorld {
             candidates.add(base.worldFolder.toPath().resolve("dimensions/minecraft/$NAME"))
         }
         if(candidates.any { Files.exists(it) && !Files.exists(it.resolve(".etherealchronicle-owned")) }) {
-            plugin.logger.severe("ec_world は既存の未管理ワールドです。地形を変更しません。既存ワールドの名前または保存先を確認してください。")
+            plugin.logger.severe("ec_world is an unmanaged existing world; terrain will not be changed. Check its name or storage path.")
             return null
         }
         val world=WorldCreator(NAME).generator(DemoGenerator()).generateStructures(false).createWorld() ?: return null
@@ -86,7 +86,7 @@ object DemoWorld {
         if(!Files.exists(folder.resolve(".etherealchronicle-built"))) {
             build(world); buildChapter2(world); buildLifeProfessionPools(world); buildSecretSpring(world)
             markFreshBuild(folder,"v4")
-            plugin.logger.info("ec_world を新規作成しました (v4)。")
+        plugin.logger.info("Created ec_world (terrain v4).")
         }
         migrateToV2(plugin,world,world.worldFolder.toPath())
         migrateToV3(plugin,world,world.worldFolder.toPath())
@@ -96,11 +96,11 @@ object DemoWorld {
     private fun enforceHubSpawnSafety(plugin:RpgPlugin,world:World) {
         // Bukkitの自然spawn抑止はワールド全体へ適用します。動物設定は変えず、RPG敵のCUSTOM spawnは維持します。
         disableVanillaHostileSpawns(world)
-        plugin.logger.info("ec_world のバニラ敵対モブ自然湧きを停止しました (allowMonsters=${world.allowMonsters})。")
+        plugin.logger.info("Disabled vanilla hostile spawns in ec_world (allowMonsters=${world.allowMonsters}).")
         val safeAreas=plugin.snapshot.world.areas.values.filter { it.safe && it.world==world.name }
         val enemyKey=NamespacedKey(plugin,"enemy_id")
         val cleared=removeSafeAreaHostiles(world,world.entities,safeAreas,enemyKey)
-        if(cleared.isNotEmpty()) plugin.logger.info("安全地帯のバニラ敵対モブを${cleared.size}体除去しました。ec_worldでは敵対モブの自然湧きを停止しています。")
+        if(cleared.isNotEmpty()) plugin.logger.info("Removed ${cleared.size} vanilla hostile mobs from safe zones; natural hostile spawning is disabled in ec_world.")
     }
     fun clearNearbySafeHostiles(plugin:RpgPlugin,world:World,location:Location):Int {
         if(world.name!=NAME || !runCatching { isOwned(world) }.getOrDefault(false)) return 0
@@ -119,18 +119,18 @@ object DemoWorld {
         if(!Files.exists(folder.resolve(".etherealchronicle-owned"))) return false
         val marker=folder.resolve(".etherealchronicle-built")
         if(!Files.exists(marker)) {
-            plugin.logger.warning("管理済みec_worldに地形バージョンがありません。既存ブロック保護のため移行を行いません: $marker")
+            plugin.logger.warning("Managed ec_world has no terrain version marker; migration skipped to protect existing blocks: $marker")
             return false
         }
         when(Files.readString(marker).trim()) {
             "v1" -> {
                 buildChapter2(world)
                 Files.writeString(marker,"v2\n")
-                plugin.logger.info("ec_world 地形を v1 から v2 に移行しました。第1章の地形は変更していません。")
+                plugin.logger.info("Migrated ec_world terrain v1 to v2; Chapter 1 terrain was preserved.")
                 return true
             }
             "v2", "v3", "v4" -> return true
-            else -> { plugin.logger.warning("ec_world 地形バージョンが不明なため変更しません: $marker"); return false }
+            else -> { plugin.logger.warning("Unknown ec_world terrain version; no changes made: $marker"); return false }
         }
     }
     internal fun markFreshBuild(folder: java.nio.file.Path) {
@@ -148,11 +148,11 @@ object DemoWorld {
             "v2" -> {
                 buildLifeProfessionPools(world)
                 Files.writeString(marker,"v3\n")
-                plugin.logger.info("ec_world の釣り場を追加しました (v2→v3)。既存ブロックは変更していません。")
+                plugin.logger.info("Added fishing spots to ec_world (v2->v3); existing blocks were preserved.")
                 return true
             }
             "v3", "v4" -> return false
-            else -> { plugin.logger.warning("ec_world 地形 v3 へ更新する前に v2 が必要です: $marker"); return false }
+            else -> { plugin.logger.warning("ec_world v2 is required before upgrading terrain to v3: $marker"); return false }
         }
     }
     internal fun migrateToV4(plugin:RpgPlugin,world:World,folder:java.nio.file.Path):Boolean {
@@ -163,11 +163,11 @@ object DemoWorld {
             "v3" -> {
                 buildSecretSpring(world)
                 Files.writeString(marker,"v4\n")
-                plugin.logger.info("ec_world の隠し水辺を追加しました (v3→v4)。既存ブロックは変更していません。")
+                plugin.logger.info("Added hidden fishing pools to ec_world (v3->v4); existing blocks were preserved.")
                 return true
             }
             "v4" -> return false
-            else -> { plugin.logger.warning("ec_world 地形 v4 へ更新する前に v3 が必要です: $marker"); return false }
+            else -> { plugin.logger.warning("ec_world v3 is required before upgrading terrain to v4: $marker"); return false }
         }
     }
     internal fun buildSecretSpring(world:World) {

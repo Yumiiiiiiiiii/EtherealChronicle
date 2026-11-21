@@ -21,15 +21,15 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
     internal fun currentBoss(slot:Int) = instances[slot]?.boss
     /** 参加者・解放条件・instance枠を検証してダンジョンへ入場させます。 */
     fun enter(player: Player,dungeonId: String = "ec:dungeon_void_sanctum") {
-        val definition=plugin.snapshot.world.dungeons[dungeonId] ?: error("ダンジョンが見つかりません: $dungeonId")
-        require(instances.values.none { player.uniqueId in it.members }) { "既にダンジョン内です。" }
+        val definition=plugin.snapshot.world.dungeons[dungeonId] ?: error("ec.error.dungeon_missing: $dungeonId")
+        require(instances.values.none { player.uniqueId in it.members }) { "ec.error.dungeon_already_inside" }
         val party=adventure.parties.party(player.uniqueId)
-        require(party == null || party.leader == player.uniqueId) { "リーダーが入場してください。" }
-        val players=adventure.parties.members(player.uniqueId).map { Bukkit.getPlayer(it) ?: error("全員が参加してから入場してください。") }
-        require(players.all { p -> p.world == player.world && p.location.distanceSquared(player.location) <= 32*32 && plugin.profiles[p.uniqueId]?.classId != null }) { "仲間全員が近くに集まってください。" }
-        require(players.all { definition.unlockFlag in plugin.profiles.getValue(it.uniqueId).flags }) { "仲間全員がダンジョンへの道を開放してください。" }
-        val world=Bukkit.getWorld(DemoWorld.NAME) ?: error("専用ワールドの準備ができていません。")
-        val slot=(0 until plugin.snapshot.world.tuning.instanceCap).firstOrNull { it !in instances } ?: error("聖堂が満員です。しばらくお待ちください。")
+        require(party == null || party.leader == player.uniqueId) { "ec.error.party_leader_required" }
+        val players=adventure.parties.members(player.uniqueId).map { Bukkit.getPlayer(it) ?: error("ec.error.party_not_online") }
+        require(players.all { p -> p.world == player.world && p.location.distanceSquared(player.location) <= 32*32 && plugin.profiles[p.uniqueId]?.classId != null }) { "ec.error.party_gather" }
+        require(players.all { definition.unlockFlag in plugin.profiles.getValue(it.uniqueId).flags }) { "ec.error.dungeon_unlock_required" }
+        val world=Bukkit.getWorld(DemoWorld.NAME) ?: error("ec.error.world_unavailable")
+        val slot=(0 until plugin.snapshot.world.tuning.instanceCap).firstOrNull { it !in instances } ?: error("ec.error.dungeon_full")
         val instance=Instance(slot,definition,players.map { it.uniqueId }.toMutableSet(),players.associate { it.uniqueId to it.location.clone() },tick)
         val x=1024+slot*192; val z=1024
         if(built.add(slot)) for(dx in -24..24) for(dz in -24..24) {
@@ -53,11 +53,11 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
         val offsets=wave?.guardOffsets ?: definition.guardOffsets
         val spawned=mutableListOf<org.bukkit.entity.LivingEntity>()
         try {
-            val boss=enemies.spawn(bossId,Location(world,(x+bossOffset.first).toDouble(),65.0,(z+bossOffset.second).toDouble()),"instance:${instance.slot}:wave:${instance.waveIndex}",1,instance.members.toSet()) ?: error("魔物の出現上限に達しています。")
+            val boss=enemies.spawn(bossId,Location(world,(x+bossOffset.first).toDouble(),65.0,(z+bossOffset.second).toDouble()),"instance:${instance.slot}:wave:${instance.waveIndex}",1,instance.members.toSet()) ?: error("ec.error.spawn_cap")
             spawned += boss
             guards.zip(offsets).forEach { (guard,offset) ->
                 val entity=enemies.spawn(guard,Location(world,x+offset.first.toDouble(),65.0,z+offset.second.toDouble()),"instance:${instance.slot}:wave:${instance.waveIndex}:guards",guards.size.coerceAtLeast(1),instance.members.toSet())
-                if(entity == null) error("護衛魔物を配置できませんでした。")
+                if(entity == null) error("ec.error.guard_spawn_failed")
                 spawned += entity
             }
         } catch(error:Exception) { spawned.forEach { it.remove() }; throw error }
@@ -75,7 +75,7 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
                 spawnWave(instance,world,x,z)
                 instance.members.forEach { member -> Bukkit.getPlayer(member)?.let { player -> player.sendMessage(plugin.message(player,"ec.dungeon.wave", "current" to instance.waveIndex+1, "total" to waveCount)) } }
             } catch(error:Exception) {
-                plugin.logger.warning("試練の次ウェーブを配置できません: ${error.message}")
+                plugin.logger.warning("Challenge wave could not spawn: ${error.message}")
                 instance.members.toList().forEach { Bukkit.getPlayer(it)?.let(::leave) }
             }
             return

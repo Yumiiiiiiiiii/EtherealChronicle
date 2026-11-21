@@ -81,13 +81,13 @@ class AdventurePathsTest {
                 player.isOp = true
                 player.performCommand("ec flag ${player.name} $flag set")
                 assertTrue(flag in profile.flags, "set did not add flag")
-                assertTrue(server.pump { player.nextMessage()?.contains("設定しました") == true }, "set confirmation not Japanese")
+                assertTrue(server.pump { player.nextMessage()?.let { it.contains("設定") || it.contains("was set") } == true }, "set confirmation missing")
                 plugin.persist(profile).join()
                 val saved = File(plugin.dataFolder, "playerdata/${uuid}.yml").readText()
                 assertTrue(saved.contains(flag), "flag missing from saved profile")
                 player.performCommand("ec flag ${player.name} $flag clear")
                 assertFalse(flag in profile.flags, "clear did not remove flag")
-                assertTrue(server.pump { player.nextMessage()?.contains("解除しました") == true }, "clear confirmation not Japanese")
+                assertTrue(server.pump { player.nextMessage()?.let { it.contains("解除") || it.contains("cleared") } == true }, "clear confirmation missing")
                 player.isOp = false
                 "non-admin denied; flag set persisted and cleared"
             }

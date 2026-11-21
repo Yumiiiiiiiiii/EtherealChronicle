@@ -32,7 +32,7 @@ class FishingUiFeedbackTest {
     @Test fun `every fishing end reason has a structured diagnostic line`() {
         FishingEndReason.entries.forEach { reason ->
             val line=fishingEndLogLine("QA",reason,"ec:fish_sunbeam_trout",42,61)
-            assertContains(line,"FISH QA: 終了 reason=${reason.name}")
+            assertContains(line,"FISH QA: ended reason=${reason.name}")
             assertContains(line,"progress=42% tension=61%")
         }
     }

@@ -42,10 +42,13 @@ class LangCatalog internal constructor(
         val selected = if (configuredLanguage == "auto") normalize(clientLocale) else configuredLanguage
         val catalog = if (selected == "en_us") english else japanese
         val translated = ERROR_KEY.replace(text) { match ->
-            val key = match.value
-            catalog[key] ?: japanese[key] ?: key.also {
+            val key = match.groupValues[1]
+            val template = catalog[key] ?: japanese[key] ?: key.also {
                 if (warnedMissing.add(key)) logger.warning("Missing language key: $key")
             }
+            val detail = match.groups[2]?.value?.takeIf(String::isNotBlank) ?: return@replace template
+            val placeholder = Regex("<(\\w+)>")
+            if (placeholder.containsMatchIn(template)) placeholder.replace(template, detail) else "$template: $detail"
         }
         return Component.text(translated)
     }
@@ -60,7 +63,7 @@ class LangCatalog internal constructor(
     }
 
     companion object {
-        private val ERROR_KEY = Regex("ec(?:\\.[a-z0-9_]+)+")
+        private val ERROR_KEY = Regex("(ec(?:\\.[a-z0-9_]+)+)(?::\\s*([^\\n]+))?")
         /** 言語ファイルを読み込みます。既存サーバー編集は初期化側のhash管理で保護します。 */
         fun load(
             dataFolder: Path,

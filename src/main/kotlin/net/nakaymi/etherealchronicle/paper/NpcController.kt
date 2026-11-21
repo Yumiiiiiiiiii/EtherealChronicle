@@ -65,7 +65,7 @@ internal class NpcController(private val plugin: RpgPlugin) : Listener {
 
             entities.remove(definition.id)
             world ?: return@forEach
-            require(world.name == "ec_world") { "NPCは管理対象ワールドにのみ配置できます。" }
+            require(world.name == "ec_world") { "ec.error.world_owned_only" }
             val location = Location(
                 world,
                 definition.position.x,

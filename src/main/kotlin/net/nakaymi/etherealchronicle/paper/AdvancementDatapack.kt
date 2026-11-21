@@ -16,7 +16,7 @@ internal object AdvancementDatapack {
 
     data class Installation(val directory:Path,val packName:String,val changed:Boolean)
 
-    fun install(worldFolder:Path,titles:Collection<TitleDefinition>):Installation {
+    fun install(worldFolder:Path,titles:Collection<TitleDefinition>,rootTitle:String,rootDescription:String,packDescription:String):Installation {
         // Paper 26のWorld.worldFolderはdimensionごとの場所です。
         // datapackはlevel.datと同じlevel rootから読むため、その親フォルダーを求めます。
         val absolute=worldFolder.toAbsolutePath().normalize()
@@ -30,8 +30,8 @@ internal object AdvancementDatapack {
         if(!Files.exists(marker)) atomicWrite(marker,"EtherealChronicle generated advancement datapack\n")
 
         val files=linkedMapOf<String,String>()
-        files["pack.mcmeta"]="""{"pack":{"description":"EtherealChronicle: title advancements","min_format":[121,0],"max_format":[121,0]}}"""
-        files["$ADVANCEMENT_DIR/root.json"]=rootJson()
+        files["pack.mcmeta"]="""{"pack":{"description":"${escape(packDescription)}","min_format":[121,0],"max_format":[121,0]}}"""
+        files["$ADVANCEMENT_DIR/root.json"]=rootJson(rootTitle,rootDescription)
         titles.filter { it.advancement != null }.sortedBy { it.id }.forEach { title ->
             val advancement=title.advancement!!
             val path="$ADVANCEMENT_DIR/${advancementPath(title.id)}.json"
@@ -69,7 +69,7 @@ internal object AdvancementDatapack {
     private fun advancementPath(titleId:String):String = titleId.substringAfter(':')
     private fun parentKey(parent:String):String = if(parent.startsWith("ec:title_")) advancementId(parent) else parent
 
-    private fun rootJson():String = """{"display":{"icon":{"id":"minecraft:book"},"title":"EtherealChronicle","description":"冒険の記録","background":"minecraft:textures/gui/advancements/backgrounds/adventure.png","frame":"task","show_toast":false,"announce_to_chat":false,"hidden":false},"criteria":{"root":{"trigger":"minecraft:impossible"}}}"""
+    private fun rootJson(title:String,description:String):String = """{"display":{"icon":{"id":"minecraft:book"},"title":"${escape(title)}","description":"${escape(description)}","background":"minecraft:textures/gui/advancements/backgrounds/adventure.png","frame":"task","show_toast":false,"announce_to_chat":false,"hidden":false},"criteria":{"root":{"trigger":"minecraft:impossible"}}}"""
 
     private fun titleJson(icon:String,displayTitle:String,description:String,frame:String,parent:String):String =
         """{"parent":"${escape(parent)}","display":{"icon":{"id":"minecraft:${icon.lowercase()}"},"title":"${escape(displayTitle)}","description":"${escape(description)}","frame":"${frame.lowercase()}","show_toast":true,"announce_to_chat":false,"hidden":false},"criteria":{"profile_condition_met":{"trigger":"minecraft:impossible"}}}"""

@@ -57,9 +57,17 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     /** プレイヤー以外の管理コマンドは設定言語、または日本語へフォールバックします。 */
     internal fun message(sender: CommandSender, key: String, vararg values: Pair<String, Any?>): Component =
         language.component((sender as? Player)?.locale()?.toString(), key, values.toMap())
+    /** 指定localeのデバッグ表示を翻訳し、対象がオンラインでない場合も設定言語へ戻します。 */
+    internal fun message(locale: String?, key: String, vararg values: Pair<String, Any?>): Component =
+        language.component(locale, key, values.toMap())
+    /** map形式のプレースホルダーを指定localeで翻訳します。 */
+    internal fun message(locale: String?, key: String, values: Map<String, Any?>): Component =
+        language.component(locale, key, values)
     /** 例外診断中の安定キーを翻訳し、ファイル名やIDなどの診断情報を保ちます。 */
     internal fun diagnostic(sender: CommandSender, text: String): Component =
         language.diagnostic((sender as? Player)?.locale()?.toString(),text)
+    private fun plain(component: Component): String =
+        net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(component)
     /** クラスの資源種別を表示用の翻訳へ変換します。 */
     private fun resourceName(player: Player,kind: ResourceKind): Component = message(player, when(kind) {
         ResourceKind.RAGE -> "ec.resource.rage"
@@ -68,7 +76,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     })
     internal fun persist(profile: PlayerProfile) = store.save(profile)
     internal fun identify(stack: ItemStack?) = stack?.itemMeta?.persistentDataContainer?.get(itemKey,PersistentDataType.STRING)
-    internal fun inventory(player: Player,persistRemoval: Boolean = true): PaperInventoryAccess = PaperInventoryAccess(player,::identify,::createItem,persistRemoval) { logger.fine("取引の消費アイテムを保存しました: ${player.uniqueId}") }
+    internal fun inventory(player: Player,persistRemoval: Boolean = true): PaperInventoryAccess = PaperInventoryAccess(player,::identify,::createItem,persistRemoval) { logger.fine("Persisted consumed transaction items: ${player.uniqueId}") }
     internal fun markDirty(player: UUID) { dirty.add(player) }
     /** YAMLを非同期検証した後、メインスレッドで各ゲームControllerを登録します。 */
     override fun onEnable() {
@@ -87,8 +95,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 val languageInstall = DefaultContentInstaller.installTracked(
                     dataFolder.toPath(), languageDefaults, oldLanguageDefaults, "lang-manifest.properties"
                 )
-                languageInstall.updated.forEach { logger.info("未編集の同梱言語ファイルを更新しました: $it") }
-                languageInstall.changed.forEach { logger.info("サーバー編集の言語ファイルを優先します: $it") }
+                languageInstall.updated.forEach { logger.info("Updated unchanged bundled language file: $it") }
+                languageInstall.changed.forEach { logger.info("Preserving server-edited language file: $it") }
                 language = LangCatalog.load(dataFolder.toPath(), config.getString("language", "auto") ?: "auto", logger)
                 val bundled = getResource("content-index.txt")!!.bufferedReader().use { reader ->
                     reader.readLines().filter { it.isNotBlank() }.associate { path ->
@@ -99,17 +107,17 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 val legacy=getResource("retired-content.properties")?.use { DefaultContentInstaller.manifest(it.readBytes()) } ?: emptyMap()
                 val oldDefaults=getResource("foundation-content.properties")?.use { DefaultContentInstaller.manifest(it.readBytes()) } ?: emptyMap()
                 val retired=DefaultContentInstaller.retire(dataFolder.toPath(),bundled.keys,legacy)
-                retired.retired.forEach { logger.info("旧配布コンテンツを退避しました: $it") }
-                retired.preserved.forEach { logger.warning("編集済みの旧配布ファイルを保持しました。定義を確認してください: $it") }
+                retired.retired.forEach { logger.info("Moved retired bundled content: $it") }
+                retired.preserved.forEach { logger.warning("Preserved edited retired content; review its definition: $it") }
                 val installation=DefaultContentInstaller.installTracked(dataFolder.toPath(),bundled,oldDefaults)
-                installation.updated.forEach { name -> logger.info("未編集の旧配布コンテンツを更新しました (旧版はcontent-historyへ保存): $name") }
+                installation.updated.forEach { name -> logger.info("Updated unchanged bundled content (old copy saved to content-history): $name") }
                 installation.changed.forEach { name ->
-                    logger.info("サーバー編集を優先します: $name（配布版と異なります。更新時は必須項目を比較してください）")
+                    logger.info("Preserving server-edited content differing from bundled defaults: $name")
                 }
                 listOf("balance","classes","skills","items","enemies","bosses","npcs","quests","dialogues","chapters","droptables","shops","titles","tackle","fishing_spots","fish_species","gathering_nodes","treasure_chests").forEach { java.nio.file.Files.createDirectories(dataFolder.toPath().resolve("content").resolve(it)) }
                 val startup=ContentBootstrap.initialize(dataFolder.toPath(),bundled,::validatePaperContent)
                 content=startup.service
-                if(startup.usedFallback) logger.warning("サーバーのコンテンツに不備があります。配布版で起動し /ec validate と /ec reload を有効にします: ${startup.problem}")
+                if(startup.usedFallback) logger.warning("Invalid server content; starting with bundled defaults and keeping /ec validate and /ec reload available: ${startup.problem}")
                 store = PlayerStore(dataFolder.toPath().resolve("playerdata"))
                 simStore = PlayerStore(dataFolder.toPath().resolve("simulation"))
                 sync {
@@ -118,7 +126,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     enemies=EnemyController(this,adventure)
                     dungeons=DungeonController(this,adventure,enemies)
                     try { if(DemoWorld.ensure(this) != null) adventure.reloadNpcs() }
-                    catch(error: Exception) { logger.severe("専用ワールドを準備できませんでした: ${error.message}。基盤機能のみ有効です。") }
+                    catch(error: Exception) { logger.severe("Could not prepare the dedicated world; foundation features remain enabled: ${error.message}") }
                     gathering=GatheringController(this)
                     fishing=FishingController(this)
                     treasures=TreasureController(this).also { it.reload() }
@@ -129,10 +137,10 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     getCommand("ec")!!.setExecutor(this)
                     server.scheduler.runTaskTimer(this,Runnable { tick() },20,20)
                     server.onlinePlayers.forEach { join(it) }
-                    logger.info("冒険システムの準備が完了しました。")
+                    logger.info("Adventure systems are ready.")
                 }
             } catch(e: Exception) {
-                logger.severe("コンテンツの読み込みに失敗: ${e.message}")
+                logger.severe("Failed to load content: ${e.message}")
                 sync { server.pluginManager.disablePlugin(this) }
             }
         })
@@ -147,17 +155,17 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             else enhancementFlights.remove(id)
         }
         if(::adventure.isInitialized) adventure.prepareShutdown()
-        if(::fishing.isInitialized) runCatching { fishing.close() }.onFailure { logger.severe("釣り機能の終了処理に失敗: ${it.message}") }
-        if(::gathering.isInitialized) runCatching { gathering.close() }.onFailure { logger.severe("採取機能の終了処理に失敗: ${it.message}") }
-        if(::dungeons.isInitialized) runCatching { dungeons.shutdown() }.onFailure { logger.severe("聖堂の終了処理に失敗: ${it.message}") }
-        if(::enemies.isInitialized) runCatching { enemies.close() }.onFailure { logger.severe("魔物の終了処理に失敗: ${it.message}") }
-        if(::adventure.isInitialized) runCatching { adventure.close() }.onFailure { logger.severe("NPCの終了処理に失敗: ${it.message}") }
-        if(::treasures.isInitialized) runCatching { treasures.close() }.onFailure { logger.severe("宝箱の終了処理に失敗: ${it.message}") }
+        if(::fishing.isInitialized) runCatching { fishing.close() }.onFailure { logger.severe("Fishing shutdown failed: ${it.message}") }
+        if(::gathering.isInitialized) runCatching { gathering.close() }.onFailure { logger.severe("Gathering shutdown failed: ${it.message}") }
+        if(::dungeons.isInitialized) runCatching { dungeons.shutdown() }.onFailure { logger.severe("Dungeon shutdown failed: ${it.message}") }
+        if(::enemies.isInitialized) runCatching { enemies.close() }.onFailure { logger.severe("Enemy shutdown failed: ${it.message}") }
+        if(::adventure.isInitialized) runCatching { adventure.close() }.onFailure { logger.severe("NPC shutdown failed: ${it.message}") }
+        if(::treasures.isInitialized) runCatching { treasures.close() }.onFailure { logger.severe("Treasure shutdown failed: ${it.message}") }
         server.scheduler.cancelTasks(this)
         if (::store.isInitialized) {
             profiles.values.forEach { store.save(it) }
-            if (::simStore.isInitialized) runCatching { simStore.close() }.onFailure { logger.severe("シミュレーション保存失敗: ${it.message}") }
-            runCatching { store.close() }.onFailure { logger.severe("終了時のデータ保存失敗: ${it.message}") }
+            if (::simStore.isInitialized) runCatching { simStore.close() }.onFailure { logger.severe("Simulation store shutdown failed: ${it.message}") }
+            runCatching { store.close() }.onFailure { logger.severe("Player store shutdown failed: ${it.message}") }
         }
         profiles.clear(); sessions.clear()
     }
@@ -168,17 +176,17 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         catch(_: org.bukkit.plugin.IllegalPluginAccessException) { /* disabled between the check and scheduling */ }
     }
     /** 保存失敗時にdirty状態を戻し、次回autosaveで再試行します。 */
-    internal fun save(p: PlayerProfile) { store.save(p).exceptionally { logger.severe("保存失敗 ${p.uuid}: ${it.message}"); sync { if(p.uuid in profiles) dirty.add(p.uuid) }; null } }
+    internal fun save(p: PlayerProfile) { store.save(p).exceptionally { logger.severe("Save failed ${p.uuid}: ${it.message}"); sync { if(p.uuid in profiles) dirty.add(p.uuid) }; null } }
     /** 接続世代tokenで古い非同期loadを捨て、完了したプロフィールだけを反映します。 */
     private fun join(player: Player) {
         val token = UUID.randomUUID(); sessions[player.uniqueId] = token
         player.sendMessage(message(player,"ec.startup.loading"))
         store.load(player.uniqueId).whenComplete { profile,error -> sync {
             if(sessions[player.uniqueId] != token || !player.isOnline) return@sync
-            if(error != null) { logger.severe("読み込み失敗: ${error.message}"); player.kick(Component.text("冒険データを読み込めませんでした。管理者にご連絡ください。")); return@sync }
+            if(error != null) { logger.severe("Profile load failed: ${error.message}"); player.kick(message(player,"ec.profile.read_failed")); return@sync }
             val snapshot = content.snapshot()
             ProfileContentMigration.apply(profile,snapshot)
-            if(profile.classId != null && snapshot.classes.find(profile.classId!!) == null) { player.kick(Component.text("職業データが見つかりません。管理者にご連絡ください。")); return@sync }
+            if(profile.classId != null && snapshot.classes.find(profile.classId!!) == null) { player.kick(message(player,"ec.profile.class_data_missing")); return@sync }
             profile.level = profile.level.coerceIn(1,snapshot.balance.levelCap)
             profile.skillLevels.replaceAll { _,level -> level.coerceIn(1,snapshot.balance.skillLevelCap) }
             profile.classId = profile.classId?.let { snapshot.classes[it].id }
@@ -260,7 +268,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal fun createItem(id: String, amount: Int = 1): ItemStack {
         val d = content.snapshot().items[id]
         return ItemStack(Material.valueOf(d.material),amount).apply { itemMeta = itemMeta.apply {
-            displayName(Component.text(d.name)); lore(listOf(Component.text("必要レベル: ${d.minLevel} / ${d.rarity.displayName}")))
+            val rarity=language.component(null,d.rarity.displayKey)
+            displayName(Component.text(d.name)); lore(listOf(language.component(null,"ec.item.required_level", mapOf("level" to d.minLevel, "rarity" to rarity))))
             snapshot.world.itemProperties[id]?.lore?.takeIf { it.isNotBlank() }?.let { text -> lore((lore() ?: emptyList())+text.chunked(28).map { Component.text(it) }) }
             persistentDataContainer.set(itemKey,PersistentDataType.STRING,id)
         } }
@@ -310,7 +319,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val restored=runCatching { inventory(player).exchange(emptyMap(),mapOf(flight.material to 1)) }.getOrDefault(false)
         if(restored) {
             profile.discoverItem(flight.material)
-            runCatching { player.saveData() }.onFailure { logger.warning("強化素材返却の保存に失敗: ${profile.uuid}: ${it.message}") }
+            runCatching { player.saveData() }.onFailure { logger.warning("Failed to persist refunded enhancement items for ${profile.uuid}: ${it.message}") }
         } else profile.pendingRewards.merge(flight.material,1,Int::plus)
         save(profile)
         return false
@@ -318,16 +327,19 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private fun advancementWarning(error:Throwable) {
         if(advancementWarningLogged) return
         advancementWarningLogged=true
-        logger.warning("称号進捗データパックを登録できませんでした。称号は冒険プロフィールの解放フラグで利用できます: ${error.message}")
+        logger.warning("Could not register title advancement data pack; profile unlock flags remain authoritative: ${error.message}")
     }
     /** 所有するデータパックだけを生成し、PaperのDatapackManagerで進捗定義を再読込します。 */
     private fun reloadAdvancementPack() {
         val world=server.worlds.firstOrNull { it.environment==World.Environment.NORMAL && it.name!=DemoWorld.NAME }
-            ?: server.worlds.firstOrNull() ?: error("進捗データパックを置くワールドがありません。")
-        val installation=AdvancementDatapack.install(world.worldFolder.toPath(),content.snapshot().world.titles.values)
+            ?: server.worlds.firstOrNull() ?: error("No world is available for the advancement data pack.")
+        val rootTitle=plain(language.component(null,"ec.advancement.root_title"))
+        val rootDescription=plain(language.component(null,"ec.advancement.root_description"))
+        val packDescription=plain(language.component(null,"ec.advancement.pack_description"))
+        val installation=AdvancementDatapack.install(world.worldFolder.toPath(),content.snapshot().world.titles.values,rootTitle,rootDescription,packDescription)
         val manager=server.datapackManager
         manager.refreshPacks()
-        val datapack=manager.getPack(installation.packName) ?: error("データパックが検出されません: ${installation.packName}")
+        val datapack=manager.getPack(installation.packName) ?: error("Advancement data pack was not detected: ${installation.packName}")
         val enabled=datapack.isEnabled
         if(!enabled) datapack.isEnabled=true else if(installation.changed) server.reloadData()
         server.updateResources()
@@ -369,46 +381,52 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal fun openCodexGathering(player: Player) = codexController.openCodexGathering(player)
     internal fun openEnhancement(player:Player) {
         val stack=player.inventory.itemInMainHand
-        val definition=item(stack) ?: error("強化できる冒険者装備を手に持ってください。")
-        require(stack.amount == 1 && definition.slot in setOf(GearSlot.HAND,GearSlot.HEAD,GearSlot.CHEST,GearSlot.LEGS,GearSlot.FEET)) { "装備品を1個だけ手に持ってください。" }
-        require(definition.canEquip(profiles[player.uniqueId] ?: error("プロフィールを読み込み中です。"))) { "この装備は現在の職業・レベルでは使用できません。" }
+        val definition=item(stack) ?: error("ec.error.enhance_hold_gear")
+        require(stack.amount == 1 && definition.slot in setOf(GearSlot.HAND,GearSlot.HEAD,GearSlot.CHEST,GearSlot.LEGS,GearSlot.FEET)) { "ec.error.enhance_one_gear" }
+        require(definition.canEquip(profiles[player.uniqueId] ?: error("ec.error.profile_loading"))) { "ec.error.equipment_requirements" }
         val level=stack.itemMeta.persistentDataContainer.get(enhancementKey,PersistentDataType.INTEGER) ?: 0
         val tuning=snapshot.world.tuning
         val menu=RpgMenu("enhance",definition.id,level.toString(),message(player,"ec.menu.enhance")).inventory
         menu.setItem(4,stack.clone())
         menu.setItem(13,ItemStack(Material.ANVIL).apply { itemMeta=itemMeta.apply {
-            displayName(Component.text("+${level+1} に強化"))
-            lore(listOf(Component.text("必要素材: ${tuning.enhancementMaterial} ×1"),Component.text("費用: ${tuning.enhancementBaseCurrency*(level+1)} G"),Component.text("上限: +${tuning.enhancementCap}")))
+            displayName(message(player,"ec.enhance.button", "level" to (level+1)))
+            lore(listOf(message(player,"ec.enhance.material", "item" to tuning.enhancementMaterial),message(player,"ec.enhance.cost", "cost" to tuning.enhancementBaseCurrency*(level+1)),message(player,"ec.enhance.cap", "level" to tuning.enhancementCap)))
         } })
         player.openInventory(menu)
     }
     internal fun enhance(player:Player,menu:RpgMenu) {
-        val p=profiles[player.uniqueId] ?: error("プロフィールを読み込み中です。")
+        val p=profiles[player.uniqueId] ?: error("ec.error.profile_loading")
         val stack=player.inventory.itemInMainHand
-        require(identify(stack) == menu.contentId) { "強化対象の装備が変わりました。もう一度開いてください。" }
-        val definition=item(stack) ?: error("強化対象の装備が見つかりません。")
+        require(identify(stack) == menu.contentId) { "ec.error.enhance_item_changed" }
+        val definition=item(stack) ?: error("ec.error.enhance_item_missing")
         val current=stack.itemMeta.persistentDataContainer.get(enhancementKey,PersistentDataType.INTEGER) ?: 0
-        require(current == menu.nodeId.toInt()) { "強化段階が更新されています。もう一度開いてください。" }
+        require(current == menu.nodeId.toInt()) { "ec.error.enhance_level_changed" }
         val tuning=snapshot.world.tuning
-        require(current < tuning.enhancementCap) { "強化上限です。" }
+        require(current < tuning.enhancementCap) { "ec.error.enhance_cap" }
         val cost=Math.multiplyExact(tuning.enhancementBaseCurrency,(current+1).toLong())
         val next=definition.enhancedStats(current+1,snapshot.balance,tuning.enhancementRate)
         val now=definition.enhancedStats(current,snapshot.balance,tuning.enhancementRate)
-        require(next != now) { "装備のステータス予算上限に達しています。" }
+        require(next != now) { "ec.error.enhance_budget_cap" }
         val flight=EnhancementFlight(UUID.randomUUID().toString(),tuning.enhancementMaterial,cost)
         adventure.transaction(player,{ inventory ->
-            require(p.currency >= cost) { "所持金が足りません。" }
-            require(inventory.exchange(mapOf(tuning.enhancementMaterial to 1),emptyMap())) { "強化素材が足りません。" }
+            require(p.currency >= cost) { "ec.error.currency_low" }
+            require(inventory.exchange(mapOf(tuning.enhancementMaterial to 1),emptyMap())) { "ec.error.enhance_material_missing" }
             p.currency -= cost
             p.bestEnhancementLevel=maxOf(p.bestEnhancementLevel,current+1)
             game.quests.event(p,ObjectiveKind.ENHANCE_GEAR,(current+1).toString(),1,inventory)
         },beforePersist={
             val held=player.inventory.itemInMainHand
-            require(identify(held) == definition.id && (held.itemMeta.persistentDataContainer.get(enhancementKey,PersistentDataType.INTEGER) ?: 0) == current) { "強化対象の装備が変わりました。費用は発生しません。" }
+            require(identify(held) == definition.id && (held.itemMeta.persistentDataContainer.get(enhancementKey,PersistentDataType.INTEGER) ?: 0) == current) { "ec.error.enhance_item_changed_no_cost" }
             val meta=held.itemMeta
             meta.persistentDataContainer.set(enhancementKey,PersistentDataType.INTEGER,current+1)
             meta.persistentDataContainer.set(enhancementTransactionKey,PersistentDataType.STRING,flight.token)
-            meta.lore((meta.lore() ?: emptyList()).filterNot { it.toString().contains("強化段階") }+Component.text("強化段階 +${current+1}"))
+            val enhancementLore = (1..tuning.enhancementCap).flatMap { level ->
+                listOf("ja_jp", "en_us").map { locale ->
+                    plain(language.component(locale, "ec.enhance.level_lore", mapOf("level" to level)))
+                }
+            }.toSet()
+            val lore = meta.lore() ?: emptyList()
+            meta.lore(lore.filterNot { plain(it) in enhancementLore } + message(player,"ec.enhance.level_lore", "level" to (current+1)))
             held.itemMeta=meta; player.inventory.setItemInMainHand(held)
             player.saveData()
             enhancementFlights[player.uniqueId]=flight
@@ -416,8 +434,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             if(settleEnhancement(player,p)) {
                 syncTitleAdvancements(player,p)
                 applyStats(player,p)
-                player.sendMessage(Component.text("装備を +${current+1} に強化しました。"))
-            } else player.sendMessage(Component.text("強化対象が持ち物から見つからず、費用を返却しました。"))
+                player.sendMessage(message(player,"ec.enhance.success", "level" to (current+1)))
+            } else player.sendMessage(message(player,"ec.enhance.refunded"))
         })
     }
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=false) fun codexClick(e:InventoryClickEvent) {
@@ -426,7 +444,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         if(!menu.kind.startsWith("codex-") && menu.kind != "enhance") return
         e.isCancelled=true
         if(e.rawSlot !in 0 until e.view.topInventory.size) return
-        if(menu.kind == "enhance") { if(e.rawSlot == 13) runCatching { enhance(player,menu) }.onFailure { player.sendMessage(Component.text("強化できません: ${it.message}")) }; return }
+        if(menu.kind == "enhance") { if(e.rawSlot == 13) runCatching { enhance(player,menu) }.onFailure { player.sendMessage(message(player,"ec.command.failed", "reason" to diagnostic(player,it.message.orEmpty()))) }; return }
         when(menu.kind) {
             "codex-areas" -> when(e.rawSlot) { 51 -> openCodexFish(player); 52 -> openCodexGathering(player); 53 -> openCodexItems(player); else -> snapshot.world.areas.values.sortedBy { it.name }.getOrNull(e.rawSlot)?.let { openCodexArea(player,it.id) } }
             "codex-area","codex-items" -> when(e.rawSlot) { 50,53 -> openCodex(player); 51 -> openCodexFish(player); 52 -> openCodexGathering(player) }
@@ -455,7 +473,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             profile.selectedSkill = profile.selectedSkill.coerceIn(0,c.skills.lastIndex)
             val skill = c.skills[profile.selectedSkill]
             if(shouldSendClassHud(gatheringActive,fishingActive)) p.sendActionBar(message(p,"ec.hud.main", "hp" to p.health.toInt(), "max_hp" to s.hp.toInt(), "resource_name" to resourceName(p,c.resource), "resource" to profile.resource.toInt(), "max_resource" to s.resource.toInt(), "skill" to content.snapshot().skills[skill].name, "cooldown" to "%.1f".format(game.skills.remaining(p.uniqueId,skill)/1000.0), "party" to adventure.parties.members(p.uniqueId).size))
-          } catch(error: Exception) { logger.warning("HUD更新失敗 ${p.uniqueId}: ${error.message}") }
+          } catch(error: Exception) { logger.warning("HUD update failed ${p.uniqueId}: ${error.message}") }
         }
         if(++autosaveSeconds >= 60) {
             autosaveSeconds = 0; dirty.toList().forEach { profiles[it]?.let(::save) }; dirty.clear()
@@ -582,7 +600,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 if(now < procReady.getOrDefault(key,0) || kotlin.random.Random.nextDouble() >= effect.chance) continue
                 procReady[key]=now+effect.cooldown.coerceAtLeast(1); e.isCancelled=true
                 player.health=effect.amount.coerceIn(1.0,player.getAttribute(Attribute.MAX_HEALTH)!!.value)
-                player.sendMessage(Component.text("装備の加護が命を守りました！")); return
+                player.sendMessage(message(player,"ec.combat.revive")); return
             }
         }
     }
@@ -615,7 +633,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val position=Position(world.name,location.x,location.y,location.z)
         if(shouldSuppressVanillaHostileSpawn(e.spawnReason.name,true,position,snapshot.world.areas.values)) e.isCancelled=true
     }
-    private fun spawnEnemy(player: Player,id: String) { require(enemies.spawn(id,player.location) != null) { "同じ魔物が既に存在するか、出現上限に達しています。" } }
+    private fun spawnEnemy(player: Player,id: String) { require(enemies.spawn(id,player.location) != null) { "ec.error.spawn_duplicate_or_cap" } }
     @EventHandler fun death(e: EntityDeathEvent) {
         if(!e.entity.persistentDataContainer.has(enemyKey)) return
         e.drops.clear(); e.droppedExp=0
@@ -644,8 +662,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     drops=game.kill(profile,id,inv,xp[playerId] ?: 0,currency[playerId] ?: 0,playerId == loot)
                     drops.forEach { (item,amount) -> profile.pendingRewards.merge(item,amount,Int::plus) }
                 }) {
-                    player.sendMessage(Component.text("魔物を討伐！ レベル ${profile.level} / 経験値 ${profile.xp}"))
-                    if(codexUnlocks.isNotEmpty()) player.sendMessage(Component.text("図鑑の発見率が上がりました: ${codexUnlocks.joinToString()}"))
+                    player.sendMessage(message(player,"ec.combat.enemy_defeated", "level" to profile.level, "xp" to profile.xp))
+                    if(codexUnlocks.isNotEmpty()) player.sendMessage(message(player,"ec.codex.new_discoveries", "items" to codexUnlocks.joinToString()))
                 }
             }
         }
@@ -662,11 +680,11 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     }
     private fun validatePaperContent(c: ContentSnapshot) {
         fun validate(id: String, action: () -> Unit) { try { action() } catch(e: Exception) { throw IllegalArgumentException("${c.sources[id]} [$id]: ${e.message}",e) } }
-        c.items.all().forEach { item -> validate(item.id) { require(Material.valueOf(item.material).isItem) { "material はアイテムである必要があります。" } } }
-        c.classes.all().filter { it.icon != null }.forEach { definition -> validate(definition.id) { require(Material.valueOf(definition.icon!!).isItem) { "icon はアイテム素材である必要があります。" } } }
-        c.world.titles.values.filter { it.advancement != null }.forEach { title -> validate(title.id) { require(Material.valueOf(title.advancement!!.icon).isItem) { "進捗 icon はアイテム素材である必要があります。" } } }
-        c.world.gatheringNodes.values.forEach { node -> validate(node.id) { require(Material.valueOf(node.displayMaterial).isBlock && Material.valueOf(node.depletedMaterial).isBlock) { "採取ノードの表示素材はブロックである必要があります。" } } }
-        c.documents.values.filter { it["type"] in setOf("enemy","boss") }.forEach { d -> validate(d.string("id")) { require(EntityType.valueOf(d.string("entity")).isAlive) { "entity は生物である必要があります。" } } }
+        c.items.all().forEach { item -> validate(item.id) { require(Material.valueOf(item.material).isItem) { "ec.error.invalid_content: material" } } }
+        c.classes.all().filter { it.icon != null }.forEach { definition -> validate(definition.id) { require(Material.valueOf(definition.icon!!).isItem) { "ec.error.invalid_content: icon" } } }
+        c.world.titles.values.filter { it.advancement != null }.forEach { title -> validate(title.id) { require(Material.valueOf(title.advancement!!.icon).isItem) { "ec.error.invalid_content: advancement.icon" } } }
+        c.world.gatheringNodes.values.forEach { node -> validate(node.id) { require(Material.valueOf(node.displayMaterial).isBlock && Material.valueOf(node.depletedMaterial).isBlock) { "ec.error.invalid_content: gathering display material" } } }
+        c.documents.values.filter { it["type"] in setOf("enemy","boss") }.forEach { d -> validate(d.string("id")) { require(EntityType.valueOf(d.string("entity")).isAlive) { "ec.error.invalid_content: entity" } } }
     }
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if(!ready) {
@@ -708,67 +726,67 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     } }
                 }
                 "world" -> {
-                    val p=(args.getOrNull(1)?.let(server::getPlayerExact) ?: sender as? Player) ?: error("プレイヤーを指定してください。")
-                    p.teleport(Bukkit.getWorld(DemoWorld.NAME)?.spawnLocation ?: error("管理対象ワールドがありません。"))
+                    val p=(args.getOrNull(1)?.let(server::getPlayerExact) ?: sender as? Player) ?: error("ec.error.player_required")
+                    p.teleport(Bukkit.getWorld(DemoWorld.NAME)?.spawnLocation ?: error("ec.error.world_unavailable"))
                 }
                 "currency" -> {
-                    require(args.size == 3) { "/ec currency <player> <balance>" }
-                    val p=server.getPlayerExact(args[1]) ?: error("プレイヤーが見つかりません。")
-                    val profile=profiles[p.uniqueId] ?: error("読み込み中です。")
+                    require(args.size == 3) { "ec.error.usage: /ec currency <player> <balance>" }
+                    val p=server.getPlayerExact(args[1]) ?: error("ec.error.player_missing")
+                    val profile=profiles[p.uniqueId] ?: error("ec.error.profile_loading")
                     require(!adventure.locked(profile.uuid)); val balance=args[2].toLong(); require(balance in 0..snapshot.world.tuning.maxCurrency)
-                    profile.currency=balance; save(profile); logger.info("管理者回復: ${sender.name} -> ${p.name} 所持金 $balance")
+                    profile.currency=balance; save(profile); logger.info("Admin currency adjustment: ${sender.name} -> ${p.name} balance=$balance")
                     sender.sendMessage(message(sender,"ec.command.currency_set"))
                 }
                 "flag" -> {
-                    require(args.size in 3..4) { "/ec flag <player> <flag> [set|clear]" }
-                    val p=server.getPlayerExact(args[1]) ?: error("プレイヤーが見つかりません。")
-                    val profile=profiles[p.uniqueId] ?: error("プロフィールを読み込み中です。")
-                    require(!adventure.locked(profile.uuid)) { "取引処理中のため変更できません。" }
-                    val flag=args[2]; require(Regex("ec:flag_[a-z][a-z0-9_]*").matches(flag)) { "フラグIDの形式が正しくありません。" }
+                    require(args.size in 3..4) { "ec.error.usage: /ec flag <player> <flag> [set|clear]" }
+                    val p=server.getPlayerExact(args[1]) ?: error("ec.error.player_missing")
+                    val profile=profiles[p.uniqueId] ?: error("ec.error.profile_loading")
+                    require(!adventure.locked(profile.uuid)) { "ec.error.transaction_busy" }
+                    val flag=args[2]; require(Regex("ec:flag_[a-z][a-z0-9_]*").matches(flag)) { "ec.error.flag_format" }
                     val operation=args.getOrNull(3) ?: "set"
-                    require(operation in setOf("set","clear")) { "操作は set または clear を指定してください。" }
+                    require(operation in setOf("set","clear")) { "ec.error.flag_operation" }
                     val declared=snapshot.world.chapters.values.flatMap { it.strings("flags") }.toSet()
-                    require(flag in declared || flag in profile.flags) { "章に定義されていないフラグです: $flag" }
+                    require(flag in declared || flag in profile.flags) { "ec.error.flag_not_declared: $flag" }
                     val changed=if(operation == "set") profile.flags.add(flag) else profile.flags.remove(flag)
                     save(profile)
-                    logger.info("管理者フラグ操作: ${sender.name} -> ${p.name} $flag $operation")
-                    sender.sendMessage(Component.text(if(changed) "フラグを${if(operation == "set") "設定" else "解除"}しました: $flag" else "フラグは既に${if(operation == "set") "設定" else "解除"}済みです: $flag"))
+                    logger.info("Admin flag update: ${sender.name} -> ${p.name} $flag $operation")
+                    sender.sendMessage(message(sender,if(changed) "ec.command.flag_changed" else "ec.command.flag_unchanged", "flag" to flag, "operation" to message(sender,if(operation == "set") "ec.command.flag_set" else "ec.command.flag_clear")))
                 }
                 "admin" -> {
-                    require(args.size == 5 && args[1] == "lifeskill") { "/ec admin lifeskill <player> <FISHING|GATHERING> <level>" }
-                    val p=server.getPlayerExact(args[2]) ?: error("プレイヤーが見つかりません。")
-                    val profile=profiles[p.uniqueId] ?: error("プロフィールを読み込み中です。")
-                    require(!adventure.locked(profile.uuid)) { "取引処理中のため変更できません。" }
+                    require(args.size == 5 && args[1] == "lifeskill") { "ec.error.usage: /ec admin lifeskill <player> <FISHING|GATHERING> <level>" }
+                    val p=server.getPlayerExact(args[2]) ?: error("ec.error.player_missing")
+                    val profile=profiles[p.uniqueId] ?: error("ec.error.profile_loading")
+                    require(!adventure.locked(profile.uuid)) { "ec.error.transaction_busy" }
                     val kind=LifeSkillKind.valueOf(args[3].uppercase()); val level=args[4].toInt()
-                    require(level in 1..snapshot.world.lifeBalance.levelCap) { "生活スキルレベルは1..${snapshot.world.lifeBalance.levelCap}で指定してください。" }
+                    require(level in 1..snapshot.world.lifeBalance.levelCap) { "ec.error.life_level_range: ${snapshot.world.lifeBalance.levelCap}" }
                     profile.lifeSkills[kind]=LifeSkillProgress(level,0); save(profile)
-                    sender.sendMessage(Component.text("${kind.name} をレベル $level に設定しました。"))
+                    sender.sendMessage(message(sender,"ec.command.life_level_set", "kind" to message(sender,if(kind == LifeSkillKind.FISHING) "ec.life.fishing" else "ec.life.gathering"), "level" to level))
                 }
                 "spawn" -> {
-                    require(args.size == 3) { "/ec spawn <enemy> <player>" }
-                    val p = server.getPlayerExact(args[2]) ?: error("プレイヤーが見つかりません。")
-                    spawnEnemy(p,args[1]); sender.sendMessage(Component.text("魔物を召喚しました。"))
+                    require(args.size == 3) { "ec.error.usage: /ec spawn <enemy> <player>" }
+                    val p = server.getPlayerExact(args[2]) ?: error("ec.error.player_missing")
+                    spawnEnemy(p,args[1]); sender.sendMessage(message(sender,"ec.command.enemy_spawned"))
                 }
                 "starter" -> {
-                    require(args.size == 2) { "/ec starter <player>" }
-                    val p = server.getPlayerExact(args[1]) ?: error("プレイヤーが見つかりません。")
-                    val profile = profiles[p.uniqueId] ?: error("読み込み中です。")
+                    require(args.size == 2) { "ec.error.usage: /ec starter <player>" }
+                    val p = server.getPlayerExact(args[1]) ?: error("ec.error.player_missing")
+                    val profile = profiles[p.uniqueId] ?: error("ec.error.profile_loading")
                     require(p.uniqueId !in choosing && profile.classId != null && !adventure.locked(p.uniqueId))
                     profile.starterGranted = false; starter(p,profile,profile.classId!!)
                 }
                 "give" -> {
-                    require(args.size in 3..4) { "/ec give <player> <item> [amount]" }
-                    val p = server.getPlayerExact(args[1]) ?: error("プレイヤーが見つかりません。")
+                    require(args.size in 3..4) { "ec.error.usage: /ec give <player> <item> [amount]" }
+                    val p = server.getPlayerExact(args[1]) ?: error("ec.error.player_missing")
                     val amount = args.getOrNull(3)?.toInt() ?: 1
                     require(amount in 1..64)
                     require(!adventure.locked(p.uniqueId))
-                    require(inventory(p).exchange(emptyMap(),mapOf(args[2] to amount))) { "持ち物に空きがありません。" }
+                    require(inventory(p).exchange(emptyMap(),mapOf(args[2] to amount))) { "ec.error.inventory_full" }
                     sender.sendMessage(message(sender,"ec.command.item_given"))
                 }
                 "setlevel" -> {
                     require(args.size == 3)
-                    val p = server.getPlayerExact(args[1]) ?: error("プレイヤーが見つかりません。")
-                    val profile = profiles[p.uniqueId] ?: error("読み込み中です。")
+                    val p = server.getPlayerExact(args[1]) ?: error("ec.error.player_missing")
+                    val profile = profiles[p.uniqueId] ?: error("ec.error.profile_loading")
                     require(!adventure.locked(profile.uuid))
                     val level = args[2].toInt(); require(level in 1..content.snapshot().balance.levelCap)
                     profile.level = level; profile.xp = 0; save(profile)
@@ -776,15 +794,15 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 }
                 "class" -> {
                     require(args.size == 3)
-                    val p = server.getPlayerExact(args[1]) ?: error("プレイヤーが見つかりません。")
-                    val profile = profiles[p.uniqueId] ?: error("読み込み中です。")
+                    val p = server.getPlayerExact(args[1]) ?: error("ec.error.player_missing")
+                    val profile = profiles[p.uniqueId] ?: error("ec.error.profile_loading")
                     val c = content.snapshot().classes[args[2]]
                     require(!adventure.locked(profile.uuid))
                     game.changeClass(profile,c.id); save(profile); applyStats(p,profile)
                     sender.sendMessage(message(sender,"ec.command.class_set"))
                 }
                 "debug" -> debug(sender,args.drop(1))
-                else -> sender.sendMessage(Component.text("/ec reload | validate | give <player> <item> [amount] | setlevel <player> <level> | class <player> <id> | flag <player> <flag> [set|clear] | debug sim …"))
+                else -> sender.sendMessage(message(sender,"ec.command.help"))
             }
         } catch(e: Exception) {
             val reason=e.message?.let { diagnostic(sender,it) } ?: Component.empty()
@@ -793,18 +811,24 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         return true
     }
     private fun playerCommand(player: Player,args: List<String>) {
-        val p=profiles[player.uniqueId] ?: error("読み込み中です。")
-        require(!adventure.locked(p.uuid)) { "取引の処理中です。" }
+        val p=profiles[player.uniqueId] ?: error("ec.error.profile_loading")
+        require(!adventure.locked(p.uuid)) { "ec.error.transaction_busy" }
         when(args[0]) {
             "codex" -> openCodex(player)
             "enhance" -> openEnhancement(player)
             "fish" -> {
                 if(args.getOrNull(1)=="bait") {
-                    val value=args.getOrNull(2) ?: error("/ec fish bait <item_id|auto|none>")
-                    val text=fishing.selectBait(p,value); save(p); player.sendMessage(Component.text(text))
+                    val value=args.getOrNull(2) ?: error("ec.error.usage: /ec fish bait <item_id|auto|none>")
+                    val selected=fishing.selectBait(p,value); save(p)
+                    val response=when(selected) {
+                        "AUTO" -> message(player,"ec.fishing.bait_enabled_auto")
+                        "NONE" -> message(player,"ec.fishing.bait_disabled")
+                        else -> message(player,"ec.fishing.bait_selected","name" to snapshot.items[selected].name)
+                    }
+                    player.sendMessage(response)
                 } else {
                     val life=p.lifeSkills.getValue(LifeSkillKind.FISHING); val required=LifeSkillEngine(snapshot.world.lifeBalance).requiredXp(life.level)
-                    val bait=when(p.fishingBait){"AUTO"->"自動";"NONE"->"なし";else->p.fishingBait}
+                    val bait=when(p.fishingBait){"AUTO"->message(player,"ec.fishing.bait_auto");"NONE"->message(player,"ec.fishing.bait_none");else->Component.text(p.fishingBait)}
                     player.sendMessage(message(player,"ec.life.fishing_status", "level" to life.level, "xp" to life.xp, "required" to required, "score" to FishingEngine(snapshot.world.lifeBalance).score(p), "found" to p.fishRecords.values.count { it.count>0 }, "total" to snapshot.world.fishSpecies.size, "bait" to bait))
                     player.sendMessage(message(player,"ec.life.fishing_bait_help"))
                 }
@@ -836,53 +860,53 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 else -> dungeons.enter(player,args[1])
             }
             "shop" -> {
-                val id=args.getOrNull(1) ?: error("/ec shop <id>")
-                val npc=snapshot.world.npcs.values.firstOrNull { it.shop == id } ?: error("この店を開くNPCが見つかりません。")
-                require(npc.position.world == player.world.name && Location(player.world,npc.position.x,npc.position.y,npc.position.z).distanceSquared(player.location) <= 64) { "お店の近くに移動してください。" }
+                val id=args.getOrNull(1) ?: error("ec.error.usage: /ec shop <id>")
+                val npc=snapshot.world.npcs.values.firstOrNull { it.shop == id } ?: error("ec.error.shop_npc_missing")
+                require(npc.position.world == player.world.name && Location(player.world,npc.position.x,npc.position.y,npc.position.z).distanceSquared(player.location) <= 64) { "ec.error.shop_too_far" }
                 adventure.showShop(player,id)
             }
             "quest" -> when(args.getOrNull(1)) {
-                "start" -> { require(player.hasPermission("etherealchronicle.admin")) { "依頼はNPCとの会話から受注してください。" }; game.startQuest(p,args.getOrNull(2) ?: error("/ec quest start <id>")); save(p); player.sendMessage(Component.text("依頼を受注しました。")) }
-                "complete" -> { require(player.hasPermission("etherealchronicle.admin")) { "依頼はNPCに報告してください。" }; adventure.transaction(player,{ inv -> game.completeQuest(p,args.getOrNull(2) ?: error("/ec quest complete <id>"),inv) }) { player.sendMessage(Component.text("依頼を達成しました！")) } }
+                "start" -> { require(player.hasPermission("etherealchronicle.admin")) { "ec.error.quest_npc_start" }; game.startQuest(p,args.getOrNull(2) ?: error("ec.error.usage: /ec quest start <id>")); save(p); player.sendMessage(message(player,"ec.quest.accepted")) }
+                "complete" -> { require(player.hasPermission("etherealchronicle.admin")) { "ec.error.quest_npc_complete" }; adventure.transaction(player,{ inv -> game.completeQuest(p,args.getOrNull(2) ?: error("ec.error.usage: /ec quest complete <id>"),inv) }) { player.sendMessage(message(player,"ec.quest.completed")) } }
                 else -> {
-                    if(p.quests.isEmpty()) player.sendMessage(Component.text("受注中の依頼はありません。"))
+                    if(p.quests.isEmpty()) player.sendMessage(message(player,"ec.quest.none_active"))
                     p.quests.forEach { (id,q) ->
                         val definition=snapshot.world.quests[id]
-                        player.sendMessage(Component.text("${definition?.name ?: id}: ${if(q.completed) "達成済み" else if(game.quests.ready(p,id,inventory(player))) "報告できます" else "進行中"}"))
-                        if(!q.completed) definition?.objectives?.forEach { o -> player.sendMessage(Component.text("・${o.target} ${if(o.kind == ObjectiveKind.COLLECT) inventory(player).count(o.target).coerceAtMost(o.amount) else q.objectives.getOrDefault(o.id,0)}/${o.amount}")) }
+                        player.sendMessage(message(player,"ec.quest.status", "name" to (definition?.name ?: id), "status" to message(player,when { q.completed -> "ec.quest.status_complete"; game.quests.ready(p,id,inventory(player)) -> "ec.quest.status_ready"; else -> "ec.quest.status_active" })))
+                        if(!q.completed) definition?.objectives?.forEach { o -> player.sendMessage(message(player,"ec.quest.objective_progress", "target" to o.target, "progress" to (if(o.kind == ObjectiveKind.COLLECT) inventory(player).count(o.target).coerceAtMost(o.amount) else q.objectives.getOrDefault(o.id,0)), "amount" to o.amount)) }
                     }
                 }
             }
             "party" -> when(args.getOrNull(1)) {
                 "invite" -> {
-                    val target=args.getOrNull(2)?.let(server::getPlayerExact) ?: error("仲間が見つかりません。")
+                    val target=args.getOrNull(2)?.let(server::getPlayerExact) ?: error("ec.error.party_member_missing")
                     adventure.parties.invite(p.uuid,target.uniqueId)
-                    target.sendMessage(Component.text("${player.name} からパーティー招待です。/ec party accept（60秒以内）")); player.sendMessage(Component.text("招待を送りました。"))
+                    target.sendMessage(message(target,"ec.party.invite_received", "name" to player.name)); player.sendMessage(message(player,"ec.party.invite_sent", "name" to target.name))
                 }
-                "accept" -> { adventure.parties.accept(p.uuid); player.sendMessage(Component.text("パーティーに参加しました。")) }
-                "leave" -> { dungeons.leave(player); adventure.parties.leave(p.uuid); player.sendMessage(Component.text("パーティーを離れました。")) }
-                else -> player.sendMessage(Component.text("仲間: ${adventure.parties.members(p.uuid).joinToString { Bukkit.getPlayer(it)?.name ?: "離席中" }}"))
+                "accept" -> { adventure.parties.accept(p.uuid); player.sendMessage(message(player,"ec.party.joined")) }
+                "leave" -> { dungeons.leave(player); adventure.parties.leave(p.uuid); player.sendMessage(message(player,"ec.party.left")) }
+                else -> player.sendMessage(message(player,"ec.party.members", "members" to adventure.parties.members(p.uuid).joinToString { Bukkit.getPlayer(it)?.name ?: message(player,"ec.party.offline").toString() }))
             }
         }
     }
     private fun debug(sender: CommandSender, args: List<String>) {
         if(args.firstOrNull()=="fish") {
-            val action=args.getOrNull(1) ?: error("/ec debug fish <start|status|cancel> <player> [魚種ID]")
-            val playerName=args.getOrNull(2) ?: error("/ec debug fish $action <player> [魚種ID]")
-            val player=server.getPlayerExact(playerName) ?: error("プレイヤーが見つかりません: $playerName")
+            val action=args.getOrNull(1) ?: error("ec.error.usage: /ec debug fish <start|status|cancel> <player> [species-id]")
+            val playerName=args.getOrNull(2) ?: error("ec.error.usage: /ec debug fish $action <player> [species-id]")
+            val player=server.getPlayerExact(playerName) ?: error("ec.error.player_missing: $playerName")
             val message=when(action) {
                 "start" -> fishing.debugStart(player,args.getOrNull(3))
                 "status" -> fishing.debugStatus(player.uniqueId)
-                "cancel" -> if(fishing.debugCancel(player)) "釣りセッションを終了しました。" else "釣りセッションはありません。"
-                else -> error("/ec debug fish <start|status|cancel> <player> [魚種ID]")
+                "cancel" -> message(player,if(fishing.debugCancel(player)) "ec.fishing.debug_cancel" else "ec.fishing.no_session").toString()
+                else -> error("ec.error.usage: /ec debug fish <start|status|cancel> <player> [species-id]")
             }
-            sender.sendMessage(Component.text("FISH ${player.name}: $message")); return
+            sender.sendMessage(message(sender,"ec.debug.fish_prefix","name" to player.name,"detail" to message)); return
         }
         if(args.firstOrNull()=="gather") {
-            require(args.getOrNull(1)=="status") { "/ec debug gather status <player>" }
-            val playerName=args.getOrNull(2) ?: error("/ec debug gather status <player>")
-            val player=server.getPlayerExact(playerName) ?: error("プレイヤーが見つかりません: $playerName")
-            sender.sendMessage(Component.text("GATHER ${player.name}: ${gathering.debugStatus(player)}")); return
+            require(args.getOrNull(1)=="status") { "ec.error.usage: /ec debug gather status <player>" }
+            val playerName=args.getOrNull(2) ?: error("ec.error.usage: /ec debug gather status <player>")
+            val player=server.getPlayerExact(playerName) ?: error("ec.error.player_missing: $playerName")
+            sender.sendMessage(message(sender,"ec.debug.gather_prefix","name" to player.name,"detail" to gathering.debugStatus(player))); return
         }
         simulationCommands.run(sender, args)
     }

@@ -510,7 +510,7 @@ class EarlyGameContentValidationTest {
             earlyTitles.map { world.titles.getValue(it).advancement!!.condition.type }.toSet(),
         )
 
-        val install = AdvancementDatapack.install(tempDir.resolve("world"), world.titles.values)
+        val install = AdvancementDatapack.install(tempDir.resolve("world"), world.titles.values, "エセリアルクロニクル", "冒険の記録", "エセリアルクロニクル: 称号進捗")
         assertTrue(install.changed)
         earlyTitles.forEach { tid ->
             val fileName = tid.substringAfter(':') + ".json"

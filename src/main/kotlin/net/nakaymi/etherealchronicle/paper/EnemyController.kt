@@ -44,10 +44,10 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
     fun killer(id: UUID): Player? = attackers[id]?.let(Bukkit::getPlayer)
     fun multiplier(id: UUID) = dealing[id] ?: states[id]?.boss?.damageScale(tick) ?: 1.0
     fun spawn(id: String,location: Location,point: String="admin:$id",cap: Int=1,participants: Set<UUID> = emptySet(),pinForSimulation: Boolean=false): LivingEntity? {
-        val d=plugin.snapshot.world.enemies[id] ?: error("魔物が見つかりません。")
+        val d=plugin.snapshot.world.enemies[id] ?: error("ec.error.enemy_missing: $id")
         if(budget.count(point) >= cap || budget.total() >= plugin.snapshot.world.tuning.enemyCap) return null
         val world=location.world ?: return null
-        if(world.name != DemoWorld.NAME) error("魔物は管理対象ワールドにのみ召喚できます。")
+        if(world.name != DemoWorld.NAME) error("ec.error.world_owned_only")
         if(pinForSimulation) location.chunk.addPluginChunkTicket(plugin)
         val entity=world.spawnEntity(location,EntityType.valueOf(d.entity)) as LivingEntity
         if(!budget.reserve(entity.uniqueId,point,cap)) { entity.remove(); return null }
@@ -86,7 +86,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
                 val viewers=eligible.map { it.uniqueId }.toSet()
                 bar.players.filter { it.uniqueId !in viewers }.forEach(bar::removePlayer); eligible.forEach { if(it !in bar.players) bar.addPlayer(it) }
                 bar.progress=(state.boss.hp/state.boss.maximumHp).coerceIn(0.0,1.0)
-                bar.setTitle("${d.name} ${state.boss.hp.toInt()}/${state.boss.maximumHp.toInt()} 形態 ${d.phases.indexOf(state.boss.phase()).coerceAtLeast(0)+1}${if(tick-state.boss.started >= d.enrageTicks) " 暴走" else ""}")
+                bar.setTitle("${d.name} ${state.boss.hp.toInt()}/${state.boss.maximumHp.toInt()}  Phase ${d.phases.indexOf(state.boss.phase()).coerceAtLeast(0)+1}${if(tick-state.boss.started >= d.enrageTicks) " ENRAGE" else ""}")
             }
             if(entity.location.distanceSquared(state.home) > d.leash*d.leash) {
                 entity.teleport(state.home); state.boss.hp=state.boss.maximumHp; state.target=null; if(entity is Mob) entity.target=null
@@ -112,8 +112,8 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
                 warnings += Warning(entity.uniqueId,special,location,direction,tick+special.telegraph)
                 state.specials[special.id]=tick+special.cooldown
                 val element=special.element ?: d.element
-                val cue=if(element == "ICE") "青白い" else if(element == "VOID") "紫の" else "色付きの"
-                target.sendMessage(net.kyori.adventure.text.Component.text("予兆: ${special.name}！${cue}範囲から離れてください。"))
+                val cue=when(element) { "ICE" -> "ec.boss.telegraph_ice"; "VOID" -> "ec.boss.telegraph_void"; else -> "ec.boss.telegraph_generic" }
+                target.sendMessage(plugin.message(target,"ec.boss.telegraph", "attack" to special.name, "cue" to plugin.message(target,cue)))
                     break // 1 scheduler stepにつきtelegraphを1つだけ開始します。
             }
         }

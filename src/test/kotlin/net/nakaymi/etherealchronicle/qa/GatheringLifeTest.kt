@@ -73,7 +73,7 @@ class GatheringLifeTest {
                 assertTrue(idleMessages.none { it.contains("採取") || it.contains("倒れた") },"inactive player was messaged: $idleMessages")
                 a.inventory.setItemInMainHand(plugin.createItem("ec:item_tool_sickle_silver")); interact(a)
                 assertTrue(plugin.gathering.active(a.uniqueId),"channel was not started")
-                assertTrue(plugin.gathering.debugStatus(a.uniqueId).contains("BossBar=true"),"BossBar was not attached: ${plugin.gathering.debugStatus(a.uniqueId)}")
+                assertTrue(plugin.gathering.debugStatus(a.uniqueId).contains("bossbar=true", ignoreCase = true),"BossBar was not attached: ${plugin.gathering.debugStatus(a.uniqueId)}")
                 generateSequence { a.nextMessage() }.toList()
                 server.pluginManager.callEvent(EntityDamageEvent(a,EntityDamageEvent.DamageCause.CUSTOM,1.0))
                 server.pluginManager.callEvent(EntityDamageEvent(a,EntityDamageEvent.DamageCause.CUSTOM,1.0))
@@ -88,10 +88,11 @@ class GatheringLifeTest {
                 interactAt(a,world.getBlockAt(nodeLoc.x,nodeLoc.y,nodeLoc.z))
                 val message=a.nextMessage() ?: error("missing gather requirement message")
                 assertTrue(message.contains("SICKLE") && (message.contains("dedicated") || message.contains("専用道具")),"unexpected gate message: $message")
-                assertTrue(plugin.gathering.debugStatus(a).contains("last=") && plugin.gathering.debugStatus(a).contains("held=vanilla:AIR"),plugin.gathering.debugStatus(a))
+                val status = plugin.gathering.debugStatus(a)
+                assertTrue((status.contains("last=") || status.contains("Last attempt") || status.contains("最終試行")) && status.contains("held=vanilla:AIR"),status)
                 a.inventory.setItemInMainHand(plugin.createItem("ec:item_tool_sickle_silver")); interactAt(a,world.getBlockAt(nodeLoc.x,nodeLoc.y,nodeLoc.z))
                 assertTrue(plugin.gathering.active(a.uniqueId),"clicking visual block coordinate did not start a channel")
-                assertTrue(plugin.gathering.debugStatus(a).contains("BossBar=true"),plugin.gathering.debugStatus(a))
+                assertTrue(plugin.gathering.debugStatus(a).contains("bossbar=true", ignoreCase = true),plugin.gathering.debugStatus(a))
                 val startMessage=a.nextMessage() ?: ""
                 assertTrue(startMessage.contains("Gathering") || startMessage.contains("採取を開始しました"),"channel start did not give chat feedback")
                 plugin.gathering.interrupt(a.uniqueId)
@@ -119,7 +120,7 @@ class GatheringLifeTest {
                 generateSequence { a.nextMessage() }.toList()
                 a.inventory.setItemInMainHand(plugin.createItem("ec:item_tool_sickle_silver")); interact(a)
                 assertTrue(plugin.gathering.active(a.uniqueId), "channel did not start")
-                assertTrue(plugin.gathering.debugStatus(a.uniqueId).contains("BossBar=true"),"BossBar was not attached")
+                assertTrue(plugin.gathering.debugStatus(a.uniqueId).contains("bossbar=true", ignoreCase = true),"BossBar was not attached")
                 var tickErr: Throwable? = null
                 val end = System.currentTimeMillis() + 6000
                 while (plugin.gathering.active(a.uniqueId) && System.currentTimeMillis() < end) { try { server.scheduler.waitAsyncTasksFinished(); server.scheduler.performOneTick() } catch (t: Throwable) { tickErr = tickErr ?: t }; Thread.sleep(20) }
