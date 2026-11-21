@@ -57,6 +57,9 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     /** プレイヤー以外の管理コマンドは設定言語、または日本語へフォールバックします。 */
     internal fun message(sender: CommandSender, key: String, vararg values: Pair<String, Any?>): Component =
         language.component((sender as? Player)?.locale()?.toString(), key, values.toMap())
+    /** 例外診断中の安定キーを翻訳し、ファイル名やIDなどの診断情報を保ちます。 */
+    internal fun diagnostic(sender: CommandSender, text: String): Component =
+        language.diagnostic((sender as? Player)?.locale()?.toString(),text)
     /** クラスの資源種別を表示用の翻訳へ変換します。 */
     private fun resourceName(player: Player,kind: ResourceKind): Component = message(player, when(kind) {
         ResourceKind.RAGE -> "ec.resource.rage"
@@ -672,7 +675,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         }
         if(sender is Player && args.firstOrNull() in setOf("quest","party","equipment","dungeon","shop","claim","title","codex","enhance","fish","gather")) {
             try { playerCommand(sender,args.toList()) } catch(error: Exception) {
-                val reason=error.message?.let { if(it.startsWith("ec.")) message(sender,it) else Component.text(it) } ?: Component.empty()
+                val reason=error.message?.let { diagnostic(sender,it) } ?: Component.empty()
                 sender.sendMessage(message(sender,"ec.command.failed", "reason" to reason))
             }
             return true
@@ -683,7 +686,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 "reload", "validate" -> {
                     val reload = args[0] == "reload"
                     CompletableFuture.supplyAsync { content.load().also(::validatePaperContent) }.whenComplete { snapshot,error -> sync {
-                        if(error != null) sender.sendMessage(message(sender,"ec.command.validation_failed", "reason" to (error.cause?.message ?: error.message)))
+                        if(error != null) sender.sendMessage(message(sender,"ec.command.validation_failed", "reason" to diagnostic(sender,error.cause?.message ?: error.message.orEmpty())))
                         else {
                             if(reload) {
                                 if(adventure.hasTransactions() || choosing.isNotEmpty() || dungeons.activeCount() > 0) { sender.sendMessage(message(sender,"ec.command.reload_busy")); return@sync }
@@ -784,7 +787,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 else -> sender.sendMessage(Component.text("/ec reload | validate | give <player> <item> [amount] | setlevel <player> <level> | class <player> <id> | flag <player> <flag> [set|clear] | debug sim …"))
             }
         } catch(e: Exception) {
-            val reason=e.message?.let { if(it.startsWith("ec.")) message(sender,it) else Component.text(it) } ?: Component.empty()
+            val reason=e.message?.let { diagnostic(sender,it) } ?: Component.empty()
             sender.sendMessage(message(sender,"ec.command.failed", "reason" to reason))
         }
         return true

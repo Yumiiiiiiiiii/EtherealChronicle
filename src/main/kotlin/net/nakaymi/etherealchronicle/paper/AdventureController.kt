@@ -162,8 +162,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                 }
             }
         } catch(error: Exception) {
-            val key=Regex("ec\\.error\\.[a-z0-9_.]+").find(error.message.orEmpty())?.value
-            val reason=key?.let { plugin.message(player,it) } ?: Component.text(error.message.orEmpty())
+            val reason=plugin.diagnostic(player,error.message.orEmpty())
             player.sendMessage(plugin.message(player,"ec.command.failed", "reason" to reason))
         }
     }
@@ -225,8 +224,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                 consumableReady[p.uuid to id]=now+(effects.maxOfOrNull { it.cooldown } ?: 0)
             }
         } catch(error: Exception) {
-            val key=Regex("ec\\.error\\.[a-z0-9_.]+").find(error.message.orEmpty())?.value
-            val reason=key?.let { plugin.message(player,it) } ?: Component.text(error.message.orEmpty())
+            val reason=plugin.diagnostic(player,error.message.orEmpty())
             player.sendMessage(plugin.message(player,"ec.command.failed", "reason" to reason))
         }
         return true

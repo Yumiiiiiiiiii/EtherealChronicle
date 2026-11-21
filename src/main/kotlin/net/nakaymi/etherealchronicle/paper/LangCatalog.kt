@@ -37,6 +37,19 @@ class LangCatalog internal constructor(
         return MiniMessage.miniMessage().deserialize(template, *resolvers.toTypedArray())
     }
 
+    /** 検証診断などに埋め込まれたec.*エラーキーだけを選択言語へ展開します。 */
+    fun diagnostic(clientLocale: String?, text: String): Component {
+        val selected = if (configuredLanguage == "auto") normalize(clientLocale) else configuredLanguage
+        val catalog = if (selected == "en_us") english else japanese
+        val translated = ERROR_KEY.replace(text) { match ->
+            val key = match.value
+            catalog[key] ?: japanese[key] ?: key.also {
+                if (warnedMissing.add(key)) logger.warning("Missing language key: $key")
+            }
+        }
+        return Component.text(translated)
+    }
+
     /** テストと用語一覧生成用に、翻訳キーから日本語・英語を返します。 */
     internal fun entries(): Map<String, Pair<String?, String?>> =
         (japanese.keys + english.keys).associateWith { key -> japanese[key] to english[key] }
@@ -47,6 +60,7 @@ class LangCatalog internal constructor(
     }
 
     companion object {
+        private val ERROR_KEY = Regex("ec(?:\\.[a-z0-9_]+)+")
         /** 言語ファイルを読み込みます。既存サーバー編集は初期化側のhash管理で保護します。 */
         fun load(
             dataFolder: Path,
