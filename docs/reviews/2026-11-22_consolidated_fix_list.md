@@ -3,11 +3,11 @@
 - **統合元レビュー**:
   - `docs/reviews/2026-11-22_master_claude-qa.md`（Claude-QA / `9b0cb4b`）
   - `docs/reviews/2026-11-22_master_antigravity.md`（Antigravity-QA-3 / `67cb2a0`）
-  - Task 20 差分（`8f3acfa`）のリード確認メモ
+  - `docs/reviews/2026-11-22_task20_antigravity.md`（Antigravity-QA-3 / `8565cc0` — Task 20 差分 `8f3acfa`）
 - **運用ルール**: `AGENTS.md` の「Cross-model review loop」に従い、Wave 単位でコミット＋全テスト実行し、完了後に実装者以外の全モデル（Claude / Antigravity）が再確認して全項目クローズ（または理由付き受容）となるまで完了としない。
 - **実行計画**:
   - **Batch 1（Wave 1〜3）**: High / Med のセキュリティ・正しさバグ修正＋回帰テスト
-  - **Batch 2（Wave 4〜6）**: 高速化 (`Perf`)・書き方の違和感 (`Idiom`)・見栄え/構成分割 (`Style` / `Polish`)・残テスト拡充
+  - **Batch 2（Wave 3B + Wave 4〜6）**: Task 20 ゲート修正（`FIX-39`〜`FIX-45`）・高速化 (`Perf`)・書き方の違和感 (`Idiom`)・見栄え/構成分割 (`Style` / `Polish`)・残テスト拡充
 
 ---
 
@@ -27,7 +27,7 @@
   - NAT 共有上限と Paper 内部 API 依存について起動ログ/KDoc を明記する。
 - [ ] **FIX-05 `[High][Bug]`** (`AG H-03`) `ResourcePackController.kt:96-112`, `RpgPlugin.kt:1003-1024`
   - `ResourcePackController.send()` で `ResourcePackPolicy.decide(...)` を `loadedPlayers` 早期 return より前に評価し、`/ec ui pack off`（`!decision.send`）で適用済みプレイヤーも必ず `loadedPlayers` 解除＋`refreshPackItemModels(player, false)` されるようにする。
-- [ ] **FIX-06 `[Med][Bug]`** (`AG M-02`) `ResourcePackController.kt:139-147,180-186,211-231`
+- [ ] **FIX-06 `[Med][Bug]`** (`AG M-02`, `T20-M03`) `ResourcePackController.kt:139-147,180-186,211-231`
   - `close()` に `observedManagedStatuses.clear()` を追加。
   - `applyManagedStatus()` で `SUCCESSFULLY_LOADED` のみ `loaded = true`、終端失敗ステータスのみ `loaded = false` とし、`ACCEPTED`/`DOWNLOADED` 中間ステータスでカスタムモデルが剥がれないようにする。
   - `buildInfo()` の SHA-1 / サイズ結果をキャッシュし、`/ec pack info` のたびにメインスレッドで JAR を再読込しないようにする。
@@ -89,6 +89,32 @@
 
 ---
 
+## Wave 3B — Task 20 必須パックゲート修正（Batch 2 冒頭）
+
+- [ ] **FIX-39 `[High][Bug/Perf/Style]`** (`T20-H01, T20-M04, T20-L01, T20-L03, T20-L04, T20-P02`) `RpgPlugin.kt:253-342`
+  - 12 個のロックハンドラを独立クラス `RequiredPackLockListener` へ分離し、全ハンドラを **`EventPriority.LOWEST`**（他 Controller より先頭登録）へ変更する。
+  - `RequiredPackGate.hasWaiters()` による O(1) 早期 return・`isLocked(entity: Any?)` 統一・`PlayerMoveEvent.movedBlock()`（ワールド跨ぎ含む）共通化・非必須設定時は未登録にする。
+  - `FishingController.interact` / `GatheringController.interact` 等の `ignoreCancelled` を統一する。`finishLoadedJoin` の未使用引数 `snapshot` 削除、誤記 KDoc と `config.yml` の `10..600` 範囲コメント修正。
+- [ ] **FIX-40 `[High][Security]`** (`T20-H02`) `RequiredPackLockListener`, `RpgPlugin.kt`, `AdventureController.kt`, `EnemyController.kt`
+  - `PlayerInteractEntityEvent` / `PlayerInteractAtEntityEvent` / `EntityPickupItemEvent` / `PlayerPortalEvent` / `ProjectileLaunchEvent` / `FoodLevelChangeEvent` / `EntityTargetLivingEntityEvent` をロック対象に追加し、`EntityDamageByEntityEvent` で `Projectile.shooter` も判定する。
+  - `RpgPlugin.tick()` / `AdventureController.tick()` / `EnemyController.tick()` で必須パック待機中プレイヤーを除外する。
+- [ ] **FIX-41 `[High][Bug]`** (`T20-H03`) `ResourcePackController.kt:109,115-121,131`
+  - `send()` で要求を送信せずに return する全経路（`!decision.send` / 配信不能 / 既に適用済み `loadedPlayers`）で、`requiredPackGate.isWaiting(playerId)` なら必ず `releaseRequiredWait(playerId, continueJoin = true)` を呼び、永久デッドロックを防ぐ。
+- [ ] **FIX-42 `[High][Bug/Idiom]`** (`T20-H04, T20-L02, T20-P01`) `ResourcePackController.kt:18,45-48,151-157,188-194,238,246-266,363`
+  - 4 並列コレクションを `RequiredWaitSession(var dispatchTask, var timeoutTask, val waiters)` の 1 マップへ集約し、1-tick `runTaskLater` タスクも `releaseRequiredWait` / `onQuit` / `close` で確実に `cancel()` し、セッション同一性 (`requiredSessions[playerId] === session`) を検証して高速リログ競合を解消する。
+  - `10..600` 範囲定数を `RequiredPackGatePolicy` へ一本化し、`onStatus()` の冗長な `terminalFailure` 判定と `player.uniqueId` 反復を整理する。
+- [ ] **FIX-43 `[Med][Bug]`** (`T20-M01, T20-M03, T20-M06`) `ResourcePackController.kt:106-140,197-198,220-244`
+  - `required: true` 下で過去に `OFF` 保存済みの非 bypass プレイヤーが必須適用後も `hasResourcePack() == true` になるよう修正する。
+  - `onStatus()` で中間ステータス（`ACCEPTED` / `DOWNLOADED`）も `debugLog` 出力する。
+  - `send()` で `deliveryEndpoint` 判定を 1 回に統一し、送信例外時はプレイヤー側設定拒否文言ではなくサーバー送信失敗向けの案内キーでキックする。
+- [ ] **FIX-44 `[Med][Bug]`** (`T20-M02`) `RpgPlugin.kt:242-261,344-350`
+  - 必須パック拒否/タイムアウトで未プレイ切断した初回プレイヤーのプロファイル新規書き出しを抑止する（`finishLoadedJoin` まで `profiles` 未登録、または未入場保存ガード）。
+  - 待機中の `lockMovementUntilPack` が空中スポーン時の落下着地まで止めて `Flying is not enabled` キックを誘発しないよう、水平移動・上昇のみ抑止（または安全位置固定）する。
+- [ ] **FIX-45 `[Med][Test]`** (`T20-M05`) `src/test/kotlin/net/nakaymi/etherealchronicle/paper/`
+  - 重複している `RequiredPackGatePolicy.shouldWait` テストを 1 箇所へ統合し、MockBukkit 結合テスト（優先順位 `LOWEST` ブロック・NPC/アイテム拾得ブロック・`SUCCESSFULLY_LOADED` 解除・`DECLINED`/タイムアウト/高速リログ/`bypass` 変化でデッドロック無し）を追加する。
+
+---
+
 ## Wave 4 — Performance & Hot-Path Optimization（Batch 2）
 
 - [ ] **FIX-27 `[Med][Perf]`** (`AG M-10`, `CL M6`) `AdventureController.kt:42-60`, `RpgPlugin.kt:416-418,607-621,763-770`
@@ -127,8 +153,8 @@
   - `Bukkit.getPlayer(uuid)` 後の冗長な `isOnline` チェックと重複キャスト/`!!` を解消する。
   - `PlayerStore.read` に `Any?.boundedInt(range, field)` ヘルパーを導入しエラー時のフィールド名を明示する。
   - UUID キーの並列一時状態マップを可能な範囲でセッションオブジェクトへ整理する。
-- [ ] **FIX-34 `[Low][Style]`** (`AG L-01`, `CL L11, S2`, Task 20 差分) `RpgPlugin.kt`
-  - 1,200 行超になった `RpgPlugin.kt` を責務分割する：Task 20 で増えた 12 個のロックイベントハンドラを `RequiredPackLockListener` へ切り出し、`AdminCommandHandler`（共通 `target()` ヘルパー付き）、`EnhancementService` / `StarterGearService` 等を分離して見通しを改善する。
+- [ ] **FIX-34 `[Low][Style]`** (`AG L-01`, `CL L11, S2`, `T20-L03`) `RpgPlugin.kt`
+  - 1,200 行超になった `RpgPlugin.kt` を責務分割する：`RequiredPackLockListener`（FIX-39）、`AdminCommandHandler`（共通 `target()` ヘルパー付き）、`EnhancementService` / `StarterGearService` 等を分離して見通しを改善する。
 - [ ] **FIX-35 `[Low][Style]`** (`AG L-02, L-03`, `CL L2, L9, S5`) `PlayerStore.kt:99-119`, `DemoWorld.kt:64-95,120-191`
   - `PlayerStore` マイグレーションを段階パイプライン化（v0→v13 を各ステップ 1 関数で順次適用）。
   - `DemoWorld` の `migrateToV2..V5` を共通ヘルパー `migrateStep(...)` へ統合し、新規作成ログのバージョン表記を正確化する。
