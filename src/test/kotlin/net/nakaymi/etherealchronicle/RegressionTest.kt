@@ -24,6 +24,20 @@ class RegressionTest {
         assertFalse(Files.exists(temp.resolve("content/items/old.yml"))); assertTrue(Files.exists(temp.resolve("content/items/custom.yml")))
         assertTrue(Files.walk(temp.resolve("retired-content")).use { paths -> paths.anyMatch { it.fileName.toString() == "old.yml" } })
     }
+    @Test fun `upgrade refreshes only unchanged foundation defaults and archives previous bytes`() {
+        val oldRoot=Path.of("src/test/resources/foundation-content")
+        val old=Files.walk(oldRoot).use { paths -> paths.filter { Files.isRegularFile(it) }.toList().associate { "content/"+oldRoot.relativize(it).joinToString("/") to Files.readAllBytes(it) } }
+        val known=javaClass.getResourceAsStream("/foundation-content.properties")!!.use { DefaultContentInstaller.manifest(it.readBytes()) }
+        assertEquals(old.mapValues { DefaultContentInstaller.hash(it.value) },known)
+        val bundled=bundled(); old.forEach { (name,bytes) -> val target=temp.resolve(name); Files.createDirectories(target.parent); Files.write(target,bytes) }
+        val edited=temp.resolve("content/classes/warrior.yml"); Files.writeString(edited,Files.readString(edited)+"# server edit\n")
+        val result=DefaultContentInstaller.installTracked(temp,bundled,known)
+        assertTrue("content/balance/default.yml" in result.updated)
+        assertTrue("content/classes/warrior.yml" in result.changed)
+        assertContentEquals(bundled.getValue("content/balance/default.yml"),Files.readAllBytes(temp.resolve("content/balance/default.yml")))
+        assertTrue(Files.walk(temp.resolve("content-history")).use { paths -> paths.anyMatch { it.fileName.toString()=="default.yml" } })
+        assertTrue(Files.readString(edited).contains("# server edit"))
+    }
     @Test fun `foundation upgrade retires seven defaults and reports exact invalid server file before fallback`() {
         val oldRoot=Path.of("src/test/resources/foundation-content")
         val old=Files.walk(oldRoot).use { paths -> paths.filter { Files.isRegularFile(it) }.toList().associate { "content/"+oldRoot.relativize(it).joinToString("/") to Files.readAllBytes(it) } }

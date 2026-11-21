@@ -59,10 +59,13 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     }
                 }
                 val legacy=getResource("retired-content.properties")?.use { DefaultContentInstaller.manifest(it.readBytes()) } ?: emptyMap()
+                val oldDefaults=getResource("foundation-content.properties")?.use { DefaultContentInstaller.manifest(it.readBytes()) } ?: emptyMap()
                 val retired=DefaultContentInstaller.retire(dataFolder.toPath(),bundled.keys,legacy)
                 retired.retired.forEach { logger.info("旧配布コンテンツを退避しました: $it") }
                 retired.preserved.forEach { logger.warning("編集済みの旧配布ファイルを保持しました。定義を確認してください: $it") }
-                DefaultContentInstaller.install(dataFolder.toPath(),bundled).forEach { name ->
+                val installation=DefaultContentInstaller.installTracked(dataFolder.toPath(),bundled,oldDefaults)
+                installation.updated.forEach { name -> logger.info("未編集の旧配布コンテンツを更新しました (旧版はcontent-historyへ保存): $name") }
+                installation.changed.forEach { name ->
                     logger.info("サーバー編集を優先します: $name（配布版と異なります。更新時は必須項目を比較してください）")
                 }
                 listOf("balance","classes","skills","items","enemies","bosses","npcs","quests","dialogues","chapters","droptables","shops").forEach { java.nio.file.Files.createDirectories(dataFolder.toPath().resolve("content").resolve(it)) }
