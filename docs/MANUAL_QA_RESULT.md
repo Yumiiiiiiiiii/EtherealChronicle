@@ -62,3 +62,11 @@ Processes stopped; `server.properties` / `ops.json` restored.
 | `ec spawn` still works | PASS | wolf summoned; duplicate message shown |
 | Debug fishing UI (boss bar, action bar, failure title) | PASS | `逃げられた…` / `糸が切れてしまった` after line snap |
 | Debug fishing success + record | NOT-RUN | scripted timing failed twice; `fish_records` empty |
+
+## Task 11 real-client check (offline QaFresh, 2026-11-21)
+| Item | Result | Evidence |
+|---|---|---|
+| Title toast on `ec:flag_title_rookie_slayer` | PASS | `Advancement Made! 港町の新鋭討伐者` |
+| `/ec title` list | PASS | check mark on rookie_slayer |
+| Gather boss bar | NOT CONFIRMED | still no boss bar; see TESTING.md |
+| Hidden chest, time-window NPC, arena on client | NOT-RUN | no shipped content (chest/time) / time-boxed (arena, MockBukkit only) |

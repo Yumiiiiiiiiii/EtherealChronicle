@@ -234,3 +234,19 @@ Suite after merge and the new QA tests: 146 tests, 0 skipped, 0 failures. New QA
 
 ## Debug fishing cue check (codex 957f0e8, offline QaFresh, 2026-11-21)
 Real client: at tension 0% the action bar now reads `張力 0% | 進捗 0% 張力が低い！右クリックで引く` (low-tension cue confirmed). The high-tension "release" cue and a human-controlled successful catch (reward, title, `fish_records` persistence) are still NOT verified. Processes stopped; `server.properties` / `ops.json` restored.
+
+## Task 11 / early-content verification (master 69f8f0f, 2026-11-21)
+| Area | Result | Evidence |
+|---|---|---|
+| Build + unit/MockBukkit tests | PASS | 178 tests + new `NoviceArenaTest` green |
+| Boot / validate / reload | PASS | no ERROR lines in the live server log |
+| Profile schema 10->11 | PASS | live QaFresh profile is `schema_version: 11`; `SchemaNineToTenTest` now asserts >= 11 and no progress loss |
+| ec_world v3->v4 | PASS | upgraded live, second boot idempotent, existing world kept |
+| Novice arena gate / enter / leave / re-enter | PASS | `NoviceArenaTest` (MockBukkit): no instance without `ec:flag_early_trial_unlocked`, 1 with it, 0 after leave, re-entry ok |
+| Arena waves / rank / first-rank reward once / personal record | NOT independently tested | covered only by Codex engine tests |
+| Guild board 4h repeat reset, new objectives (CATCH_FISH/GATHER_NODE/ENHANCE_GEAR), new title conditions | NOT independently tested | Codex tests only |
+| Hidden chests, time/weather-window NPC/enemy | NOT TESTABLE | engine-only; no shipped content uses them |
+| Title toast + `/ec title` (real client) | PASS | toast `港町の新鋭討伐者` after flag; list shows the check mark |
+| Gather boss bar (real client) | NOT CONFIRMED (3rd attempt) | no boss bar 0.35-3 s after right-click; profile `gathering_records` stayed empty on the last attempt (node likely on cooldown or click not registering) |
+| Hidden NPC Luna, Baldo, arena dialogue, advancement tab (L), debug fish | NOT-RUN | time-boxed |
+Processes stopped; `server.properties` / `ops.json` restored; port 25565 closed; 0 ERROR lines.
