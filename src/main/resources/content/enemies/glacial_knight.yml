@@ -1,0 +1,28 @@
+schema_version: 1
+id: ec:enemy_glacial_knight
+type: enemy
+name: 蒼氷城の近衛騎士
+entity: WITHER_SKELETON
+level: 19
+hp: 8200
+attack: 112
+defense: 86
+xp: 920
+currency: 115
+droptable: ec:drop_glacial_knight
+element: ICE
+weaknesses: [FIRE, LIGHTNING]
+resistances: [ICE, PHYSICAL]
+speed: 0.25
+size: 2
+elite: true
+aggro_range: 17
+leash_range: 30
+attack_interval_ticks: 38
+traits: [KNOCKBACK_RESIST]
+specials:
+  - {id: glacier_cleave, name: '氷刃の薙ぎ払い', shape: CONE, cooldown_ticks: 180, telegraph_ticks: 24, radius: 4.5, range: 6, multiplier: 1.85, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: SLOW}
+  - {id: frost_bulwark_slam, name: '蒼氷盾撃', shape: CIRCLE, cooldown_ticks: 300, telegraph_ticks: 26, radius: 4.5, range: 6, multiplier: 1.55, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: KNOCKUP}
+spawn_points:
+  - {id: citadel_outer_court, world: ec_world, x: 758, y: 65, z: -12, cap: 2, respawn_ticks: 420}
+  - {id: citadel_inner_hall, world: ec_world, x: 776, y: 65, z: 12, cap: 2, respawn_ticks: 420}

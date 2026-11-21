@@ -1,0 +1,57 @@
+schema_version: 1
+id: ec:dlg_borka_hub
+type: dialogue
+name: ボルカの鍛冶場
+speaker: ec:npc_borka
+start: root
+nodes:
+  root:
+    text: ガハハ！よく来たな、南の英雄さんよ！俺はこの前哨基地の鍛冶師ボルカだ。こんな凍てつく空でも炉の火だけは絶やさねぇ。装備も温燻鮭も、必要なもんは全部揃ってるぜ！
+    branches:
+      - {condition: {has_flags: ['ec:flag_ch2_choice4_stabilize']}, next: root_discount}
+    choices:
+      - id: open_shop
+        label: 氷嶺の装備・交換所を見る
+        actions:
+          - {kind: OPEN_SHOP, target: 'ec:shop_frostpeak_outfitter'}
+      - id: start_s01
+        label: 防寒具作りの手伝いを聞く（極寒を凌ぐ毛皮と氷晶・受注）
+        condition: {min_level: 16, has_flags: ['ec:flag_ch2_started'], not_started_quests: ['ec:quest_ch2_s01_frost_pelt']}
+        next: s01_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_ch2_s01_frost_pelt'}
+      - id: complete_s01
+        label: 毛皮と凍結晶を持ってきたよ（極寒を凌ぐ毛皮と氷晶・報告）
+        condition: {active_quests: ['ec:quest_ch2_s01_frost_pelt']}
+        next: s01_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_ch2_s01_frost_pelt'}
+      - id: bye
+        label: また炉端に来るよ
+  root_discount:
+    text: ガハハ！導管を低温安定させてくれたおかげで、炉の調子が絶好調だぜ！あんたには感謝の印にゴールド品を常時1割引きで譲ってやる。好きなだけ見ていきな！
+    choices:
+      - id: open_shop_disc
+        label: 氷嶺の装備・交換所を見る（ゴールド10%割引適用）
+        actions:
+          - {kind: OPEN_SHOP, target: 'ec:shop_frostpeak_outfitter'}
+      - id: start_s01_disc
+        label: 防寒具作りの手伝いを聞く（極寒を凌ぐ毛皮と氷晶・受注）
+        condition: {min_level: 16, has_flags: ['ec:flag_ch2_started'], not_started_quests: ['ec:quest_ch2_s01_frost_pelt']}
+        next: s01_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_ch2_s01_frost_pelt'}
+      - id: complete_s01_disc
+        label: 毛皮と凍結晶を持ってきたよ（極寒を凌ぐ毛皮と氷晶・報告）
+        condition: {active_quests: ['ec:quest_ch2_s01_frost_pelt']}
+        next: s01_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_ch2_s01_frost_pelt'}
+      - id: bye_disc
+        label: ありがとう、ボルカ！
+  s01_started:
+    text: 氷嶺の奥へ行くなら、並の兜じゃすぐ頭まで凍っちまうぞ。霧氷オオカミの毛皮を6枚と凍結晶の破片を3つ持ってきな！俺特製の『氷嶺防寒の兜』をタダで叩いてやるぜ！
+    choices: []
+  s01_done:
+    text: おう、極上の毛皮と氷晶じゃねぇか！ほらよ、出来立ての『氷嶺防寒の兜』と俺自慢の温燻鮭料理だ。これで吹雪の中でもピンピン戦えるぜ、ガハハ！
+    choices: []

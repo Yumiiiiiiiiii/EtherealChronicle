@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_acc_frostbreaker_signet
+type: item
+name: 破氷の戦印
+material: AMETHYST_SHARD
+rarity: EPIC
+slot: ACCESSORY
+min_level: 17
+classes: []
+budget: 20
+stats: {attack: 22, crit: 0.07, crit_damage: 0.18, skill_power: 0.24}
+bound: true
+price: 0
+lore: '教団の冷却網を過熱破壊した際にセラフィナから託された戦印。【破氷の一閃】攻撃に呼応して鋭い氷破の衝撃を走らせる。'
+effects:
+  - {kind: ATTACK_PROC, amount: 50, cooldown_ms: 10000, chance: 0.32, element: ICE}

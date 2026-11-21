@@ -1,0 +1,14 @@
+schema_version: 1
+id: ec:item_mat_glacial_shard
+type: item
+name: 蒼氷の欠片
+material: DIAMOND
+rarity: RARE
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 90
+bound: false
+lore: '第二の星片から零れ落ちた純粋な氷晶欠片。鍛冶師ボルカの元で氷嶺武具と交換できる。'

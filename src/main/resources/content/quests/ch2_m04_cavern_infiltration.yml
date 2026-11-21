@@ -1,0 +1,20 @@
+schema_version: 1
+id: ec:quest_ch2_m04_cavern_infiltration
+type: quest
+name: 蒼晶の氷窟への潜入
+condition: {min_level: 17, completed_quests: ['ec:quest_ch2_m03_frozen_conduit']}
+objectives:
+  - {id: enter_cavern, kind: EXPLORE, target: 'ec:area_crystalline_cavern', amount: 1}
+  - {id: defeat_cryo_cultists, kind: KILL, target: 'ec:enemy_cryo_cultist', amount: 6}
+  - {id: seize_frost_cipher, kind: COLLECT, target: 'ec:item_q_cult_frost_cipher', amount: 1, consume: true}
+  - {id: report_seraphina, kind: TALK, target: 'ec:npc_seraphina', amount: 1}
+rewards:
+  xp: 4600
+  currency: 920
+  set_flags: ['ec:flag_ch2_cipher_decoded']
+  items:
+    - {item: 'ec:item_mat_glacial_shard', amount: 6}
+    - {item: 'ec:item_con_aether_crystal_tonic', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

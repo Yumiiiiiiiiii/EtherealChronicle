@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_con_frostguard_brew
+type: item
+name: 氷嶺耐寒の秘薬
+material: POTION
+rarity: RARE
+slot: NONE
+min_level: 16
+classes: []
+budget: 0
+stats: {}
+price: 260
+lore: '北国の香草と氷晶の雫を煎じた耐寒回復薬。HPを680回復し、短時間防御力を高める。'
+effects:
+  - {kind: HEAL, amount: 680, cooldown_ms: 10000, chance: 1.0}
+  - {kind: DEFENSE_BUFF, amount: 18, cooldown_ms: 10000, duration_ticks: 160, chance: 1.0}

@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_arm_snowstalker_coat
+type: item
+name: 雪原猟兵の外套
+material: LEATHER_CHESTPLATE
+rarity: EPIC
+slot: CHEST
+min_level: 19
+classes: [ec:class_archer]
+budget: 46
+stats: {hp: 115, defense: 28, attack: 24, crit: 0.08, element_resist: 0.10}
+price: 3600
+lore: '白銀の防寒布と氷晶糸で仕立てた猟兵外套。【極寒の息吹】凍てつく空気の中でも呼吸を乱さず集中を回復する。'
+effects:
+  - {kind: RESOURCE, amount: 22, cooldown_ms: 14000, chance: 1.0}

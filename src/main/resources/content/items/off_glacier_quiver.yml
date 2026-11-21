@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_off_glacier_quiver
+type: item
+name: 蒼氷羽の矢束
+material: SPECTRAL_ARROW
+rarity: EPIC
+slot: OFFHAND
+min_level: 18
+classes: [ec:class_archer]
+budget: 21
+stats: {attack: 18, crit: 0.08, crit_damage: 0.16, resource: 25, element_resist: 0.06}
+price: 2900
+lore: '蒼氷の結晶鏃を束ねた特製の矢束。【凍裂追射】鋭い連射に呼応して氷晶の破片を散らす。'
+effects:
+  - {kind: ATTACK_PROC, amount: 46, cooldown_ms: 12000, chance: 0.32, element: ICE}

@@ -1,0 +1,9 @@
+schema_version: 1
+id: ec:drop_cryo_cultist
+type: droptable
+entries:
+  - {item: 'ec:item_q_cult_frost_cipher', chance: 0.75, min: 1, max: 1, pity_after: 3}
+  - {item: 'ec:item_mat_cryo_crystal', chance: 0.65, min: 1, max: 2}
+  - {item: 'ec:item_mat_glacial_shard', chance: 0.45, min: 1, max: 2}
+  - {item: 'ec:item_con_aether_crystal_tonic', chance: 0.18, min: 1, max: 1}
+  - {item: 'ec:item_wpn_rime_scepter', chance: 0.04, min: 1, max: 1, pity_after: 25}

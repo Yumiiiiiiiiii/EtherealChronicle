@@ -1,0 +1,17 @@
+schema_version: 1
+id: ec:item_wpn_rime_scepter
+type: item
+name: 氷晶共鳴の魔杖
+material: BLAZE_ROD
+rarity: EPIC
+slot: HAND
+min_level: 18
+classes: [ec:class_mage]
+budget: 40
+stats: {attack: 40, skill_power: 0.78, crit: 0.07, resource: 90, element_resist: 0.06}
+weapon: 150
+price: 4200
+lore: '蒼晶の氷窟から切り出した共鳴氷柱を冠した魔杖。【氷環還流】冷気を魔力へ変換し、追撃の氷閃を放つ。'
+effects:
+  - {kind: RESOURCE, amount: 26, cooldown_ms: 6000, chance: 0.42}
+  - {kind: ATTACK_PROC, amount: 58, cooldown_ms: 8000, chance: 0.35, element: ICE}

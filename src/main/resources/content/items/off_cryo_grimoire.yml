@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_off_cryo_grimoire
+type: item
+name: 蒼氷星図の魔導書
+material: ENCHANTED_BOOK
+rarity: EPIC
+slot: OFFHAND
+min_level: 18
+classes: [ec:class_mage]
+budget: 22
+stats: {attack: 16, skill_power: 0.45, resource: 70, element_resist: 0.10}
+price: 2900
+lore: 'セラフィナが持ち出した古代冷却術式の写本。【氷流循環】詠唱の余波からマナを回収する。'
+effects:
+  - {kind: RESOURCE, amount: 24, cooldown_ms: 10000, chance: 0.4}

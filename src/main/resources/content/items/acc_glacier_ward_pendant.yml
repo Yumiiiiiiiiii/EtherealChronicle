@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_acc_glacier_ward_pendant
+type: item
+name: 氷嶺守護のペンダント
+material: PRISMARINE_CRYSTALS
+rarity: EPIC
+slot: ACCESSORY
+min_level: 17
+classes: []
+budget: 27
+stats: {hp: 110, defense: 22, element_resist: 0.14}
+bound: true
+price: 0
+lore: '星片導管を低温のまま安定させた証としてオルフェが贈った護符。【蒼氷の静寂】穏やかな氷結界が致命の冷気を和らげる。'
+effects:
+  - {kind: DEFENSE_BUFF, amount: 22, cooldown_ms: 45000, duration_ticks: 120, chance: 1.0}

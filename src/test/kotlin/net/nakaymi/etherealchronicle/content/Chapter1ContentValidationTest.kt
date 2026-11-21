@@ -42,17 +42,19 @@ class Chapter1ContentValidationTest {
             assertTrue(snap.classes[canonical].starterItems.isNotEmpty())
         }
 
-        // Chapter 1 declaration counts
+        // Chapter 1 declaration counts (multi-chapter safe on global registries)
         val ch1 = world.chapters["ec:chapter_1"] ?: fail("Missing ec:chapter_1")
-        assertEquals(5, world.areas.size)
-        assertEquals(10, world.npcs.size)
-        assertEquals(10, world.dialogues.size)
-        assertEquals(5, world.shops.size)
+        assertEquals(5, (ch1["areas"] as List<*>).size)
+        assertEquals(10, ch1.strings("npcs").size)
         assertEquals(20, ch1.strings("quests").size)
+        assertTrue(world.areas.size >= 5)
+        assertTrue(world.npcs.size >= 10)
+        assertTrue(world.dialogues.size >= 10)
+        assertTrue(world.shops.size >= 5)
         assertTrue(world.quests.size >= 20)
         assertTrue(snap.items.all().size >= 56)
         assertTrue(world.enemies.values.count { !it.boss } >= 14)
-        assertEquals(2, world.enemies.values.count { it.boss })
+        assertTrue(world.enemies.values.count { it.boss } >= 2)
         assertTrue(snap.drops.all().size >= 16)
 
         // Equipment coverage across 3 classes & 5 rarities
@@ -72,8 +74,8 @@ class Chapter1ContentValidationTest {
         val snap = loadBundled()
         val world = snap.world
         val ch1 = world.chapters["ec:chapter_1"]!!
-        val declaredFlags = ch1.strings("flags").toSet()
-        val declaredDungeons = ch1.strings("dungeons").toSet()
+        val declaredFlags = world.chapters.values.flatMap { it.strings("flags") }.toSet()
+        val declaredDungeons = world.chapters.values.flatMap { it.strings("dungeons") }.toSet()
         val ch1Quests = ch1.strings("quests").toSet()
 
         val droppedItems = snap.drops.all().flatMap { dt -> dt.entries.map { it.item } }.toSet()

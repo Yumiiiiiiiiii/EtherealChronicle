@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_q_cult_frost_cipher
+type: item
+name: 教団の氷嶺暗号表
+material: PAPER
+rarity: UNCOMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 0
+bound: true
+quest_item: true
+lore: '〈虚ろの手〉の氷結術師が携えていた暗号指令書。氷窟の封印手順と補給路が記されている。'

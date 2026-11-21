@@ -1,0 +1,20 @@
+schema_version: 1
+id: ec:quest_ch2_m02_frost_beacons
+type: quest
+name: 霧氷の尾根の航路復旧
+condition: {min_level: 16, completed_quests: ['ec:quest_ch2_m01_northward']}
+objectives:
+  - {id: explore_ridge, kind: EXPLORE, target: 'ec:area_glacier_ridge', amount: 1}
+  - {id: hunt_frost_wolves, kind: KILL, target: 'ec:enemy_frost_wolf', amount: 6}
+  - {id: gather_frost_pelts, kind: COLLECT, target: 'ec:item_mat_frost_pelt', amount: 4, consume: true}
+  - {id: report_orphe, kind: TALK, target: 'ec:npc_orphe', amount: 1}
+rewards:
+  xp: 3400
+  currency: 680
+  set_flags: ['ec:flag_ch2_ridge_secured']
+  items:
+    - {item: 'ec:item_mat_glacial_shard', amount: 4}
+    - {item: 'ec:item_con_frostguard_brew', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

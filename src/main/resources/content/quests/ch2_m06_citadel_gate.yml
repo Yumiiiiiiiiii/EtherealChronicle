@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:quest_ch2_m06_citadel_gate
+type: quest
+name: 氷城の門と統括官ヴェスパー
+condition: {min_level: 18, completed_quests: ['ec:quest_ch2_m05_frost_colossus']}
+objectives:
+  - {id: approach_citadel, kind: EXPLORE, target: 'ec:area_glacial_citadel', amount: 1}
+  - {id: breach_glacial_knights, kind: KILL, target: 'ec:enemy_glacial_knight', amount: 4}
+  - {id: confront_vesper, kind: TALK, target: 'ec:npc_vesper', amount: 1}
+rewards:
+  xp: 5400
+  currency: 1100
+  set_flags: ['ec:flag_ch2_vesper_met', 'ec:flag_ch2_citadel_unlocked']
+  items:
+    - {item: 'ec:item_mat_glacial_shard', amount: 8}
+    - {item: 'ec:item_con_glacier_feast', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

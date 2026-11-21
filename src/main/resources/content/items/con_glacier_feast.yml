@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_con_glacier_feast
+type: item
+name: 氷嶺の温燻鮭料理
+material: COOKED_SALMON
+rarity: EPIC
+slot: NONE
+min_level: 18
+classes: []
+budget: 0
+stats: {}
+price: 320
+lore: '鍛冶師ボルカが炉端で焼き上げた絶品料理。HPを520回復し、強固な防御バフを付与する。'
+effects:
+  - {kind: HEAL, amount: 520, cooldown_ms: 20000, chance: 1.0}
+  - {kind: DEFENSE_BUFF, amount: 26, cooldown_ms: 20000, duration_ticks: 240, chance: 1.0}

@@ -1,0 +1,40 @@
+schema_version: 1
+id: ec:boss_cryo_archon
+type: boss
+name: 氷核の執行者クライオ・アルコン
+entity: STRAY
+level: 20
+hp: 76000
+attack: 120
+defense: 96
+xp: 4800
+currency: 1200
+droptable: ec:drop_cryo_archon
+element: ICE
+weaknesses: [FIRE, AETHER]
+resistances: [ICE, VOID]
+speed: 0.25
+size: 2
+elite: true
+aggro_range: 22
+leash_range: 40
+attack_interval_ticks: 36
+traits: [KNOCKBACK_RESIST]
+set_flags_on_kill: [ec:flag_ch2_archon_defeated]
+specials:
+  - {id: azure_frost_cleave, name: '蒼氷の裁断', shape: CONE, cooldown_ticks: 200, telegraph_ticks: 28, radius: 5.0, range: 7, multiplier: 2.1, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: SLOW}
+  - {id: glacial_ring, name: '氷輪の衝撃波', shape: CIRCLE, cooldown_ticks: 250, telegraph_ticks: 28, radius: 10.5, range: 18, multiplier: 1.65, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: KNOCKUP}
+  - {id: starfrost_hail, name: '星霜の雹雨', shape: CIRCLE, cooldown_ticks: 290, telegraph_ticks: 30, radius: 4.0, range: 22, multiplier: 1.55, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: SLOW}
+  - {id: absolute_lance, name: '絶対零度の穿光', shape: LINE, cooldown_ticks: 280, telegraph_ticks: 38, radius: 3.0, range: 24, multiplier: 2.45, min_hp_ratio: 0.0, max_hp_ratio: 0.65, effect: SLOW}
+  - {id: cryo_prison, name: '氷牢の拘束', shape: TARGET, cooldown_ticks: 420, telegraph_ticks: 28, radius: 3.5, range: 22, multiplier: 1.6, min_hp_ratio: 0.0, max_hp_ratio: 0.65, effect: SLOW}
+  - {id: eternal_blizzard, name: '終末の蒼穹吹雪', shape: CIRCLE, cooldown_ticks: 560, telegraph_ticks: 76, radius: 16.0, range: 24, multiplier: 3.0, min_hp_ratio: 0.0, max_hp_ratio: 0.3, effect: KNOCKUP}
+spawn_points:
+  - {id: citadel_throne_core, world: ec_world, x: 796, y: 65, z: 0, cap: 1, respawn_ticks: 1800}
+phases:
+  - {id: phase_frost_judgment, below_hp_ratio: 1.0, damage_multiplier: 1.0, interval_multiplier: 1.0}
+  - {id: phase_glacial_resonance, below_hp_ratio: 0.65, damage_multiplier: 1.15, interval_multiplier: 0.88}
+  - {id: phase_absolute_zero, below_hp_ratio: 0.3, damage_multiplier: 1.3, interval_multiplier: 0.78}
+enrage_ticks: 14400
+enrage_multiplier: 1.5
+coop_hp_per_player: 0.9
+coop_damage_per_player: 0.04

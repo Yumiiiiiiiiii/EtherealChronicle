@@ -1,0 +1,14 @@
+schema_version: 1
+id: ec:item_mat_cryo_crystal
+type: item
+name: 凍結晶の破片
+material: PRISMARINE_SHARD
+rarity: UNCOMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 55
+bound: false
+lore: '蒼穹の氷嶺に満ちる冷気が凝縮した鉱晶。低温下でも魔力を安定伝導する。'

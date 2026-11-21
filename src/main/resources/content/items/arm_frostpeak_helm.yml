@@ -1,0 +1,14 @@
+schema_version: 1
+id: ec:item_arm_frostpeak_helm
+type: item
+name: 氷嶺防寒の兜
+material: DIAMOND_HELMET
+rarity: EPIC
+slot: HEAD
+min_level: 17
+classes: []
+budget: 29
+stats: {hp: 105, defense: 26, element_resist: 0.10, crit: 0.03}
+price: 2600
+lore: '霧氷オオカミの毛皮を内張りした鍛冶師ボルカ自慢の防寒兜。吹雪の視界でも狙いを狂わせない。'
+effects: []

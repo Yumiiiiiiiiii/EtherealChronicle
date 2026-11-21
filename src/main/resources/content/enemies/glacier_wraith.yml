@@ -1,0 +1,27 @@
+schema_version: 1
+id: ec:enemy_glacier_wraith
+type: enemy
+name: 氷河の亡霊
+entity: STRAY
+level: 18
+hp: 3600
+attack: 100
+defense: 68
+xp: 470
+currency: 86
+droptable: ec:drop_glacier_wraith
+element: ICE
+weaknesses: [FIRE, AETHER]
+resistances: [ICE, PHYSICAL]
+speed: 0.27
+size: 1
+elite: false
+aggro_range: 16
+leash_range: 28
+attack_interval_ticks: 38
+traits: [FLEE]
+specials:
+  - {id: rime_nova, name: '霧氷の波動', shape: CIRCLE, cooldown_ticks: 220, telegraph_ticks: 24, radius: 5.0, range: 12, multiplier: 1.6, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: SLOW}
+spawn_points:
+  - {id: ridge_beacon_cliff, world: ec_world, x: 596, y: 65, z: 12, cap: 3, respawn_ticks: 260}
+  - {id: ridge_conduit_path, world: ec_world, x: 608, y: 65, z: -8, cap: 2, respawn_ticks: 260}

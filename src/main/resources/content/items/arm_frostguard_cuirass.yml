@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_arm_frostguard_cuirass
+type: item
+name: 凍鉄守護の重胸甲
+material: NETHERITE_CHESTPLATE
+rarity: EPIC
+slot: CHEST
+min_level: 19
+classes: [ec:class_warrior]
+budget: 48
+stats: {hp: 175, defense: 40, attack: 14, element_resist: 0.14}
+price: 3600
+lore: 'フロスト・コロッサスの凍鉄装甲を鍛え直した重鎧。【凍鉄の構え】氷晶障壁で苛烈な一撃を受け止める。'
+effects:
+  - {kind: DEFENSE_BUFF, amount: 30, cooldown_ms: 40000, duration_ticks: 120, chance: 1.0}

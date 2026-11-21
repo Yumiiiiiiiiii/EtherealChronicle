@@ -1,0 +1,28 @@
+schema_version: 1
+id: ec:enemy_cryo_cultist
+type: enemy
+name: 〈虚ろの手〉氷結術師
+entity: PILLAGER
+level: 18
+hp: 3900
+attack: 104
+defense: 72
+xp: 510
+currency: 92
+droptable: ec:drop_cryo_cultist
+element: ICE
+weaknesses: [FIRE, AETHER]
+resistances: [ICE, VOID]
+speed: 0.25
+size: 1
+elite: false
+aggro_range: 17
+leash_range: 28
+attack_interval_ticks: 40
+traits: [FLEE]
+specials:
+  - {id: icicle_lance, name: '氷柱の穿槍', shape: LINE, cooldown_ticks: 180, telegraph_ticks: 22, radius: 2.0, range: 14, multiplier: 1.65, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: SLOW}
+  - {id: frost_hex, name: '凍てつく呪印', shape: TARGET, cooldown_ticks: 280, telegraph_ticks: 26, radius: 3.0, range: 16, multiplier: 1.45, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: SLOW}
+spawn_points:
+  - {id: cavern_outer_hall, world: ec_world, x: 650, y: 65, z: -10, cap: 3, respawn_ticks: 280}
+  - {id: cavern_crystal_bridge, world: ec_world, x: 676, y: 65, z: 12, cap: 2, respawn_ticks: 280}

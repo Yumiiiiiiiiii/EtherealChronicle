@@ -1,0 +1,177 @@
+schema_version: 1
+id: ec:dlg_orphe_hub
+type: dialogue
+name: オルフェの観測記録
+speaker: ec:npc_orphe
+start: root
+nodes:
+  root:
+    text: ここは〈蒼氷の前哨基地〉の観測天幕です。リラ師匠の門下、氷嶺観測官のオルフェといいます。星片の冷気波形が激しく乱れています……。
+    branches:
+      - {condition: {active_quests: ['ec:quest_ch2_m03_frozen_conduit'], not_flags: ['ec:flag_ch2_choice4_stabilize', 'ec:flag_ch2_choice4_overload']}, next: choice4_conduit}
+      - {condition: {has_flags: ['ec:flag_ch2_citadel_unlocked']}, next: citadel_ready}
+    choices:
+      - id: complete_m01
+        label: フレイヤ隊長の命で合流したよ（蒼穹の氷嶺への出航・報告）
+        condition: {active_quests: ['ec:quest_ch2_m01_northward']}
+        next: m01_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_ch2_m01_northward'}
+      - id: start_m02
+        label: 霧氷の尾根の中継灯復旧を引き受ける（霧氷の尾根の航路復旧・受注）
+        condition: {min_level: 16, completed_quests: ['ec:quest_ch2_m01_northward'], not_started_quests: ['ec:quest_ch2_m02_frost_beacons']}
+        next: m02_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_ch2_m02_frost_beacons'}
+      - id: complete_m02
+        label: 霧氷オオカミを退けて毛皮を集めたよ（霧氷の尾根の航路復旧・報告）
+        condition: {active_quests: ['ec:quest_ch2_m02_frost_beacons']}
+        next: m02_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_ch2_m02_frost_beacons'}
+      - id: start_m03
+        label: 星片導管の暴走を調査する（凍てつく星片導管・受注）
+        condition: {min_level: 17, completed_quests: ['ec:quest_ch2_m02_frost_beacons'], not_started_quests: ['ec:quest_ch2_m03_frozen_conduit']}
+        next: m03_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_ch2_m03_frozen_conduit'}
+      - id: complete_m03
+        label: 星片導管の処置結果を報告する（凍てつく星片導管・報告）
+        condition: {active_quests: ['ec:quest_ch2_m03_frozen_conduit']}
+        next: m03_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_ch2_m03_frozen_conduit'}
+      - id: start_m06
+        label: 蒼穹の氷城の正門突破を引き受ける（氷城の門と統括官ヴェスパー・受注）
+        condition: {min_level: 18, completed_quests: ['ec:quest_ch2_m05_frost_colossus'], not_started_quests: ['ec:quest_ch2_m06_citadel_gate']}
+        next: m06_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_ch2_m06_citadel_gate'}
+      - id: start_s02
+        label: 安定した氷晶の共鳴観測に協力する（氷晶の共鳴観測・受注）
+        condition: {min_level: 17, has_flags: ['ec:flag_ch2_choice4_stabilize'], not_started_quests: ['ec:quest_ch2_s02_ice_resonance']}
+        next: s02_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_ch2_s02_ice_resonance'}
+      - id: complete_s02
+        label: 氷晶の共鳴データを持ち帰ったよ（氷晶の共鳴観測・報告）
+        condition: {active_quests: ['ec:quest_ch2_s02_ice_resonance']}
+        next: s02_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_ch2_s02_ice_resonance'}
+      - id: bye
+        label: また報告に来るよ
+  m01_done:
+    text: 来てくださいましたか！リラ師匠から聞いていた通り、心強い方です。さっそく現状をお伝えします――東の『霧氷の尾根』にある飛空艇中継灯が凍りつき、補給便が近づけない状態なのです。
+    choices:
+      - id: accept_m02_now
+        label: すぐに霧氷の尾根へ向かう（霧氷の尾根の航路復旧・受注）
+        condition: {min_level: 16, not_started_quests: ['ec:quest_ch2_m02_frost_beacons']}
+        next: m02_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_ch2_m02_frost_beacons'}
+      - id: prep_m02
+        label: まずボルカの店を見てから行くよ
+  m02_started:
+    text: 霧氷の尾根に群れる『霧氷オオカミ』を6体追い払い、中継灯の断熱補修に使う毛皮を4枚集めてきてください。氷属性の魔物には炎や雷属性の攻撃がよく効きますよ！
+    choices: []
+  m02_done:
+    text: ありがとうございます、中継灯の灯が戻りました！――ですが、さらに厄介な問題が発覚しました。尾根の奥にある古代の星片導管が冷気を吐き出し続け、『氷河の亡霊』が湧き出ているのです。現地には教団を離れたという女性・セラフィナが待っているはずです。
+    choices:
+      - id: accept_m03_now
+        label: 星片導管とセラフィナの話を聞きに行く（凍てつく星片導管・受注）
+        condition: {min_level: 17, not_started_quests: ['ec:quest_ch2_m03_frozen_conduit']}
+        next: m03_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_ch2_m03_frozen_conduit'}
+      - id: prep_m03
+        label: 準備を整えてから向かうよ
+  m03_started:
+    text: 霧氷の尾根の『氷河の亡霊』を6体鎮め、凍結晶の破片を4つ回収した上で、現地にいるセラフィナと接触してください。導管をどう制御するか――戻ったら重大な決断を下しましょう。
+    choices: []
+  choice4_conduit:
+    text: セラフィナと意見を交わしてきましたか。星片導管の処置には二つの道があります。私の案通り『低温のまま安定制御』すれば前哨基地の補給網が守られボルカさんの店も潤います。一方セラフィナ案の『過熱解凍』なら教団の氷窟防衛網を一気に破壊できます。……現場を見届けたあなたの判断に委ねます！
+    choices:
+      - id: choose_stabilize
+        label: 低温のまま安定制御する（オルフェ案・防御アクセ＋ボルカ店10%割引）
+        next: choice4_stabilized
+        set_flags: ['ec:flag_ch2_choice4_stabilize']
+      - id: choose_overload
+        label: 過熱解凍して教団の防衛網を断つ（セラフィナ案・攻撃アクセ＋教団補給路遮断）
+        next: choice4_overloaded
+        set_flags: ['ec:flag_ch2_choice4_overload']
+      - id: decide_later
+        label: まだ尾根の調査を続ける
+  choice4_stabilized:
+    text: ありがとうございます！導管は安全な低温帯で安定し、基地の炉も順調に稼働しています。ボルカさんにも伝えておきますね。さあ、星片導管の報告を完了しましょう！
+    choices:
+      - id: finish_m03_stabilized
+        label: 調査完了を報告する（凍てつく星片導管・報告）
+        condition: {active_quests: ['ec:quest_ch2_m03_frozen_conduit']}
+        next: m03_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_ch2_m03_frozen_conduit'}
+      - id: finish_m03_later_s
+        label: 残りの討伐・回収を済ませてから報告する
+  choice4_overloaded:
+    text: ……思い切った決断ですね。確かに氷窟入口の氷壁が音を立てて崩れ、教団の術式が乱れました。セラフィナならこの好機を逃さないはずです。では導管の報告を完了しましょう！
+    choices:
+      - id: finish_m03_overloaded
+        label: 調査完了を報告する（凍てつく星片導管・報告）
+        condition: {active_quests: ['ec:quest_ch2_m03_frozen_conduit']}
+        next: m03_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_ch2_m03_frozen_conduit'}
+      - id: finish_m03_later_o
+        label: 残りの討伐・回収を済ませてから報告する
+  m03_done:
+    text: これで東の『蒼晶の氷窟』への道が開かれました！セラフィナが氷窟への潜入計画を立てているはずです。霧氷の尾根にいる彼女と合流してください。
+    choices: []
+  m06_started:
+    text: 凍結封鍵の解析が終わりました！いよいよ最東端の『蒼穹の氷城』へ乗り込む時です。正門を守る『蒼氷城の近衛騎士』を4体突破し、奥で待ち構えているであろう氷嶺統括官ヴェスパーと対峙してください。
+    choices: []
+  citadel_ready:
+    text: 蒼穹の氷城の封印が解かれ、最奥の玉座へと通じる転移門が繋がりました！中は1人でも挑めますが、強大な氷核の執行者が待ち構えています。準備を整えて挑みましょう。
+    choices:
+      - id: start_m07_orphe
+        label: クライオ・アルコン討伐を引き受ける（氷核の執行者・受注）
+        condition: {min_level: 19, completed_quests: ['ec:quest_ch2_m06_citadel_gate'], not_started_quests: ['ec:quest_ch2_m07_cryo_archon']}
+        next: m07_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_ch2_m07_cryo_archon'}
+      - id: enter_citadel_orphe
+        label: 協力ダンジョン『蒼穹の氷城』へ入場する
+        actions:
+          - {kind: ENTER_DUNGEON, target: 'ec:dungeon_glacial_citadel'}
+      - id: start_s02_ready
+        label: 氷晶の共鳴観測を受ける（選択4A専用）
+        condition: {min_level: 17, has_flags: ['ec:flag_ch2_choice4_stabilize'], not_started_quests: ['ec:quest_ch2_s02_ice_resonance']}
+        next: s02_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_ch2_s02_ice_resonance'}
+      - id: complete_s02_ready
+        label: 氷晶の共鳴観測を報告する
+        condition: {active_quests: ['ec:quest_ch2_s02_ice_resonance']}
+        next: s02_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_ch2_s02_ice_resonance'}
+      - id: archon_tips
+        label: クライオ・アルコン攻略の助言を聞く
+        next: tips_archon
+      - id: bye_citadel
+        label: 準備を整えてから挑むよ
+  m07_started:
+    text: ヴェスパーが起動した『氷核の執行者クライオ・アルコン』を止めなければ、蒼穹の氷嶺は永遠の氷塊と化します。討伐して〈蒼氷の核の残滓〉を回収し、ルミナ港のフレイヤ隊長へ報告してください！
+    choices: []
+  tips_archon:
+    text: クライオ・アルコンは氷属性の3段階ボスです。炎・エーテル属性が弱点ですよ。中盤の『絶対零度の穿光』は直線予兆から即座に横へ避け、終盤の『終末の蒼穹吹雪』は耐寒秘薬や防御バフで備えてください！
+    choices:
+      - id: tips_back
+        label: 心に留めておくよ
+        next: citadel_ready
+  s02_started:
+    text: 低温安定させた導管から、珍しい共鳴波形が観測されています。霧氷の尾根で氷河の亡霊を5体鎮め、凍結晶の破片を5つ採取してきていただけませんか？
+    choices: []
+  s02_done:
+    text: 素晴らしい共鳴記録です！これならリラ師匠にも胸を張って報告できます。お礼の蒼氷の欠片と魔力強壮剤を受け取ってください！
+    choices: []

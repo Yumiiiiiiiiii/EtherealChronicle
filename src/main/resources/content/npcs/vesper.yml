@@ -1,0 +1,9 @@
+schema_version: 1
+id: ec:npc_vesper
+type: npc
+name: 氷嶺統括官ヴェスパー
+entity: VILLAGER
+chapter: ec:chapter_2
+area: ec:area_glacial_citadel
+location: {world: ec_world, x: 746, y: 65, z: 0, yaw: -90}
+dialogue: ec:dlg_vesper_hub

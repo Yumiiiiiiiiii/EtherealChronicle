@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:quest_ch2_s01_frost_pelt
+type: quest
+name: 極寒を凌ぐ毛皮と氷晶
+condition: {min_level: 16, has_flags: ['ec:flag_ch2_started']}
+objectives:
+  - {id: gather_pelts_borka, kind: COLLECT, target: 'ec:item_mat_frost_pelt', amount: 6, consume: true}
+  - {id: gather_crystals_borka, kind: COLLECT, target: 'ec:item_mat_cryo_crystal', amount: 3, consume: true}
+  - {id: deliver_borka, kind: TALK, target: 'ec:npc_borka', amount: 1}
+rewards:
+  xp: 2800
+  currency: 620
+  set_flags: []
+  items:
+    - {item: 'ec:item_arm_frostpeak_helm', amount: 1}
+    - {item: 'ec:item_con_glacier_feast', amount: 1}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

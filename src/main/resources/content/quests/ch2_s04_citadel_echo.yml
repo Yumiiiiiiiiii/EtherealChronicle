@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:quest_ch2_s04_citadel_echo
+type: quest
+name: 氷城の残響鎮圧
+condition: {min_level: 19, has_flags: ['ec:flag_ch2_completed']}
+objectives:
+  - {id: clear_glacial_knights, kind: KILL, target: 'ec:enemy_glacial_knight', amount: 4}
+  - {id: defeat_archon_echo, kind: KILL, target: 'ec:boss_cryo_archon', amount: 1}
+  - {id: report_freya_echo, kind: TALK, target: 'ec:npc_freya', amount: 1}
+rewards:
+  xp: 5200
+  currency: 1100
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_glacial_shard', amount: 8}
+    - {item: 'ec:item_mat_glacial_core_essence', amount: 1}
+auto_complete: false
+repeatable: true
+repeat_cooldown_ms: 86400000

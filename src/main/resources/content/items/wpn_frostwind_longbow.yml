@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_wpn_frostwind_longbow
+type: item
+name: 霧氷風の長弓
+material: BOW
+rarity: EPIC
+slot: HAND
+min_level: 18
+classes: [ec:class_archer]
+budget: 34
+stats: {attack: 40, crit: 0.11, crit_damage: 0.24, skill_power: 0.20, resource: 20}
+weapon: 160
+price: 4200
+lore: '霧氷の尾根の極寒木を張り合わせた長弓。【氷風の穿矢】凍てつく気流を纏った追撃矢が敵の急所を射抜く。'
+effects:
+  - {kind: ATTACK_PROC, amount: 68, cooldown_ms: 6000, chance: 0.35, element: ICE}

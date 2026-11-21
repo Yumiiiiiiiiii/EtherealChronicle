@@ -1,0 +1,8 @@
+schema_version: 1
+id: ec:drop_frost_wolf
+type: droptable
+entries:
+  - {item: 'ec:item_mat_frost_pelt', chance: 0.9, min: 1, max: 2}
+  - {item: 'ec:item_mat_cryo_crystal', chance: 0.35, min: 1, max: 1}
+  - {item: 'ec:item_con_frostguard_brew', chance: 0.14, min: 1, max: 1}
+  - {item: 'ec:item_arm_frostpeak_helm', chance: 0.04, min: 1, max: 1, pity_after: 25}

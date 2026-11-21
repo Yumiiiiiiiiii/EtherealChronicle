@@ -1,0 +1,38 @@
+schema_version: 1
+id: ec:boss_frost_colossus
+type: boss
+name: 凍鉄の古代番兵フロスト・コロッサス
+entity: IRON_GOLEM
+level: 19
+hp: 28000
+attack: 112
+defense: 90
+xp: 2400
+currency: 680
+droptable: ec:drop_frost_colossus
+element: ICE
+weaknesses: [FIRE, LIGHTNING]
+resistances: [ICE, PHYSICAL]
+speed: 0.22
+size: 2
+elite: true
+aggro_range: 19
+leash_range: 34
+attack_interval_ticks: 40
+traits: [KNOCKBACK_RESIST]
+set_flags_on_kill: [ec:flag_ch2_colossus_defeated]
+specials:
+  - {id: glacial_stomp, name: '氷河の踏み潰し', shape: CIRCLE, cooldown_ticks: 220, telegraph_ticks: 28, radius: 5.5, range: 8, multiplier: 1.8, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: SLOW}
+  - {id: avalanche_charge, name: '雪崩の突進', shape: LINE, cooldown_ticks: 240, telegraph_ticks: 30, radius: 3.0, range: 15, multiplier: 1.95, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: KNOCKUP}
+  - {id: frost_shard_burst, name: '凍晶破砕波', shape: CONE, cooldown_ticks: 260, telegraph_ticks: 32, radius: 5.5, range: 12, multiplier: 1.85, min_hp_ratio: 0.0, max_hp_ratio: 0.65, effect: SLOW}
+  - {id: cryogenic_core_vent, name: '極低温炉心解放', shape: CIRCLE, cooldown_ticks: 380, telegraph_ticks: 40, radius: 8.5, range: 18, multiplier: 2.25, min_hp_ratio: 0.0, max_hp_ratio: 0.3, effect: SLOW}
+spawn_points:
+  - {id: cavern_frozen_vault, world: ec_world, x: 700, y: 65, z: 0, cap: 1, respawn_ticks: 1400}
+phases:
+  - {id: phase_frost_sentinel, below_hp_ratio: 1.0, damage_multiplier: 1.0, interval_multiplier: 1.0}
+  - {id: phase_cryo_overdrive, below_hp_ratio: 0.65, damage_multiplier: 1.15, interval_multiplier: 0.88}
+  - {id: phase_absolute_chill, below_hp_ratio: 0.3, damage_multiplier: 1.25, interval_multiplier: 0.8}
+enrage_ticks: 9600
+enrage_multiplier: 1.5
+coop_hp_per_player: 0.75
+coop_damage_per_player: 0.04

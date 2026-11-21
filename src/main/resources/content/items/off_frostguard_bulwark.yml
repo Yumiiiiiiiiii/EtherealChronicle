@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_off_frostguard_bulwark
+type: item
+name: 凍鉄の大盾
+material: SHIELD
+rarity: EPIC
+slot: OFFHAND
+min_level: 18
+classes: [ec:class_warrior]
+budget: 32
+stats: {hp: 120, defense: 32, element_resist: 0.12}
+price: 2900
+lore: '氷窟の番兵から奪取した凍鉄鋼で鍛えた重盾。【氷壁展開】攻撃を受けた瞬間に凍気障壁を張り直す。'
+effects:
+  - {kind: DEFENSE_BUFF, amount: 22, cooldown_ms: 25000, duration_ticks: 100, chance: 1.0}
