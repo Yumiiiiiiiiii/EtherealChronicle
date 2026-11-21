@@ -64,7 +64,10 @@ $failed = $false
 try {
     if (-not (Wait-Log 'Done \(' $StartTimeoutSec)) { Write-Host '[qa] server did not reach Done' -ForegroundColor Red; $failed = $true }
     else {
+        # plugin startup is async: wait until it reports ready so early commands are not answered with 起動中
+        [void](Wait-Log '準備が完了' 30)
         foreach ($c in $Commands) {
+            if ($c -match '^sleep:(\d+)$') { Start-Sleep -Seconds ([int]$Matches[1]); Flush-Log; continue }   # pseudo-command
             if ($c -match '\{uuid\}') { Flush-Log; $last = (Select-String -Path $log -Pattern 'SIM spawn=([0-9a-f-]{36})' | Select-Object -Last 1); if ($last) { $c = $c -replace '\{uuid\}', $last.Matches[0].Groups[1].Value } }
             Write-Step "> $c"; $p.StandardInput.WriteLine($c); Start-Sleep -Seconds $CommandWaitSec; Flush-Log
         }
