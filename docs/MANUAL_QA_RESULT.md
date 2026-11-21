@@ -182,3 +182,13 @@ Shots: `D:\test\mcmmo-client-qa\shots\m1_*, m2_*, n*, o*.png` (not in repo).
 | Codex paging, frost_wolf, Paper Dialog quest accept, potion tooltip, class-change weapon, language forcing, ping | NOT-RUN | time |
 | TPS / log | PASS | 20.0 x3, 0 ERROR |
 Processes stopped; server.properties/ops.json/whitelist/config restored; ports closed.
+
+## Task 19 real-client check (master 9cfb25e, 2026-11-22) - PARTIAL
+Shots: `D:\test\mcmmo-client-qa\shots\p1_first.png, p2_first.png, p3-p5.png` (not in repo).
+| Item | Result | Evidence |
+|---|---|---|
+| Build, `/ec pack info` | PASS | prints SHA-1 `9fbd286c...` / 47725 bytes |
+| Mandatory pack on first join (new non-op UUIDs, required=true, embedded_http up) | FAIL (sent to Codex) | QaNew1/QaNew2: no prompt, no download, class menu opens directly |
+| Decline->disconnect on first join, OP bypass, reconnect | BLOCKED | no prompt to decline |
+| MOTD on decline, ui.theme reload comparison, external_managed, SHA-1 change re-request, codex paging, frost_wolf, Paper Dialog quest accept, potion tooltip, class-change weapon, language forcing, ping | NOT-RUN | blocked/time |
+Processes stopped; server.properties/ops.json/whitelist/config restored; ports closed.
