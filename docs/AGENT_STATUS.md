@@ -179,3 +179,10 @@
 - Fishing escape states now record the cause (missed bite, over-tension, slack, timeout). Timeout shows a dedicated `時間切れ` Title and Japanese chat notice. `/ec debug fish status` includes behavior and elapsed/timeout seconds for diagnosis.
 - Tests cover escape cause, timeout presentation, behavior-specific guidance, default debug fish choice, and 20 seeded 420ms beginner-fish sessions. `./gradlew.bat clean build` SUCCESS: 158 tests, 0 failures/errors/skips; `git diff --check` clean.
 - Real-client reel/reward remains to be rechecked by QA; this code-side simulation verifies balance mechanics but not client input capture or reward delivery.
+
+## Codex-Impl — fishing real-client follow-up (QA report after 9631f8f)
+- QA confirmed the debug species/action hint and timeout chat, but a real-client successful reel is still not verified. The report suspected fast 300ms pulls were snapping the line without visible feedback.
+- Fishing controller now uses a 250ms pull buffer instead of 350ms, so rapid repeated clicks no longer hold PULL continuously; the ActionBar continues to advise release/brace for THRASH/DIVE and tension management.
+- Every escape cause has a dedicated Japanese chat fallback and title. Session termination logs include UUID, reason, species, progress and tension; quit/offline/shutdown cleanup paths also log. Catch reports that reward delivery is being finalized; delivery failure gives its own title/chat/log.
+- Regression tests cover all escape-cause feedback and seeded beginner-fish input strategies at 250/300/350/420ms with state-aware THRASH/DIVE/tension inputs. Focused tests passed; observed results are 20/20, 20/20, 20/20, 17/20 respectively.
+- Verification: `./gradlew.bat clean build` SUCCESS; 160 tests, 0 failures/errors/skips. `git diff --check` clean. Focused cadence test result: 250ms=20/20, 300ms=20/20, 350ms=20/20, 420ms=17/20 with human-like state-aware input simulation. Real client catch/reward and fish record remain unverified and need Claude-QA/human cadence recheck.
