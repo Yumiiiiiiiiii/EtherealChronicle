@@ -1,0 +1,27 @@
+schema_version: 1
+id: ec:enemy_void_miner
+type: enemy
+name: 虚ろの坑夫
+entity: WITHER_SKELETON
+level: 12
+hp: 756
+attack: 66
+defense: 50
+xp: 251
+currency: 56
+droptable: ec:drop_void_miner
+element: VOID
+weaknesses: [AETHER, FIRE]
+resistances: [VOID]
+speed: 0.27
+size: 1
+elite: false
+aggro_range: 12
+leash_range: 24
+attack_interval_ticks: 36
+traits: [POISON]
+specials:
+  - {id: miasma_sweep, name: '瘴気の薙ぎ払い', shape: CONE, cooldown_ticks: 200, telegraph_ticks: 18, radius: 3.5, range: 4.5, multiplier: 1.55, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: POISON}
+spawn_points:
+  - {id: mine_cult_camp_1, world: ec_world, x: 212, y: 65, z: -14, cap: 2, respawn_ticks: 240}
+  - {id: mine_cult_camp_2, world: ec_world, x: 216, y: 65, z: 14, cap: 2, respawn_ticks: 240}

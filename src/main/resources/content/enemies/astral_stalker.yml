@@ -1,0 +1,27 @@
+schema_version: 1
+id: ec:enemy_astral_stalker
+type: enemy
+name: アストラル・ストーカー
+entity: ENDERMAN
+level: 15
+hp: 1060
+attack: 90
+defense: 62
+xp: 365
+currency: 78
+droptable: ec:drop_astral_stalker
+element: VOID
+weaknesses: [AETHER, LIGHTNING]
+resistances: [VOID, ICE]
+speed: 0.31
+size: 1
+elite: false
+aggro_range: 16
+leash_range: 30
+attack_interval_ticks: 34
+traits: []
+specials:
+  - {id: dimension_rend, name: '次元裂き', shape: LINE, cooldown_ticks: 220, telegraph_ticks: 20, radius: 2.0, range: 8, multiplier: 1.7, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: SLOW}
+spawn_points:
+  - {id: hill_rift_cliff_1, world: ec_world, x: 314, y: 65, z: -14, cap: 2, respawn_ticks: 260}
+  - {id: hill_rift_cliff_2, world: ec_world, x: 316, y: 65, z: 16, cap: 1, respawn_ticks: 260}

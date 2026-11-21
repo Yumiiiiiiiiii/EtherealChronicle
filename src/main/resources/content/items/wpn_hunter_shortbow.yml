@@ -1,0 +1,14 @@
+schema_version: 1
+id: ec:item_wpn_hunter_shortbow
+type: item
+name: 狩人の短弓
+material: BOW
+rarity: COMMON
+slot: HAND
+min_level: 1
+classes: [ec:class_archer]
+budget: 7
+stats: {attack: 4, crit: 0.02}
+weapon: 10
+price: 60
+lore: 'しなやかな枝を削り出した軽弓。引き絞りが軽く、動きながらでも素早く射抜ける。'

@@ -1,0 +1,27 @@
+schema_version: 1
+id: ec:enemy_aether_slime
+type: enemy
+name: エーテルスライム
+entity: SLIME
+level: 1
+hp: 65
+attack: 10
+defense: 5
+xp: 18
+currency: 6
+droptable: ec:drop_aether_slime
+element: AETHER
+weaknesses: [FIRE, VOID]
+resistances: [AETHER]
+speed: 0.22
+size: 2
+elite: false
+aggro_range: 8
+leash_range: 18
+attack_interval_ticks: 44
+traits: []
+specials:
+  - {id: gel_shot, name: 'ゼリー弾', shape: TARGET, cooldown_ticks: 200, telegraph_ticks: 20, radius: 1.5, range: 10, multiplier: 1.1, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: NONE}
+spawn_points:
+  - {id: ashwood_south_road_1, world: ec_world, x: 68, y: 65, z: -12, cap: 2, respawn_ticks: 160}
+  - {id: ashwood_south_road_2, world: ec_world, x: 74, y: 65, z: 10, cap: 2, respawn_ticks: 160}

@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_con_minor_hp_potion
+type: item
+name: 小さな回復薬
+material: POTION
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 25
+lore: '薬草商ミラが調合した赤い薬液。飲むと即座にHPを110回復する。'
+effects:
+  - {kind: HEAL, amount: 110, cooldown_ms: 8000, chance: 1.0}

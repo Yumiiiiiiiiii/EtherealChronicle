@@ -1,0 +1,20 @@
+schema_version: 1
+id: ec:quest_s01_lumina_tour
+type: quest
+name: 港町ルミナ案内
+condition: {completed_quests: ['ec:quest_m01_awakening']}
+objectives:
+  - {id: visit_garudo, kind: TALK, target: 'ec:npc_garudo', amount: 1}
+  - {id: visit_mira, kind: TALK, target: 'ec:npc_mira', amount: 1}
+  - {id: visit_pip, kind: TALK, target: 'ec:npc_pip', amount: 1}
+  - {id: report_celia, kind: TALK, target: 'ec:npc_celia', amount: 1}
+rewards:
+  xp: 110
+  currency: 70
+  set_flags: []
+  items:
+    - {item: 'ec:item_arm_lumina_helm', amount: 1}
+    - {item: 'ec:item_con_return_scroll', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

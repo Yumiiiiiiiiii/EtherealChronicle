@@ -1,0 +1,57 @@
+schema_version: 1
+id: ec:dlg_garudo_hub
+type: dialogue
+name: ガルドの鍛冶場
+speaker: ec:npc_garudo
+start: root
+nodes:
+  root:
+    text: ふん、なまくら振り回して戦場に出るんじゃねえぞ。見合う武具が欲しけりゃ見ていけ。
+    branches:
+      - {condition: {has_flags: ['ec:flag_choice1_extract']}, next: extract_discount}
+    choices:
+      - id: open_shop
+        label: 武器・防具を見る
+        actions:
+          - {kind: OPEN_SHOP, target: 'ec:shop_lumina_blacksmith'}
+      - id: start_s06
+        label: 廃坑の鍛冶素材について聞く（頑固鍛冶のこだわり・受注）
+        condition: {has_flags: ['ec:flag_mine_unlocked'], not_started_quests: ['ec:quest_s06_garudo_forge']}
+        next: s06_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_s06_garudo_forge'}
+      - id: complete_s06
+        label: 古鉄片と帯電結晶を持ってきたよ（頑固鍛冶のこだわり・報告）
+        condition: {active_quests: ['ec:quest_s06_garudo_forge']}
+        next: s06_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_s06_garudo_forge'}
+      - id: bye
+        label: また来るよ
+  extract_discount:
+    text: おう小僧！森の星片をギルドに持ち帰ったそうじゃねぇか。おかげで炉の調子が絶好調だ、お前には特別に全品1割引きで売ってやらぁ！
+    choices:
+      - id: open_shop_disc
+        label: 割引価格で武器・防具を見る
+        actions:
+          - {kind: OPEN_SHOP, target: 'ec:shop_lumina_blacksmith'}
+      - id: start_s06_disc
+        label: 廃坑の鍛冶素材について聞く（頑固鍛冶のこだわり・受注）
+        condition: {has_flags: ['ec:flag_mine_unlocked'], not_started_quests: ['ec:quest_s06_garudo_forge']}
+        next: s06_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_s06_garudo_forge'}
+      - id: complete_s06_disc
+        label: 古鉄片と帯電結晶を持ってきたよ（頑固鍛冶のこだわり・報告）
+        condition: {active_quests: ['ec:quest_s06_garudo_forge']}
+        next: s06_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_s06_garudo_forge'}
+      - id: bye_disc
+        label: また来るよ
+  s06_started:
+    text: おい小僧、嘆きの廃坑へ入るって聞いたぜ。あそこの古鉄片と帯電結晶は極上の鍛冶素材だ。古鉄片8つと結晶4つ持ってきやがれ。見違える業物を打ってやらぁ！
+    choices: []
+  s06_done:
+    text: ふん、思ったより筋がいいじゃねぇか。よし、これで俺の炉も本気が出せる。これからは廃坑向けのレア業物も店頭に並べておくから、しっかり稼いで買いに来い！
+    choices: []

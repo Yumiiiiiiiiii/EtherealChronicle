@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_con_lumina_stew
+type: item
+name: ルミナ港の海鮮シチュー
+material: RABBIT_STEW
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 55
+lore: 'ルミナ港名物の温かい海鮮シチュー。体力を癒やし、15分間ほど心強い活力を与えてくれる。'
+effects:
+  - {kind: HEAL, amount: 40, cooldown_ms: 3000, chance: 1.0}
+  - {kind: DEFENSE_BUFF, amount: 6, cooldown_ms: 3000, duration_ticks: 18000, chance: 1.0}

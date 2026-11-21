@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_arm_lumina_helm
+type: item
+name: ルミナ見習いの兜
+material: IRON_HELMET
+rarity: COMMON
+slot: HEAD
+min_level: 2
+classes: []
+budget: 9
+stats: {hp: 20, defense: 6}
+price: 90
+lore: 'ルミナ港ギルドの紋章が刻まれた軽兜。視界が広く、どの職種でも使いやすい。'

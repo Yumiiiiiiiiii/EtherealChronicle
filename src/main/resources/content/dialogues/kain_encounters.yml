@@ -1,0 +1,41 @@
+schema_version: 1
+id: ec:dlg_kain_encounters
+type: dialogue
+name: カインとの対峙
+speaker: ec:npc_kain
+start: root
+nodes:
+  root:
+    text: おや、ご挨拶が遅れましたね。私は〈虚ろの手〉の書記、カインと申します。ルミナ港からわざわざ追い掛けてくださるとは光栄です。
+    branches:
+      - {condition: {has_flags: ['ec:flag_void_warden_defeated']}, next: sanctum_epilogue}
+      - {condition: {has_flags: ['ec:flag_choice2_report']}, next: hill_reported}
+      - {condition: {has_flags: ['ec:flag_choice2_forgive']}, next: hill_forgiven}
+    choices:
+      - id: confront_kain
+        label: 星片を悪用する企みはここで止める！
+        next: hill_exit
+        set_flags: ['ec:flag_kain_hill_met']
+  hill_reported:
+    text: おや、ルミナの新星。聞きましたよ？弱みを見せた鉱夫長を冷徹に切り捨てたとか。見上げた規律の精神ですね――いっそ我らの側へ来ませんか？
+    choices:
+      - id: reject_kain_r
+        label: 誰が〈虚ろの手〉なんかに従うか！
+        next: hill_exit
+        set_flags: ['ec:flag_kain_hill_met']
+  hill_forgiven:
+    text: おや、ルミナの新星。裏切り者すら許すとは、随分と甘い方ですね。その情の深さが、聖堂の闇で仇とならねばよいのですが。
+    choices:
+      - id: reject_kain_f
+        label: 仲間を信じる強さを舐めるな！
+        next: hill_exit
+        set_flags: ['ec:flag_kain_hill_met']
+  hill_exit:
+    text: 残念ながら、聖堂の扉はもうすぐ開きます。私の部下たちと少し遊んでいてくださいな。最奥でお待ちしておりますよ。
+    choices: []
+  sanctum_epilogue:
+    text: ……素晴らしい。実に美しい戦いでしたよ、ルミナの新星。ですが誤解なさらぬよう。この聖堂の核は『第一の鍵』に過ぎません。我が主はすでに〈第二の星片〉――北の果て〈蒼穹の氷嶺〉に眠る凍てつく核へと手を伸ばしております。次に相まみえる時、アエリアの空はもう墜ち始めているでしょう……では、また北の空で。
+    choices:
+      - id: swear_pursuit
+        label: 待て、カイン！必ず〈第二の星片〉も守り抜いてみせる！
+        set_flags: ['ec:flag_kain_sanctum_epilogue']

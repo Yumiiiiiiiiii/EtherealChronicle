@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_q_star_astrolabe
+type: item
+name: 古のアストロラーベ
+material: CLOCK
+rarity: RARE
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 0
+bound: true
+quest_item: true
+lore: '星見の丘の封門を起動させるための古代星図盤。'

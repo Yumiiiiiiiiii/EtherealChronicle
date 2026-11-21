@@ -1,0 +1,22 @@
+schema_version: 1
+id: ec:quest_m08_void_warden
+type: quest
+name: 虚核の守護者
+condition: {min_level: 14, completed_quests: ['ec:quest_m07_stargazer_oath']}
+objectives:
+  - {id: enter_sanctum, kind: EXPLORE, target: 'ec:area_void_sanctum', amount: 1}
+  - {id: defeat_void_warden, kind: KILL, target: 'ec:boss_void_warden', amount: 1}
+  - {id: collect_remnant, kind: COLLECT, target: 'ec:item_q_void_remnant', amount: 1, consume: true}
+  - {id: final_report_vulcan, kind: TALK, target: 'ec:npc_vulcan', amount: 1}
+rewards:
+  xp: 6200
+  currency: 1600
+  set_flags: ['ec:flag_void_warden_defeated', 'ec:flag_ch1_completed']
+  items:
+    - {item: 'ec:item_mat_void_core_essence', amount: 1}
+    - {item: 'ec:item_mat_starshard_fragment', amount: 5, condition: {has_flags: ['ec:flag_choice3_guild']}}
+    - {item: 'ec:item_con_revive_feather', amount: 2, condition: {has_flags: ['ec:flag_choice3_guild']}}
+    - {item: 'ec:item_mat_starshard_fragment', amount: 8, condition: {has_flags: ['ec:flag_choice3_observatory']}}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

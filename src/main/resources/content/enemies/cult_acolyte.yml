@@ -1,0 +1,27 @@
+schema_version: 1
+id: ec:enemy_cult_acolyte
+type: enemy
+name: 〈虚ろの手〉見習い信徒
+entity: EVOKER
+level: 13
+hp: 740
+attack: 76
+defense: 44
+xp: 287
+currency: 62
+droptable: ec:drop_cult_acolyte
+element: VOID
+weaknesses: [AETHER, PHYSICAL]
+resistances: [VOID]
+speed: 0.25
+size: 1
+elite: false
+aggro_range: 16
+leash_range: 28
+attack_interval_ticks: 40
+traits: [FLEE]
+specials:
+  - {id: void_bolt_volley, name: '虚空ボルト連射', shape: LINE, cooldown_ticks: 180, telegraph_ticks: 22, radius: 1.8, range: 14, multiplier: 1.4, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: NONE}
+spawn_points:
+  - {id: mine_cult_altar_1, world: ec_world, x: 220, y: 65, z: -22, cap: 2, respawn_ticks: 260}
+  - {id: mine_cult_altar_2, world: ec_world, x: 220, y: 65, z: 22, cap: 2, respawn_ticks: 260}

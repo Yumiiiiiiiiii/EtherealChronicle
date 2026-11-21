@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_arm_ranger_jerkin
+type: item
+name: 星見レンジャーの外套
+material: LEATHER_CHESTPLATE
+rarity: EPIC
+slot: CHEST
+min_level: 14
+classes: [ec:class_archer]
+budget: 35
+stats: {hp: 95, defense: 22, attack: 18, crit: 0.06, element_resist: 0.06}
+price: 2200
+lore: 'エレナ直伝の仕立てに星見の布を合わせた軽装外套。【狩人の見切り】危機を見切り集中を立て直す。'
+effects:
+  - {kind: RESOURCE, amount: 18, cooldown_ms: 15000, chance: 1.0}

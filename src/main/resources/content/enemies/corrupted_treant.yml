@@ -1,0 +1,27 @@
+schema_version: 1
+id: ec:enemy_corrupted_treant
+type: enemy
+name: 星蝕トレント
+entity: IRON_GOLEM
+level: 8
+hp: 1150
+attack: 48
+defense: 36
+xp: 320
+currency: 82
+droptable: ec:drop_corrupted_treant
+element: AETHER
+weaknesses: [FIRE, VOID]
+resistances: [PHYSICAL, AETHER]
+speed: 0.21
+size: 2
+elite: true
+aggro_range: 14
+leash_range: 26
+attack_interval_ticks: 48
+traits: [KNOCKBACK_RESIST]
+specials:
+  - {id: star_roots, name: '星根の隆起', shape: CIRCLE, cooldown_ticks: 200, telegraph_ticks: 26, radius: 2.5, range: 12, multiplier: 1.75, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: KNOCKUP}
+  - {id: violet_shockwave, name: '蒼紫の衝撃波', shape: CIRCLE, cooldown_ticks: 280, telegraph_ticks: 28, radius: 5.0, range: 6, multiplier: 1.5, min_hp_ratio: 0.0, max_hp_ratio: 0.5, effect: KNOCKUP}
+spawn_points:
+  - {id: ashwood_ancient_grove, world: ec_world, x: 128, y: 65, z: 0, cap: 1, respawn_ticks: 600}

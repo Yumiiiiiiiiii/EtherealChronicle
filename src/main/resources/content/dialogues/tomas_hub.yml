@@ -1,0 +1,98 @@
+schema_version: 1
+id: ec:dlg_tomas_hub
+type: dialogue
+name: トマスの兵站所
+speaker: ec:npc_tomas
+start: root
+nodes:
+  root:
+    text: 記録によれば、この先から魔物の耐久力が跳ね上がります。命を繋ぐのは勇気より予備の回復薬です。補給は万全ですか？
+    branches:
+      - {condition: {has_flags: ['ec:flag_choice1_extract'], not_flags: ['ec:flag_given_extract_supply']}, next: extract_supply}
+    choices:
+      - id: open_shop
+        label: 補給物資・装備を購入する
+        actions:
+          - {kind: OPEN_SHOP, target: 'ec:shop_mine_quartermaster'}
+      - id: complete_m04
+        label: 第1坑道の調査を報告する（嘆きの廃坑へ・報告）
+        condition: {active_quests: ['ec:quest_m04_road_to_mine']}
+        next: m04_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_m04_road_to_mine'}
+      - id: start_m05
+        label: 教団の採掘拠点を探る（黒き密書と裏切り・受注）
+        condition: {min_level: 9, completed_quests: ['ec:quest_m04_road_to_mine'], not_started_quests: ['ec:quest_m05_mine_betrayal']}
+        next: m05_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_m05_mine_betrayal'}
+      - id: complete_m05
+        label: 密書とダレンの件を報告する（黒き密書と裏切り・報告）
+        condition: {active_quests: ['ec:quest_m05_mine_betrayal']}
+        next: m05_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_m05_mine_betrayal'}
+      - id: start_m06
+        label: 第3縦坑の採掘巨兵を制圧する（暴走する採掘巨兵・受注）
+        condition: {min_level: 10, completed_quests: ['ec:quest_m05_mine_betrayal'], not_started_quests: ['ec:quest_m06_iron_grinder']}
+        next: m06_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_m06_iron_grinder'}
+      - id: complete_m06
+        label: アイアン・グラインダーを撃破した！（暴走する採掘巨兵・報告）
+        condition: {active_quests: ['ec:quest_m06_iron_grinder']}
+        next: m06_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_m06_iron_grinder'}
+      - id: start_s07
+        label: 坑道の懸賞金討伐を受ける（坑道掃除の懸賞金・受注）
+        condition: {completed_quests: ['ec:quest_m04_road_to_mine'], not_started_quests: ['ec:quest_s07_golem_bounty']}
+        next: s07_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_s07_golem_bounty'}
+      - id: complete_s07
+        label: 黒曜ゴーレムと虚ろの坑夫を討伐した（坑道掃除の懸賞金・報告）
+        condition: {active_quests: ['ec:quest_s07_golem_bounty']}
+        next: s07_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_s07_golem_bounty'}
+      - id: start_s09
+        label: 補給隊の緊急監査を受ける（補給隊の緊急監査・受注）
+        condition: {has_flags: ['ec:flag_choice2_report'], completed_quests: ['ec:quest_m06_iron_grinder'], not_started_quests: ['ec:quest_s09_tomas_audit']}
+        next: s09_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_s09_tomas_audit'}
+      - id: bye
+        label: また後で来るよ
+  extract_supply:
+    text: ヴァルカンギルド長から森の星片抽出に伴う特別補給物資が届いています。規定通り中級回復薬を3本支給します。有効に活用してください。
+    choices:
+      - id: take_supply
+        label: 特別補給を受け取る
+        next: root
+        actions:
+          - {kind: GIVE_ITEM, target: 'ec:item_con_medium_hp_potion', amount: 3, once_flag: 'ec:flag_given_extract_supply'}
+  m04_done:
+    text: やはり教団〈虚ろの手〉が坑道に入り込んでいましたか……。しかし解せません。第3縦坑の厳重な封印を、連中はどうやって抜けたのでしょう？
+    choices: []
+  m05_started:
+    text: 教団の見習い信徒たちが第2坑道奥で採掘拠点を築いています。指揮系統を探るため、信徒を排除し連絡文書を押収してください。
+    choices: []
+  m05_done:
+    text: ……なるほど、あなたの決断は記録しました。いずれにせよ、第3縦坑の奥で巨大な魔力炉が起動しています。封印鍵を持って、直ちに制圧へ向かってください！
+    choices: []
+  m06_started:
+    text: 教団は古代の採掘巨兵『アイアン・グラインダー』に星片を無理やり注ぎ込み、我々の足止めを図っています。強敵です、必要なら仲間とパーティーを組んで挑んでください！
+    choices: []
+  m06_done:
+    text: 見事です！巨兵を沈黙させるとは……。しかし教団幹部『カイン』はすでに星片を持ち出し、北の高台『星見の丘』へ向かった模様です。丘の天文台跡にいる賢者リラ殿と合流してください！
+    choices: []
+  s07_started:
+    text: 補給路の確保が急務です。第2坑道の黒曜ゴーレムと虚ろの坑夫にギルド懸賞金が掛けられました。規定数を討伐していただければ、相応の報奨と脚甲を支給します。
+    choices: []
+  s07_done:
+    text: 討伐確認完了。これで輸送隊の損失率が4割は下がる計算です。規定通り報奨金と補強脚甲をお渡しします。
+    choices: []
+  s09_started:
+    text: ダレンの告発により横流しされていたギルド物資の帳簿が発覚しました。護衛の信徒を排除し証拠の虚空の塵を回収のうえ、ヴァルカンギルド長へ報告してください。
+    choices: []

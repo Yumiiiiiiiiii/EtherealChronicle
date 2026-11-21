@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:quest_s07_golem_bounty
+type: quest
+name: 坑道掃除の懸賞金
+condition: {completed_quests: ['ec:quest_m04_road_to_mine']}
+objectives:
+  - {id: kill_golems, kind: KILL, target: 'ec:enemy_obsidian_golem', amount: 4}
+  - {id: kill_void_miners, kind: KILL, target: 'ec:enemy_void_miner', amount: 6}
+  - {id: report_tomas, kind: TALK, target: 'ec:npc_tomas', amount: 1}
+rewards:
+  xp: 2150
+  currency: 580
+  set_flags: []
+  items:
+    - {item: 'ec:item_arm_miner_greaves', amount: 1}
+    - {item: 'ec:item_con_miner_ration', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

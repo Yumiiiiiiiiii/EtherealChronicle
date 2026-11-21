@@ -1,0 +1,21 @@
+schema_version: 1
+id: ec:shop_stargazer_relic
+type: shop
+name: 星見の賢者リラの星片交換所
+npc: ec:npc_lyra
+buyback: false
+entries:
+  - {id: greater_hp_potion, item: 'ec:item_con_greater_hp_potion', amount: 1, price: 210}
+  - {id: resource_elixir, item: 'ec:item_con_resource_elixir', amount: 1, price: 95}
+  - {id: starlight_tea, item: 'ec:item_con_starlight_tea', amount: 1, price: 190}
+  - {id: revive_feather, item: 'ec:item_con_revive_feather', amount: 1, price: 380, daily_limit: 5}
+  - {id: vanguard_plate, item: 'ec:item_arm_vanguard_plate', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_starshard_fragment', amount: 14}], condition: {has_flags: ['ec:flag_sanctum_unlocked']}}
+  - {id: ranger_jerkin, item: 'ec:item_arm_ranger_jerkin', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_starshard_fragment', amount: 14}], condition: {has_flags: ['ec:flag_sanctum_unlocked']}}
+  - {id: sage_robe, item: 'ec:item_arm_sage_robe', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_starshard_fragment', amount: 14}], condition: {has_flags: ['ec:flag_sanctum_unlocked']}}
+  - {id: aether_vanguard_sword, item: 'ec:item_wpn_aether_vanguard_sword', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_starshard_fragment', amount: 18}], condition: {has_flags: ['ec:flag_sanctum_unlocked']}}
+  - {id: starlight_bow, item: 'ec:item_wpn_starlight_bow', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_starshard_fragment', amount: 18}], condition: {has_flags: ['ec:flag_sanctum_unlocked']}}
+  - {id: stargazer_rod, item: 'ec:item_wpn_stargazer_rod', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_starshard_fragment', amount: 18}], condition: {has_flags: ['ec:flag_sanctum_unlocked']}}
+  - {id: void_heart_ring, item: 'ec:item_acc_void_heart_ring', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_void_core_essence', amount: 4}, {item: 'ec:item_mat_starshard_fragment', amount: 25}], condition: {has_flags: ['ec:flag_void_warden_defeated']}, token_discount_flag: 'ec:flag_choice3_observatory', token_discount: [{item: 'ec:item_mat_void_core_essence', amount: 4}, {item: 'ec:item_mat_starshard_fragment', amount: 20}]}
+  - {id: void_cleaver, item: 'ec:item_wpn_void_cleaver', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_void_core_essence', amount: 5}, {item: 'ec:item_mat_starshard_fragment', amount: 30}], condition: {has_flags: ['ec:flag_void_warden_defeated']}, token_discount_flag: 'ec:flag_choice3_observatory', token_discount: [{item: 'ec:item_mat_void_core_essence', amount: 5}, {item: 'ec:item_mat_starshard_fragment', amount: 25}]}
+  - {id: astral_piercer, item: 'ec:item_wpn_astral_piercer', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_void_core_essence', amount: 5}, {item: 'ec:item_mat_starshard_fragment', amount: 30}], condition: {has_flags: ['ec:flag_void_warden_defeated']}, token_discount_flag: 'ec:flag_choice3_observatory', token_discount: [{item: 'ec:item_mat_void_core_essence', amount: 5}, {item: 'ec:item_mat_starshard_fragment', amount: 25}]}
+  - {id: aether_chronicle_staff, item: 'ec:item_wpn_aether_chronicle_staff', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_void_core_essence', amount: 5}, {item: 'ec:item_mat_starshard_fragment', amount: 30}], condition: {has_flags: ['ec:flag_void_warden_defeated']}, token_discount_flag: 'ec:flag_choice3_observatory', token_discount: [{item: 'ec:item_mat_void_core_essence', amount: 5}, {item: 'ec:item_mat_starshard_fragment', amount: 25}]}

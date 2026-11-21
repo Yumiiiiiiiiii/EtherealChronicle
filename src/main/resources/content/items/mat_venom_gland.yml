@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_venom_gland
+type: item
+name: 胞子の毒腺
+material: SPIDER_EYE
+rarity: UNCOMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 80
+lore: '胞子グモから摘出した毒嚢。錬金術の高級原料として高値で取引される。'

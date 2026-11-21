@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:quest_s10_star_constellation
+type: quest
+name: 古の星碑巡り
+condition: {has_flags: ['ec:flag_stargazer_unlocked']}
+objectives:
+  - {id: explore_monoliths, kind: EXPLORE, target: 'ec:area_stargazer_hill', amount: 1}
+  - {id: calm_wisps, kind: KILL, target: 'ec:enemy_star_wisp', amount: 5}
+  - {id: report_lyra, kind: TALK, target: 'ec:npc_lyra', amount: 1}
+rewards:
+  xp: 3400
+  currency: 720
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_starshard_fragment', amount: 3}
+    - {item: 'ec:item_con_starlight_tea', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

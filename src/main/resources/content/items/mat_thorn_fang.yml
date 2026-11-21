@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_thorn_fang
+type: item
+name: イバラの牙
+material: BONE
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 40
+lore: '棘のように鋭いイバラオオカミの犬歯。店の買取品として安定した値が付く。'

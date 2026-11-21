@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_star_bark
+type: item
+name: 星蝕の樹皮
+material: STRIPPED_OAK_LOG
+rarity: RARE
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 217
+lore: '蒼紫の星片結晶が脈のように走る希少な樹皮。森の強敵を制した戦利品。'

@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_q_mine_seal_key
+type: item
+name: 第3縦坑の封印鍵
+material: TRIPWIRE_HOOK
+rarity: UNCOMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 0
+bound: true
+quest_item: true
+lore: '嘆きの廃坑・第3縦坑の機械炉を開く重厚な鉄鍵。'

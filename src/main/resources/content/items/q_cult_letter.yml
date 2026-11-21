@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_q_cult_letter
+type: item
+name: 〈虚ろの手〉の密書
+material: WRITTEN_BOOK
+rarity: UNCOMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 0
+bound: true
+quest_item: true
+lore: '黒い封蝋で閉じられた教団の書簡。鉱夫長ダレンとの取引が記されている。'

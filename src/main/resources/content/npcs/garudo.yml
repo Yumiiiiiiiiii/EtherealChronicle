@@ -1,0 +1,10 @@
+schema_version: 1
+id: ec:npc_garudo
+type: npc
+name: 鍛冶屋ガルド
+entity: VILLAGER
+chapter: ec:chapter_1
+area: ec:area_lumina_port
+location: {world: ec_world, x: -14, y: 65, z: 6, yaw: 90}
+dialogue: ec:dlg_garudo_hub
+shop: ec:shop_lumina_blacksmith
