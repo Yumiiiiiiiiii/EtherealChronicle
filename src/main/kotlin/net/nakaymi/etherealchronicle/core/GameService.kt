@@ -5,6 +5,7 @@ import net.nakaymi.etherealchronicle.data.*
 /** Main-thread owned gameplay operations shared by Paper events and the console simulator. */
 class GameService(private val content: () -> ContentSnapshot, val skills: SkillEngine) {
     fun chooseClass(p: PlayerProfile, id: String) {
+        content().classes[id]
         check(p.classId == null) { "職業は既に選択されています。" }
         changeClass(p,id); startQuest(p,"ec:tutorial")
     }
@@ -59,4 +60,5 @@ class GameService(private val content: () -> ContentSnapshot, val skills: SkillE
         p.currency = p.currency.coerceAtMost(Long.MAX_VALUE-gain) + gain
     }
 }
+
 

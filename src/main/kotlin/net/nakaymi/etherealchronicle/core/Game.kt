@@ -37,7 +37,7 @@ data class Balance(val levelCap: Int, val xpBase: Double, val xpExponent: Double
 
 enum class ResourceKind { RAGE, FOCUS, MANA }
 data class ClassDefinition(val id: String, val name: String, val resource: ResourceKind, val stats: Stats,
-    val regeneration: Double, val hitGain: Double, val skills: List<String>, val starterItems: List<String>)
+    val regeneration: Double, val hitGain: Double, val skills: List<String>, val starterItems: List<String>, val growth: Stats = Stats.ZERO)
 data class SkillDefinition(val id: String, val name: String, val cost: Double, val cooldownMillis: Long,
     val multiplier: Double, val range: Double)
 fun interface Clock { fun millis(): Long }
@@ -61,7 +61,7 @@ class SkillEngine(private val clock: Clock, private var balance: Balance) {
 }
 
 enum class Rarity(val displayName: String) { COMMON("コモン"), UNCOMMON("アンコモン"), RARE("レア"), EPIC("エピック"), LEGENDARY("レジェンダリー") }
-enum class GearSlot { HAND, HEAD, CHEST, LEGS, FEET, NONE }
+enum class GearSlot { HAND, OFFHAND, HEAD, CHEST, LEGS, FEET, ACCESSORY, NONE }
 data class ItemDefinition(val id: String, val name: String, val material: String, val rarity: Rarity,
     val minLevel: Int, val classes: List<String>, val stats: Stats, val budget: Double, val budgetMultiplier: Double = 1.0, val affixes: Int = 0, val slot: GearSlot = GearSlot.HAND) {
     fun canEquip(player: PlayerProfile) = player.level >= minLevel && (classes.isEmpty() || player.classId in classes)
@@ -77,10 +77,12 @@ data class DropTable(val id: String, val entries: List<DropEntry>) {
 data class PlayerProfile(val uuid: UUID, var classId: String? = null, var level: Int = 1, var xp: Long = 0,
     var currency: Long = 0, var resource: Double = 0.0, var selectedSkill: Int = 0,
     var starterGranted: Boolean = false, val quests: MutableMap<String, QuestProgress> = mutableMapOf(),
-    val skillLevels: MutableMap<String, Int> = mutableMapOf()) {
-    fun snapshot() = copy(skillLevels = skillLevels.toMutableMap(), quests = quests.mapValues { it.value.copy() }.toMutableMap())
+    val skillLevels: MutableMap<String, Int> = mutableMapOf(), val flags: MutableSet<String> = mutableSetOf(),
+    val dailyPurchases: MutableMap<String, Int> = mutableMapOf(), val transactions: MutableList<String> = mutableListOf(), var accessory: String? = null) {
+    fun snapshot() = copy(skillLevels = skillLevels.toMutableMap(), quests = quests.mapValues { it.value.copy(objectives = it.value.objectives.toMutableMap()) }.toMutableMap(), flags = flags.toMutableSet(), dailyPurchases = dailyPurchases.toMutableMap(), transactions = transactions.toMutableList())
 }
-data class QuestProgress(var progress: Int = 0, var completed: Boolean = false)
+data class QuestProgress(var progress: Int = 0, var completed: Boolean = false, val objectives: MutableMap<String,Int> = mutableMapOf(), var completedAt: Long = 0)
+
 
 
 
