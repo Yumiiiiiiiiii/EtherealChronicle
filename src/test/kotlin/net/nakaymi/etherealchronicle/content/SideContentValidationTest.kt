@@ -46,6 +46,7 @@ class SideContentValidationTest {
     @Test
     fun `new roles parse optional icons and party support plus taunt fields`() {
         val snapshot=loadBundled()
+        assertEquals(setOf("ec:title_truth_seeker","ec:title_frost_walker","ec:title_crucible_victor"),snapshot.world.titles.keys)
         assertEquals("SHIELD",snapshot.classes["ec:class_paladin"].icon)
         assertEquals("END_CRYSTAL",snapshot.classes["ec:class_cleric"].icon)
         val mend=snapshot.skills["ec:cleric_mend"]

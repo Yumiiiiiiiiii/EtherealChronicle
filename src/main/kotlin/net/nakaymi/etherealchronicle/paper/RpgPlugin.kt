@@ -68,7 +68,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 installation.changed.forEach { name ->
                     logger.info("サーバー編集を優先します: $name（配布版と異なります。更新時は必須項目を比較してください）")
                 }
-                listOf("balance","classes","skills","items","enemies","bosses","npcs","quests","dialogues","chapters","droptables","shops").forEach { java.nio.file.Files.createDirectories(dataFolder.toPath().resolve("content").resolve(it)) }
+                listOf("balance","classes","skills","items","enemies","bosses","npcs","quests","dialogues","chapters","droptables","shops","titles").forEach { java.nio.file.Files.createDirectories(dataFolder.toPath().resolve("content").resolve(it)) }
                 val startup=ContentBootstrap.initialize(dataFolder.toPath(),bundled,::validatePaperContent)
                 content=startup.service
                 if(startup.usedFallback) logger.warning("サーバーのコンテンツに不備があります。配布版で起動し /ec validate と /ec reload を有効にします: ${startup.problem}")
@@ -238,6 +238,11 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         p.isHealthScaled = true; p.healthScale = 20.0
         if(p.health > max) p.health = max
     }
+    private fun applyTitle(player:Player,profile:PlayerProfile) {
+        val title=profile.selectedTitle?.let(snapshot.world.titles::get)?.takeIf { it.unlockFlag in profile.flags }?.name
+        val display=if(title == null) Component.text(player.name) else Component.text("[$title] ${player.name}")
+        player.displayName(display); player.playerListName(display)
+    }
     private fun tick() {
         game.skills.cleanup()
         val now=System.nanoTime()/1_000_000; procReady.entries.removeIf { it.value <= now }; defenseBuffs.entries.removeIf { it.value.second <= now }; basicAttacks.cleanup()
@@ -248,7 +253,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             val profile = profiles[p.uniqueId] ?: return@forEach
             val c = profile.classId?.let { content.snapshot().classes.find(it) } ?: return@forEach
             if(adventure.locked(p.uniqueId)) return@forEach
-            val s = effectiveStats(p,profile); applyStats(p,profile)
+            val s = effectiveStats(p,profile); applyStats(p,profile); applyTitle(p,profile)
             val beforeResource = profile.resource
             game.regenerate(profile,s.resource,Bukkit.getCurrentTick()-(lastMoved[p.uniqueId] ?: Int.MIN_VALUE/2) < 20)
             if(profile.resource != beforeResource) dirty.add(p.uniqueId)
@@ -441,7 +446,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     }
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if(!ready) { sender.sendMessage(Component.text("冒険システムは起動中です。しばらくお待ちください。")); return true }
-        if(sender is Player && args.firstOrNull() in setOf("quest","party","equipment","dungeon","shop","claim")) {
+        if(sender is Player && args.firstOrNull() in setOf("quest","party","equipment","dungeon","shop","claim","title","codex","enhance")) {
             try { playerCommand(sender,args.toList()) } catch(error: Exception) { sender.sendMessage(Component.text("操作できません: ${error.message}")) }
             return true
         }
@@ -544,6 +549,18 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val p=profiles[player.uniqueId] ?: error("読み込み中です。")
         require(!adventure.locked(p.uuid)) { "取引の処理中です。" }
         when(args[0]) {
+            "title" -> {
+                val id=args.getOrNull(1)
+                if(id == null) {
+                    snapshot.world.titles.values.forEach { title -> player.sendMessage(Component.text("${if(title.unlockFlag in p.flags) "✓" else "○"} ${title.id}: ${title.name}${if(title.id == p.selectedTitle) " [装備中]" else ""}")) }
+                    player.sendMessage(Component.text("/ec title <称号ID|none> で表示を切り替えます。"))
+                } else {
+                    val selected=if(id == "none") null else id
+                    require(p.equipTitle(selected,snapshot.world.titles)) { "称号をまだ解放していません。" }
+                    save(p); applyTitle(player,p)
+                    player.sendMessage(Component.text(if(selected == null) "称号表示を解除しました。" else "称号を装備しました: ${snapshot.world.titles.getValue(selected).name}"))
+                }
+            }
             "claim" -> adventure.claimPending(player)
             "equipment" -> adventure.equipment(player)
             "dungeon" -> when(args.getOrNull(1)) {

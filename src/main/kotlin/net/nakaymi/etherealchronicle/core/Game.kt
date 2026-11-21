@@ -112,7 +112,7 @@ data class PlayerProfile(val uuid: UUID, var classId: String? = null, var level:
     var currency: Long = 0, var resource: Double = 0.0, var selectedSkill: Int = 0,
     var starterGranted: Boolean = false, val quests: MutableMap<String, QuestProgress> = mutableMapOf(),
     val skillLevels: MutableMap<String, Int> = mutableMapOf(), val flags: MutableSet<String> = mutableSetOf(),
-    val dailyPurchases: MutableMap<String, Int> = mutableMapOf(), val transactions: MutableList<String> = mutableListOf(), var accessory: String? = null, val pendingRewards: MutableMap<String,Int> = mutableMapOf(), val dropPity: MutableMap<String,Int> = mutableMapOf(),val challengeRecords: MutableMap<String,ChallengeRecord> = mutableMapOf()) {
+    val dailyPurchases: MutableMap<String, Int> = mutableMapOf(), val transactions: MutableList<String> = mutableListOf(), var accessory: String? = null, val pendingRewards: MutableMap<String,Int> = mutableMapOf(), val dropPity: MutableMap<String,Int> = mutableMapOf(),val challengeRecords: MutableMap<String,ChallengeRecord> = mutableMapOf(),var selectedTitle:String? = null) {
     fun snapshot() = copy(skillLevels = skillLevels.toMutableMap(), quests = quests.mapValues { it.value.copy(objectives = it.value.objectives.toMutableMap()) }.toMutableMap(), flags = flags.toMutableSet(), dailyPurchases = dailyPurchases.toMutableMap(), transactions = transactions.toMutableList(), pendingRewards = pendingRewards.toMutableMap(), dropPity = dropPity.toMutableMap(),challengeRecords=challengeRecords.mapValues { it.value.copy() }.toMutableMap())
 }
 data class QuestProgress(var progress: Int = 0, var completed: Boolean = false, val objectives: MutableMap<String,Int> = mutableMapOf(), var completedAt: Long = 0, var repeatAvailableAt: Long = Long.MAX_VALUE, var resetPeriod: String? = null)
@@ -124,6 +124,11 @@ fun PlayerProfile.recordChallenge(dungeon:String,seconds:Long,rank:String): Pair
     val updated=old == null || seconds < old.bestSeconds
     if(updated) challengeRecords[dungeon]=ChallengeRecord(seconds,rank)
     return challengeRecords.getValue(dungeon) to updated
+}
+fun PlayerProfile.equipTitle(id:String?,titles:Map<String,TitleDefinition>):Boolean {
+    if(id != null && (titles[id]?.unlockFlag !in flags)) return false
+    selectedTitle=id
+    return true
 }
 
 
