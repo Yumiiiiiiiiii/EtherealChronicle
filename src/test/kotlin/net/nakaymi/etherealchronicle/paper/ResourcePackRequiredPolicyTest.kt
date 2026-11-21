@@ -15,6 +15,7 @@ class ResourcePackRequiredPolicyTest {
         val plugin=YamlConfiguration.loadConfiguration(javaClass.classLoader.getResourceAsStream("plugin.yml")!!.bufferedReader())
 
         assertTrue(config.getBoolean("resource_pack.required"))
+        assertEquals(120, config.getInt("resource_pack.required_timeout_seconds"))
         assertEquals("icons_only",config.getString("ui.theme.mode"))
         assertEquals("op",plugin.getString("permissions.etherealchronicle.pack.bypass.default"))
     }
@@ -67,6 +68,35 @@ class ResourcePackRequiredPolicyTest {
         assertTrue(bypassOff.send.not())
         assertFalse(bypassOff.required)
         assertFalse(ResourcePackPolicy.disconnectOnFailure(bypass.required,true))
+    }
+
+    @Test
+    fun `required pack gate blocks gameplay until success and releases exactly once`() {
+        val gate = RequiredPackGate()
+        val player = java.util.UUID.randomUUID()
+
+        assertTrue(gate.begin(player))
+        assertTrue(gate.isWaiting(player))
+        assertFalse(gate.begin(player))
+        assertTrue(gate.release(player))
+        assertFalse(gate.isWaiting(player))
+        assertFalse(gate.release(player))
+    }
+
+    @Test
+    fun `first join waits only when a required pack can be delivered`() {
+        assertTrue(RequiredPackGatePolicy.shouldWait(true, true, "embedded_http", false))
+        assertFalse(RequiredPackGatePolicy.shouldWait(true, false, "embedded_http", false))
+        assertFalse(RequiredPackGatePolicy.shouldWait(true, true, "external_managed", false))
+        assertFalse(RequiredPackGatePolicy.shouldWait(true, true, "embedded_http", true))
+        assertFalse(RequiredPackGatePolicy.shouldWait(false, true, "embedded_http", false))
+    }
+
+    @Test
+    fun `required timeout seconds are bounded and converted to ticks`() {
+        assertEquals(2_400L, RequiredPackGatePolicy.timeoutTicks(120))
+        assertEquals(200L, RequiredPackGatePolicy.timeoutTicks(0))
+        assertEquals(12_000L, RequiredPackGatePolicy.timeoutTicks(900))
     }
 
     @Test

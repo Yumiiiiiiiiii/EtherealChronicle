@@ -13,6 +13,10 @@ resource_pack:
   enabled: true
   # 配信先が有効な場合は必須です。配信不能なら締め出し防止のため起動時に一時解除します。
   required: true
+  # 必須パックが読み込まれるまでメニューやゲーム操作を保留する最大秒数です。
+  required_timeout_seconds: 120
+  # true にするとパック要求の判定・送信・完了・拒否・タイムアウトをログへ記録します。
+  debug: false
   mode: game_port # experimental; requires same_port_netty.enabled: true; use external_managed when another plugin/server.properties sends the pack
   external_url: ""
   external_sha1: ""
