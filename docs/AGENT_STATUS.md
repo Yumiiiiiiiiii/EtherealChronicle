@@ -22,6 +22,7 @@
 ## Claude-QA — Task 4
 - e607836 merged; 44 tests pass; live Paper clean-boot smoke PASS; ec_world verified (BUG-3 fixed); chapter-1 chain 24 combos PASS; trade exploit suite PASS; MockBukkit NPC/shop paths PASS except BUG-5; BUG-4 (stale content dir disables plugin) and BUG-2 residual open. Perf only mock-level. See docs/TESTING.md.
 
+
 ## Codex-Impl — context checkpoint (Task 2 in progress)
 - Worktree/branch: `codex/foundation`; last committed base before this checkpoint: `3735ab8` (contains Task1, namespace rename, Chapter1 content, approved balance, independent QA harness). Task1 completion `b7f13e3`; dedicated namespace rename `e0c1d47`; Task2 schema contract `ca2c4d7`; content merge `cdf01e9`; gameplay `743604f`; integration `e607836`; regression fixes `bd06830`; approved balance merge `8f36e3a`.
 - Done: typed chapter/quest/dialogue/NPC/shop/enemy/boss schemas and aliases; sequential objective/condition/flag/repeat quest engine; dialogue choices; staged inventory economy with locks/recent transaction IDs; schema4 async profiles and durable pendingRewards mailbox; Citizens-free NPCs/menus/equipment; bounded mob AI/specials/virtual boss HP; parties/shared XP/loot; owned ec_world islands and isolated sanctum regions; 150 production YAMLs after removing 7 old defaults (test fixtures retain them).
@@ -31,5 +32,13 @@
 - Honest gaps: no real Minecraft client; number-key transfer variant, frame/stand/allay/bundle/crafting, actual virtual combat/telegraphs and full dungeon movement still need live or expanded mock verification. Cross-store server-crash consistency is narrowed, not formally solved: a crash inside Paper saveData or the durable claim-before-item issue window may need admin recovery. Existing edited or untracked older active defaults remain preserved; invalid ones trigger bundled fallback until the admin fixes disk content.
 - OPEN / exact next actions: (1) finish current Gradle run, commit this WIP checkpoint; (2) merge `qa/harness` @ `ced55c8` and rerun build/test; (3) implement extended `/ec debug sim` operations for quest accept/event/complete, dialogue/choice, inventory/currency/flags, shop buy/sell, party, and actual spawn/virtual-hit seams so console QA can exercise Task2 without a client; (4) finish per-document typed-reference/schema diagnostics, add remaining focused regression tests; (5) update CONTENT_SCHEMA/DECISIONS/RELEASE/BALANCE/AGENT_STATUS with final behavior and limitations, then hand final branch/hash + verified/playable scope to Claude lead. Do not mark Task2 complete yet.
 - Context hygiene: raw logs/diffs are on disk/build reports; re-read source as needed. No manual compaction tool is exposed in this harness; use this checkpoint as the compact continuation summary.
+
+
+
+## Claude-QA — checkpoint (mailbox/bound review, WIP)
+- Branch qa/harness; last pushed-to-lead commit 40e420a (merged bd06830). Since then merged codex/foundation 3735ab8 (this WIP commit adds MailboxAndBoundTest.kt).
+- Verified (MockBukkit): M1 full-inventory claim keeps pending & delivers once; M2 rewardKill with full inventory pays currency, loot to pending, nothing on ground; P1 deferred party credit applied once after a member's transaction; B1 bound drop cancelled; B3 bound block place cancelled.
+- OPEN: B2 shift-click of a bound item into an external container reported NOT cancelled — need to confirm it is not a MockBukkit slot-mapping artifact (check event.currentItem) before reporting to Codex. Other B2 variants (offhand swap, cursor place, drag) passed.
+- Next: resolve B2, run full `./gradlew test`, update docs/TESTING.md, report to Codex (reply to thread 027a06ca...) and lead.
 
 
