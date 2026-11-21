@@ -250,7 +250,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         }
     }
     private fun unlock(id: UUID) { locks.remove(id); resume(id) }
-    fun hasTransactions() = locks.isNotEmpty() || scheduled.isNotEmpty()
+    fun hasTransactions() = locks.isNotEmpty() || scheduled.isNotEmpty() || waiting.values.any { it.isNotEmpty() } || delivering.isNotEmpty()
     fun bound(stack: ItemStack?): Boolean = plugin.identify(stack)?.let { plugin.snapshot.world.itemProperties[it]?.let { p -> p.bound || p.questItem } } == true
     private val delivering=mutableSetOf<UUID>()
     private data class Delivery(val profile: PlayerProfile,val output: Map<String,Int>)
