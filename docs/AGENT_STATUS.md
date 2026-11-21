@@ -186,3 +186,9 @@
 - Every escape cause has a dedicated Japanese chat fallback and title. Session termination logs include UUID, reason, species, progress and tension; quit/offline/shutdown cleanup paths also log. Catch reports that reward delivery is being finalized; delivery failure gives its own title/chat/log.
 - Regression tests cover all escape-cause feedback and seeded beginner-fish input strategies at 250/300/350/420ms with state-aware THRASH/DIVE/tension inputs. Focused tests passed; observed results are 20/20, 20/20, 20/20, 17/20 respectively.
 - Verification: `./gradlew.bat clean build` SUCCESS; 160 tests, 0 failures/errors/skips. `git diff --check` clean. Focused cadence test result: 250ms=20/20, 300ms=20/20, 350ms=20/20, 420ms=17/20 with human-like state-aware input simulation. Real client catch/reward and fish record remain unverified and need Claude-QA/human cadence recheck.
+
+## Codex-Impl — fishing low-tension QA follow-up
+- QA verified snap/slack/cancel chat and reason logs on a real client; scripted pulls still did not produce a catch and often ended with low-tension slack.
+- The 250ms pull buffer is retained. A shorter 150ms buffer was tested and reverted because all simulated sessions slack-failed; no simulation evidence supports reducing it.
+- CALM ActionBar guidance now warns `張力が低い！右クリックで引く` at <=18% and `張力が高い！手を離す` at >=70%; THRASH/DIVE/TELEGRAPH instructions remain higher priority. Tests cover both prompts.
+- Real-client successful reel, reward, size/crown record and persistence remain unverified; client input automation cannot react to the live ActionBar/behavior.

@@ -305,7 +305,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
                 s.bar.setTitle(if(s.state.phase==FishingPhase.REELING) "§b格闘中 [$behavior] 進捗 ${s.state.progress.toInt()}%" else "§b魚影を探しています…")
                 s.bar.progress=(s.state.progress/100).coerceIn(0.0,1.0)
                 s.bar.color=when(s.state.behavior) { FishBehavior.DIVE -> BarColor.BLUE; FishBehavior.THRASH -> BarColor.RED; FishBehavior.TELEGRAPH -> BarColor.YELLOW; else -> BarColor.GREEN }
-                player.sendActionBar(Component.text("§b張力 ${s.state.tension.toInt()}%  |  進捗 ${s.state.progress.toInt()}%  ${fishingReelAdvice(s.state.behavior)}"))
+                player.sendActionBar(Component.text("§b張力 ${s.state.tension.toInt()}%  |  進捗 ${s.state.progress.toInt()}%  ${fishingReelAdvice(s.state.behavior,s.state.tension)}"))
             }
         }
     }
