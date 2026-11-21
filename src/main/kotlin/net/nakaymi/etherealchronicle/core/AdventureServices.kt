@@ -93,7 +93,8 @@ class TradeEngine(private val content: () -> ContentSnapshot) {
         require(transaction !in p.transactions) { "処理済みの取引です。" }
         val c=content(); val shop=c.world.shops[shopId] ?: error("店が見つかりません。")
         val e=shop.entries.firstOrNull { it.id == entryId } ?: error("商品が見つかりません。")
-        require(e.condition.matches(p) && e.amount <= c.world.tuning.transactionCap)
+        require(e.condition.matches(p)) { "この商品は条件を満たしていません。" }
+        require(e.amount <= c.world.tuning.transactionCap) { "商品の数量が上限を超えています。" }
         val cost=ceil(e.price.toDouble()*(if(shop.discountFlag in p.flags) 1-shop.discount else 1.0)).toLong()
         require(cost >= 0 && p.currency >= cost) { "所持金が足りません。" }
         val key="$day:$shopId:$entryId"; val purchased=p.dailyPurchases.getOrDefault(key,0)

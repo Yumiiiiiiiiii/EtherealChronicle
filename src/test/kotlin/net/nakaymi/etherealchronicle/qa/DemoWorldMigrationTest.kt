@@ -56,4 +56,20 @@ class DemoWorldMigrationTest {
             assertEquals(Material.GOLD_BLOCK,block.type)
         } finally { MockBukkit.unmock() }
     }
+
+    @Test
+    fun `fresh owned build starts at v2 without claiming a migration`() {
+        val folder = Files.createTempDirectory("ec-fresh-v2")
+        Files.writeString(folder.resolve(".etherealchronicle-owned"), "test-owned\n")
+        DemoWorld.markFreshBuild(folder)
+        assertEquals("v2", Files.readString(folder.resolve(".etherealchronicle-built")).trim())
+        val server=MockBukkit.mock()
+        try {
+            val plugin=MockBukkit.load(RpgPlugin::class.java)
+            val world=server.addSimpleWorld(DemoWorld.NAME)
+            assertTrue(DemoWorld.migrateToV2(plugin,world,folder))
+            assertEquals("v2", Files.readString(folder.resolve(".etherealchronicle-built")).trim())
+            assertEquals(Material.AIR, world.getBlockAt(480,65,0).type, "fresh world must not run the v1 migration builder")
+        } finally { MockBukkit.unmock() }
+    }
 }
