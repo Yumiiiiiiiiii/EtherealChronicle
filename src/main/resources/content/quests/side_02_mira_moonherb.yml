@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:quest_side_02_mira_moonherb
+type: quest
+name: 月影草の薬効調査
+condition: {min_level: 5, has_flags: ['ec:flag_ch1_started']}
+objectives:
+  - {id: explore_ashwood, kind: EXPLORE, target: 'ec:area_ashwood_forest', amount: 1}
+  - {id: gather_venom, kind: COLLECT, target: 'ec:item_mat_venom_gland', amount: 4}
+  - {id: report_mira, kind: TALK, target: 'ec:npc_mira', amount: 1}
+rewards:
+  xp: 360
+  currency: 150
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_starlight_lotus', amount: 2}
+    - {item: 'ec:item_con_antidote_herb', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 0

@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_wpn_obsidian_stiletto
+type: item
+name: 黒曜の穿影細剣
+material: IRON_SWORD
+rarity: RARE
+slot: HAND
+min_level: 11
+classes: [ec:class_assassin]
+budget: 26
+stats: {attack: 22, hp: 40, crit: 0.1, crit_damage: 0.16}
+weapon: 88
+price: 1100
+lore: '廃坑深部の黒曜鉱で鍛えた暗殺細剣。重鎧の隙間を一息で貫く。'
+effects:
+  - {kind: ATTACK_PROC, amount: 26, cooldown_ms: 8000, chance: 0.28, element: VOID}

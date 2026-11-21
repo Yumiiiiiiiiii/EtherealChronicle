@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_off_shadow_smoke_vial
+type: item
+name: 幻影霧の暗殺小瓶「ミラージュ」
+material: AMETHYST_SHARD
+rarity: EPIC
+slot: OFFHAND
+min_level: 18
+classes: [ec:class_assassin]
+budget: 34
+stats: {attack: 16, hp: 95, defense: 12, crit: 0.08, crit_damage: 0.14, skill_power: 0.18}
+price: 3100
+lore: '虚空霧を閉じ込めた秘匿小瓶。【幻霧の追刃】煙幕に紛れて虚空の一撃と回避障壁を生む。'
+effects:
+  - {kind: ATTACK_PROC, amount: 52, cooldown_ms: 8500, chance: 0.3, element: VOID}
+  - {kind: DEFENSE_BUFF, amount: 14, cooldown_ms: 20000, duration_ticks: 80, chance: 1.0}

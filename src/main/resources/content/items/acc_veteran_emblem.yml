@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_acc_veteran_emblem
+type: item
+name: 蒼穹歴戦の冒険者徽章
+material: EMERALD
+rarity: EPIC
+slot: ACCESSORY
+min_level: 19
+classes: []
+budget: 34
+stats: {hp: 130, attack: 16, defense: 14, crit: 0.06, element_resist: 0.08, skill_power: 0.24}
+price: 3600
+lore: '星片と氷嶺を駆け抜けた歴戦の冒険者に授与される誉れの徽章。【歴戦の息吹】戦闘中に穏やかな回復をもたらす。'
+effects:
+  - {kind: HEAL, amount: 45, cooldown_ms: 15000, chance: 0.5}

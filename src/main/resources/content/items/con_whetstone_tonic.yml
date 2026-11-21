@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_con_whetstone_tonic
+type: item
+name: 剛刃守護の研磨霊薬
+material: GLOWSTONE_DUST
+rarity: RARE
+slot: NONE
+min_level: 10
+classes: []
+budget: 0
+stats: {}
+price: 220
+lore: '名匠の砥石粉を霊水に溶かした戦場薬。短時間、防御力を24高める。'
+effects:
+  - {kind: DEFENSE_BUFF, amount: 24, cooldown_ms: 14000, duration_ticks: 180, chance: 1.0}

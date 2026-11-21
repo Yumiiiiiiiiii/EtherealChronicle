@@ -68,6 +68,12 @@ nodes:
         next: s02_done
         actions:
           - {kind: COMPLETE_QUEST, target: 'ec:quest_ch2_s02_ice_resonance'}
+      - id: complete_side_09
+        label: ノラからの氷窟碑文調査記録を届ける（氷窟碑文の調査護衛・報告）
+        condition: {active_quests: ['ec:quest_side_09_nora_cavern_escort']}
+        next: side_09_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_09_nora_cavern_escort'}
       - id: bye
         label: また報告に来るよ
   m01_done:
@@ -164,6 +170,12 @@ nodes:
         next: s02_done
         actions:
           - {kind: COMPLETE_QUEST, target: 'ec:quest_ch2_s02_ice_resonance'}
+      - id: complete_side_09_ready
+        label: ノラからの氷窟碑文調査記録を届ける（氷窟碑文の調査護衛・報告）
+        condition: {active_quests: ['ec:quest_side_09_nora_cavern_escort']}
+        next: side_09_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_09_nora_cavern_escort'}
       - id: archon_tips
         label: クライオ・アルコン攻略の助言を聞く
         next: tips_archon
@@ -183,4 +195,7 @@ nodes:
     choices: []
   s02_done:
     text: 素晴らしい共鳴記録です！これならリラ師匠にも胸を張って報告できます。お礼の蒼氷の欠片と魔力強壮剤を受け取ってください！
+    choices: []
+  side_09_done:
+    text: ノラさんからの氷窟碑文の写しですね！古代の氷嶺に星片制御施設があった決定的な証拠です。護衛のお礼に名匠の研磨砥石と星露の極上秘薬をどうぞ！
     choices: []

@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_con_sky_salmon_grill
+type: item
+name: 蒼穹サケの香草焼き
+material: COOKED_SALMON
+rarity: RARE
+slot: NONE
+min_level: 6
+classes: []
+budget: 0
+stats: {}
+price: 140
+lore: '新鮮な蒼穹サケを香草で焼き上げた漁師料理。HPを380、リソースを35回復する。'
+effects:
+  - {kind: HEAL, amount: 380, cooldown_ms: 8000, chance: 1.0}
+  - {kind: RESOURCE, amount: 35, cooldown_ms: 8000, chance: 1.0}

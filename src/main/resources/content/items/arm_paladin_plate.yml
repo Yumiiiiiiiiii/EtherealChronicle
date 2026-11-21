@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_arm_paladin_plate
+type: item
+name: 蒼穹聖騎士の重甲冑
+material: DIAMOND_CHESTPLATE
+rarity: EPIC
+slot: CHEST
+min_level: 16
+classes: [ec:class_paladin]
+budget: 40
+stats: {hp: 170, defense: 36, attack: 8, element_resist: 0.1}
+price: 2900
+lore: '星紋を刻んだ重装甲の聖騎士鎧。【不動の誓い】激しい連撃の中でも揺るがぬ防壁を纏う。'
+effects:
+  - {kind: DEFENSE_BUFF, amount: 26, cooldown_ms: 35000, duration_ticks: 120, chance: 1.0}

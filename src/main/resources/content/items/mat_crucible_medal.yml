@@ -1,0 +1,14 @@
+schema_version: 1
+id: ec:item_mat_crucible_medal
+type: item
+name: 星片試練の勲章
+material: SUNFLOWER
+rarity: EPIC
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 0
+bound: true
+lore: '星片の試練場を踏破した証。カエデの工房で最高峰の武具や徽章と交換できる。'

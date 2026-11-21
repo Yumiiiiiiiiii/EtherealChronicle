@@ -1,0 +1,17 @@
+schema_version: 1
+id: ec:item_wpn_aether_bastion_mace
+type: item
+name: 星砦の聖戦槌
+material: DIAMOND_AXE
+rarity: EPIC
+slot: HAND
+min_level: 16
+classes: [ec:class_paladin]
+budget: 44
+stats: {attack: 28, defense: 22, hp: 140, crit: 0.04, element_resist: 0.06, skill_power: 0.2}
+weapon: 142
+price: 3400
+lore: '星片の輝きを宿した聖騎士の重槌。【聖砦の波動】打撃と共に星光の衝撃を放ち守りを固める。'
+effects:
+  - {kind: ATTACK_PROC, amount: 50, cooldown_ms: 8000, chance: 0.3, element: AETHER}
+  - {kind: DEFENSE_BUFF, amount: 18, cooldown_ms: 16000, duration_ticks: 100, chance: 1.0}

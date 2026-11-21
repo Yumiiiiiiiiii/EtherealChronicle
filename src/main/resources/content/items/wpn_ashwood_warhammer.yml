@@ -1,0 +1,14 @@
+schema_version: 1
+id: ec:item_wpn_ashwood_warhammer
+type: item
+name: 灰森の護り戦槌
+material: IRON_AXE
+rarity: UNCOMMON
+slot: HAND
+min_level: 5
+classes: [ec:class_paladin]
+budget: 16
+stats: {attack: 9, defense: 6, hp: 35}
+weapon: 42
+price: 240
+lore: '灰森の星樹材を柄に用いた鉄戦槌。前衛で仲間を守るための堅牢な造り。'

@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:quest_side_01_port_smugglers
+type: quest
+name: 港の密輸団と消えた積荷
+condition: {min_level: 4, has_flags: ['ec:flag_ch1_started']}
+objectives:
+  - {id: hunt_goblins, kind: KILL, target: 'ec:enemy_moss_goblin', amount: 5}
+  - {id: gather_hide, kind: COLLECT, target: 'ec:item_mat_moss_hide', amount: 3}
+  - {id: report_pip, kind: TALK, target: 'ec:npc_pip', amount: 1}
+rewards:
+  xp: 260
+  currency: 120
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_chronicle_seal', amount: 1}
+    - {item: 'ec:item_con_minor_hp_potion', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 0

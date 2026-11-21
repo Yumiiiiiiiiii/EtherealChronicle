@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:paladin_sanctuary
+type: skill
+name: 不滅の星盾
+cost: 40
+cooldown_ms: 12000
+multiplier: 2.6
+range: 5
+radius: 4.5
+element: AETHER
+heal: 0.25
+defense_buff: 45
+buff_ticks: 160

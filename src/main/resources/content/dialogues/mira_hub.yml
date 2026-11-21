@@ -26,6 +26,18 @@ nodes:
         next: s02_done
         actions:
           - {kind: COMPLETE_QUEST, target: 'ec:quest_s02_slime_gel'}
+      - id: start_side_02
+        label: 月影草の薬効調査を手伝う（月影草の薬効調査・受注）
+        condition: {min_level: 5, has_flags: ['ec:flag_ch1_started'], not_started_quests: ['ec:quest_side_02_mira_moonherb']}
+        next: side_02_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_02_mira_moonherb'}
+      - id: complete_side_02
+        label: 毒腺と森の薬草調査を報告する（月影草の薬効調査・報告）
+        condition: {active_quests: ['ec:quest_side_02_mira_moonherb']}
+        next: side_02_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_02_mira_moonherb'}
       - id: bye
         label: ありがとう、また来ます
   purify_discount:
@@ -47,6 +59,18 @@ nodes:
         next: s02_done
         actions:
           - {kind: COMPLETE_QUEST, target: 'ec:quest_s02_slime_gel'}
+      - id: start_side_02_disc
+        label: 月影草の薬効調査を手伝う（月影草の薬効調査・受注）
+        condition: {min_level: 5, has_flags: ['ec:flag_ch1_started'], not_started_quests: ['ec:quest_side_02_mira_moonherb']}
+        next: side_02_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_02_mira_moonherb'}
+      - id: complete_side_02_disc
+        label: 毒腺と森の薬草調査を報告する（月影草の薬効調査・報告）
+        condition: {active_quests: ['ec:quest_side_02_mira_moonherb']}
+        next: side_02_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_02_mira_moonherb'}
       - id: bye_disc
         label: ありがとう、また来ます
   s02_started:
@@ -54,4 +78,10 @@ nodes:
     choices: []
   s02_done:
     text: まあ、こんなにプルプルで新鮮なゼリー！ありがとうございますぅ。お礼に出来立ての回復薬と解毒の香草をどうぞ！
+    choices: []
+  side_02_started:
+    text: アッシュウッドの森に咲く月影草と毒腺を合わせると、新しい星露秘薬が作れるそうなんですの。森を調査して、胞子グモの毒腺を4つ採ってきていただけますか？
+    choices: []
+  side_02_done:
+    text: わあ、完璧な配合ができそうですわ！お礼に『星露の蓮花』を2輪お裾分けしますね。カエデさんの工房に持っていけば極上の秘薬にしてもらえますよ！
     choices: []

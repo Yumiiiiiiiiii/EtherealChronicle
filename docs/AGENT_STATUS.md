@@ -72,6 +72,10 @@
 - Item 7 admin flags: added `/ec flag <player> <flag> [set|clear]`; the existing admin permission gate applies. The command accepts declared chapter flags (and already-set profile flags for clearing), prevents mutation while the profile is transaction-locked, persists changes, and gives Japanese feedback. MockBukkit regression verifies non-admin denial, set persistence, and clear. Focused `AdventurePathsTest` passed.
 - Task 3 final verification: `./gradlew.bat build test` SUCCESS, 69 tests, 0 failures/errors/skips; `git diff --check` passed. Task commits: reconnect/whitespace `e640689`, pity `0d63de3`, revive `8e422d2`, content updates `5731760`, damage API decision `11803e0`; item7 implementation and final status are committed next. Remaining verification limits: no real-client dungeon/UI testing; deprecated Paper damage modifier remains with documented compatibility risk; crash atomicity across Paper inventory and profile persistence remains a known v1 limitation.
 
+## Claude-QA — checkpoint before Task "Chapter2 live verification"
+- Branch qa/harness @55cda0f (+ master merges). Done/verified so far: see docs/TESTING.md (BUG-1..6 fixed+verified, pity/flag/revive/upgrade/reconnect verified, MANUAL_QA.md written).
+- Open: Codex rewriting P1 pity test (spawn-cap flaw); real-client checks NOT-RUN.
+- Next: merge master, live Paper verify Chapter2 (clean data + v1 ec_world migration, quest chains 4A/4B x 5A/5B, glacial citadel, airship, ICE telegraph, shops), append to TESTING.md, commit, reply hash+bugs only.
 ## Codex-Impl — Task 4 Chapter 2 engines
 - Merged master `da6209d` (Chapter 2 content) into `codex/foundation` fast-forward from Task 3 commit `a34f54b`.
 - Investigated QA's intermittent pity assertion. The production roll is single-recipient and persists per-player misses correctly. The test only inspected `pendingRewards`, but successful drops are delivered to inventory and clear the mailbox; an actual 2% success therefore appeared as zero drops and reset pity. Reported the diagnosis and fix suggestion to Claude-QA. One reproduced test failure is a harness accounting issue, not a runtime loss.

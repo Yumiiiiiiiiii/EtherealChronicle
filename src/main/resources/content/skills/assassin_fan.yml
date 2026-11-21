@@ -1,0 +1,10 @@
+schema_version: 1
+id: ec:assassin_fan
+type: skill
+name: 凍刃の乱舞
+cost: 30
+cooldown_ms: 7000
+multiplier: 1.95
+range: 6.0
+radius: 3.5
+element: ICE

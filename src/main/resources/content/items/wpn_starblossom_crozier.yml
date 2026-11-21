@@ -1,0 +1,14 @@
+schema_version: 1
+id: ec:item_wpn_starblossom_crozier
+type: item
+name: 星花の導き錫杖
+material: IRON_HOE
+rarity: UNCOMMON
+slot: HAND
+min_level: 5
+classes: [ec:class_cleric]
+budget: 16
+stats: {attack: 9, resource: 50, hp: 25, skill_power: 0.14}
+weapon: 42
+price: 240
+lore: '星露の蓮花を模した鉄錫杖。癒やしと星光の魔力を滑らかに増幅する。'

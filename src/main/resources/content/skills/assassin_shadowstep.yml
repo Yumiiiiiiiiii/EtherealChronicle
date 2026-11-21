@@ -1,0 +1,9 @@
+schema_version: 1
+id: ec:assassin_shadowstep
+type: skill
+name: 虚影の急襲
+cost: 22
+cooldown_ms: 5200
+multiplier: 1.8
+range: 7.0
+element: VOID

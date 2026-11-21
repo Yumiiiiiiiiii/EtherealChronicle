@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:quest_side_05_daren_lost_pick
+type: quest
+name: 崩落坑道に残された鶴嘴
+condition: {min_level: 10, has_flags: ['ec:flag_mine_unlocked']}
+objectives:
+  - {id: clear_miners, kind: KILL, target: 'ec:enemy_void_miner', amount: 6}
+  - {id: clear_kobolds, kind: KILL, target: 'ec:enemy_mine_kobold', amount: 4}
+  - {id: report_daren, kind: TALK, target: 'ec:npc_daren', amount: 1}
+rewards:
+  xp: 1080
+  currency: 360
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_chronicle_seal', amount: 2}
+    - {item: 'ec:item_mat_artisan_whetstone', amount: 1}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 0

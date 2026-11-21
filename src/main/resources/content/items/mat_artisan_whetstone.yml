@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_artisan_whetstone
+type: item
+name: 名匠の研磨砥石
+material: FLINT
+rarity: RARE
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 120
+lore: '鉄くずと雷晶石を焼き固めた特製砥石。カエデの工房で武具の鍛造・強化に用いる。'

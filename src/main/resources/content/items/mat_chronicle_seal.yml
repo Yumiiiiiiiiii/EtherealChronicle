@@ -1,0 +1,14 @@
+schema_version: 1
+id: ec:item_mat_chronicle_seal
+type: item
+name: 冒険者ギルド功績印
+material: NETHER_BRICK
+rarity: RARE
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 0
+bound: true
+lore: 'デイリー・ウィークリー依頼の達成証。レンの功績交換所で武具や消耗品と引き換えられる。'

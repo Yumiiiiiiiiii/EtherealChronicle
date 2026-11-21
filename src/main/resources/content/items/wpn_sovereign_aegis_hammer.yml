@@ -1,0 +1,17 @@
+schema_version: 1
+id: ec:item_wpn_sovereign_aegis_hammer
+type: item
+name: 蒼穹聖盾の覇槌「イージス」
+material: NETHERITE_AXE
+rarity: LEGENDARY
+slot: HAND
+min_level: 20
+classes: [ec:class_paladin]
+budget: 55
+stats: {attack: 40, defense: 34, hp: 200, crit: 0.06, crit_damage: 0.16, element_resist: 0.1, skill_power: 0.3}
+weapon: 196
+price: 9600
+lore: '星片の試練を乗り越えた聖騎士に許される伝説の戦槌。【不滅の聖光】打撃のたびに星光波が敵を砕き持ち主を癒やす。'
+effects:
+  - {kind: ATTACK_PROC, amount: 95, cooldown_ms: 9000, chance: 0.36, element: AETHER}
+  - {kind: HEAL, amount: 85, cooldown_ms: 9000, chance: 0.36}

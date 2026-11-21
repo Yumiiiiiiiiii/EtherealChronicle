@@ -1,0 +1,82 @@
+schema_version: 1
+id: ec:dlg_nora_hub
+type: dialogue
+name: 氷嶺博物学者ノラ
+speaker: ec:npc_nora
+start: root
+nodes:
+  root:
+    text: あら、南の冒険者さん！私は氷嶺の魔物と星片生態を編纂している博物学者のノラよ。この地の生態図鑑を完成させるため、調査を手伝ってもらえるかしら？
+    choices:
+      - id: start_side_08
+        label: 霧氷尾根の生態博物誌を引き受ける（Lv17〜）
+        condition: {min_level: 17, has_flags: ['ec:flag_ch2_started'], not_started_quests: ['ec:quest_side_08_nora_glacier_ecology']}
+        next: side_08_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_08_nora_glacier_ecology'}
+      - id: complete_side_08
+        label: 霧氷尾根の生態調査結果を報告する（方針選択）
+        condition: {active_quests: ['ec:quest_side_08_nora_glacier_ecology']}
+        next: side_08_branch
+      - id: start_side_09
+        label: 氷窟碑文の調査護衛を引き受ける（Lv18〜）
+        condition: {min_level: 18, has_flags: ['ec:flag_ch2_cavern_unlocked'], not_started_quests: ['ec:quest_side_09_nora_cavern_escort']}
+        next: side_09_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_09_nora_cavern_escort'}
+      - id: start_h02
+        label: 【隠し】蒼氷四島の秘境踏破に挑む（Lv19〜）
+        condition: {min_level: 19, has_flags: ['ec:flag_ch2_colossus_defeated'], not_started_quests: ['ec:quest_side_h02_frozen_shrine']}
+        next: h02_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_h02_frozen_shrine'}
+      - id: complete_h02
+        label: 【隠し】蒼氷四島の踏破記録をノラへ渡す
+        condition: {active_quests: ['ec:quest_side_h02_frozen_shrine']}
+        next: h02_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_h02_frozen_shrine'}
+      - id: bestiary_notes
+        label: 氷嶺・星片の魔物図鑑メモを読む
+        next: bestiary_node
+      - id: bye
+        label: また調査報告に来るよ
+  side_08_started:
+    text: 霧氷オオカミ6体と氷河レイス5体の行動を観察しつつ、凍結晶の破片を4つ採取してきてほしいの。戻ってきたら、このデータを保護記録に残すか研究標本へ回すか相談させてね！
+    choices: []
+  side_08_branch:
+    text: 素晴らしい調査記録ね！ねえ、この希少な凍結晶データ――生態系の保護区申請に使う『保護記録』として公表すべきかしら、それとも氷耐性装備の研究に役立てる『標本採集』として鍛冶場へ回すべきかしら？
+    choices:
+      - id: choose_nora_preserve
+        label: 氷嶺の生態を守る『保護記録』として博物誌へ残す
+        next: side_08_done_preserve
+        set_flags: ['ec:flag_side_nora_preserve']
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_08_nora_glacier_ecology'}
+      - id: choose_nora_specimen
+        label: 遠征隊の安全のため『標本採集』として研究へ活かす
+        next: side_08_done_specimen
+        set_flags: ['ec:flag_side_nora_specimen']
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_08_nora_glacier_ecology'}
+  side_08_done_preserve:
+    text: ありがとう！星片の異変が静まった後、この氷嶺の命が息づき続けられるよう保護記録を未来へ残すわ。報酬の功績印と星露の蓮花を受け取って！
+    choices: []
+  side_08_done_specimen:
+    text: なるほど、今は前線の命を守ることが最優先ね。いただいた標本はオルフェさんの解析班にも共有しておくわ。報酬をどうぞ！
+    choices: []
+  side_09_started:
+    text: 蒼晶の氷窟に古代の星片碑文が残っていると分かったの。でも内部は氷結の狂信者と蒼氷の重騎士だらけ……。通路を掃討して氷窟を踏破し、調査記録をオルフェさんへ届けてもらえる？
+    choices: []
+  h02_started:
+    text: フロスト・コロッサスを退けたあなたなら、氷嶺の全四島――前哨基地、霧氷の尾根、蒼晶の氷窟、そして蒼穹の氷城すべてを巡る『秘境踏破録』を完成させられるはずよ！達成したら『氷嶺踏破者』の称号と歴戦の徽章を贈るわ！
+    choices: []
+  h02_done:
+    text: 本当に全四島を踏破してきたのね……！これぞ生きた蒼穹の博物誌よ。約束の『蒼穹歴戦の冒険者徽章』と称号『氷嶺踏破者』を受け取って！
+    choices: []
+  bestiary_node:
+    text: 私の図鑑メモによると、氷嶺の敵の多くは炎と星光に弱く、逆に氷属性へ強い耐性を持つわ。一方、試練場のエーテル・キメラは雷と虚空が弱点よ。聖導士の雷環や影刃の虚空刃、聖騎士の星壁を使い分けると有利に戦えるわよ！
+    choices:
+      - id: bestiary_back
+        label: 参考になったよ
+        next: root

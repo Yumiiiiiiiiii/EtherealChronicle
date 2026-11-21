@@ -1,0 +1,20 @@
+schema_version: 1
+id: ec:quest_side_07_lyra_astral_survey
+type: quest
+name: 星片落下点の魔力観測
+condition: {min_level: 14, has_flags: ['ec:flag_stargazer_unlocked']}
+objectives:
+  - {id: clear_wisps, kind: KILL, target: 'ec:enemy_star_wisp', amount: 6}
+  - {id: clear_stalkers, kind: KILL, target: 'ec:enemy_astral_stalker', amount: 4}
+  - {id: survey_sanctum, kind: EXPLORE, target: 'ec:area_void_sanctum', amount: 1}
+  - {id: report_lyra, kind: TALK, target: 'ec:npc_lyra', amount: 1}
+rewards:
+  xp: 1950
+  currency: 520
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_starlight_lotus', amount: 3}
+    - {item: 'ec:item_con_starlight_elixir', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 0

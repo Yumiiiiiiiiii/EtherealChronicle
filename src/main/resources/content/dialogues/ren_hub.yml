@@ -1,0 +1,136 @@
+schema_version: 1
+id: ec:dlg_ren_hub
+type: dialogue
+name: ギルド記録官レンの窓口
+speaker: ec:npc_ren
+start: root
+nodes:
+  root:
+    text: ようこそ冒険者録の窓口へ！ギルド記録官のレンです。デイリー・ウィークリー依頼の受注、功績印の交換、そして称号や生態記録の照会までお任せください。
+    choices:
+      - id: open_chronicle_shop
+        label: 功績交換所を開く（新職武具・功績印交換）
+        actions:
+          - {kind: OPEN_SHOP, target: 'ec:shop_chronicle_exchange'}
+      - id: claim_bounty_pack
+        label: 冒険者録の登録祝いを受け取る（初回限定）
+        condition: {has_flags: ['ec:flag_ch1_started'], not_flags: ['ec:flag_side_given_bounty_pack']}
+        next: bounty_pack_done
+        actions:
+          - {kind: GIVE_ITEM, target: 'ec:item_con_sky_salmon_grill', amount: 1, once_flag: 'ec:flag_side_given_bounty_pack'}
+      - id: start_d01
+        label: 【デイリー】ギルド日替わり討伐手配を受ける（Lv6〜）
+        condition: {min_level: 6, has_flags: ['ec:flag_ch1_started'], not_started_quests: ['ec:quest_side_d01_daily_hunt']}
+        next: d01_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_d01_daily_hunt'}
+      - id: complete_d01
+        label: 【デイリー】日替わり討伐手配を報告する
+        condition: {active_quests: ['ec:quest_side_d01_daily_hunt']}
+        next: d01_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_d01_daily_hunt'}
+      - id: start_d02
+        label: 【デイリー】北方氷嶺の巡回掃討を受ける（Lv16〜）
+        condition: {min_level: 16, has_flags: ['ec:flag_ch2_started'], not_started_quests: ['ec:quest_side_d02_daily_frost']}
+        next: d02_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_d02_daily_frost'}
+      - id: complete_d02
+        label: 【デイリー】北方氷嶺の巡回掃討を報告する
+        condition: {active_quests: ['ec:quest_side_d02_daily_frost']}
+        next: d02_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_d02_daily_frost'}
+      - id: start_w01
+        label: 【ウィークリー】強敵三柱の大討伐を受ける（Lv14〜）
+        condition: {min_level: 14, has_flags: ['ec:flag_stargazer_unlocked'], not_started_quests: ['ec:quest_side_w01_weekly_bounty']}
+        next: w01_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_w01_weekly_bounty'}
+      - id: complete_w01
+        label: 【ウィークリー】強敵三柱の大討伐を報告する
+        condition: {active_quests: ['ec:quest_side_w01_weekly_bounty']}
+        next: w01_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_w01_weekly_bounty'}
+      - id: start_h01
+        label: 【隠し】失われた先代調査日誌について尋ねる（Lv13〜）
+        condition: {min_level: 13, has_flags: ['ec:flag_iron_grinder_defeated'], not_started_quests: ['ec:quest_side_h01_forgotten_diary']}
+        next: h01_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_h01_forgotten_diary'}
+      - id: complete_h01
+        label: 【隠し】封じられた調査日誌をレンへ渡す
+        condition: {active_quests: ['ec:quest_side_h01_forgotten_diary']}
+        next: h01_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_h01_forgotten_diary'}
+      - id: check_titles
+        label: 実績・称号と図鑑の記録を見る
+        next: titles_menu
+      - id: bye
+        label: また記録を更新しに来るよ
+  bounty_pack_done:
+    text: ようこそ『蒼穹の冒険者録』へ！長旅のお供に『蒼穹サケの香草焼き』を差し上げます。デイリーやウィークリーで功績印を集めると、新職業の専用装備や研磨砥石と交換できますよ。
+    choices: []
+  d01_started:
+    text: 本日の討伐手配ですね！アッシュウッドの森のイバラオオカミ6体と、嘆きの廃坑の虚空炭鉱夫6体を討伐してご報告ください。24時間ごとに再受注できます。
+    choices: []
+  d01_done:
+    text: お疲れさまです！功績印と名匠の研磨砥石をお渡しします。明日の手配書もぜひご活用ください。
+    choices: []
+  d02_started:
+    text: 北方遠征隊からの巡回要請です。霧氷オオカミ6体と氷結の狂信者6体を掃討し、前線の安全を確保してください！
+    choices: []
+  d02_done:
+    text: 極寒の氷嶺でのご活躍、確かに記録しました！功績印と蒼氷の欠片をどうぞ。
+    choices: []
+  w01_started:
+    text: 今週の特別大討伐です！黒曜ゴーレム5体、虚核の衛兵5体、蒼氷の重騎士5体の三柱を制してください。報酬は7日に一度の豪華仕様ですよ！
+    choices: []
+  w01_done:
+    text: 見事です！三柱の強敵を制するとは……功績印8枚、星片試練の勲章2個、研磨砥石3個を進呈いたします！
+    choices: []
+  h01_started:
+    text: 実は……先代調査隊が遺した『封じられた調査日誌』を、星見の丘の教団信徒が持ち去ったという情報があります。取り戻していただけたら、ギルド公認の『真相究明者』称号を授与します！
+    choices: []
+  h01_done:
+    text: ……これが先代調査隊の日誌！星片墜落の裏に蠢く影の記録が鮮明に残っています。約束通り『真相究明者』の称号を冒険者録へ刻みました！
+    choices: []
+  titles_menu:
+    text: あなたの冒険者録に刻まれた称号記録を照会します。隠し依頼の達成や星片の試練場制覇で、名誉ある称号が解放されていきますよ。
+    choices:
+      - id: title_truth_status
+        label: 【称号】真相究明者（達成済み）
+        condition: {has_flags: ['ec:flag_title_truth_seeker']}
+        next: title_truth_detail
+      - id: title_frost_status
+        label: 【称号】氷嶺踏破者（達成済み）
+        condition: {has_flags: ['ec:flag_title_frost_walker']}
+        next: title_frost_detail
+      - id: title_crucible_status
+        label: 【称号】星片試練の覇者（達成済み）
+        condition: {has_flags: ['ec:flag_title_crucible_victor']}
+        next: title_crucible_detail
+      - id: titles_back
+        label: 窓口へ戻る
+        next: root
+  title_truth_detail:
+    text: 『真相究明者』— 封じられた調査日誌を回収し、星片異変の真実に迫った探求者の証です。
+    choices:
+      - id: back_from_truth
+        label: 戻る
+        next: titles_menu
+  title_frost_detail:
+    text: 『氷嶺踏破者』— 蒼氷の前哨基地から氷城まで全四島を踏破した踏査者の証です。
+    choices:
+      - id: back_from_frost
+        label: 戻る
+        next: titles_menu
+  title_crucible_detail:
+    text: 『星片試練の覇者』— 星核の融合体エーテル・キメラを撃破した屈強な冒険者の証です。
+    choices:
+      - id: back_from_crucible
+        label: 戻る
+        next: titles_menu
