@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_acc_forest_ward_charm
+type: item
+name: 森霊の護符
+material: EMERALD
+rarity: RARE
+slot: ACCESSORY
+min_level: 7
+classes: []
+budget: 18
+stats: {hp: 65, defense: 12, element_resist: 0.08}
+price: 934
+lore: '浄化され大地へ還った星片から零れ落ちた翠の結晶。【森の息吹】森の友となった者の傷を静かに癒やす。'
+effects:
+  - {kind: HEAL, amount: 18, cooldown_ms: 10000, chance: 1.0}

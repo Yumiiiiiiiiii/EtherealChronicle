@@ -1,0 +1,22 @@
+schema_version: 1
+id: ec:quest_m04_road_to_mine
+type: quest
+name: 嘆きの廃坑へ
+condition: {min_level: 7, completed_quests: ['ec:quest_m03_ashwood_core']}
+objectives:
+  - {id: enter_mine, kind: EXPLORE, target: 'ec:area_weeping_mine', amount: 1}
+  - {id: talk_tomas, kind: TALK, target: 'ec:npc_tomas', amount: 1}
+  - {id: talk_daren, kind: TALK, target: 'ec:npc_daren', amount: 1}
+  - {id: kill_kobolds, kind: KILL, target: 'ec:enemy_mine_kobold', amount: 6}
+  - {id: kill_bats, kind: KILL, target: 'ec:enemy_crystal_bat', amount: 4}
+  - {id: report_tomas, kind: TALK, target: 'ec:npc_tomas', amount: 1}
+rewards:
+  xp: 1750
+  currency: 420
+  set_flags: []
+  items:
+    - {item: 'ec:item_con_medium_hp_potion', amount: 3}
+    - {item: 'ec:item_con_medium_hp_potion', amount: 3, condition: {has_flags: ['ec:flag_choice1_extract']}}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

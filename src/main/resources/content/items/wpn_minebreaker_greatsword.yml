@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_wpn_minebreaker_greatsword
+type: item
+name: 破岩の鉱山大剣
+material: DIAMOND_SWORD
+rarity: RARE
+slot: HAND
+min_level: 11
+classes: [ec:class_warrior]
+budget: 25
+stats: {attack: 18, hp: 55, defense: 10, crit: 0.03}
+weapon: 80
+price: 1250
+lore: '黒曜石の岩盤すら砕く鉱山用の重合金を転用した大剣。【破岩撃】攻撃時に確率で追加衝撃を与え敵の守りを砕く。'
+effects:
+  - {kind: ATTACK_PROC, amount: 28, cooldown_ms: 8000, chance: 0.35, element: PHYSICAL}

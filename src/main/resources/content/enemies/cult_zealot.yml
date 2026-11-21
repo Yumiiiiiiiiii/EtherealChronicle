@@ -1,0 +1,27 @@
+schema_version: 1
+id: ec:enemy_cult_zealot
+type: enemy
+name: 〈虚ろの手〉狂信者
+entity: VINDICATOR
+level: 14
+hp: 960
+attack: 82
+defense: 58
+xp: 325
+currency: 69
+droptable: ec:drop_cult_zealot
+element: VOID
+weaknesses: [AETHER, FIRE]
+resistances: [VOID]
+speed: 0.3
+size: 1
+elite: false
+aggro_range: 14
+leash_range: 28
+attack_interval_ticks: 32
+traits: [PACK]
+specials:
+  - {id: void_blade_spin, name: '虚刃の回転斬り', shape: CIRCLE, cooldown_ticks: 200, telegraph_ticks: 20, radius: 3.5, range: 4.5, multiplier: 1.75, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: NONE}
+spawn_points:
+  - {id: hill_ruins_1, world: ec_world, x: 294, y: 65, z: -18, cap: 2, respawn_ticks: 240}
+  - {id: hill_ruins_2, world: ec_world, x: 298, y: 65, z: 18, cap: 2, respawn_ticks: 240}

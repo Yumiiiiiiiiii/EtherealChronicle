@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_arm_sage_robe
+type: item
+name: 星見賢者の法衣
+material: LEATHER_CHESTPLATE
+rarity: EPIC
+slot: CHEST
+min_level: 14
+classes: [ec:class_mage]
+budget: 37
+stats: {hp: 85, defense: 18, attack: 16, skill_power: 0.48, resource: 60, element_resist: 0.12}
+price: 2200
+lore: '天文台の織物師が星片の糸で織り上げた法衣。【星幕の結界】虚空の瘴気を柔らかに弾き返す。'
+effects:
+  - {kind: DEFENSE_BUFF, amount: 20, cooldown_ms: 18000, duration_ticks: 100, chance: 1.0}

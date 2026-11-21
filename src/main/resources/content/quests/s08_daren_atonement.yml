@@ -1,0 +1,20 @@
+schema_version: 1
+id: ec:quest_s08_daren_atonement
+type: quest
+name: 鉱夫長の贖罪
+condition: {has_flags: ['ec:flag_choice2_forgive'], completed_quests: ['ec:quest_m06_iron_grinder']}
+objectives:
+  - {id: explore_hidden_shaft, kind: EXPLORE, target: 'ec:area_weeping_mine', amount: 1}
+  - {id: calm_miners, kind: KILL, target: 'ec:enemy_void_miner', amount: 5}
+  - {id: defeat_guards, kind: KILL, target: 'ec:enemy_cult_acolyte', amount: 3}
+  - {id: report_daren, kind: TALK, target: 'ec:npc_daren', amount: 1}
+rewards:
+  xp: 2800
+  currency: 620
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_starshard_fragment', amount: 3}
+    - {item: 'ec:item_con_revive_feather', amount: 1}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

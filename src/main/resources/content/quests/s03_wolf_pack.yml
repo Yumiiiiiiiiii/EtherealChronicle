@@ -1,0 +1,20 @@
+schema_version: 1
+id: ec:quest_s03_wolf_pack
+type: quest
+name: 街道を脅かす牙
+condition: {completed_quests: ['ec:quest_m02_first_hunt']}
+objectives:
+  - {id: hunt_wolves, kind: KILL, target: 'ec:enemy_thorn_wolf', amount: 6}
+  - {id: hunt_goblins, kind: KILL, target: 'ec:enemy_moss_goblin', amount: 4}
+  - {id: report_vulcan, kind: TALK, target: 'ec:npc_vulcan', amount: 1}
+rewards:
+  xp: 480
+  currency: 240
+  set_flags: []
+  items:
+    - {item: 'ec:item_wpn_ashwood_blade', amount: 1, condition: {classes: ['ec:class_warrior']}}
+    - {item: 'ec:item_wpn_ash_longbow', amount: 1, condition: {classes: ['ec:class_archer']}}
+    - {item: 'ec:item_wpn_lumina_staff', amount: 1, condition: {classes: ['ec:class_mage']}}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

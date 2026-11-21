@@ -12,7 +12,7 @@ import kotlin.test.*
 class FoundationTest {
     @TempDir lateinit var temp: Path
     private fun content(): ContentService {
-        val root = Path.of("src/main/resources/content")
+        val root = Path.of("src/test/resources/foundation-content")
         Files.walk(root).use { paths -> paths.filter { Files.isRegularFile(it) }.forEach {
             val dst = temp.resolve(root.relativize(it)); Files.createDirectories(dst.parent); Files.copy(it,dst)
         } }
@@ -143,7 +143,7 @@ class FoundationTest {
         val c = content().snapshot(); val game = GameService({ c },SkillEngine(Clock { 0 },c.balance))
         val p = PlayerProfile(UUID.randomUUID()); game.chooseClass(p,"ec:mage")
         val gear = ItemDefinition("ec:huge","huge","STICK",Rarity.COMMON,1,emptyList(),Stats(hp=1e10,resource=1e10,attack=1e10,crit=1.0),1e20)
-        val s = game.stats(p,listOf(gear)); assertEquals(c.balance.statCap,s.hp); assertEquals(c.balance.statCap,s.attack); assertEquals(c.balance.critCap,s.crit)
+        val s = game.stats(p,listOf(gear)); assertEquals(c.world.tuning.playerHpCap,s.hp); assertEquals(c.balance.statCap,s.attack); assertEquals(c.balance.critCap,s.crit)
         c.balance.grantXp(p,Long.MAX_VALUE)
         assertEquals(c.balance.xpGainCap,p.xp+(1 until p.level).sumOf(c.balance::requiredXp))
         p.xp=Long.MAX_VALUE; c.balance.grantXp(p,Long.MAX_VALUE); assertEquals(c.balance.levelCap,p.level)
@@ -180,6 +180,8 @@ class FoundationTest {
         }
     }
 }
+
+
 
 
 

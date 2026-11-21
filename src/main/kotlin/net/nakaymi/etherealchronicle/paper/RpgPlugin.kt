@@ -108,10 +108,15 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             if(sessions[player.uniqueId] != token || !player.isOnline) return@sync
             if(error != null) { logger.severe("読み込み失敗: ${error.message}"); player.kick(Component.text("冒険データを読み込めませんでした。管理者にご連絡ください。")); return@sync }
             val snapshot = content.snapshot()
+            ProfileContentMigration.apply(profile,snapshot)
             if(profile.classId != null && snapshot.classes.find(profile.classId!!) == null) { player.kick(Component.text("職業データが見つかりません。管理者にご連絡ください。")); return@sync }
             profile.level = profile.level.coerceIn(1,snapshot.balance.levelCap)
             profile.skillLevels.replaceAll { _,level -> level.coerceIn(1,snapshot.balance.skillLevelCap) }
             profile.classId = profile.classId?.let { snapshot.classes[it].id }
+            for(slot in 0 until player.inventory.size) {
+                val old=player.inventory.getItem(slot); val id=identify(old) ?: continue
+                if(snapshot.items.find(id) == null) ProfileContentMigration.oldItems[id]?.takeIf { snapshot.items.find(it) != null }?.let { player.inventory.setItem(slot,createItem(it,old!!.amount)) }
+            }
             profiles[player.uniqueId] = profile
             if(::dungeons.isInitialized) dungeons.recover(player)
             if(profile.classId == null) Bukkit.getWorld(DemoWorld.NAME)?.let { player.teleport(it.spawnLocation) }
@@ -515,6 +520,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         sender.sendMessage(Component.text("SIM $operation $name: ${simulated[name]}"))
     }
 }
+
 
 
 

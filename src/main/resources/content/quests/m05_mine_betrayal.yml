@@ -1,0 +1,20 @@
+schema_version: 1
+id: ec:quest_m05_mine_betrayal
+type: quest
+name: 黒き密書と裏切り
+condition: {min_level: 9, completed_quests: ['ec:quest_m04_road_to_mine']}
+objectives:
+  - {id: kill_acolytes, kind: KILL, target: 'ec:enemy_cult_acolyte', amount: 5}
+  - {id: collect_letter, kind: COLLECT, target: 'ec:item_q_cult_letter', amount: 1, consume: true}
+  - {id: confront_daren, kind: TALK, target: 'ec:npc_daren', amount: 1}
+  - {id: report_tomas, kind: TALK, target: 'ec:npc_tomas', amount: 1}
+rewards:
+  xp: 2300
+  currency: 520
+  set_flags: []
+  items:
+    - {item: 'ec:item_q_mine_seal_key', amount: 1}
+    - {item: 'ec:item_con_miner_ration', amount: 2, condition: {has_flags: ['ec:flag_choice2_report']}}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_acc_starshard_crest
+type: item
+name: 星片の戦紋章
+material: AMETHYST_SHARD
+rarity: RARE
+slot: ACCESSORY
+min_level: 7
+classes: []
+budget: 14
+stats: {attack: 14, crit: 0.04, skill_power: 0.16}
+price: 934
+lore: '魔導容器に封じた森の星片を加工した戦紋章。【星片過負荷】微かに脈打つ光が持ち主の闘志と攻撃力を煽る。'
+effects:
+  - {kind: ATTACK_PROC, amount: 24, cooldown_ms: 8000, chance: 0.3, element: AETHER}

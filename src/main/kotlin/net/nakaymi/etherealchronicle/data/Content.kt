@@ -19,7 +19,7 @@ data class ContentSnapshot(val balance: Balance, val classes: ContentRegistry<Cl
 }
 class ContentException(val problems: List<String>): IllegalArgumentException(problems.joinToString("\n"))
 fun interface ContentMigration { fun migrate(doc: Map<String,Any?>): Map<String,Any?> }
-class ContentService(private val root: Path, private val migration: ContentMigration = ContentMigration { it }) {
+class ContentService(private val root: Path, private val migration: ContentMigration = ContentMigration(ProfileContentMigration::migrateClassDocument)) {
     private val current = AtomicReference<ContentSnapshot>()
     fun snapshot() = checkNotNull(current.get())
     fun reload() = load().also { current.set(it) }
@@ -72,8 +72,8 @@ class ContentService(private val root: Path, private val migration: ContentMigra
             val balances = typed("balance")
             require(balances.size == 1) { "balance 定義は1件必要です (現在 ${balances.size} 件)" }
             val b = balances.single()
-            val balance = Balance(b.int("level_cap"),b.num("xp_base"),b.num("xp_exponent"),b.long("xp_gain_cap"),b.long("currency_gain_cap"),b.num("damage_cap"),b.num("stat_cap"),b.num("crit_cap"),b.num("defense_scale"),b.int("skill_level_cap"),b.num("skill_growth"),b.num("crit_damage_cap"),b.num("element_cap"))
-            require(balance.levelCap in 1..1000 && balance.xpBase > 0 && balance.xpExponent in 0.0..10.0 && balance.defenseScale > 0 && balance.statCap >= 1 && balance.damageCap > 0 && balance.skillLevelCap in 1..100 && balance.critDamageCap >= 1 && balance.elementCap >= 1 && balance.xpGainCap > 0 && balance.currencyGainCap > 0)
+            val balance = Balance(b.int("level_cap"),b.num("xp_base"),b.num("xp_exponent"),b.long("xp_gain_cap"),b.long("currency_gain_cap"),b.num("damage_cap"),b.num("stat_cap"),b.num("crit_cap"),b.num("defense_scale"),b.int("skill_level_cap"),b.num("skill_growth"),b.num("crit_damage_cap"),b.num("element_cap"),b.text("xp_curve","POWER"),b.number("xp_linear",45.0),b.number("xp_quadratic",18.0),b.whole("xp_rounding",10))
+            require(balance.levelCap in 1..1000 && balance.xpBase > 0 && balance.xpExponent in 0.0..10.0 && balance.defenseScale > 0 && balance.statCap >= 1 && balance.damageCap > 0 && balance.skillLevelCap in 1..100 && balance.critDamageCap >= 1 && balance.elementCap >= 1 && balance.xpGainCap > 0 && balance.currencyGainCap > 0 && balance.xpCurve in setOf("POWER","POLYNOMIAL") && balance.xpRounding > 0)
             val supported = setOf("balance","class","skill","item","enemy","boss","npc","quest","dialogue","chapter","droptable","shop")
             require(docs.values.all { it.string("type") in supported }) { "Unknown content type" }
             val skills = typed("skill").associate { d -> d.string("id") to SkillDefinition(d.string("id"),d.string("name"),d.num("cost"),d.long("cooldown_ms"),d.num("multiplier"),d.num("range"),d.text("element","PHYSICAL"),d.number("radius",0.0),d.number("heal",0.0),d.number("defense_buff",0.0),d.integer("buff_ticks",0)) }
@@ -118,6 +118,8 @@ fun Map<String,Any?>.stats(d: Stats = Stats()): Stats {
 
 @Suppress("UNCHECKED_CAST")
 fun Map<String,Any?>.mapping(k: String) = this[k] as? Map<String,Any?> ?: error("Missing mapping $k")
+
+
 
 
 

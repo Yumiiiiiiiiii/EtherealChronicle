@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_arm_vanguard_plate
+type: item
+name: 暁光騎士の胸甲
+material: DIAMOND_CHESTPLATE
+rarity: EPIC
+slot: CHEST
+min_level: 14
+classes: [ec:class_warrior]
+budget: 39
+stats: {hp: 145, defense: 34, attack: 10, element_resist: 0.1}
+price: 2200
+lore: 'ルミナ港の黎明を象った白銀の重鎧。【不屈の鼓動】窮地において白銀の障壁を展開し前衛を支える。'
+effects:
+  - {kind: DEFENSE_BUFF, amount: 24, cooldown_ms: 45000, duration_ticks: 120, chance: 1.0}

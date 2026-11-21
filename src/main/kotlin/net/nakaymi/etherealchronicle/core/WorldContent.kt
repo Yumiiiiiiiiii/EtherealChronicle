@@ -5,9 +5,9 @@ import net.nakaymi.etherealchronicle.data.*
 data class Condition(val minLevel: Int = 1, val hasFlags: Set<String> = emptySet(), val notFlags: Set<String> = emptySet(),
     val completed: Set<String> = emptySet(), val active: Set<String> = emptySet(), val notStarted: Set<String> = emptySet(),
     val classes: Set<String> = emptySet(), val any: List<Condition> = emptyList()) {
-    fun matches(p: PlayerProfile): Boolean = p.level >= minLevel && p.flags.containsAll(hasFlags) && notFlags.none { it in p.flags } &&
-        completed.all { p.quests[it]?.completed == true } && active.all { p.quests[it]?.completed == false } && notStarted.none { it in p.quests } &&
-        (classes.isEmpty() || p.classId in classes) && (any.isEmpty() || any.any { it.matches(p) })
+    fun matches(p: PlayerProfile, now: Long = System.currentTimeMillis()): Boolean = p.level >= minLevel && p.flags.containsAll(hasFlags) && notFlags.none { it in p.flags } &&
+        completed.all { p.quests[it]?.let { q -> q.completed || q.completedAt > 0 } == true } && active.all { p.quests[it]?.completed == false } && notStarted.all { p.quests[it]?.let { q -> q.completed && now >= q.repeatAvailableAt } ?: true } &&
+        (classes.isEmpty() || p.classId in classes) && (any.isEmpty() || any.any { it.matches(p,now) })
 }
 enum class ObjectiveKind { KILL, COLLECT, EXPLORE, TALK }
 data class Objective(val id: String, val kind: ObjectiveKind, val target: String, val amount: Int, val consume: Boolean = true)
@@ -116,4 +116,5 @@ fun Map<String,Any?>.condition(): Condition = (this["condition"] as? Map<*,*>)?.
 fun Map<String,Any?>.conditionValue(): Condition = Condition(integer("min_level",1),strings("has_flags").toSet(),strings("not_flags").toSet(),strings("completed_quests").toSet(),strings("active_quests").toSet(),strings("not_started_quests").toSet(),strings("classes").toSet(),maps("any").map { it.conditionValue() })
 fun Map<String,Any?>.rewards() = Rewards(whole("xp",0),whole("currency",0),maps("items").map { ItemReward(it.string("item"),it.integer("amount",1),it.condition()) },strings("set_flags").toSet())
 fun Map<String,Any?>.tokens(key: String) = maps(key).map { TokenCost(it.string("item"),it.int("amount")) }
+
 

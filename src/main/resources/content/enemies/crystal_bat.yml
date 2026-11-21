@@ -1,0 +1,27 @@
+schema_version: 1
+id: ec:enemy_crystal_bat
+type: enemy
+name: 結晶コウモリ
+entity: PHANTOM
+level: 10
+hp: 520
+attack: 56
+defense: 34
+xp: 187
+currency: 43
+droptable: ec:drop_crystal_bat
+element: LIGHTNING
+weaknesses: [ICE, PHYSICAL]
+resistances: [LIGHTNING]
+speed: 0.33
+size: 1
+elite: false
+aggro_range: 15
+leash_range: 28
+attack_interval_ticks: 36
+traits: []
+specials:
+  - {id: spark_screech, name: '帯電超音波', shape: CONE, cooldown_ticks: 220, telegraph_ticks: 20, radius: 3.5, range: 6, multiplier: 1.45, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: NONE}
+spawn_points:
+  - {id: mine_tunnel1_air, world: ec_world, x: 182, y: 67, z: -8, cap: 2, respawn_ticks: 220}
+  - {id: mine_tunnel2_air, world: ec_world, x: 192, y: 67, z: 12, cap: 2, respawn_ticks: 220}

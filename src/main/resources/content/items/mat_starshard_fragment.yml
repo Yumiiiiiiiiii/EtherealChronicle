@@ -1,0 +1,14 @@
+schema_version: 1
+id: ec:item_mat_starshard_fragment
+type: item
+name: 浄化星片
+material: AMETHYST_SHARD
+rarity: RARE
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 0
+bound: true
+lore: '不純な瘴気を取り除き清めた星片の欠片。賢者リラやトマスの交換所で希少武具と交換できる。'

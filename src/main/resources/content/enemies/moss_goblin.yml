@@ -1,0 +1,27 @@
+schema_version: 1
+id: ec:enemy_moss_goblin
+type: enemy
+name: コケゴブリン
+entity: HUSK
+level: 4
+hp: 186
+attack: 22
+defense: 15
+xp: 53
+currency: 15
+droptable: ec:drop_moss_goblin
+element: PHYSICAL
+weaknesses: [FIRE, ICE]
+resistances: []
+speed: 0.27
+size: 1
+elite: false
+aggro_range: 11
+leash_range: 22
+attack_interval_ticks: 38
+traits: [FLEE, SLOW]
+specials:
+  - {id: moss_blind, name: '目潰し苔投げ', shape: TARGET, cooldown_ticks: 240, telegraph_ticks: 20, radius: 2.0, range: 9, multiplier: 1.0, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: SLOW}
+spawn_points:
+  - {id: ashwood_roadside_1, world: ec_world, x: 98, y: 65, z: -22, cap: 2, respawn_ticks: 200}
+  - {id: ashwood_roadside_2, world: ec_world, x: 104, y: 65, z: 14, cap: 2, respawn_ticks: 200}

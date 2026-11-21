@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:quest_m06_iron_grinder
+type: quest
+name: 暴走する採掘巨兵
+condition: {min_level: 10, completed_quests: ['ec:quest_m05_mine_betrayal']}
+objectives:
+  - {id: hold_seal_key, kind: COLLECT, target: 'ec:item_q_mine_seal_key', amount: 1, consume: true}
+  - {id: defeat_iron_grinder, kind: KILL, target: 'ec:boss_iron_grinder', amount: 1}
+  - {id: report_tomas, kind: TALK, target: 'ec:npc_tomas', amount: 1}
+rewards:
+  xp: 3200
+  currency: 720
+  set_flags: ['ec:flag_iron_grinder_defeated', 'ec:flag_stargazer_unlocked']
+  items:
+    - {item: 'ec:item_mat_starshard_fragment', amount: 4}
+    - {item: 'ec:item_con_revive_feather', amount: 1}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

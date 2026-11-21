@@ -1,0 +1,14 @@
+schema_version: 1
+id: ec:item_wpn_ash_longbow
+type: item
+name: 灰木の長弓
+material: BOW
+rarity: UNCOMMON
+slot: HAND
+min_level: 5
+classes: [ec:class_archer]
+budget: 13
+stats: {attack: 10, crit: 0.04, crit_damage: 0.06}
+weapon: 35
+price: 320
+lore: 'アッシュウッドの若木を乾燥させて仕上げた長弓。森林レンジャー隊の制式装備と同型。'

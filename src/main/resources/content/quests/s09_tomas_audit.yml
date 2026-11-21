@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:quest_s09_tomas_audit
+type: quest
+name: 補給隊の緊急監査
+condition: {has_flags: ['ec:flag_choice2_report'], completed_quests: ['ec:quest_m06_iron_grinder']}
+objectives:
+  - {id: defeat_escorts, kind: KILL, target: 'ec:enemy_cult_acolyte', amount: 4}
+  - {id: collect_evidence, kind: COLLECT, target: 'ec:item_mat_void_dust', amount: 6, consume: true}
+  - {id: report_vulcan, kind: TALK, target: 'ec:npc_vulcan', amount: 1}
+rewards:
+  xp: 2800
+  currency: 1230
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_starshard_fragment', amount: 2}
+    - {item: 'ec:item_con_greater_hp_potion', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

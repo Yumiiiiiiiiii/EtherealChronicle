@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_con_resource_elixir
+type: item
+name: エーテル霊薬
+material: POTION
+rarity: UNCOMMON
+slot: NONE
+min_level: 5
+classes: []
+budget: 0
+stats: {}
+price: 95
+lore: '澄んだ青色の魔力飲料。怒り・集中・マナを即座に大きく回復する。'
+effects:
+  - {kind: RESOURCE, amount: 70, cooldown_ms: 20000, chance: 1.0}

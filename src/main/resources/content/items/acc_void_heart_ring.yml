@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_acc_void_heart_ring
+type: item
+name: 虚核封じの指輪
+material: NETHER_STAR
+rarity: LEGENDARY
+slot: ACCESSORY
+min_level: 18
+classes: []
+budget: 35
+stats: {hp: 130, attack: 24, defense: 18, crit: 0.06, skill_power: 0.32, element_resist: 0.12}
+price: 7334
+lore: '虚核の聖堂を制した証。【虚無への抗い】虚無の浸蝕を退け、窮地において持ち主の命を繋ぎ留める。'
+effects:
+  - {kind: DEFENSE_BUFF, amount: 25, cooldown_ms: 60000, duration_ticks: 100, chance: 1.0}
+  - {kind: REVIVE, amount: 220, cooldown_ms: 180000, chance: 1.0}

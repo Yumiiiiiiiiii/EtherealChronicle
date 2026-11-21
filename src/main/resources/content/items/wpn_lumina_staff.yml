@@ -1,0 +1,14 @@
+schema_version: 1
+id: ec:item_wpn_lumina_staff
+type: item
+name: ルミナ水鏡の杖
+material: BLAZE_ROD
+rarity: UNCOMMON
+slot: HAND
+min_level: 5
+classes: [ec:class_mage]
+budget: 13
+stats: {attack: 10, skill_power: 0.22, resource: 30}
+weapon: 33
+price: 320
+lore: 'ルミナ港の澄んだ湧水結晶を冠した杖。氷とエーテルの詠唱を滑らかに導く。'

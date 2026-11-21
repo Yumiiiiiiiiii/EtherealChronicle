@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:drop_iron_grinder
+type: droptable
+entries:
+  - {item: 'ec:item_mat_starshard_fragment', chance: 1.0, min: 3, max: 3}
+  - {item: 'ec:item_mat_iron_scrap', chance: 1.0, min: 4, max: 4}
+  - {item: 'ec:item_con_medium_hp_potion', chance: 0.6, min: 2, max: 2}
+  - {item: 'ec:item_wpn_minebreaker_greatsword', chance: 0.18, min: 1, max: 1}
+  - {item: 'ec:item_off_obsidian_aegis', chance: 0.16, min: 1, max: 1}
+  - {item: 'ec:item_wpn_crystal_recurve', chance: 0.18, min: 1, max: 1}
+  - {item: 'ec:item_off_windrunner_quiver', chance: 0.16, min: 1, max: 1}
+  - {item: 'ec:item_wpn_quartz_scepter', chance: 0.18, min: 1, max: 1}
+  - {item: 'ec:item_off_astral_tome', chance: 0.16, min: 1, max: 1}

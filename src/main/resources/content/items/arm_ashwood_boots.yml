@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_arm_ashwood_boots
+type: item
+name: 灰木林の軽足具
+material: CHAINMAIL_BOOTS
+rarity: UNCOMMON
+slot: FEET
+min_level: 6
+classes: []
+budget: 13
+stats: {hp: 35, defense: 10, crit: 0.02}
+price: 340
+lore: '湿った苔や棘の上でも足を取られないよう加工されたブーツ。森の踏破に重宝する。'

@@ -1,0 +1,10 @@
+schema_version: 1
+id: ec:archer
+type: class
+name: 弓使い
+resource: FOCUS
+regeneration: 5
+hit_gain: 0
+skills: [ec:archer_strike, ec:archer_burst, ec:archer_wave, ec:archer_ultimate]
+starter_items: [ec:archer_starter]
+stats: {hp: 100, resource: 100, attack: 10, defense: 5, crit: 0.05, crit_damage: 1.5, element_resist: 0, skill_power: 1}

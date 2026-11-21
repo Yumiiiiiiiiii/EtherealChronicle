@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_con_return_scroll
+type: item
+name: ルミナ帰還の巻物
+material: PAPER
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 35
+lore: 'ルミナ港の帰還石碑と共鳴する魔導紙。使用すると安全な港町へ一瞬で帰還できる。'
+effects:
+  - {kind: RETURN, amount: 1, cooldown_ms: 60000, chance: 1.0}

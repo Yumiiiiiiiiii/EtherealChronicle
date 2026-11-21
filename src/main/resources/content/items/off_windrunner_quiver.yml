@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_off_windrunner_quiver
+type: item
+name: 疾風の星羽矢筒
+material: BUNDLE
+rarity: RARE
+slot: OFFHAND
+min_level: 12
+classes: [ec:class_archer]
+budget: 15
+stats: {attack: 14, crit: 0.05, crit_damage: 0.1, resource: 20}
+price: 1100
+lore: 'エーテルの風を纏った羽根で編まれた矢筒。【追い風の歩法】軽快な歩法と共に鋭い追撃を放つ。'
+effects:
+  - {kind: ATTACK_PROC, amount: 36, cooldown_ms: 14000, chance: 0.3, element: PHYSICAL}

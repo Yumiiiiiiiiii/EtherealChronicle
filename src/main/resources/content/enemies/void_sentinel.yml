@@ -1,0 +1,28 @@
+schema_version: 1
+id: ec:enemy_void_sentinel
+type: enemy
+name: 虚核の衛兵
+entity: PIGLIN_BRUTE
+level: 17
+hp: 3200
+attack: 102
+defense: 77
+xp: 780
+currency: 138
+droptable: ec:drop_void_sentinel
+element: VOID
+weaknesses: [AETHER]
+resistances: [VOID, PHYSICAL]
+speed: 0.25
+size: 2
+elite: true
+aggro_range: 16
+leash_range: 30
+attack_interval_ticks: 40
+traits: [KNOCKBACK_RESIST]
+specials:
+  - {id: void_blade_wave, name: '虚核の剣圧', shape: LINE, cooldown_ticks: 180, telegraph_ticks: 24, radius: 2.5, range: 10, multiplier: 1.85, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: NONE}
+  - {id: gravity_barrier, name: '重圧結界', shape: CIRCLE, cooldown_ticks: 360, telegraph_ticks: 26, radius: 4.5, range: 6, multiplier: 1.35, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: SLOW}
+spawn_points:
+  - {id: sanctum_corridor_1, world: ec_world, x: 364, y: 65, z: -10, cap: 2, respawn_ticks: 400}
+  - {id: sanctum_bridge_1, world: ec_world, x: 382, y: 65, z: 8, cap: 1, respawn_ticks: 400}

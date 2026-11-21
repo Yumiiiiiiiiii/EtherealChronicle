@@ -1,0 +1,24 @@
+schema_version: 1
+id: ec:quest_m07_stargazer_oath
+type: quest
+name: 星見の丘の賢者
+condition: {min_level: 12, completed_quests: ['ec:quest_m06_iron_grinder']}
+objectives:
+  - {id: explore_hill, kind: EXPLORE, target: 'ec:area_stargazer_hill', amount: 1}
+  - {id: meet_lyra, kind: TALK, target: 'ec:npc_lyra', amount: 1}
+  - {id: kill_zealots, kind: KILL, target: 'ec:enemy_cult_zealot', amount: 6}
+  - {id: kill_stalkers, kind: KILL, target: 'ec:enemy_astral_stalker', amount: 4}
+  - {id: recover_astrolabe, kind: COLLECT, target: 'ec:item_q_star_astrolabe', amount: 1, consume: true}
+  - {id: report_lyra, kind: TALK, target: 'ec:npc_lyra', amount: 1}
+rewards:
+  xp: 4600
+  currency: 950
+  set_flags: ['ec:flag_sanctum_unlocked']
+  items:
+    - {item: 'ec:item_arm_vanguard_plate', amount: 1, condition: {classes: ['ec:class_warrior']}}
+    - {item: 'ec:item_arm_ranger_jerkin', amount: 1, condition: {classes: ['ec:class_archer']}}
+    - {item: 'ec:item_arm_sage_robe', amount: 1, condition: {classes: ['ec:class_mage']}}
+    - {item: 'ec:item_con_starlight_tea', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

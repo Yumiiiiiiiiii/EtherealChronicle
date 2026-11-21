@@ -31,3 +31,8 @@ instance_timeout_ticks: 36000
 weakness_multiplier: 1.25
 resistance_multiplier: 0.8
 
+xp_curve: POLYNOMIAL
+xp_linear: 45
+xp_quadratic: 18
+xp_rounding: 10
+player_hp_cap: 1024

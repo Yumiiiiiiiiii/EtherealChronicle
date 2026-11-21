@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_wpn_astral_piercer
+type: item
+name: 星穿ちの霊弓「アルタイル」
+material: BOW
+rarity: LEGENDARY
+slot: HAND
+min_level: 18
+classes: [ec:class_archer]
+budget: 32
+stats: {attack: 48, crit: 0.13, crit_damage: 0.3, skill_power: 0.26, resource: 20}
+weapon: 190
+price: 8000
+lore: '天空の鷲座を冠する霊弓。【流星の連射】連続会心により星光の追尾矢が二連で宙を駆ける。'
+effects:
+  - {kind: ATTACK_PROC, amount: 115, cooldown_ms: 7000, chance: 0.4, element: AETHER}

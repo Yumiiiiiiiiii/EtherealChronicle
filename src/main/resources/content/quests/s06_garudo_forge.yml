@@ -1,0 +1,18 @@
+schema_version: 1
+id: ec:quest_s06_garudo_forge
+type: quest
+name: 頑固鍛冶のこだわり
+condition: {has_flags: ['ec:flag_mine_unlocked']}
+objectives:
+  - {id: collect_iron, kind: COLLECT, target: 'ec:item_mat_iron_scrap', amount: 8, consume: true}
+  - {id: collect_crystal, kind: COLLECT, target: 'ec:item_mat_spark_crystal', amount: 4, consume: true}
+  - {id: deliver_garudo, kind: TALK, target: 'ec:npc_garudo', amount: 1}
+rewards:
+  xp: 1550
+  currency: 480
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_starshard_fragment', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

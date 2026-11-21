@@ -8,7 +8,7 @@ import java.util.UUID
 import kotlin.test.*
 
 class AdventureServicesTest {
-    private fun base() = ContentService(Path.of("src/main/resources/content")).load()
+    private fun base() = ContentService(Path.of("src/test/resources/foundation-content")).load()
     private fun map(vararg pairs: Pair<String,Any?>) = mapOf(*pairs)
     private fun chapterContent(): ContentSnapshot {
         val b=base()
@@ -78,3 +78,4 @@ class AdventureServicesTest {
         assertEquals("two",boss.phase()!!.id); assertEquals(3.36,boss.damageScale(100),0.0001)
     }
 }
+

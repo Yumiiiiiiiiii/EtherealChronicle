@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_off_oak_buckler
+type: item
+name: 樫の丸盾
+material: SHIELD
+rarity: COMMON
+slot: OFFHAND
+min_level: 3
+classes: [ec:class_warrior]
+budget: 13
+stats: {hp: 25, defense: 8, element_resist: 0.02}
+price: 120
+lore: '鉄輪で縁取った軽量な丸盾。狼の突進を受け止めるには十分だ。'

@@ -1,0 +1,9 @@
+schema_version: 1
+id: ec:drop_corrupted_treant
+type: droptable
+entries:
+  - {item: 'ec:item_q_forest_starshard', chance: 1.0, min: 1, max: 1}
+  - {item: 'ec:item_mat_star_bark', chance: 1.0, min: 1, max: 2}
+  - {item: 'ec:item_mat_starshard_fragment', chance: 0.45, min: 1, max: 1}
+  - {item: 'ec:item_wpn_ashwood_blade', chance: 0.06, min: 1, max: 1}
+  - {item: 'ec:item_wpn_lumina_staff', chance: 0.06, min: 1, max: 1}
