@@ -143,7 +143,11 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 sync {
                     game = GameService(content::snapshot,SkillEngine(Clock { System.nanoTime()/1_000_000 },content.snapshot().balance))
                     resourcePacks = ResourcePackController(this)
-                    uiTheme = UiThemeProvider(this,resourcePacks)
+                    uiTheme = UiThemeProvider(
+                        this,
+                        resourcePacks,
+                        UiThemeProvider.mode(config.getString("ui.theme.mode", "icons_only")),
+                    )
                     classSelectionUi = ClassSelectionUi(
                         theme=uiTheme,
                         title={ p -> message(p,"ec.class.choose") },
@@ -377,6 +381,10 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         return false
     }
     internal fun item(stack: ItemStack?): ItemDefinition? = stack?.itemMeta?.persistentDataContainer?.get(itemKey,PersistentDataType.STRING)?.let { content.snapshot().items.find(it) }
+    /** コンテンツIDを画面用の名前へ変換し、未登録時も内部IDを露出しません。 */
+    internal fun contentName(player: Player, id: String): String = snapshot.items.find(id)?.name
+        ?: (snapshot.documents[id]?.get("name") as? String)
+        ?: plain(message(player, "ec.content.unknown_name"))
     private fun isSkill(stack: ItemStack?) = stack?.itemMeta?.persistentDataContainer?.has(slotKey,PersistentDataType.BYTE) == true
     private fun skillSlot(p: Player) {
         if(!isSkill(p.inventory.getItem(8))) {
@@ -518,7 +526,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         menu.setItem(4,stack.clone())
         menu.setItem(13,ItemStack(Material.ANVIL).apply { itemMeta=itemMeta.apply {
             displayName(message(player,"ec.enhance.button", "level" to (level+1)))
-            lore(listOf(message(player,"ec.enhance.material", "item" to tuning.enhancementMaterial),message(player,"ec.enhance.cost", "cost" to tuning.enhancementBaseCurrency*(level+1)),message(player,"ec.enhance.cap", "level" to tuning.enhancementCap)))
+            lore(listOf(message(player,"ec.enhance.material", "item" to contentName(player,tuning.enhancementMaterial)),message(player,"ec.enhance.cost", "cost" to tuning.enhancementBaseCurrency*(level+1)),message(player,"ec.enhance.cap", "level" to tuning.enhancementCap)))
         } })
         openRpgMenu(player, menu) { slot, _ -> if (slot == 13) runCatching { enhance(player, menu.holder as RpgMenu) }.onFailure { player.sendMessage(message(player,"ec.command.failed", "reason" to diagnostic(player,it.message.orEmpty()))) } }
     }
@@ -1026,7 +1034,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 syncTitleAdvancements(player,p)
                 val id=args.getOrNull(1)
                 if(id == null) {
-                    snapshot.world.titles.values.forEach { title -> player.sendMessage(message(player,"ec.title.list_entry", "status" to if(title.unlockFlag in p.flags) "✓" else "○", "id" to title.id, "name" to title.name, "equipped" to if(title.id == p.selectedTitle) message(player,"ec.title.equipped_mark") else Component.empty())) }
+            snapshot.world.titles.values.forEach { title -> player.sendMessage(message(player,"ec.title.list_entry", "status" to if(title.unlockFlag in p.flags) "✓" else "○", "name" to title.name, "equipped" to if(title.id == p.selectedTitle) message(player,"ec.title.equipped_mark") else Component.empty())) }
                     player.sendMessage(message(player,"ec.title.help"))
                 } else {
                     val selected=if(id == "none") null else id
@@ -1039,7 +1047,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             "equipment" -> adventure.equipment(player)
             "dungeon" -> when(args.getOrNull(1)) {
                 "leave" -> dungeons.leave(player)
-                "records" -> if(p.challengeRecords.isEmpty()) player.sendMessage(message(player,"ec.dungeon.no_records")) else p.challengeRecords.forEach { (id,record) -> player.sendMessage(message(player,"ec.dungeon.record", "id" to id, "seconds" to record.bestSeconds, "rank" to record.bestRank)) }
+                "records" -> if(p.challengeRecords.isEmpty()) player.sendMessage(message(player,"ec.dungeon.no_records")) else p.challengeRecords.forEach { (id,record) -> player.sendMessage(message(player,"ec.dungeon.record", "name" to contentName(player,id), "seconds" to record.bestSeconds, "rank" to record.bestRank)) }
                 "enter" -> dungeons.enter(player,args.getOrNull(2) ?: "ec:dungeon_void_sanctum")
                 null -> dungeons.enter(player)
                 else -> dungeons.enter(player,args[1])
@@ -1057,8 +1065,10 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     if(p.quests.isEmpty()) player.sendMessage(message(player,"ec.quest.none_active"))
                     p.quests.forEach { (id,q) ->
                         val definition=snapshot.world.quests[id]
-                        player.sendMessage(message(player,"ec.quest.status", "name" to (definition?.name ?: id), "status" to message(player,when { q.completed -> "ec.quest.status_complete"; game.quests.ready(p,id,inventory(player)) -> "ec.quest.status_ready"; else -> "ec.quest.status_active" })))
-                        if(!q.completed) definition?.objectives?.forEach { o -> player.sendMessage(message(player,"ec.quest.objective_progress", "target" to questObjectiveLabel(o.target,snapshot), "progress" to (if(o.kind == ObjectiveKind.COLLECT) inventory(player).count(o.target).coerceAtMost(o.amount) else q.objectives.getOrDefault(o.id,0)), "amount" to o.amount)) }
+                        // 依頼名はYAMLの表示データ、進行状態はLang文言として分け、1行での言語混在を防ぎます。
+                        player.sendMessage(message(player,"ec.quest.name", "name" to (definition?.name ?: plain(message(player,"ec.quest.unknown_name")))))
+                        player.sendMessage(message(player,"ec.quest.status", "status" to message(player,when { q.completed -> "ec.quest.status_complete"; game.quests.ready(p,id,inventory(player)) -> "ec.quest.status_ready"; else -> "ec.quest.status_active" })))
+                        if(!q.completed) definition?.objectives?.forEach { o -> player.sendMessage(message(player,"ec.quest.objective_progress", "target" to questObjectiveLabel(o.target,snapshot,plain(message(player,"ec.quest.unknown_target"))), "progress" to (if(o.kind == ObjectiveKind.COLLECT) inventory(player).count(o.target).coerceAtMost(o.amount) else q.objectives.getOrDefault(o.id,0)), "amount" to o.amount)) }
                     }
                 }
             }

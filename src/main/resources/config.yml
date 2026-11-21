@@ -1,12 +1,18 @@
 # auto follows each player's Minecraft client language. Supported values: auto, ja_jp, en_us.
 language: auto
+ui:
+  theme:
+    # icons_only はリソパのアイコンだけを使う安全な既定値。full の背景はクライアント差を確認後に選択します。
+    # 値: full / icons_only / off
+    mode: icons_only
 bettermodel:
   # 任意依存です。trueにして entity_models にIDを設定した場合だけモデル連携します。
   enabled: false
   entity_models: {}
 resource_pack:
   enabled: true
-  required: false
+  # 配信先が有効な場合は必須です。配信不能なら締め出し防止のため起動時に一時解除します。
+  required: true
   mode: game_port # experimental; requires same_port_netty.enabled: true
   external_url: ""
   external_sha1: ""

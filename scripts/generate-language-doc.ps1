@@ -46,6 +46,6 @@ $rows = foreach ($key in $orderedKeys) {
     $usage = @($references[$key]) -join '<br>'
     "| ``$key`` | $j | $e | $usage | $($tokens -join ', ') |"
 }
-$footer = @('', '## コンテンツYAMLの多言語化案', '将来は `name_key` / `description_key` を追加し、同じ `ec.*` 翻訳表を参照します。既存の `name` / `description` は後方互換のフォールバックとして維持し、コンテンツschemaと保存形式を一括変更しない段階導入にします。')
+$footer = @('', '## コンテンツYAMLの多言語化案', 'クエスト名やアイテム名などの `name` はコンテンツ表示データです。英語用の名前が未定義なら、現行仕様では日本語名をそのまま表示します。状態ラベルや説明文などのUI文言は言語カタログから選びます。', '', '将来は `name_key` / `description_key` を追加し、同じ `ec.*` 翻訳表を参照します。既存の `name` / `description` は後方互換のフォールバックとして維持し、コンテンツschemaと保存形式を一括変更しない段階導入にします。')
 $output = @($header) + @($rows) + @($footer)
 [IO.File]::WriteAllText((Join-Path $Root 'docs/LANGUAGE.md'), (($output -join "`n") + "`n"), [Text.UTF8Encoding]::new($false))

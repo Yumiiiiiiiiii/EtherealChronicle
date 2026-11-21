@@ -63,6 +63,7 @@
 | `ec.command.reload_success` | コンテンツを再読み込みしました。 | Content reloaded. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.validate_success` | コンテンツ検証成功。 | Content validation succeeded. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.validation_failed` | 検証失敗: <reason> | Validation failed: <reason> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<reason>` |
+| `ec.content.unknown_name` | 名称不明 | Unknown content | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.debug.fish_prefix` | FISH <name>: <detail> | FISH <name>: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<detail>`, `<name>` |
 | `ec.debug.fishing_active` | 釣りセッション / phase=<phase> / action=<action> / elapsed=<elapsed>s of <limit>s / fish=<fish> / progress=<progress>% / tension=<tension>% / bossbar=<bossbar> | Fishing session / phase=<phase> / action=<action> / elapsed=<elapsed>s of <limit>s / fish=<fish> / progress=<progress>% / tension=<tension>% / bossbar=<bossbar> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt | `<action>`, `<bossbar>`, `<elapsed>`, `<fish>`, `<limit>`, `<phase>`, `<progress>`, `<tension>` |
 | `ec.debug.fishing_inactive` | 釣りセッションはありません。 | No fishing session is active. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
@@ -78,8 +79,8 @@
 | `ec.dungeon.entry` | <message> | <message> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<message>` |
 | `ec.dungeon.first_rank_reward` | 初回ランク報酬を受け取りました。 | You received the first-clear rank reward. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
 | `ec.dungeon.no_records` | 試練の記録はまだありません。 | No trial records yet. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
-| `ec.dungeon.preparing` | ダンジョンを準備しています: <id> | Preparing dungeon: <id> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt | `<id>` |
-| `ec.dungeon.record` | <id>: <seconds>秒 / ランク<rank> | <id>: <seconds>s / Rank <rank> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<id>`, `<rank>`, `<seconds>` |
+| `ec.dungeon.preparing` | <name> を準備しています。 | Preparing <name>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt | `<name>` |
+| `ec.dungeon.record` | <name>: <seconds>秒 / ランク<rank> | <name>: <seconds>s / Rank <rank> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<name>`, `<rank>`, `<seconds>` |
 | `ec.dungeon.result` | <message> 記録 <seconds>秒 / ランク<rank>（自己ベスト <best_seconds>秒 / <best_rank>） | <message> Time <seconds>s / Rank <rank> (best <best_seconds>s / <best_rank>) | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<best_rank>`, `<best_seconds>`, `<message>`, `<rank>`, `<seconds>` |
 | `ec.dungeon.timeout` | 聖堂の制限時間を迎えました。 | The trial time limit has been reached. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
 | `ec.dungeon.wave` | 試練 第<current>/<total>波が始まります。 | Trial wave <current>/<total> is beginning. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<current>`, `<total>` |
@@ -322,12 +323,15 @@
 | `ec.profile.welcome` | ようこそ！受付嬢セリアに話しかけて冒険を始めましょう。 | Welcome! Talk to Celia at the reception desk to begin your adventure. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.quest.accepted` | 依頼を受注しました。 | Quest accepted. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.quest.completed` | 依頼を達成しました！ | Quest completed! | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.quest.name` | <name> | <name> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<name>` |
 | `ec.quest.none_active` | 受注中の依頼はありません。 | You have no active quests. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.quest.objective_progress` | ・<target> <progress>/<amount> | - <target> <progress>/<amount> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<amount>`, `<progress>`, `<target>` |
-| `ec.quest.status` | <name>: <status> | <name>: <status> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<name>`, `<status>` |
+| `ec.quest.status` | 状態: <status> | Status: <status> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<status>` |
 | `ec.quest.status_active` | 進行中 | In progress | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.quest.status_complete` | 達成済み | Complete | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.quest.status_ready` | 報告できます | Ready to report | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.quest.unknown_name` | 依頼名不明 | Unknown quest | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.quest.unknown_target` | 不明な目標 | Unknown objective | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.rarity.common` | コモン | Common | src/main/kotlin/net/nakaymi/etherealchronicle/core/Game.kt |  |
 | `ec.rarity.epic` | エピック | Epic | src/main/kotlin/net/nakaymi/etherealchronicle/core/Game.kt |  |
 | `ec.rarity.legendary` | レジェンダリー | Legendary | src/main/kotlin/net/nakaymi/etherealchronicle/core/Game.kt |  |
@@ -341,6 +345,9 @@
 | `ec.resource_pack.preference_on` | オン | on | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.resource_pack.preference_set` | リソースパック表示設定を <preference> にしました。 | Resource pack display is now <preference>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<preference>` |
 | `ec.resource_pack.prompt` | <gold>EtherealChronicle 専用リソースパックを適用しますか？<newline><gray>未適用でもプレイ可能です。 | <gold>Apply the EtherealChronicle resource pack?<newline><gray>You can play without it. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/ResourcePackController.kt | `<newline>` |
+| `ec.resource_pack.required_declined` | このサーバーはリソースパックが必須です。サーバーリストの設定で「サーバーリソースパック: 有効」にして再接続してください。 | This server requires its resource pack. Enable Server Resource Packs in the server list settings, then reconnect. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/ResourcePackController.kt |  |
+| `ec.resource_pack.required_prompt` | <gold>このサーバーでは専用リソースパックが必須です。<newline><yellow>サーバーリストの設定で「サーバーリソースパック」を有効にして再接続してください。 | <gold>This server requires the EtherealChronicle resource pack.<newline><yellow>Enable Server Resource Packs in the server list settings, then reconnect. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/ResourcePackController.kt | `<newline>` |
+| `ec.resource_pack.required_unavailable` | 必須リソースパックを配信できないため、必須設定を一時的に無効化しました。配信設定と起動ログを確認してください。 | The required resource pack has no working delivery endpoint, so enforcement is temporarily disabled. Check the distribution settings and startup log. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/ResourcePackController.kt |  |
 | `ec.resource_pack.usage` | 使用方法: /ec ui pack <auto\|on\|off> | Usage: /ec ui pack <auto\|on\|off> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.shop.currency` | 所持金: <currency>G | Currency: <currency>G | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt | `<currency>` |
 | `ec.shop.price_buy` | 価格 <price>G / 左クリックで購入 | Price: <price>G / Left-click to buy | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt | `<price>` |
@@ -376,7 +383,7 @@
 | `ec.title.equipped` | 称号を装備しました: <name> | Title equipped: <name> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<name>` |
 | `ec.title.equipped_mark` |  [装備中] |  [Equipped] | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.title.help` | /ec title <称号ID\|none> で表示を切り替えます。 | Use /ec title <title_id\|none> to change your displayed title. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
-| `ec.title.list_entry` | <status> <id>: <name><equipped> | <status> <id>: <name><equipped> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<equipped>`, `<id>`, `<name>`, `<status>` |
+| `ec.title.list_entry` | <status> <name><equipped> | <status> <name><equipped> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<equipped>`, `<name>`, `<status>` |
 | `ec.title.locked` | 称号をまだ解放していません。 | You have not unlocked that title yet. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.treasure.busy` | 処理中です。少し待ってください。 | An operation is in progress. Please wait. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/TreasureController.kt |  |
 | `ec.treasure.empty` | この宝箱は空です。 | This treasure chest is empty. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/TreasureController.kt |  |
@@ -384,4 +391,6 @@
 | `ec.treasure.opened` | 隠し宝箱を開けました。通貨 +<currency>G | Opened a hidden treasure chest. Currency +<currency>G | src/main/kotlin/net/nakaymi/etherealchronicle/paper/TreasureController.kt | `<currency>` |
 
 ## コンテンツYAMLの多言語化案
+クエスト名やアイテム名などの `name` はコンテンツ表示データです。英語用の名前が未定義なら、現行仕様では日本語名をそのまま表示します。状態ラベルや説明文などのUI文言は言語カタログから選びます。
+
 将来は `name_key` / `description_key` を追加し、同じ `ec.*` 翻訳表を参照します。既存の `name` / `description` は後方互換のフォールバックとして維持し、コンテンツschemaと保存形式を一括変更しない段階導入にします。

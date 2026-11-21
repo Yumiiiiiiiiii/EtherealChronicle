@@ -61,8 +61,12 @@ internal class CodexController(private val plugin: RpgPlugin) {
         val menu=RpgMenu("codex-items","",title=plugin.message(player,"ec.menu.codex_items")).inventory
         val page=page(player,"codex-items","",profile.discoveredItems.sorted())
         page.items.forEachIndexed { slot,id ->
-            val name=plugin.snapshot.documents[id]?.get("name") as? String ?: id
-            menu.setItem(slot,ItemStack(Material.PAPER).apply { itemMeta=itemMeta.apply { displayName(Component.text(name)); lore(listOf(Component.text(id))) } })
+            val name=plugin.contentName(player,id)
+            val lore=plugin.snapshot.documents[id]?.get("lore") as? String
+            menu.setItem(slot,ItemStack(Material.PAPER).apply { itemMeta=itemMeta.apply {
+                displayName(Component.text(name))
+                lore(if(lore.isNullOrBlank()) null else listOf(Component.text(lore)))
+            } })
         }
         codexFooter(player,menu,page,true)
         plugin.openCodexMenu(player, menu)
