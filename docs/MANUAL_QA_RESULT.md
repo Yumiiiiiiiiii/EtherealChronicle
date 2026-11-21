@@ -192,3 +192,16 @@ Shots: `D:\test\mcmmo-client-qa\shots\p1_first.png, p2_first.png, p3-p5.png` (no
 | Decline->disconnect on first join, OP bypass, reconnect | BLOCKED | no prompt to decline |
 | MOTD on decline, ui.theme reload comparison, external_managed, SHA-1 change re-request, codex paging, frost_wolf, Paper Dialog quest accept, potion tooltip, class-change weapon, language forcing, ping | NOT-RUN | blocked/time |
 Processes stopped; server.properties/ops.json/whitelist/config restored; ports closed.
+
+## Task 20 first-join gate re-check (codex 8f3acfa merged on 867fa5c, 2026-11-22)
+Shots: `D:\test\mcmmo-client-qa\shots\q1.png, q2_prompt.png, q4_after.png, q5_op.png`.
+Config (temporary): embedded_http, required=true, debug=true, required_timeout_seconds=25.
+| Item | Result | Evidence |
+|---|---|---|
+| Fresh non-op first join: eligibility -> gate -> dispatch -> request sent | PASS | log lines `join eligibility ... bypass=false`, `required pack gate started`, `dispatching required request after join tick`, `request sent ... required=true` |
+| Client prompt | PASS | "This server requires the use of a custom resource pack" screen (q2) |
+| Accept -> loaded -> class menu | PASS | `request loaded` 5 s after sent; class menu with pack icons (q4) |
+| No response -> timeout kick | PASS | `required request timed out after 25s`, client "The resource pack was not applied in time..." (q1) |
+| OP bypass | PASS | `bypass=true`, `required=false`, class menu with vanilla icons (q5) |
+| Explicit decline path | NOT-RUN | covered by Task 18 (client disconnects) |
+| Log | PASS | 0 ERROR |
