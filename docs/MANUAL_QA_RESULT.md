@@ -33,3 +33,13 @@ Method: `docs/CLIENT_OFFLINE.md`. Screenshots are in `D:\test\mcmmo-client-qa\sh
 | Chat spam | FAIL | `戦闘により採取を中断しました。` repeats several times per second for a non-gathering player; death adds `倒れたため採取を中断しました。` and `倒れたため釣りを中断しました。` |
 | Fishing minigame | NOT-RUN | |
 Processes stopped; `server.properties` / `ops.json` restored.
+
+## Task 9 real-client re-check (offline QaFresh, 2026-11-21)
+| Item | Result | Evidence |
+|---|---|---|
+| Chat spam when not gathering | PASS | no repeated `戦闘により採取を中断しました。` while standing in Lumina / at the node (death path not re-run) |
+| Node BlockDisplay position | PASS | log sits exactly on the highlighted clickable tile |
+| Gather reward | PASS | stack of 6 appeared after right-clicks, node visual depleted for the gatherer |
+| Gather boss bar / progress UI | NOT CONFIRMED | no boss bar visible 0.35-3 s after the click |
+| Fishing minigame, anti-macro | NOT-RUN | |
+| Advancement data pack | FAIL | WARN every boot; pack written to `world/dimensions/minecraft/overworld/datapacks`, server reads `world/datapacks` |
