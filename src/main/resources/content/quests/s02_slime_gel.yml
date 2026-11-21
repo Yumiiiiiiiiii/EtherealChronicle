@@ -1,0 +1,18 @@
+schema_version: 1
+id: ec:quest_s02_slime_gel
+type: quest
+name: ミラの薬草調合
+condition: {completed_quests: ['ec:quest_m01_awakening']}
+objectives:
+  - {id: collect_gel, kind: COLLECT, target: 'ec:item_mat_aether_gel', amount: 6, consume: true}
+  - {id: deliver_mira, kind: TALK, target: 'ec:npc_mira', amount: 1}
+rewards:
+  xp: 220
+  currency: 130
+  set_flags: []
+  items:
+    - {item: 'ec:item_con_minor_hp_potion', amount: 4}
+    - {item: 'ec:item_con_antidote_herb', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

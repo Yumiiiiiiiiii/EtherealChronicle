@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_arm_miner_greaves
+type: item
+name: 坑夫の補強脚甲
+material: IRON_LEGGINGS
+rarity: UNCOMMON
+slot: LEGS
+min_level: 10
+classes: []
+budget: 24
+stats: {hp: 65, defense: 18, element_resist: 0.04}
+price: 680
+lore: '落石から脚を守るために鉄板を当てた頑丈な脚甲。重みの分だけ踏ん張りが効く。'

@@ -1,0 +1,22 @@
+schema_version: 1
+id: ec:quest_m03_ashwood_core
+type: quest
+name: 暴走する星片
+condition: {min_level: 4, completed_quests: ['ec:quest_m02_first_hunt']}
+objectives:
+  - {id: explore_forest, kind: EXPLORE, target: 'ec:area_ashwood_forest', amount: 1}
+  - {id: defeat_treant, kind: KILL, target: 'ec:enemy_corrupted_treant', amount: 1}
+  - {id: collect_forest_shard, kind: COLLECT, target: 'ec:item_q_forest_starshard', amount: 1, consume: true}
+  - {id: consult_elena, kind: TALK, target: 'ec:npc_elena', amount: 1}
+  - {id: report_vulcan, kind: TALK, target: 'ec:npc_vulcan', amount: 1}
+rewards:
+  xp: 1150
+  currency: 320
+  set_flags: ['ec:flag_ashwood_cleared', 'ec:flag_mine_unlocked']
+  items:
+    - {item: 'ec:item_acc_forest_ward_charm', amount: 1, condition: {has_flags: ['ec:flag_choice1_purify']}}
+    - {item: 'ec:item_acc_starshard_crest', amount: 1, condition: {has_flags: ['ec:flag_choice1_extract']}}
+    - {item: 'ec:item_mat_starshard_fragment', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

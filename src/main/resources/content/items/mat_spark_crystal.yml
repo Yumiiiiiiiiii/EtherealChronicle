@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_spark_crystal
+type: item
+name: 帯電結晶
+material: PRISMARINE_SHARD
+rarity: UNCOMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 140
+lore: '触れると微かな電撃が走る青白い水晶片。廃坑の帯電コウモリが抱えている。'

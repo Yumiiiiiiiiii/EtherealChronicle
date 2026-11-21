@@ -1,0 +1,18 @@
+schema_version: 1
+id: ec:quest_s04_spider_silk
+type: quest
+name: ピップの極秘仕入れ
+condition: {min_level: 4, completed_quests: ['ec:quest_m02_first_hunt']}
+objectives:
+  - {id: collect_venom, kind: COLLECT, target: 'ec:item_mat_venom_gland', amount: 5, consume: true}
+  - {id: deliver_pip, kind: TALK, target: 'ec:npc_pip', amount: 1}
+rewards:
+  xp: 620
+  currency: 360
+  set_flags: []
+  items:
+    - {item: 'ec:item_con_lumina_stew', amount: 2}
+    - {item: 'ec:item_con_return_scroll', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

@@ -1,0 +1,113 @@
+schema_version: 1
+id: ec:dlg_elena_hub
+type: dialogue
+name: エレナの指揮
+speaker: ec:npc_elena
+start: root
+nodes:
+  root:
+    text: 無駄話は省こう。森の状況は芳しくない。用件を言え。
+    branches:
+      - {condition: {active_quests: ['ec:quest_m03_ashwood_core'], not_flags: ['ec:flag_choice1_purify', 'ec:flag_choice1_extract']}, next: choice1_shard}
+      - {condition: {has_flags: ['ec:flag_choice1_purify']}, next: after_purify_hub}
+      - {condition: {has_flags: ['ec:flag_choice1_extract']}, next: after_extract_hub}
+    choices:
+      - id: complete_m02
+        label: 街道の魔物を退けたよ（森の異変と初陣・報告）
+        condition: {active_quests: ['ec:quest_m02_first_hunt']}
+        next: m02_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_m02_first_hunt'}
+      - id: start_m03
+        label: 森の最奥の星片を調べに行く（暴走する星片・受注）
+        condition: {min_level: 4, completed_quests: ['ec:quest_m02_first_hunt'], not_started_quests: ['ec:quest_m03_ashwood_core']}
+        next: m03_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_m03_ashwood_core'}
+      - id: start_s05
+        label: 斥候の巡回について聞く（霧深い林の斥候・受注）
+        condition: {completed_quests: ['ec:quest_m02_first_hunt'], not_started_quests: ['ec:quest_s05_lost_scout']}
+        next: s05_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_s05_lost_scout'}
+      - id: complete_s05
+        label: 斥候の観測記録を回収したよ（霧深い林の斥候・報告）
+        condition: {active_quests: ['ec:quest_s05_lost_scout']}
+        next: s05_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_s05_lost_scout'}
+      - id: bye
+        label: また報告に来る
+  m02_done:
+    text: ……ギルドからの増援か。思ったより動きが整っているな。だが気を引き締めろ。魔物が狂ったのは偶然じゃない――森の最奥で、星片が暴走している。
+    choices:
+      - id: accept_m03_now
+        label: 星片の暴走を止めに行く（暴走する星片・受注）
+        condition: {min_level: 4, not_started_quests: ['ec:quest_m03_ashwood_core']}
+        next: m03_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_m03_ashwood_core'}
+      - id: close_m02
+        label: 準備してから挑むよ
+  m03_started:
+    text: 古樹広場の巨木『星蝕トレント』が星片を呑み込み怪物へと変貌した。炎と虚空に弱く、足元の根の隆起が危険だ。赤い予兆を見たら即座に離れろ。討伐したら暴走星片を持ち帰り、処遇を決めよう。
+    choices: []
+  choice1_shard:
+    text: ……暴走する星片の周囲には『黒い楔』が打ち込まれていた。何者かが意図的に暴走させたのだ。さて、この星片の処遇だが2つ道がある。森の大地へ還して浄化するか、ヴァルカン殿の案通り魔導容器へ抽出してギルド戦力とするか。現場に立つお前の判断を聞こう。
+    choices:
+      - id: choose_purify
+        label: 森の大地へ還して浄化する（自然の調和を守る・ミラ店10%割引）
+        next: after_purify
+        set_flags: ['ec:flag_choice1_purify']
+      - id: choose_extract
+        label: 魔導容器に封印抽出してギルドへ渡す（教団への戦力にする・ガルド店10%割引）
+        next: after_extract
+        set_flags: ['ec:flag_choice1_extract']
+      - id: decide_later
+        label: もう少し考えさせてほしい
+  after_purify:
+    text: ……悪くない判断だ。見ろ、灰木の葉に元の静けさが戻っていく。薬草商のミラにも伝えておこう、森の恵みが守られたとな。黒い楔の件はヴァルカン殿へ報告してくれ。
+    choices: []
+  after_extract:
+    text: ……合理的だが、少々危うい選択だな。まあいい、〈虚ろの手〉と戦う力が必要だという主張も理解はできる。鍛冶屋のガルドやヴァルカン殿は喜ぶだろう。黒い楔の件はギルド長へ報告してくれ。
+    choices: []
+  after_purify_hub:
+    text: お前が星片を森へ還してくれたおかげで、木々に静けさが戻った。……感謝している。何か用か？
+    choices:
+      - id: start_s05_p
+        label: 斥候の巡回について聞く（霧深い林の斥候・受注）
+        condition: {completed_quests: ['ec:quest_m02_first_hunt'], not_started_quests: ['ec:quest_s05_lost_scout']}
+        next: s05_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_s05_lost_scout'}
+      - id: complete_s05_p
+        label: 斥候の観測記録を回収したよ（霧深い林の斥候・報告）
+        condition: {active_quests: ['ec:quest_s05_lost_scout']}
+        next: s05_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_s05_lost_scout'}
+      - id: bye_p
+        label: 異変がないか見回ってくるよ
+  after_extract_hub:
+    text: 抽出した星片の力、必ず〈虚ろの手〉を止めるために使えよ。……お前の実力は認めている。
+    choices:
+      - id: start_s05_e
+        label: 斥候の巡回について聞く（霧深い林の斥候・受注）
+        condition: {completed_quests: ['ec:quest_m02_first_hunt'], not_started_quests: ['ec:quest_s05_lost_scout']}
+        next: s05_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_s05_lost_scout'}
+      - id: complete_s05_e
+        label: 斥候の観測記録を回収したよ（霧深い林の斥候・報告）
+        condition: {active_quests: ['ec:quest_s05_lost_scout']}
+        next: s05_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_s05_lost_scout'}
+      - id: bye_e
+        label: 任せろ
+  s05_started:
+    text: 森の見張り台へ派遣した斥候からの定時連絡が途絶えている。湿原一帯を巡回し、胞子グモを排除して残された観測記録を回収してほしい。
+    choices: []
+  s05_done:
+    text: ……斥候は無事に撤退していたか、安堵した。日誌にある『黒いローブの人影』はギルド長へも共有しよう。この軽足具を受け取れ、森を駆ける助けになる。
+    choices: []

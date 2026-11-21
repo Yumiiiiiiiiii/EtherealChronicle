@@ -1,0 +1,57 @@
+schema_version: 1
+id: ec:dlg_mira_hub
+type: dialogue
+name: ミラの調合屋
+speaker: ec:npc_mira
+start: root
+nodes:
+  root:
+    text: あらあら、お怪我はありませんか？冒険に出る前は、回復薬と解毒の香草を忘れずにどうぞ。
+    branches:
+      - {condition: {has_flags: ['ec:flag_choice1_purify']}, next: purify_discount}
+    choices:
+      - id: open_shop
+        label: 薬品・ポーションを見る
+        actions:
+          - {kind: OPEN_SHOP, target: 'ec:shop_lumina_apothecary'}
+      - id: start_s02
+        label: 何か困っていることはある？（ミラの薬草調合・受注）
+        condition: {completed_quests: ['ec:quest_m01_awakening'], not_started_quests: ['ec:quest_s02_slime_gel']}
+        next: s02_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_s02_slime_gel'}
+      - id: complete_s02
+        label: エーテルゼリーを集めてきたよ（ミラの薬草調合・報告）
+        condition: {active_quests: ['ec:quest_s02_slime_gel']}
+        next: s02_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_s02_slime_gel'}
+      - id: bye
+        label: ありがとう、また来ます
+  purify_discount:
+    text: あらあら、森の星片を浄化してくださったんですってね！エレナさんから聞きましたわ。薬草たちも喜んでいますぅ――お礼にあなたにはずっと1割引きにさせていただきますね！
+    choices:
+      - id: open_shop_disc
+        label: 割引価格で薬品を見る
+        actions:
+          - {kind: OPEN_SHOP, target: 'ec:shop_lumina_apothecary'}
+      - id: start_s02_disc
+        label: 何か困っていることはある？（ミラの薬草調合・受注）
+        condition: {completed_quests: ['ec:quest_m01_awakening'], not_started_quests: ['ec:quest_s02_slime_gel']}
+        next: s02_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_s02_slime_gel'}
+      - id: complete_s02_disc
+        label: エーテルゼリーを集めてきたよ（ミラの薬草調合・報告）
+        condition: {active_quests: ['ec:quest_s02_slime_gel']}
+        next: s02_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_s02_slime_gel'}
+      - id: bye_disc
+        label: ありがとう、また来ます
+  s02_started:
+    text: ちょうどいいところに！最近ケガ人さんが増えてしまって、回復薬のつなぎに使う『エーテルゼリー』が足りないんですの。森のスライムさんから6つほど分けてもらってきませんか？
+    choices: []
+  s02_done:
+    text: まあ、こんなにプルプルで新鮮なゼリー！ありがとうございますぅ。お礼に出来立ての回復薬と解毒の香草をどうぞ！
+    choices: []

@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_con_miner_ration
+type: item
+name: 坑夫のスタミナ焼き肉
+material: COOKED_BEEF
+rarity: UNCOMMON
+slot: NONE
+min_level: 8
+classes: []
+budget: 0
+stats: {}
+price: 130
+lore: '廃坑の野営地で愛される香辛料たっぷりの焼き肉。15分間、頑強な守りとスタミナをもたらす。'
+effects:
+  - {kind: HEAL, amount: 95, cooldown_ms: 3000, chance: 1.0}
+  - {kind: DEFENSE_BUFF, amount: 14, cooldown_ms: 3000, duration_ticks: 18000, chance: 1.0}

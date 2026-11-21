@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_iron_scrap
+type: item
+name: 廃坑の古鉄片
+material: RAW_IRON
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 87
+lore: '嘆きの廃坑に残された高純度の古い鉄片。鍛冶屋ガルドが目の色を変える良材。'

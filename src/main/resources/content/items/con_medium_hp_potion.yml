@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_con_medium_hp_potion
+type: item
+name: 中級回復薬
+material: POTION
+rarity: UNCOMMON
+slot: NONE
+min_level: 7
+classes: []
+budget: 0
+stats: {}
+price: 85
+lore: '高純度の薬草エキスを濃縮した深紅の回復薬。即座にHPを280回復する。'
+effects:
+  - {kind: HEAL, amount: 280, cooldown_ms: 8000, chance: 1.0}

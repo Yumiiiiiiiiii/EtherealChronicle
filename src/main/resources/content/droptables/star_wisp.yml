@@ -1,0 +1,7 @@
+schema_version: 1
+id: ec:drop_star_wisp
+type: droptable
+entries:
+  - {item: 'ec:item_mat_starshard_fragment', chance: 0.22, min: 1, max: 1}
+  - {item: 'ec:item_con_resource_elixir', chance: 0.14, min: 1, max: 1}
+  - {item: 'ec:item_wpn_stargazer_rod', chance: 0.012, min: 1, max: 1}

@@ -1,0 +1,17 @@
+schema_version: 1
+id: ec:item_wpn_void_cleaver
+type: item
+name: 虚空断ちの聖剣「エクリプス」
+material: NETHERITE_SWORD
+rarity: LEGENDARY
+slot: HAND
+min_level: 18
+classes: [ec:class_warrior]
+budget: 44
+stats: {attack: 42, hp: 160, defense: 26, crit: 0.07, crit_damage: 0.18, skill_power: 0.28}
+weapon: 186
+price: 8000
+lore: '虚無の守護者を打ち倒した証として再鋳造された聖剣。【日蝕の断罪】星光印が満ちた時、エーテル衝撃波を放ち自身を癒やす。'
+effects:
+  - {kind: ATTACK_PROC, amount: 95, cooldown_ms: 10000, chance: 0.35, element: AETHER}
+  - {kind: HEAL, amount: 55, cooldown_ms: 10000, chance: 0.35}

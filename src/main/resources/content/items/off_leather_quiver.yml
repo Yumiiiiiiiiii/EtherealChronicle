@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_off_leather_quiver
+type: item
+name: 革の矢筒
+material: BUNDLE
+rarity: COMMON
+slot: OFFHAND
+min_level: 3
+classes: [ec:class_archer]
+budget: 8
+stats: {attack: 4, crit: 0.02, resource: 10}
+price: 120
+lore: '腰に斜め掛けする丈夫な革の矢筒。素早く次の矢を番えられるよう口が斜めに裁断されている。'

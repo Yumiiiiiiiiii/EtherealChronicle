@@ -1,0 +1,18 @@
+schema_version: 1
+id: ec:quest_s11_cult_purge
+type: quest
+name: 黒き影の掃討
+condition: {has_flags: ['ec:flag_stargazer_unlocked']}
+objectives:
+  - {id: purge_zealots, kind: KILL, target: 'ec:enemy_cult_zealot', amount: 6}
+  - {id: purge_stalkers, kind: KILL, target: 'ec:enemy_astral_stalker', amount: 3}
+  - {id: report_vulcan, kind: TALK, target: 'ec:npc_vulcan', amount: 1}
+rewards:
+  xp: 2400
+  currency: 540
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_starshard_fragment', amount: 3}
+auto_complete: false
+repeatable: true
+repeat_cooldown_ms: 72000000

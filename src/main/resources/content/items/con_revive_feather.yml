@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_con_revive_feather
+type: item
+name: 不死鳥の星羽
+material: FEATHER
+rarity: RARE
+slot: NONE
+min_level: 12
+classes: []
+budget: 0
+stats: {}
+price: 380
+lore: '淡い金光を帯びた奇跡の羽根。危機に陥った冒険者の生命力を大きく蘇らせる。'
+effects:
+  - {kind: REVIVE, amount: 350, cooldown_ms: 120000, chance: 1.0}

@@ -1,0 +1,17 @@
+schema_version: 1
+id: ec:item_wpn_crystal_recurve
+type: item
+name: 結晶弦のリカーブボウ
+material: BOW
+rarity: RARE
+slot: HAND
+min_level: 11
+classes: [ec:class_archer]
+budget: 21
+stats: {attack: 22, crit: 0.07, crit_damage: 0.12}
+weapon: 82
+price: 1250
+lore: '帯電結晶の繊維を撚り込んだ反り弓。【帯電貫通】会心の一矢が雷撃を伴い集中を回復させる。'
+effects:
+  - {kind: ATTACK_PROC, amount: 32, cooldown_ms: 4000, chance: 0.35, element: LIGHTNING}
+  - {kind: RESOURCE, amount: 10, cooldown_ms: 4000, chance: 0.35}

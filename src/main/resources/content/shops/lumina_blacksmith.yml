@@ -1,0 +1,23 @@
+schema_version: 1
+id: ec:shop_lumina_blacksmith
+type: shop
+name: 鍛冶屋ガルドの武具店
+npc: ec:npc_garudo
+buyback: true
+discount_flag: ec:flag_choice1_extract
+discount: 0.1
+entries:
+  - {id: rusty_broadsword, item: 'ec:item_wpn_rusty_broadsword', amount: 1, price: 60}
+  - {id: hunter_shortbow, item: 'ec:item_wpn_hunter_shortbow', amount: 1, price: 60}
+  - {id: apprentice_wand, item: 'ec:item_wpn_apprentice_wand', amount: 1, price: 60}
+  - {id: lumina_helm, item: 'ec:item_arm_lumina_helm', amount: 1, price: 90}
+  - {id: oak_buckler, item: 'ec:item_off_oak_buckler', amount: 1, price: 120}
+  - {id: leather_quiver, item: 'ec:item_off_leather_quiver', amount: 1, price: 120}
+  - {id: worn_grimoire, item: 'ec:item_off_worn_grimoire', amount: 1, price: 120}
+  - {id: ashwood_blade, item: 'ec:item_wpn_ashwood_blade', amount: 1, price: 320, condition: {min_level: 4}}
+  - {id: ash_longbow, item: 'ec:item_wpn_ash_longbow', amount: 1, price: 320, condition: {min_level: 4}}
+  - {id: lumina_staff, item: 'ec:item_wpn_lumina_staff', amount: 1, price: 320, condition: {min_level: 4}}
+  - {id: ashwood_boots, item: 'ec:item_arm_ashwood_boots', amount: 1, price: 340, condition: {min_level: 5}}
+  - {id: minebreaker_greatsword, item: 'ec:item_wpn_minebreaker_greatsword', amount: 1, price: 1250, condition: {completed_quests: ['ec:quest_s06_garudo_forge']}}
+  - {id: crystal_recurve, item: 'ec:item_wpn_crystal_recurve', amount: 1, price: 1250, condition: {completed_quests: ['ec:quest_s06_garudo_forge']}}
+  - {id: quartz_scepter, item: 'ec:item_wpn_quartz_scepter', amount: 1, price: 1250, condition: {completed_quests: ['ec:quest_s06_garudo_forge']}}

@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_off_obsidian_aegis
+type: item
+name: 黒曜の鉄壁盾
+material: SHIELD
+rarity: RARE
+slot: OFFHAND
+min_level: 12
+classes: [ec:class_warrior]
+budget: 28
+stats: {hp: 90, defense: 24, element_resist: 0.08}
+price: 1100
+lore: '黒曜ゴーレムの装甲板を鍛え直した大盾。【反響の護り】防戦時に敵視を集め防御を高める協力戦の要。'
+effects:
+  - {kind: DEFENSE_BUFF, amount: 15, cooldown_ms: 12000, duration_ticks: 60, chance: 1.0}

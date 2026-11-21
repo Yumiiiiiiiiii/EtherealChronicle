@@ -1,0 +1,27 @@
+schema_version: 1
+id: ec:enemy_thorn_wolf
+type: enemy
+name: イバラオオカミ
+entity: WOLF
+level: 3
+hp: 140
+attack: 18
+defense: 12
+xp: 39
+currency: 12
+droptable: ec:drop_thorn_wolf
+element: PHYSICAL
+weaknesses: [FIRE]
+resistances: []
+speed: 0.32
+size: 1
+elite: false
+aggro_range: 12
+leash_range: 24
+attack_interval_ticks: 36
+traits: [PACK]
+specials:
+  - {id: thorn_pounce, name: '棘の飛びかかり', shape: LINE, cooldown_ticks: 180, telegraph_ticks: 16, radius: 1.8, range: 6, multiplier: 1.45, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: NONE}
+spawn_points:
+  - {id: ashwood_clearing_1, world: ec_world, x: 86, y: 65, z: -18, cap: 2, respawn_ticks: 200}
+  - {id: ashwood_clearing_2, world: ec_world, x: 92, y: 65, z: 16, cap: 2, respawn_ticks: 200}

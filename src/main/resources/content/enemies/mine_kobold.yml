@@ -1,0 +1,27 @@
+schema_version: 1
+id: ec:enemy_mine_kobold
+type: enemy
+name: 坑道コボルド
+entity: PIGLIN
+level: 9
+hp: 500
+attack: 48
+defense: 36
+xp: 159
+currency: 38
+droptable: ec:drop_mine_kobold
+element: PHYSICAL
+weaknesses: [ICE, LIGHTNING]
+resistances: []
+speed: 0.28
+size: 1
+elite: false
+aggro_range: 12
+leash_range: 24
+attack_interval_ticks: 36
+traits: [PACK]
+specials:
+  - {id: pickaxe_smash, name: 'つるはし強打', shape: CONE, cooldown_ticks: 200, telegraph_ticks: 18, radius: 3.0, range: 4, multiplier: 1.5, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: NONE}
+spawn_points:
+  - {id: mine_tunnel1_1, world: ec_world, x: 168, y: 65, z: -16, cap: 2, respawn_ticks: 220}
+  - {id: mine_tunnel1_2, world: ec_world, x: 174, y: 65, z: 14, cap: 2, respawn_ticks: 220}

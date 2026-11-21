@@ -1,0 +1,9 @@
+schema_version: 1
+id: ec:npc_kain
+type: npc
+name: 〈虚ろの手〉幹部カイン
+entity: VILLAGER
+chapter: ec:chapter_1
+area: ec:area_stargazer_hill
+location: {world: ec_world, x: 320, y: 65, z: 0, yaw: 90}
+dialogue: ec:dlg_kain_encounters

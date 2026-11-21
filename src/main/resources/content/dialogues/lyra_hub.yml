@@ -1,0 +1,137 @@
+schema_version: 1
+id: ec:dlg_lyra_hub
+type: dialogue
+name: 星見の賢者リラ
+speaker: ec:npc_lyra
+start: root
+nodes:
+  root:
+    text: 星の巡りが激しく乱れておる……。そなたが廃坑の巨兵を退けたルミナの新星じゃな。わしは星見の賢者リラじゃ。
+    branches:
+      - {condition: {has_flags: ['ec:flag_ch1_completed']}, next: post_ch1}
+      - {condition: {has_flags: ['ec:flag_sanctum_unlocked']}, next: sanctum_ready}
+    choices:
+      - id: start_m07
+        label: 教団〈虚ろの手〉を止めに来た（星見の丘の賢者・受注）
+        condition: {min_level: 12, completed_quests: ['ec:quest_m06_iron_grinder'], not_started_quests: ['ec:quest_m07_stargazer_oath']}
+        next: m07_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_m07_stargazer_oath'}
+      - id: complete_m07
+        label: 古のアストロラーベを取り戻したよ（星見の丘の賢者・報告）
+        condition: {active_quests: ['ec:quest_m07_stargazer_oath']}
+        next: m07_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_m07_stargazer_oath'}
+      - id: start_s10
+        label: 古の星碑について聞く（古の星碑巡り・受注）
+        condition: {has_flags: ['ec:flag_stargazer_unlocked'], not_started_quests: ['ec:quest_s10_star_constellation']}
+        next: s10_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_s10_star_constellation'}
+      - id: complete_s10
+        label: 星碑の碑文を写し取ってきたよ（古の星碑巡り・報告）
+        condition: {active_quests: ['ec:quest_s10_star_constellation']}
+        next: s10_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_s10_star_constellation'}
+      - id: open_shop
+        label: 浄化星片・準備品交換所を開く
+        actions:
+          - {kind: OPEN_SHOP, target: 'ec:shop_stargazer_relic'}
+      - id: bye
+        label: また来るよ、賢者殿
+  m07_started:
+    text: 黒き衣の男・カインは千年前に封じた『虚核の聖堂』の門をこじ開けようとしておる。奪われた古のアストロラーベを取り戻し、狂信者とストーカーを退けておくれ。
+    choices: []
+  m07_done:
+    text: よくぞやり遂げた！アストロラーベは再び星光を宿した。さあ、聖堂の扉は開かれたぞ。――中では古の守護者が虚無に染まり待っておる。信頼できる仲間と力を合わせ挑むのじゃ。
+    choices:
+      - id: accept_m08_now
+        label: 虚核の聖堂へ挑む（虚核の守護者・受注）
+        condition: {min_level: 14, not_started_quests: ['ec:quest_m08_void_warden']}
+        next: m08_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_m08_void_warden'}
+      - id: prep_sanctum
+        label: 装備を整えてから挑む
+  sanctum_ready:
+    text: アストロラーベは聖堂への門を繋いでおる。中は1人でも挑めるが、本来は仲間と背中を預け合う協力試練の場じゃ。準備は整っておるか？
+    choices:
+      - id: start_m08
+        label: 虚核の守護者討伐を引き受ける（虚核の守護者・受注）
+        condition: {min_level: 14, completed_quests: ['ec:quest_m07_stargazer_oath'], not_started_quests: ['ec:quest_m08_void_warden']}
+        next: m08_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_m08_void_warden'}
+      - id: enter_sanctum
+        label: 協力ダンジョン『虚核の聖堂』へ入場する
+        actions:
+          - {kind: ENTER_DUNGEON, target: 'ec:dungeon_void_sanctum'}
+      - id: open_shop_ready
+        label: 浄化星片・エッセンス交換所を見る
+        actions:
+          - {kind: OPEN_SHOP, target: 'ec:shop_stargazer_relic'}
+      - id: start_s10_ready
+        label: 古の星碑巡りを受ける
+        condition: {not_started_quests: ['ec:quest_s10_star_constellation']}
+        next: s10_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_s10_star_constellation'}
+      - id: complete_s10_ready
+        label: 古の星碑巡りを報告する
+        condition: {active_quests: ['ec:quest_s10_star_constellation']}
+        next: s10_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_s10_star_constellation'}
+      - id: sanctum_tips
+        label: ヴォイド・ウォーデン攻略の助言を聞く
+        next: tips_node
+      - id: bye_ready
+        label: 準備してから来るよ
+  m08_started:
+    text: カインは聖堂最奥で〈虚核の守護者ヴォイド・ウォーデン〉を覚醒させてしまった。このままではルミナ港ごと浮島が虚無に呑まれる。どうか、あの哀れな守護者を解き放ってやっておくれ。
+    choices: []
+  tips_node:
+    text: ヴォイド・ウォーデンは3つの段階を持つ。重力波リングは跳躍か離脱で避け、虚空の穿光は味方のいない方向へ誘導せよ。終盤の『共鳴の聖域』は仲間と集まり、『崩界の星嵐』の時は蒼い光柱へ駆け込むのじゃ。
+    choices:
+      - id: tips_back
+        label: 心に留めておく
+        next: sanctum_ready
+  s10_started:
+    text: この丘には千年前、エーテル核の崩壊を目撃した賢者たちが刻んだ星碑がある。教団に砕かれる前にウィスプを鎮め、碑文を写し取ってきてもらえぬかの？
+    choices: []
+  s10_done:
+    text: ……やはりそうじゃったか。核は自然に砕けたのではない、『虚無を呼ぶ者』に裂かれたと記されておる。そなたのおかげで千年越しの謎に光が差したぞ。
+    choices: []
+  post_ch1:
+    text: 星々は一時的に静けさを取り戻した。だが北の〈蒼穹の氷嶺〉に新たな揺らぎが見える……。旅立ちの日まで、聖堂の残響を鎮めながら至高の武具を鍛えるがよい。
+    choices:
+      - id: enter_sanctum_post
+        label: 協力ダンジョン『虚核の聖堂』へ再挑戦する
+        actions:
+          - {kind: ENTER_DUNGEON, target: 'ec:dungeon_void_sanctum'}
+      - id: open_shop_post
+        label: 浄化星片・エッセンス交換所を見る
+        actions:
+          - {kind: OPEN_SHOP, target: 'ec:shop_stargazer_relic'}
+      - id: start_s12
+        label: 反復依頼『聖堂の残響』を受ける
+        condition: {min_level: 16, not_started_quests: ['ec:quest_s12_sanctum_trial']}
+        next: s12_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_s12_sanctum_trial'}
+      - id: complete_s12
+        label: 反復依頼『聖堂の残響』を報告する
+        condition: {active_quests: ['ec:quest_s12_sanctum_trial']}
+        next: s12_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_s12_sanctum_trial'}
+      - id: bye_post
+        label: また来るよ、賢者殿
+  s12_started:
+    text: 聖堂の奥では今も虚核の残響が周期的に実体化しておる。仲間を募り、衛兵と守護者の残響を鎮めてきておくれ。
+    choices: []
+  s12_done:
+    text: 見事な連携じゃったな。持ち帰ったエッセンスと浄化星片は、いずれ第2章の厳しい旅路を支える至高の武具へと変わるじゃろう。
+    choices: []

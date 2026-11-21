@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_moss_hide
+type: item
+name: 苔むした毛皮
+material: LEATHER
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 50
+lore: '森の湿気を吸って深い緑に染まった厚手の毛皮。行商人ピップが好んで買い取る。'

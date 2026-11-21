@@ -1,0 +1,11 @@
+schema_version: 1
+id: ec:shop_lumina_general
+type: shop
+name: 行商人ピップの露店
+npc: ec:npc_pip
+buyback: true
+entries:
+  - {id: return_scroll, item: 'ec:item_con_return_scroll', amount: 1, price: 35}
+  - {id: lumina_stew, item: 'ec:item_con_lumina_stew', amount: 1, price: 55}
+  - {id: minor_hp_potion_convenience, item: 'ec:item_con_minor_hp_potion', amount: 1, price: 28}
+  - {id: miner_ration, item: 'ec:item_con_miner_ration', amount: 1, price: 135, condition: {has_flags: ['ec:flag_mine_unlocked']}}

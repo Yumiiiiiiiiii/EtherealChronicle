@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:shop_lumina_apothecary
+type: shop
+name: 薬草商ミラの調合屋
+npc: ec:npc_mira
+buyback: true
+discount_flag: ec:flag_choice1_purify
+discount: 0.1
+entries:
+  - {id: minor_hp_potion, item: 'ec:item_con_minor_hp_potion', amount: 1, price: 25}
+  - {id: antidote_herb, item: 'ec:item_con_antidote_herb', amount: 1, price: 40}
+  - {id: resource_elixir, item: 'ec:item_con_resource_elixir', amount: 1, price: 95, condition: {min_level: 4}}
+  - {id: medium_hp_potion, item: 'ec:item_con_medium_hp_potion', amount: 1, price: 85, condition: {any: [{min_level: 7}, {has_flags: ['ec:flag_mine_unlocked']}]}}
+  - {id: starlight_tea, item: 'ec:item_con_starlight_tea', amount: 1, price: 190, condition: {has_flags: ['ec:flag_stargazer_unlocked']}}
+  - {id: greater_hp_potion, item: 'ec:item_con_greater_hp_potion', amount: 1, price: 210, condition: {any: [{min_level: 13}, {has_flags: ['ec:flag_stargazer_unlocked']}]}}

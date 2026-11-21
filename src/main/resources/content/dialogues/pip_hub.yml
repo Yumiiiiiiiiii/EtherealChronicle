@@ -1,0 +1,34 @@
+schema_version: 1
+id: ec:dlg_pip_hub
+type: dialogue
+name: ピップの露店
+speaker: ec:npc_pip
+start: root
+nodes:
+  root:
+    text: へへっ、旦那！ルミナ港名物の海鮮シチューに帰還の巻物、不要な魔物素材の買取まで何でもござれですよ〜。あ、ここだけの話、最近は黒いフードの連中が港の荷揚げに紛れてたって噂ですぜ？
+    choices:
+      - id: open_shop
+        label: 雑貨・料理を見る（素材売却も可）
+        actions:
+          - {kind: OPEN_SHOP, target: 'ec:shop_lumina_general'}
+      - id: start_s04
+        label: 儲け話があるって聞いたけど？（ピップの極秘仕入れ・受注）
+        condition: {min_level: 4, completed_quests: ['ec:quest_m02_first_hunt'], not_started_quests: ['ec:quest_s04_spider_silk']}
+        next: s04_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_s04_spider_silk'}
+      - id: complete_s04
+        label: 胞子の毒腺を5つ持ってきたよ（ピップの極秘仕入れ・報告）
+        condition: {active_quests: ['ec:quest_s04_spider_silk']}
+        next: s04_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_s04_spider_silk'}
+      - id: bye
+        label: また覗くよ
+  s04_started:
+    text: へへっ、旦那！ここだけの話なんですけどね、胞子グモの毒腺が隣の浮島の錬金術師に高値で売れるんですよ〜。5つ集めてくれたら、相場の倍は弾みますぜ！
+    choices: []
+  s04_done:
+    text: おおっ、傷ひとつない極上品じゃないですか！まいどあり〜！またうまい話があったら真っ先に声をかけますよ、旦那！
+    choices: []
