@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_azure_gem_ore
+type: item
+name: 蒼輝石の原石
+material: LAPIS_LAZULI
+rarity: UNCOMMON
+slot: NONE
+min_level: 8
+classes: []
+budget: 0
+stats: {}
+price: 120
+lore: '深層の鉱脈に脈打つ蒼い輝石。名匠の研磨砥石の精錬や星片疑似餌の加工に使われる希少鉱石。'

@@ -1,0 +1,6 @@
+schema_version: 1
+id: ec:title_master_gatherer
+type: title
+name: 蒼穹の採集匠
+description: 鉱脈・薬草・古木・星片結晶のすべてを極めた熟練採集家の証。
+unlock_flag: ec:flag_title_master_gatherer

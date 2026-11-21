@@ -1,0 +1,97 @@
+schema_version: 1
+id: ec:dlg_minato_hub
+type: dialogue
+name: 蒼穹の釣り師ミナトの桟橋
+speaker: ec:npc_minato
+start: root
+nodes:
+  root:
+    text: おっ、いい凪だな！ここは蒼穹釣りギルドの南桟橋だ。専用のRPG釣竿と餌を持って水辺へ投げれば、ウキの当たりからテンション管理まで手応え抜群の釣りが楽しめるぜ。釣った魚は料理や納品に役立てな！
+    choices:
+      - id: open_angler_shop
+        label: 蒼穹釣りギルド商店を開く（釣竿・餌・魚料理）
+        actions:
+          - {kind: OPEN_SHOP, target: 'ec:shop_angler_guild'}
+      - id: start_f01
+        label: 【釣り】蒼穹の初投げを受ける（入門・釣竿支給）
+        condition: {min_level: 1, has_flags: ['ec:flag_ch1_started'], not_started_quests: ['ec:quest_life_f01_angler_intro']}
+        next: f01_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_life_f01_angler_intro'}
+      - id: complete_f01
+        label: 【釣り】蒼穹の初投げを完了する
+        condition: {active_quests: ['ec:quest_life_f01_angler_intro']}
+        next: f01_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_life_f01_angler_intro'}
+      - id: start_f02
+        label: 【釣り】森の清流と月影コイを受ける（Lv5〜・称号解放）
+        condition: {min_level: 5, completed_quests: ['ec:quest_life_f01_angler_intro'], not_started_quests: ['ec:quest_life_f02_forest_stream']}
+        next: f02_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_life_f02_forest_stream'}
+      - id: complete_f02
+        label: 【釣り】森の清流と月影コイを報告する
+        condition: {active_quests: ['ec:quest_life_f02_forest_stream']}
+        next: f02_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_life_f02_forest_stream'}
+      - id: start_f03
+        label: 【釣り】星海と氷窟の主を求めてを受ける（Lv14〜・称号解放）
+        condition: {min_level: 14, completed_quests: ['ec:quest_life_f02_forest_stream'], has_flags: ['ec:flag_ch2_started'], not_started_quests: ['ec:quest_life_f03_abyssal_catch']}
+        next: f03_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_life_f03_abyssal_catch'}
+      - id: complete_f03
+        label: 【釣り】星海と氷窟の主を求めてを報告する
+        condition: {active_quests: ['ec:quest_life_f03_abyssal_catch']}
+        next: f03_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_life_f03_abyssal_catch'}
+      - id: start_d01
+        label: 【デイリー】ミナトの鮮魚納品を受ける（毎日更新・Lv3〜）
+        condition: {min_level: 3, has_flags: ['ec:flag_life_angler_enrolled'], not_started_quests: ['ec:quest_life_d01_daily_angler']}
+        next: d01_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_life_d01_daily_angler'}
+      - id: complete_d01
+        label: 【デイリー】鮮魚納品を報告する
+        condition: {active_quests: ['ec:quest_life_d01_daily_angler']}
+        next: d01_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_life_d01_daily_angler'}
+      - id: fishing_tips
+        label: 釣りのコツと魚影の見方を聞く
+        next: tips_node
+      - id: bye
+        label: また糸を垂らしに来るよ
+  f01_started:
+    text: よし、まずはルミナ港の水辺を一回りして、俺にもう一度声をかけてくれ。入門用の『樫の蒼穹釣竿』と蒼穹ミミズを支給してやるぜ！
+    choices: []
+  f01_done:
+    text: ようこそ蒼穹釣りギルドへ！これが『樫の蒼穹釣竿』と蒼穹ミミズ、それに見本の銀鱗イワシだ。釣った魚は商店で塩串焼きに料理できるし、毎日の鮮魚納品も頼むな！
+    choices: []
+  f02_started:
+    text: アッシュウッドの森の清流には木漏れ日ヤマメや夜限定の月影コイが棲んでいる。森の清流を巡って、木漏れ日ヤマメを2匹届けてくれ！
+    choices: []
+  f02_done:
+    text: 立派なヤマメだな！お前に称号『蒼穹の釣り師』の証と、夜の恵み『月影コイ』、星片疑似餌を贈ろう。次は星見の泉や氷窟の大物を狙ってみな！
+    choices: []
+  f03_started:
+    text: 星見の泉の『天の川ウオ』は夜に星片疑似餌へ食いつく幻想魚だ。星見の丘と蒼晶の氷窟の水辺を調べ、天の川ウオを2匹持ち帰ってくれ！
+    choices: []
+  f03_done:
+    text: 見事だ、まさか本当にやり遂げるとは！称号『星海の大公』を授けよう。深淵アングラーや伝説の蒼穹龍魚、それに特製『蒼氷の海鮮星鍋』も受け取ってくれ！
+    choices: []
+  d01_started:
+    text: 今日の鮮魚納品だな。アッシュウッド方面の水辺を見回って、銀鱗イワシを2匹届けてくれ。報酬に星片疑似餌と塩串焼きを用意しておくぜ！
+    choices: []
+  d01_done:
+    text: 新鮮でいい型だ！これで港の賄いも安泰だな。また明日、日が改まったら頼むぜ！
+    choices: []
+  tips_node:
+    text: 魚が暴れている赤い表示のときは無理に引かず手を離してテンションを逃がすんだ。逆に青く潜ったときは左クリックでいなすのがコツだぜ。時間帯や天候、餌の組み合わせで狙える魚種も変わるから図鑑を埋めてみな！
+    choices:
+      - id: tips_back
+        label: ありがとう、参考になった
+        next: root

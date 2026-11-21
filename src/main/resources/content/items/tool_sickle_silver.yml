@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_tool_sickle_silver
+type: item
+name: 薬草師の銀鎌
+material: IRON_HOE
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 120
+lore: '薬草の有効成分を損なわず刈り取る採集鎌。薬草ノードを右クリックして採取できる（ランク1）。'

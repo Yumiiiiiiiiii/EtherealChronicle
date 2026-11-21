@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_tool_extractor_aether
+type: item
+name: 星片結晶抽出器
+material: SPYGLASS
+rarity: UNCOMMON
+slot: NONE
+min_level: 6
+classes: []
+budget: 0
+stats: {}
+price: 320
+lore: '星片結晶ノードから魔力核を共鳴抽出する精密器具。星見の丘や氷窟の結晶採取に必須となる（ランク1）。'

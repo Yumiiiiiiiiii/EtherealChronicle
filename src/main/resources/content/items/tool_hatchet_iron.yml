@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_tool_hatchet_iron
+type: item
+name: 樵の星木手斧
+material: IRON_AXE
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 120
+lore: '星木の原木や流木ノードを安全に伐採する採集手斧。稀に香り高い星木の樹脂も得られる（ランク1）。'

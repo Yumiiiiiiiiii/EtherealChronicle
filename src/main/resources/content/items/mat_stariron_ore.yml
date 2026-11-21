@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_stariron_ore
+type: item
+name: 星鉄鉱石
+material: RAW_IRON
+rarity: COMMON
+slot: NONE
+min_level: 5
+classes: []
+budget: 0
+stats: {}
+price: 60
+lore: '嘆きの廃坑の鉱脈から採掘される良質な星鉄原鉱。上位採掘具や研磨砥石の精錬素材となる。'

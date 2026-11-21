@@ -1,0 +1,6 @@
+schema_version: 1
+id: ec:title_abyssal_fisher
+type: title
+name: 星海の大公
+description: 星見の泉と氷窟の深淵を制し、伝説の魚影に辿り着いた釣り師の称号。
+unlock_flag: ec:flag_title_abyssal_fisher
