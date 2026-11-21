@@ -57,3 +57,10 @@
 - Fix: set Slime size once before reasserting the display attribute; initialize health from the actual attribute value; every virtual damage update now projects virtual HP into the live MAX_HEALTH range, including small maxima and lethal zero. Pure regression covers the observed 130/140 HP with max4 and boss phase/lethal ranges. Simulation give now has Japanese missing-item/quantity errors with regression assertions.
 - The Paper damage-event path and console path share the corrected adapter. Live Slime and boss lethal-hit re-verification remains a QA handoff; do not claim it run locally.
 - Verified: `./gradlew.bat build test` SUCCESS, 63 tests, 0 failures/skips; `git diff --check` passed.
+
+## Codex-Impl — Task 3 progress
+- Master `78436ea` merged fast-forward; branch codex/foundation. Task 3 scope is being handled sequentially.
+- Item 1 reconnect claim race: claimPending now queues through whenAvailable if a transaction lock is active; duplicate lock acquisition becomes a safe no-op. Added MockBukkit claim-while-locked regression: entitlement remains pending, delivers after unlock exactly once. QA test report `build/qa-adventure-steps.txt` shows PASS.
+- Item 2 whitespace: removed extra trailing blank lines from build.gradle.kts, this status file and AdventureServices.kt; `git diff --check` passes.
+- Items 1+2 committed `e640689`; `./gradlew.bat build test` passes. Proceeding to bounded persisted pity counters (item3).
+- Lead added item7: permission-gated `/ec flag <player> <flag> [set|clear]`, Japanese responses and test, scheduled last.
