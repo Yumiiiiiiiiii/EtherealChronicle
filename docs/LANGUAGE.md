@@ -59,7 +59,7 @@
 | `ec.error.dialogue_missing` | 会話が見つかりません。 | Dialogue not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.dialogue_node_missing` | 会話ノードが見つかりません。 | Dialogue node not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.dialogue_too_deep` | 会話の分岐が長すぎます。 | The dialogue branch is too long. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
-| `ec.error.invalid_content` | コンテンツ定義が不正です。詳細を確認してください。 | Content definition is invalid. Check the diagnostic details. | src/main/kotlin/net/nakaymi/etherealchronicle/core/WorldContent.kt |  |
+| `ec.error.invalid_content` | コンテンツ定義が不正です。詳細を確認してください。 | Content definition is invalid. Check the diagnostic details. | src/main/kotlin/net/nakaymi/etherealchronicle/core/WorldContent.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/WorldValidation.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/data/Content.kt |  |
 | `ec.error.inventory_exchange` | 必要品が不足しているか、持ち物に空きがありません。 | Required items are missing or your inventory is full. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.inventory_full` | 持ち物に空きがありません。 | Make room in your inventory. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.item_missing` | アイテムが見つかりません。 | Item not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |

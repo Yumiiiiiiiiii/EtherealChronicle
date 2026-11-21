@@ -338,7 +338,7 @@ class Chapter2ContentValidationTest {
         val error = assertFailsWith<IllegalArgumentException> {
             trade.buy(profile, "ec:shop_frostpeak_outfitter", "glacier_greatsword", bag, "gated-test", 1)
         }
-        assertEquals("この商品は条件を満たしていません。", error.message)
+        assertEquals("ec.error.shop_condition", error.message)
     }
 
     @Test
