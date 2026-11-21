@@ -41,6 +41,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private val simSessions = mutableMapOf<String,SimulationSession>()
     private data class EnhancementFlight(val token:String,val material:String,val currency:Long)
     private val enhancementFlights=mutableMapOf<UUID,EnhancementFlight>()
+    private var advancementWarningLogged=false
     private lateinit var itemKey: NamespacedKey
     private lateinit var enhancementKey: NamespacedKey
     private lateinit var enhancementTransactionKey: NamespacedKey
@@ -85,6 +86,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     dungeons=DungeonController(this,adventure,enemies)
                     try { if(DemoWorld.ensure(this) != null) adventure.reloadNpcs() }
                     catch(error: Exception) { logger.severe("専用ワールドを準備できませんでした: ${error.message}。基盤機能のみ有効です。") }
+                    runCatching { reloadAdvancementPack() }.onFailure { advancementWarning(it) }
                     server.scheduler.runTaskTimer(this,Runnable { enemies.tick() },10,10)
                     ready = true
                     server.pluginManager.registerEvents(this,this)
@@ -143,6 +145,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 if(snapshot.items.find(id) == null) ProfileContentMigration.oldItems[id]?.takeIf { snapshot.items.find(it) != null }?.let { player.inventory.setItem(slot,createItem(it,old!!.amount)) }
             }
             profiles[player.uniqueId] = profile
+            syncTitleAdvancements(player,profile)
             if(::dungeons.isInitialized) dungeons.recover(player)
             if(profile.classId == null) Bukkit.getWorld(DemoWorld.NAME)?.let { player.teleport(it.spawnLocation) }
             if(profile.classId == null || !profile.starterGranted) menu(player) else {
@@ -268,6 +271,42 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         save(profile)
         return false
     }
+    private fun advancementWarning(error:Throwable) {
+        if(advancementWarningLogged) return
+        advancementWarningLogged=true
+        logger.warning("称号進捗データパックを登録できませんでした。称号は冒険プロフィールの解放フラグで利用できます: ${error.message}")
+    }
+    /** Data-pack files are generated only inside an owned directory; Paper's supported DatapackManager reloads them. */
+    private fun reloadAdvancementPack() {
+        val world=server.worlds.firstOrNull() ?: error("進捗データパックを置くワールドがありません。")
+        val installation=AdvancementDatapack.install(world.worldFolder.toPath(),content.snapshot().world.titles.values)
+        val manager=server.datapackManager
+        manager.refreshPacks()
+        val datapack=manager.getPack(installation.packName) ?: error("データパックが検出されません: ${installation.packName}")
+        val enabled=datapack.isEnabled
+        if(!enabled) datapack.isEnabled=true else if(installation.changed) server.reloadData()
+        server.updateResources()
+        server.onlinePlayers.forEach { player -> profiles[player.uniqueId]?.let { syncTitleAdvancements(player,it) } }
+    }
+    /** Profile flags remain authoritative; data-pack progress is awarded or revoked to match them. */
+    internal fun syncTitleAdvancements(player:Player,profile:PlayerProfile) {
+        val newlyUnlocked=profile.syncTitleUnlockFlags(snapshot.world.titles)
+        if(newlyUnlocked.isNotEmpty()) save(profile)
+        try {
+            val root=server.getAdvancement(NamespacedKey("ec","chronicle/root")) ?: return
+            val rootProgress=player.getAdvancementProgress(root)
+            rootProgress.remainingCriteria.firstOrNull()?.let(rootProgress::awardCriteria)
+            snapshot.world.titles.values.forEach { title ->
+                if(title.advancement == null) return@forEach
+                val advancement=server.getAdvancement(NamespacedKey("ec","chronicle/${title.id.substringAfter(':')}")) ?: return@forEach
+                val progress=player.getAdvancementProgress(advancement)
+                val criterion="profile_condition_met"
+                if(title.unlockFlag in profile.flags) {
+                    if(criterion in progress.remainingCriteria) progress.awardCriteria(criterion)
+                } else if(criterion in progress.awardedCriteria) progress.revokeCriteria(criterion)
+            }
+        } catch(error:Exception) { advancementWarning(error) }
+    }
     private fun applyTitle(player:Player,profile:PlayerProfile) {
         val title=profile.selectedTitle?.let(snapshot.world.titles::get)?.takeIf { it.unlockFlag in profile.flags }?.name
         val display=if(title == null) Component.text(player.name) else Component.text("[$title] ${player.name}")
@@ -388,6 +427,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         server.onlinePlayers.forEach { p ->
           try {
             val profile = profiles[p.uniqueId] ?: return@forEach
+            syncTitleAdvancements(p,profile)
             val c = profile.classId?.let { content.snapshot().classes.find(it) } ?: return@forEach
             if(adventure.locked(p.uniqueId)) return@forEach
             val s = effectiveStats(p,profile); applyStats(p,profile); applyTitle(p,profile)
@@ -589,6 +629,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         fun validate(id: String, action: () -> Unit) { try { action() } catch(e: Exception) { throw IllegalArgumentException("${c.sources[id]} [$id]: ${e.message}",e) } }
         c.items.all().forEach { item -> validate(item.id) { require(Material.valueOf(item.material).isItem) { "material はアイテムである必要があります。" } } }
         c.classes.all().filter { it.icon != null }.forEach { definition -> validate(definition.id) { require(Material.valueOf(definition.icon!!).isItem) { "icon はアイテム素材である必要があります。" } } }
+        c.world.titles.values.filter { it.advancement != null }.forEach { title -> validate(title.id) { require(Material.valueOf(title.advancement!!.icon).isItem) { "進捗 icon はアイテム素材である必要があります。" } } }
         c.documents.values.filter { it["type"] in setOf("enemy","boss") }.forEach { d -> validate(d.string("id")) { require(EntityType.valueOf(d.string("entity")).isAlive) { "entity は生物である必要があります。" } } }
     }
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
@@ -614,6 +655,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                                 content.install(snapshot); game.skills.updateBalance(snapshot.balance)
                                 all.forEach { p -> p.level=p.level.coerceAtMost(snapshot.balance.levelCap); if(p.level == snapshot.balance.levelCap) p.xp=0; p.skillLevels.replaceAll { _,level -> level.coerceIn(1,snapshot.balance.skillLevelCap) } }
                                 dirty.addAll(profiles.keys)
+                                runCatching { reloadAdvancementPack() }.onFailure { advancementWarning(it) }
                                 enemies.close(); adventure.reloadNpcs()
                             }
                             sender.sendMessage(Component.text(if(reload) "コンテンツを再読み込みしました。" else "コンテンツ検証成功。"))
@@ -699,6 +741,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             "codex" -> openCodex(player)
             "enhance" -> openEnhancement(player)
             "title" -> {
+                syncTitleAdvancements(player,p)
                 val id=args.getOrNull(1)
                 if(id == null) {
                     snapshot.world.titles.values.forEach { title -> player.sendMessage(Component.text("${if(title.unlockFlag in p.flags) "✓" else "○"} ${title.id}: ${title.name}${if(title.id == p.selectedTitle) " [装備中]" else ""}")) }

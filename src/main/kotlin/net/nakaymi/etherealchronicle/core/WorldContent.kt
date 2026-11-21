@@ -25,7 +25,18 @@ data class Area(val id: String, val name: String, val world: String, val minX: D
 }
 data class DungeonWave(val boss: String, val guards: List<String>, val guardOffsets: List<Pair<Int,Int>>, val bossOffset: Pair<Int,Int>)
 data class ScoreRank(val rank: String,val maxSeconds: Long)
-data class TitleDefinition(val id: String,val name: String,val description: String,val unlockFlag: String)
+enum class TitleConditionType { FLAG, BESTIARY, COLLECTION }
+data class TitleProgressCondition(val type:TitleConditionType,val target:String?,val count:Int) {
+    fun met(profile:PlayerProfile,unlockFlag:String):Boolean = when(type) {
+        TitleConditionType.FLAG -> (target ?: unlockFlag) in profile.flags
+        TitleConditionType.BESTIARY -> (target?.let(profile.bestiary::get) ?: 0) >= count
+        TitleConditionType.COLLECTION -> profile.discoveredItems.size >= count
+    }
+}
+data class TitleAdvancement(val title:String,val description:String,val icon:String,val parent:String?,val frame:String,val condition:TitleProgressCondition)
+data class TitleDefinition(val id: String,val name: String,val description: String,val unlockFlag: String,val advancement:TitleAdvancement? = null) {
+    fun unlocked(profile:PlayerProfile) = unlockFlag in profile.flags || advancement?.condition?.met(profile,unlockFlag) == true
+}
 data class DungeonDefinition(val id: String, val unlockFlag: String, val boss: String, val guards: List<String>, val guardOffsets: List<Pair<Int,Int>>, val area: String, val palette: List<String>, val bossOffset: Pair<Int,Int>, val entryMessage: String, val clearMessage: String,val waves: List<DungeonWave> = emptyList(),val scoreRanks: List<ScoreRank> = emptyList())
 data class NpcDefinition(val id: String, val name: String, val position: Position, val dialogue: String, val shop: String?)
 data class TokenCost(val item: String, val amount: Int)
@@ -88,7 +99,23 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
                     dialogues[id] = DialogueDefinition(id,start,nodes,globalChoices)
                 }
                 "npc" -> npcs[id] = NpcDefinition(id,d.string("name"),d.mapping("location").position(),d.string("dialogue"),d["shop"] as? String)
-                "title" -> titles[id] = TitleDefinition(id,d.string("name"),d.text("description",""),d.string("unlock_flag"))
+                "title" -> {
+                    val unlockFlag=d.string("unlock_flag")
+                    val advancement=d["advancement"]?.asMapping()?.let { a ->
+                        val raw=a["condition"]?.asMapping() ?: emptyMap()
+                        val type=TitleConditionType.valueOf(raw.text("type","FLAG").uppercase())
+                        val target=when(type) {
+                            TitleConditionType.FLAG -> raw.text("target",unlockFlag)
+                            TitleConditionType.BESTIARY -> raw.string("target")
+                            TitleConditionType.COLLECTION -> null
+                        }
+                        val condition=TitleProgressCondition(type,target,raw.integer("count",1))
+                        val definition=TitleAdvancement(a.text("title",d.string("name")),a.text("description",d.text("description","")),a.string("icon"),a["parent"] as? String,a.text("frame","TASK").uppercase(),condition)
+                        require(definition.title.isNotBlank() && definition.title.length <= 80 && definition.description.length <= 240 && definition.icon.matches(Regex("[A-Z][A-Z0-9_]*")) && (definition.parent == null || definition.parent.matches(Regex("[a-z0-9_.-]+:[a-z0-9_./-]+"))) && definition.frame in setOf("TASK","CHALLENGE","GOAL") && condition.count in 1..1_000_000 && (type == TitleConditionType.COLLECTION || target?.startsWith("ec:") == true)) { "$id: 進捗の表示または条件が不正です。" }
+                        definition
+                    }
+                    titles[id] = TitleDefinition(id,d.string("name"),d.text("description",""),unlockFlag,advancement)
+                }
                 "shop" -> {
                     val entries = d.maps("entries").map { e -> ShopEntry(e.string("id"),e.string("item"),e.integer("amount",1),e.whole("price",0),e.tokens("tokens"),e.condition(),e.integer("daily_limit",0),e["token_discount_flag"] as? String,e.tokens("token_discount")) }
                     require(entries.size in 1..45 && entries.map { it.id }.distinct().size == entries.size && entries.all { it.amount in 1..64 && it.price >= 0 && it.dailyLimit >= 0 && it.tokens.all { t -> t.amount > 0 } })
@@ -137,6 +164,12 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
         dungeons.values.forEach { dungeon ->
             require(dungeon.area in areas && dungeon.boss in enemies && enemies[dungeon.boss]?.boss == true && dungeon.guards.all { enemies[it] != null } && dungeon.waves.all { wave -> wave.boss in enemies && wave.guards.all { it in enemies } }) { "${dungeon.id}: ダンジョン参照が不正です。" }
             require(dungeon.unlockFlag.startsWith("ec:flag_") && dungeon.palette.all { it.matches(Regex("[A-Z_]+")) }) { "${dungeon.id}: ダンジョン設定が不正です。" }
+        }
+        titles.values.forEach { title ->
+            require(title.unlockFlag.matches(Regex("ec:flag_[a-z0-9_]+"))) { "${title.id}: unlock_flag が不正です。" }
+            val advancement=title.advancement ?: return@forEach
+            if(advancement.parent?.startsWith("ec:title_") == true) require(titles[advancement.parent]?.advancement != null) { "${title.id}: 親称号進捗が存在しません: ${advancement.parent}" }
+            if(advancement.condition.type == TitleConditionType.BESTIARY) require(advancement.condition.target in enemies) { "${title.id}: 図鑑進捗の魔物が存在しません: ${advancement.condition.target}" }
         }
         validateWorldReferences(documents)
     }

@@ -278,11 +278,11 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         deliverLocked(player,p) {}
     }
     private fun deliverLocked(player: Player,p: PlayerProfile,success: () -> Unit) {
-        if(p.pendingRewards.isEmpty()) { unlock(p.uuid); success(); return }
+        if(p.pendingRewards.isEmpty()) { plugin.syncTitleAdvancements(player,p); unlock(p.uuid); success(); return }
         val output=p.pendingRewards.toMap(); val inventory=plugin.inventory(player)
         if(!inventory.canExchange(emptyMap(),output)) {
             message(player,"報酬を保管しています。持ち物に空きを作り /ec claim で受け取ってください。")
-            unlock(p.uuid); success(); return
+            plugin.syncTitleAdvancements(player,p); unlock(p.uuid); success(); return
         }
         // Consume the durable mailbox entitlement before issuing Paper items: loss-biased claim window.
         val claim=Delivery(p,output); deliveries[p.uuid]=claim
@@ -297,6 +297,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                     if(!inventory.exchange(emptyMap(),output)) {
                         p.pendingRewards.putAll(output); plugin.save(p); message(player,"報酬は保管されています。/ec claim で受け取ってください。")
                     }
+                    plugin.syncTitleAdvancements(player,p)
                     success()
                 } else plugin.logger.warning("報酬の受取確定直後に切断: ${p.uuid} $output。管理者回復が必要です。")
             } finally { deliveries.remove(p.uuid); delivering.remove(p.uuid); unlock(p.uuid) }

@@ -4,3 +4,11 @@ type: title
 name: 氷原の歩哨
 description: 凍てつく祠の謎を解いた。
 unlock_flag: ec:flag_title_frost_walker
+advancement:
+  title: 氷原の歩哨
+  description: 凍てつく祠の謎を解いた。
+  icon: PACKED_ICE
+  frame: TASK
+  condition:
+    type: FLAG
+    target: ec:flag_title_frost_walker
