@@ -72,6 +72,21 @@ class AdventurePathsTest {
             val profile = plugin.profiles.getValue(uuid)
             profile.currency = 1000; profile.level = 20
             fun potions() = (0..35).sumOf { i -> player.inventory.getItem(i)?.takeIf { it.persistentDataContainer.get(itemKey, PersistentDataType.STRING) == "ec:item_con_minor_hp_potion" }?.amount ?: 0 }
+            rec("claim requested during a locked delivery waits and runs once after unlock") {
+                val claims=adv.javaClass.getMethod("claimPending",Player::class.java)
+                val unlock=adv.javaClass.getDeclaredMethod("unlock",UUID::class.java).also { it.isAccessible=true }
+                profile.pendingRewards["ec:item_con_minor_hp_potion"]=1
+                val lock=adv.javaClass.getDeclaredField("locks").also { it.isAccessible=true }.get(adv) as MutableSet<UUID>
+                lock.add(uuid)
+                claims.invoke(adv,player)
+                assertEquals(0,potions())
+                unlock.invoke(adv,uuid)
+                assertTrue(server.pump { potions()==1 },"queued claim did not deliver")
+                assertTrue(server.pump { profile.pendingRewards.isEmpty() },"claim persistence did not finish")
+                claims.invoke(adv,player); server.pump(500) { false }
+                assertEquals(1,potions(),"queued claim duplicated")
+                "pending claim queued during lock, delivered exactly once after unlock"
+            }
             fun entrySlot(id: String) = (0..53).first { player.openInventory.topInventory.getItem(it)?.persistentDataContainer?.get(entryKey, PersistentDataType.STRING) == id }
             fun openShop() { showShop.invoke(adv, player, "ec:shop_lumina_general") }
 

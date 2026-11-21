@@ -254,7 +254,12 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     fun claimPending(player: Player) {
         val p=plugin.profiles[player.uniqueId] ?: return
         if(p.pendingRewards.isEmpty()) return
-        require(locks.add(p.uuid)) { "受取処理中です。" }
+        // Reconnect may complete while the previous session's persistence callback still owns the lock.
+        if(p.uuid in locks) {
+            whenAvailable(p.uuid) { if(player.isOnline && plugin.profiles[p.uuid] === p) claimPending(player) }
+            return
+        }
+        if(!locks.add(p.uuid)) return
         deliverLocked(player,p) {}
     }
     private fun deliverLocked(player: Player,p: PlayerProfile,success: () -> Unit) {
