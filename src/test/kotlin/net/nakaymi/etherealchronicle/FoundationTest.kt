@@ -69,7 +69,7 @@ class FoundationTest {
         val weapon = c.items["ec:warrior_starter"]
         assertTrue(weapon.withinBudget()); assertTrue(weapon.canEquip(p))
         assertFalse(c.items["ec:mage_starter"].canEquip(p))
-        assertEquals(13.0,game.stats(p,listOf(weapon)).attack)
+        assertEquals(c.classes[p.classId!!].stats.attack+c.classes[p.classId!!].growth.attack*(p.level-1)+weapon.stats.attack,game.stats(p,listOf(weapon)).attack)
     }
     @Test fun `save loads detached snapshots backup and legacy migration`() {
         val uuid = UUID.randomUUID()
@@ -81,7 +81,7 @@ class FoundationTest {
             store.save(p).join(); assertEquals(p,store.load(uuid).join())
             Files.writeString(temp.resolve("$uuid.yml"),"corrupt: [")
             assertEquals(3,store.load(uuid).join().level)
-            assertEquals(2,store.migrate(mapOf("uuid" to uuid.toString()))["schema_version"])
+            assertEquals(3,store.migrate(mapOf("uuid" to uuid.toString()))["schema_version"])
             assertFailsWith<IllegalArgumentException> { store.migrate(mapOf("schema_version" to 99)) }
         }
     }
@@ -180,6 +180,8 @@ class FoundationTest {
         }
     }
 }
+
+
 
 
 

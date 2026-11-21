@@ -13,6 +13,7 @@ data class Stats(val hp: Double = 100.0, val resource: Double = 100.0, val attac
     companion object { val ZERO = Stats(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0) }
 }
 
+operator fun Stats.times(factor: Double) = Stats(hp*factor,resource*factor,attack*factor,defense*factor,crit*factor,critDamage*factor,elementResist*factor,skillPower*factor)
 data class Balance(val levelCap: Int, val xpBase: Double, val xpExponent: Double, val xpGainCap: Long,
     val currencyGainCap: Long, val damageCap: Double, val statCap: Double, val critCap: Double,
     val defenseScale: Double, val skillLevelCap: Int, val skillGrowth: Double, val critDamageCap: Double, val elementCap: Double) {
@@ -82,6 +83,7 @@ data class PlayerProfile(val uuid: UUID, var classId: String? = null, var level:
     fun snapshot() = copy(skillLevels = skillLevels.toMutableMap(), quests = quests.mapValues { it.value.copy(objectives = it.value.objectives.toMutableMap()) }.toMutableMap(), flags = flags.toMutableSet(), dailyPurchases = dailyPurchases.toMutableMap(), transactions = transactions.toMutableList())
 }
 data class QuestProgress(var progress: Int = 0, var completed: Boolean = false, val objectives: MutableMap<String,Int> = mutableMapOf(), var completedAt: Long = 0)
+
 
 
 

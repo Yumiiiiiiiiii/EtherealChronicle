@@ -39,6 +39,7 @@ data class ItemEffect(val kind: String, val amount: Double, val cooldown: Long, 
 data class ItemProperties(val bound: Boolean, val questItem: Boolean, val price: Long, val weapon: Double, val lore: String, val effects: List<ItemEffect>)
 
 class WorldContent(documents: Map<String,Map<String,Any?>>) {
+    val tuning = documents.values.single { it["type"] == "balance" }.tuning()
     val quests = linkedMapOf<String,QuestDefinition>()
     val dialogues = linkedMapOf<String,DialogueDefinition>()
     val npcs = linkedMapOf<String,NpcDefinition>()
@@ -115,3 +116,4 @@ fun Map<String,Any?>.condition(): Condition = (this["condition"] as? Map<*,*>)?.
 fun Map<String,Any?>.conditionValue(): Condition = Condition(integer("min_level",1),strings("has_flags").toSet(),strings("not_flags").toSet(),strings("completed_quests").toSet(),strings("active_quests").toSet(),strings("not_started_quests").toSet(),strings("classes").toSet(),maps("any").map { it.conditionValue() })
 fun Map<String,Any?>.rewards() = Rewards(whole("xp",0),whole("currency",0),maps("items").map { ItemReward(it.string("item"),it.integer("amount",1),it.condition()) },strings("set_flags").toSet())
 fun Map<String,Any?>.tokens(key: String) = maps(key).map { TokenCost(it.string("item"),it.int("amount")) }
+

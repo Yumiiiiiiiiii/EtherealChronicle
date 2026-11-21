@@ -1,7 +1,7 @@
 package net.nakaymi.etherealchronicle.data
 
-import net.nakaymi.etherealchronicle.core.PlayerProfile
-import net.nakaymi.etherealchronicle.core.QuestProgress
+import net.nakaymi.etherealchronicle.core.*
+
 import org.yaml.snakeyaml.Yaml
 import org.yaml.snakeyaml.LoaderOptions
 import org.yaml.snakeyaml.constructor.SafeConstructor
@@ -45,27 +45,32 @@ class PlayerStore(private val directory: Path): AutoCloseable {
         (d["skill_levels"] as? Map<*,*>)?.forEach { (k,v) -> p.skillLevels[k as String] = (v as Number).toInt().also { require(it >= 1) } }
         d.mapping("quests").forEach { (id,value) ->
             @Suppress("UNCHECKED_CAST") val q = value as Map<String,Any?>
-            p.quests[id] = QuestProgress(q.int("progress").also { require(it >= 0) },q["completed"] as Boolean)
+            p.quests[id] = QuestProgress(q.int("progress").also { require(it >= 0) },q["completed"] as Boolean,
+                (q["objectives"] ?: emptyMap<String,Any?>()).asMapping().mapValues { (_,n) -> (n as Number).toInt().also { require(it >= 0) } }.toMutableMap(),q.whole("completed_at",0))
         }
+        p.flags.addAll(d.strings("flags")); p.transactions.addAll(d.strings("transactions").takeLast(128))
+        (d["daily_purchases"] ?: emptyMap<String,Any?>()).asMapping().forEach { (id,n) -> p.dailyPurchases[id]=(n as Number).toInt().also { require(it >= 0) } }
+        p.accessory=d["accessory"] as? String
         return p
     }
     fun migrate(raw: Map<String,Any?>): Map<String,Any?> {
         val version = (raw["schema_version"] as? Number)?.toInt() ?: 0
-        if(version !in 0..2) throw FutureSchema("Unsupported player schema $version")
-        if(version == 2) return raw
+        if(version !in 0..3) throw FutureSchema("Unsupported player schema $version")
+        if(version == 3) return raw
+        if(version == 2) return raw + mapOf("schema_version" to 3,"flags" to emptyList<String>(),"transactions" to emptyList<String>(),"daily_purchases" to emptyMap<String,Int>())
         val v1 = if (version == 1) raw else mapOf("level" to 1,"xp" to 0,"currency" to 0,
             "resource" to 0,"selected_skill" to 0,"starter_granted" to false,"skill_levels" to emptyMap<String,Int>()) + raw
         val tutorial = v1["tutorial_quest"] as? String
         val quests = if(tutorial == null) emptyMap() else mapOf("ec:tutorial" to mapOf("progress" to (if(tutorial == "ec:tutorial_complete") 1 else 0),"completed" to (tutorial == "ec:tutorial_complete")))
-        return v1.filterKeys { it != "tutorial_quest" } + mapOf("schema_version" to 2,"quests" to quests)
+        return v1.filterKeys { it != "tutorial_quest" } + mapOf("schema_version" to 3,"quests" to quests,"flags" to emptyList<String>(),"transactions" to emptyList<String>(),"daily_purchases" to emptyMap<String,Int>())
     }
     private fun write(p: PlayerProfile) {
         Files.createDirectories(directory)
         val target = directory.resolve("${p.uuid}.yml")
         val tmp = directory.resolve("${p.uuid}.yml.tmp")
-        val values = linkedMapOf<String,Any?>("schema_version" to 2,"uuid" to p.uuid.toString(),"class" to p.classId,
+        val values = linkedMapOf<String,Any?>("schema_version" to 3,"uuid" to p.uuid.toString(),"class" to p.classId,
             "level" to p.level,"xp" to p.xp,"currency" to p.currency,"resource" to p.resource,"selected_skill" to p.selectedSkill,
-            "starter_granted" to p.starterGranted,"quests" to p.quests.mapValues { (_,q) -> mapOf("progress" to q.progress,"completed" to q.completed) },"skill_levels" to p.skillLevels)
+            "starter_granted" to p.starterGranted,"quests" to p.quests.mapValues { (_,q) -> mapOf("progress" to q.progress,"completed" to q.completed,"objectives" to q.objectives,"completed_at" to q.completedAt) },"skill_levels" to p.skillLevels,"flags" to p.flags.toList(),"transactions" to p.transactions,"daily_purchases" to p.dailyPurchases,"accessory" to p.accessory)
         Files.newBufferedWriter(tmp,StandardOpenOption.CREATE,StandardOpenOption.TRUNCATE_EXISTING).use { Yaml().dump(values,it) }
         FileChannel.open(tmp,StandardOpenOption.WRITE).use { it.force(true) }
         if (Files.exists(target)) {
@@ -81,5 +86,7 @@ class PlayerStore(private val directory: Path): AutoCloseable {
         check(executor.awaitTermination(30,TimeUnit.SECONDS)) { "Player IO did not finish within 30 seconds" }
     }
 }
+
+
 
 
