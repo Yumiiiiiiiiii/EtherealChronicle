@@ -111,6 +111,7 @@ ec:
     transaction_busy: "A transaction is already in progress."
     inventory_full: "Make room in your inventory."
     transaction_rolled_back: "The transaction was rolled back because saving failed."
+    invalid_content: "Content definition is invalid. Check the diagnostic details."
   area:
     teleported: "Teleported to <name>."
   class:

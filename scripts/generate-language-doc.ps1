@@ -22,7 +22,7 @@ $references = @{}
 Get-ChildItem (Join-Path $Root 'src/main/kotlin') -Recurse -Filter *.kt | ForEach-Object {
     $relative = [IO.Path]::GetRelativePath($Root, $_.FullName).Replace('\','/')
     $text = Get-Content -Raw -LiteralPath $_.FullName
-    foreach ($match in [regex]::Matches($text, '"(ec(?:\.[a-z0-9_]+)+)"')) {
+    foreach ($match in [regex]::Matches($text, '(ec(?:\.[a-z0-9_]+)+)')) {
         if (!$references.ContainsKey($match.Groups[1].Value)) { $references[$match.Groups[1].Value] = [System.Collections.Generic.SortedSet[string]]::new() }
         [void]$references[$match.Groups[1].Value].Add($relative)
     }
@@ -46,4 +46,5 @@ $rows = foreach ($key in @($ja.Keys | Sort-Object)) {
 $footer = @('', '## コンテンツYAMLの多言語化案', '将来は `name_key` / `description_key` を追加し、同じ `ec.*` 翻訳表を参照します。既存の `name` / `description` は後方互換のフォールバックとして維持し、コンテンツschemaと保存形式を一括変更しない段階導入にします。')
 $output = @($header) + @($rows) + @($footer)
 [IO.File]::WriteAllText((Join-Path $Root 'docs/LANGUAGE.md'), (($output -join "`n") + "`n"), [Text.UTF8Encoding]::new($false))
+
 
