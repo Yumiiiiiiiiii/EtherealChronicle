@@ -37,7 +37,7 @@ class TitleAdvancementTest {
     @Test fun `all shipped title definitions have advancement-ready data`() {
         val content=ContentService(Path.of("src/main/resources/content")).load()
         val advancementTitles=content.world.titles.values.filter { it.advancement != null }
-        assertEquals(3,advancementTitles.size)
+        assertEquals(6,advancementTitles.size)
         advancementTitles.forEach { title ->
             assertNotNull(title.advancement)
             assertEquals(TitleConditionType.FLAG,title.advancement!!.condition.type)
