@@ -12,6 +12,8 @@ Chapter 1 bundles three classes, twelve skills, twenty quests, fourteen enemies,
 
 Basic attacks have a configurable 550 ms gate and do not multiply by SKILL_POWER. Skills share a shipped 1,000 ms global cooldown in addition to their individual cooldowns. Gear ATTACK_PROC amounts are flat damage, mitigated by defense/element and bounded by damage_cap, with a re-entrancy guard. Player HP is capped at 1,024 and displayed on a 20-point health scale; bosses use virtual HP (Void Warden 55,000). Element resistance is capped at 0.5. Sell ratio is 0.3; bound/quest items cannot be sold. Party XP and currency totals are divided among eligible members; item drops rotate between recipients.
 
+Rare gear entries may set `pity_after`, the number of consecutive failed rolls before the next eligible roll guarantees one item. Counters are per profile, drop table and item; a natural success resets the counter. The balance field `drop_pity_attempt_cap` (default 100, valid 1..10000) caps authored thresholds and saved counters. Current drops author 12 attempts for Void Warden rare gear, 20 for its 3% relics, and 50 for selected 1–2.5% field gear. Only the chosen party loot recipient rolls/increments pity once per kill; other members receive no duplicate counter advance.
+
 ---
 
 ## Chapter 1 Tuned Balance Summary

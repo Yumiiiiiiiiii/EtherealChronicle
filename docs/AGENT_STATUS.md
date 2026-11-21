@@ -64,3 +64,4 @@
 - Item 2 whitespace: removed extra trailing blank lines from build.gradle.kts, this status file and AdventureServices.kt; `git diff --check` passes.
 - Items 1+2 committed `e640689`; `./gradlew.bat build test` passes. Proceeding to bounded persisted pity counters (item3).
 - Lead added item7: permission-gated `/ec flag <player> <flag> [set|clear]`, Japanese responses and test, scheduled last.
+- Item 3 pity: implementation uses `pity_after` on individual droptable entries plus balance `drop_pity_attempt_cap`; schema5 stores per-table/item misses and migrates old profiles empty. Only chosen party loot recipient rolls table. Focused tests cover threshold, natural reset, cap, persistence/migration, and no-roll party members. Full build/test is running before the item3 commit.

@@ -35,7 +35,7 @@ class GameService(private val content: () -> ContentSnapshot, val skills: SkillE
         p.flags.addAll(c.world.enemies[enemyId]?.flags ?: emptySet())
         quests.event(p,ObjectiveKind.KILL,enemyId,1,inventory)
         if(!rollDrops) return emptyMap()
-        return (enemy["droptable"] as? String)?.let { c.drops[it].roll(kotlin.random.Random.Default) } ?: emptyMap()
+        return (enemy["droptable"] as? String)?.let { c.drops[it].roll(kotlin.random.Random.Default,p.dropPity,c.balance.dropPityAttemptCap) } ?: emptyMap()
     }
     fun onHit(p: PlayerProfile, maximum: Double = p.classId?.let { content().classes[it].stats.resource } ?: 0.0) {
         val c = p.classId?.let { content().classes.find(it) } ?: return

@@ -51,28 +51,30 @@ class PlayerStore(private val directory: Path): AutoCloseable {
         p.flags.addAll(d.strings("flags")); p.transactions.addAll(d.strings("transactions").takeLast(128))
         (d["daily_purchases"] ?: emptyMap<String,Any?>()).asMapping().forEach { (id,n) -> p.dailyPurchases[id]=(n as Number).toInt().also { require(it >= 0) } }
         p.accessory=d["accessory"] as? String
+        (d["drop_pity"] ?: emptyMap<String,Any?>()).asMapping().forEach { (id,n) -> p.dropPity[id]=(n as Number).toInt().also { require(it in 0..10000) } }
         (d["pending_rewards"] ?: emptyMap<String,Any?>()).asMapping().forEach { (id,n) -> p.pendingRewards[id]=(n as Number).toInt().also { require(it in 1..1_000_000) } }
         return p
     }
     fun migrate(raw: Map<String,Any?>): Map<String,Any?> {
         val version = (raw["schema_version"] as? Number)?.toInt() ?: 0
-        if(version !in 0..4) throw FutureSchema("Unsupported player schema $version")
-        if(version == 4) return raw
-        if(version == 3) return raw + mapOf("schema_version" to 4,"pending_rewards" to emptyMap<String,Int>())
-        if(version == 2) return raw + mapOf("schema_version" to 4,"flags" to emptyList<String>(),"transactions" to emptyList<String>(),"daily_purchases" to emptyMap<String,Int>())
+        if(version !in 0..5) throw FutureSchema("Unsupported player schema $version")
+        if(version == 5) return raw
+        if(version == 4) return raw + mapOf("schema_version" to 5,"drop_pity" to emptyMap<String,Int>())
+        if(version == 3) return raw + mapOf("schema_version" to 5,"pending_rewards" to emptyMap<String,Int>(),"drop_pity" to emptyMap<String,Int>())
+        if(version == 2) return raw + mapOf("schema_version" to 5,"flags" to emptyList<String>(),"transactions" to emptyList<String>(),"daily_purchases" to emptyMap<String,Int>(),"drop_pity" to emptyMap<String,Int>())
         val v1 = if (version == 1) raw else mapOf("level" to 1,"xp" to 0,"currency" to 0,
             "resource" to 0,"selected_skill" to 0,"starter_granted" to false,"skill_levels" to emptyMap<String,Int>()) + raw
         val tutorial = v1["tutorial_quest"] as? String
         val quests = if(tutorial == null) emptyMap() else mapOf("ec:tutorial" to mapOf("progress" to (if(tutorial == "ec:tutorial_complete") 1 else 0),"completed" to (tutorial == "ec:tutorial_complete")))
-        return v1.filterKeys { it != "tutorial_quest" } + mapOf("schema_version" to 4,"quests" to quests,"flags" to emptyList<String>(),"transactions" to emptyList<String>(),"daily_purchases" to emptyMap<String,Int>())
+        return v1.filterKeys { it != "tutorial_quest" } + mapOf("schema_version" to 5,"quests" to quests,"flags" to emptyList<String>(),"transactions" to emptyList<String>(),"daily_purchases" to emptyMap<String,Int>(),"drop_pity" to emptyMap<String,Int>())
     }
     private fun write(p: PlayerProfile) {
         Files.createDirectories(directory)
         val target = directory.resolve("${p.uuid}.yml")
         val tmp = directory.resolve("${p.uuid}.yml.tmp")
-        val values = linkedMapOf<String,Any?>("schema_version" to 4,"uuid" to p.uuid.toString(),"class" to p.classId,
+        val values = linkedMapOf<String,Any?>("schema_version" to 5,"uuid" to p.uuid.toString(),"class" to p.classId,
             "level" to p.level,"xp" to p.xp,"currency" to p.currency,"resource" to p.resource,"selected_skill" to p.selectedSkill,
-            "starter_granted" to p.starterGranted,"quests" to p.quests.mapValues { (_,q) -> mapOf("progress" to q.progress,"completed" to q.completed,"objectives" to q.objectives,"completed_at" to q.completedAt,"repeat_available_at" to q.repeatAvailableAt) },"skill_levels" to p.skillLevels,"flags" to p.flags.toList(),"transactions" to p.transactions,"daily_purchases" to p.dailyPurchases,"accessory" to p.accessory,"pending_rewards" to p.pendingRewards)
+            "starter_granted" to p.starterGranted,"quests" to p.quests.mapValues { (_,q) -> mapOf("progress" to q.progress,"completed" to q.completed,"objectives" to q.objectives,"completed_at" to q.completedAt,"repeat_available_at" to q.repeatAvailableAt) },"skill_levels" to p.skillLevels,"flags" to p.flags.toList(),"transactions" to p.transactions,"daily_purchases" to p.dailyPurchases,"accessory" to p.accessory,"pending_rewards" to p.pendingRewards,"drop_pity" to p.dropPity)
         Files.newBufferedWriter(tmp,StandardOpenOption.CREATE,StandardOpenOption.TRUNCATE_EXISTING).use { Yaml().dump(values,it) }
         FileChannel.open(tmp,StandardOpenOption.WRITE).use { it.force(true) }
         if (Files.exists(target)) {
