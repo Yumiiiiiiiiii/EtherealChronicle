@@ -9,6 +9,7 @@ param(
     [switch]$SkipBuild,
     [string[]]$Commands = @('ec validate'),
     [int]$StartTimeoutSec = 180,
+    [int]$HoldSeconds = 0,          # keep the server up after the commands (e.g. so scripts/bot can join)
     [int]$CommandWaitSec = 3,
     [int]$MemoryMb = 2048
 )
@@ -24,14 +25,28 @@ $logDir = Join-Path $PSScriptRoot 'logs'; New-Item -ItemType Directory -Force $l
 $log = Join-Path $logDir ("smoke-{0:yyyyMMdd-HHmmss}.log" -f (Get-Date))
 New-Item -ItemType File -Force $log | Out-Null
 $psi = [System.Diagnostics.ProcessStartInfo]::new('java')
-foreach ($a in @('-Xms512M', "-Xmx$($MemoryMb)M", '-jar', $JarPath, '--nogui')) { $psi.ArgumentList.Add($a) }
+foreach ($a in @('-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8', '-Xms512M', "-Xmx$($MemoryMb)M", '-jar', $JarPath, '--nogui')) { $psi.ArgumentList.Add($a) }
 $psi.WorkingDirectory = $ServerDir
 $psi.RedirectStandardInput = $true; $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true
 $psi.UseShellExecute = $false
-$queue = [System.Collections.Concurrent.ConcurrentQueue[string]]::new()
+$psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8; $psi.StandardErrorEncoding = [System.Text.Encoding]::UTF8
+# PowerShell scriptblocks cannot be event handlers on thread-pool threads (crashes pwsh), so use a compiled sink.
+if (-not ('QaLineSink' -as [type])) {
+    Add-Type -TypeDefinition @'
+using System.Collections.Concurrent;
+using System.Diagnostics;
+public class QaLineSink {
+    public readonly ConcurrentQueue<string> Queue = new ConcurrentQueue<string>();
+    public void Attach(Process p) {
+        p.OutputDataReceived += (s, e) => { if (e.Data != null) Queue.Enqueue(e.Data); };
+        p.ErrorDataReceived += (s, e) => { if (e.Data != null) Queue.Enqueue(e.Data); };
+    }
+}
+'@
+}
+$sink = [QaLineSink]::new(); $queue = $sink.Queue
 $p = [System.Diagnostics.Process]::new(); $p.StartInfo = $psi
-$handler = [System.Diagnostics.DataReceivedEventHandler] { param($s, $e) if ($null -ne $e.Data) { $queue.Enqueue($e.Data) } }
-$p.add_OutputDataReceived($handler); $p.add_ErrorDataReceived($handler)
+$sink.Attach($p)
 [void]$p.Start(); $p.BeginOutputReadLine(); $p.BeginErrorReadLine()
 Write-Step "server pid $($p.Id), log $log"
 
@@ -51,6 +66,9 @@ try {
         foreach ($c in $Commands) {
             Write-Step "> $c"; $p.StandardInput.WriteLine($c); Start-Sleep -Seconds $CommandWaitSec; Flush-Log
         }
+        $mem = Get-Process java -ErrorAction SilentlyContinue | Where-Object { $_.Id -eq $p.Id -or (Get-CimInstance Win32_Process -Filter "ProcessId=$($_.Id)").ParentProcessId -eq $p.Id } | Sort-Object WorkingSet64 -Descending | Select-Object -First 1
+        if ($mem) { Write-Step ('server JVM working set: {0:N0} MB (pid {1})' -f ($mem.WorkingSet64 / 1MB), $mem.Id) }
+        if ($HoldSeconds -gt 0) { Write-Step "holding server for $HoldSeconds s"; for ($i = 0; $i -lt $HoldSeconds; $i++) { Start-Sleep -Seconds 1; Flush-Log } }
     }
 } finally {
     if (-not $p.HasExited) {
