@@ -904,7 +904,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             require(args.getOrNull(1)=="status") { "/ec debug gather status <player>" }
             val playerName=args.getOrNull(2) ?: error("/ec debug gather status <player>")
             val player=server.getPlayerExact(playerName) ?: error("プレイヤーが見つかりません: $playerName")
-            sender.sendMessage(Component.text("GATHER ${player.name}: ${gathering.debugStatus(player.uniqueId)}")); return
+            sender.sendMessage(Component.text("GATHER ${player.name}: ${gathering.debugStatus(player)}")); return
         }
         require(args.size >= 3 && args[0] == "sim") { "/ec debug sim <操作> <name> [引数] — join/class/kill/skill/accept/event/complete/dialogue/choice/give/inventory/currency/level/flag/buy/sell/party/spawn/hit/dump/save/load" }
         val operation = args[1]; val name = args[2]

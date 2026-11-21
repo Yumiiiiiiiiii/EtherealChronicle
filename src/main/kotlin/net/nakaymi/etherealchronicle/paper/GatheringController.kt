@@ -42,8 +42,15 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
     private data class Channel(val site: Site,val started: Long,val duration: Long,val origin: Location,val bar: BossBar)
     private val engine=GatheringEngine()
     private val sites=plugin.snapshot.world.gatheringNodes.values.flatMap { node -> node.locations.map { Site(node,it) } }
-        .associateBy { key(it.location.world,it.location.x,it.location.y-1,it.location.z) }
+        // Players may click either the ground tile or the visual's block coordinate.
+        // Both resolve through this bounded coordinate index (two keys per configured node).
+        .flatMap { site -> listOf(
+            key(site.location.world,site.location.x,site.location.y-1,site.location.z) to site,
+            key(site.location.world,site.location.x,site.location.y,site.location.z) to site
+        ) }.toMap()
+    private val sitesById=sites.values.distinctBy(::siteKey).associateBy(::siteKey)
     private val channels=mutableMapOf<UUID,Channel>()
+    private val lastAttempt=mutableMapOf<UUID,String>()
     private val displays=mutableMapOf<String,List<UUID>>()
     private val displayKey=NamespacedKey(plugin,"gather_node")
     private val hitboxKey=NamespacedKey(plugin,"gather_node_hitbox")
@@ -59,8 +66,23 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
     fun active(player: UUID)=player in channels
     fun debugStatus(player:UUID):String=channels[player]?.let { c ->
         val progress=((System.currentTimeMillis()-c.started).toDouble()/c.duration).coerceIn(0.0,1.0)
-        "採取中 node=${c.site.node.id} progress=${(progress*100).toInt()}% BossBar=${c.bar.players.any { it.uniqueId==player }}"
-    } ?: "採取チャンネルなし"
+        "採取中 node=${c.site.node.id}/${c.site.location.id} progress=${(progress*100).toInt()}% BossBar=${c.bar.players.any { it.uniqueId==player }} visible=${c.bar.isVisible} duration=${c.duration}ms"
+    } ?: "採取チャンネルなし last=${lastAttempt[player] ?: "まだ採取操作がありません"}"
+    fun debugStatus(player:org.bukkit.entity.Player):String {
+        val active=debugStatus(player.uniqueId)
+        val profile=plugin.profiles[player.uniqueId]
+        val held=plugin.identify(player.inventory.itemInMainHand) ?: "vanilla:${player.inventory.itemInMainHand.type}"
+        val tackle=plugin.snapshot.world.tackle.values.firstOrNull { it.item==held }
+        val nearest=sites.values.distinctBy(::siteKey).filter { it.location.world==player.world.name }.minByOrNull { site ->
+            player.location.distanceSquared(Location(player.world,site.location.x+0.5,site.location.y.toDouble(),site.location.z+0.5))
+        }
+        val nearestText=nearest?.let { site ->
+            val distance=kotlin.math.sqrt(player.location.distanceSquared(Location(player.world,site.location.x+0.5,site.location.y.toDouble(),site.location.z+0.5)))
+            "${site.node.id}/${site.location.id} distance=${"%.2f".format(distance)} expected=${site.node.toolKind}/T${site.node.minToolTier}/採取Lv${site.node.minGatheringLevel} cooldown=${profile?.gatheringReadyAt?.get(siteKey(site))?.let { maxOf(0,it-System.currentTimeMillis()) } ?: 0}ms"
+        } ?: "なし"
+        val owned=runCatching { player.world.name==DemoWorld.NAME && DemoWorld.isOwned(player.world) }.getOrDefault(false)
+        return "$active world=${player.world.name} owned=$owned pos=${player.location.blockX},${player.location.blockY},${player.location.blockZ} profile=${profile!=null} gatheringLv=${profile?.lifeSkills?.get(LifeSkillKind.GATHERING)?.level ?: "?"} held=$held tackle=${tackle?.kind ?: "なし"}/T${tackle?.tier ?: 0} nearest=$nearestText lock=${profile?.let { plugin.adventure.locked(it.uuid) } ?: false}"
+    }
     fun interrupt(player: UUID) { Bukkit.getPlayer(player)?.let { cancel(it,"戦闘により採取を中断しました。") } }
     fun close() {
         task?.cancel(); task=null
@@ -137,38 +159,55 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         return sites.values.any { s -> s.location.world==location.world.name && kotlin.math.abs(s.location.x-x)<=1 && kotlin.math.abs(s.location.y-y)<=1 && kotlin.math.abs(s.location.z-z)<=1 }
     }
 
-    @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true)
+    @EventHandler(priority=EventPriority.HIGHEST)
     fun interact(e: PlayerInteractEvent) {
         if(e.hand != EquipmentSlot.HAND || e.action != org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK) return
         val block=e.clickedBlock ?: return
-        val site=sites[key(block.world.name,block.x,block.y,block.z)] ?: return
+        val site=sites[key(block.world.name,block.x,block.y,block.z)]
+        if(site==null) {
+            val nearby=sites.values.distinctBy(::siteKey).filter { it.location.world==block.world.name }.minByOrNull { (it.location.x-block.x)*(it.location.x-block.x)+(it.location.z-block.z)*(it.location.z-block.z) }
+            if(nearby!=null && kotlin.math.abs(nearby.location.y-block.y)<=2 && (nearby.location.x-block.x)*(nearby.location.x-block.x)+(nearby.location.z-block.z)*(nearby.location.z-block.z)<=4) {
+                e.isCancelled=true
+                reject(e.player,"採取地点 ${nearby.node.name} の表示または足元を右クリックしてください。")
+            }
+            return
+        }
         e.isCancelled=true
         begin(e.player,site)
     }
-    @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true)
+    @EventHandler(priority=EventPriority.HIGHEST)
     fun interactDisplay(e: PlayerInteractEntityEvent) {
         val k=e.rightClicked.persistentDataContainer.get(hitboxKey,PersistentDataType.STRING) ?: return
-        val site=sites.values.firstOrNull { siteKey(it)==k } ?: return
+        val site=sitesById[k] ?: run { reject(e.player,"この採取地点の設定を読み込めませんでした。管理者にお知らせください。"); return }
         e.isCancelled=true
         begin(e.player,site)
     }
     private fun begin(player: org.bukkit.entity.Player,site: Site) {
-        if(player.world.name!=DemoWorld.NAME || !DemoWorld.isOwned(player.world)) return
-        val profile=plugin.profiles[player.uniqueId] ?: return
-        if(plugin.adventure.locked(profile.uuid)) { player.sendMessage(Component.text("取引処理中は採取できません。")); return }
-        if(channels.containsKey(player.uniqueId)) return
-        if(channels.size>=limit) { player.sendMessage(Component.text("採取が混み合っています。少し待ってください。")); return }
+        if(player.world.name!=DemoWorld.NAME || !DemoWorld.isOwned(player.world)) { reject(player,"管理対象の採取エリアでのみ採取できます。"); return }
+        val profile=plugin.profiles[player.uniqueId] ?: run { reject(player,"プレイヤーデータを読み込み中です。少し待ってからお試しください。"); return }
+        if(plugin.adventure.locked(profile.uuid)) { reject(player,"取引処理中は採取できません。"); return }
+        if(channels.containsKey(player.uniqueId)) { reject(player,"採取中です。完了までお待ちください。"); return }
+        if(channels.size>=limit) { reject(player,"採取が混み合っています。少し待ってください。"); return }
         val def=site.node
-        val tool=plugin.identify(player.inventory.itemInMainHand)?.let { id -> plugin.snapshot.world.tackle.values.find { it.item==id && it.kind in setOf(TackleKind.PICKAXE,TackleKind.SICKLE,TackleKind.HATCHET,TackleKind.EXTRACTOR) } }
-        if(tool==null || (profile.lifeSkills[LifeSkillKind.GATHERING]?.level ?: 1)<tool.minLifeLevel || !engine.canHarvest(def,tool.kind,tool.tier,profile.lifeSkills[LifeSkillKind.GATHERING]?.level ?: 1)) {
-            player.sendMessage(Component.text("採取には適正な道具と生活スキルレベルが必要です。")); return
+        val toolId=plugin.identify(player.inventory.itemInMainHand)
+        val tool=toolId?.let { id -> plugin.snapshot.world.tackle.values.find { it.item==id && it.kind in setOf(TackleKind.PICKAXE,TackleKind.SICKLE,TackleKind.HATCHET,TackleKind.EXTRACTOR) } }
+        val lifeLevel=profile.lifeSkills[LifeSkillKind.GATHERING]?.level ?: 1
+        if(tool==null) { reject(player,"${def.name}の採取には${def.toolKind}専用道具が必要です。"); return }
+        if(tool.kind!=def.toolKind) { reject(player,"${def.name}には${def.toolKind}が必要です（現在:${tool.kind}）。"); return }
+        if(tool.tier<def.minToolTier) { reject(player,"道具の段階が足りません。T${def.minToolTier}以上が必要です。"); return }
+        if(lifeLevel<def.minGatheringLevel) { reject(player,"採取レベルが足りません。採取Lv.${def.minGatheringLevel}以上が必要です。"); return }
+        if(lifeLevel<tool.minLifeLevel) { reject(player,"この道具を使うには生活スキルLv.${tool.minLifeLevel}以上が必要です。"); return }
+        if(!engine.canHarvest(def,tool.kind,tool.tier,lifeLevel)) {
+            reject(player,"この採取地点の条件を満たしていません。"); return
         }
         val now=System.currentTimeMillis(); val k=siteKey(site)
-        if(!engine.readyAt(profile,k,now)) { player.sendMessage(Component.text("この採取地点は再生中です。あと ${(profile.gatheringReadyAt[k]!!-now+999)/1000}秒お待ちください。")); return }
+        if(!engine.readyAt(profile,k,now)) { reject(player,"この採取地点は再生中です。あと ${(profile.gatheringReadyAt[k]!!-now+999)/1000}秒お待ちください。"); return }
         val origin=player.location.clone(); val duration=(def.channelMillis*(1-tool.channelSpeedBonus)).toLong().coerceAtLeast(250)
         val bar=Bukkit.createBossBar("採取中: ${def.name}",BarColor.GREEN,BarStyle.SOLID).apply { addPlayer(player); progress=0.08 }
         channels[player.uniqueId]=Channel(site,now,duration,origin,bar)
+        lastAttempt[player.uniqueId]="開始成功 node=${site.node.id}/${site.location.id}"
         player.sendActionBar(Component.text("§a採取中… 動かずにお待ちください"))
+        player.sendMessage(Component.text("${def.name}の採取を開始しました。完了まで動かずにお待ちください。"))
     }
 
     @EventHandler fun moved(e: PlayerMoveEvent) {
@@ -176,15 +215,22 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         val to=e.to
         if(e.from.world != to.world || e.from.distanceSquared(to) > 0.09) cancel(e.player,"移動したため採取を中断しました。")
     }
-    @EventHandler fun quit(e: PlayerQuitEvent) { cancel(e.player,null) }
+    @EventHandler fun quit(e: PlayerQuitEvent) { cancel(e.player,null); lastAttempt.remove(e.player.uniqueId) }
     @EventHandler fun death(e: PlayerDeathEvent) { cancel(e.entity,"倒れたため採取を中断しました。") }
     @EventHandler(ignoreCancelled=true) fun damage(e: EntityDamageEvent) { (e.entity as? org.bukkit.entity.Player)?.let { interrupt(it.uniqueId) } }
     @EventHandler fun held(e: PlayerItemHeldEvent) { if(active(e.player.uniqueId)) cancel(e.player,"道具を持ち替えたため採取を中断しました。") }
     private fun cancel(player: org.bukkit.entity.Player,message:String?):Boolean {
         val channel=channels.remove(player.uniqueId) ?: return false
         channel.bar.removeAll()
+        lastAttempt[player.uniqueId]=message ?: "採取チャンネルを終了しました。"
         if(message!=null && player.isOnline) player.sendMessage(Component.text(message))
         return true
+    }
+    private fun reject(player:org.bukkit.entity.Player,message:String) {
+        lastAttempt[player.uniqueId]=message
+        if(lastAttempt.size>1000) lastAttempt.keys.firstOrNull()?.let(lastAttempt::remove)
+        plugin.logger.fine("GATHER ${player.name}: $message")
+        if(player.isOnline) player.sendMessage(Component.text(message))
     }
     private fun tick() {
         val now=System.currentTimeMillis()

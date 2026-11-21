@@ -62,6 +62,7 @@ class GatheringLifeTest {
             a.teleport(Location(world, nodeLoc.x + 0.5, nodeLoc.y.toDouble(), nodeLoc.z + 2.5)); b.teleport(a.location.clone())
             fun count(p: QaPlayerMock, id: String) = (0..35).sumOf { i -> p.inventory.getItem(i)?.takeIf { it.persistentDataContainer.get(itemKey, PersistentDataType.STRING) == id }?.amount ?: 0 }
             fun interact(p: QaPlayerMock) { server.pluginManager.callEvent(PlayerInteractEvent(p, Action.RIGHT_CLICK_BLOCK, p.inventory.itemInMainHand, ground, BlockFace.UP, EquipmentSlot.HAND)) }
+            fun interactAt(p: QaPlayerMock, block:org.bukkit.block.Block) { server.pluginManager.callEvent(PlayerInteractEvent(p, Action.RIGHT_CLICK_BLOCK, p.inventory.itemInMainHand, block, BlockFace.UP, EquipmentSlot.HAND)) }
 
             rec("G0 inactive cancelled damage and death produce no harvest interruption chat; active channel notifies once and shows its BossBar") {
                 generateSequence { a.nextMessage() }.toList()
@@ -80,6 +81,19 @@ class GatheringLifeTest {
                 val activeMessages=generateSequence { a.nextMessage() }.toList().filter { it.contains("採取を中断") || it.contains("倒れたため採取") }
                 assertEquals(1,activeMessages.size,"transition should notify exactly once: $activeMessages")
                 "inactive silence, one active interruption"
+            }
+
+            rec("G0b display-height clicks start a channel and every blocked attempt has a Japanese reason") {
+                a.inventory.setItemInMainHand(ItemStack(Material.AIR)); generateSequence { a.nextMessage() }.toList()
+                interactAt(a,world.getBlockAt(nodeLoc.x,nodeLoc.y,nodeLoc.z))
+                val message=a.nextMessage() ?: error("missing gather requirement message")
+                assertTrue(message.contains("SICKLE") && message.contains("専用道具"),"unexpected gate message: $message")
+                assertTrue(plugin.gathering.debugStatus(a).contains("last=") && plugin.gathering.debugStatus(a).contains("held=vanilla:AIR"),plugin.gathering.debugStatus(a))
+                a.inventory.setItemInMainHand(plugin.createItem("ec:item_tool_sickle_silver")); interactAt(a,world.getBlockAt(nodeLoc.x,nodeLoc.y,nodeLoc.z))
+                assertTrue(plugin.gathering.active(a.uniqueId),"clicking visual block coordinate did not start a channel")
+                assertTrue(plugin.gathering.debugStatus(a).contains("BossBar=true"),plugin.gathering.debugStatus(a))
+                plugin.gathering.interrupt(a.uniqueId)
+                "visible block and ground coordinates resolve; missing tool explained"
             }
 
             rec("G1 vanilla block breaking is cancelled on and around a node, not elsewhere") {
