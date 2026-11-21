@@ -16,9 +16,9 @@ internal class InvUiInventoryAdapter(
 ) {
     /** 既存スロットとクリック位置を保って画面を開きます。 */
     fun open(player: Player, source: Inventory, title: Component, onClick: (Int, ClickType) -> Unit) {
-        val rows = (source.size / 9).coerceIn(1, 6)
-        val gui = Gui.empty(rows, 9)
-        source.contents.take(rows * 9).forEachIndexed { slot, original ->
+        val grid = InventoryGrid.forInventorySize(source.size)
+        val gui = Gui.empty(grid.width, grid.height)
+        source.contents.take(grid.slotCount).forEachIndexed { slot, original ->
             val stack = original?.takeUnless { it.type.isAir }?.clone() ?: return@forEachIndexed
             theme.modelKey(player, itemModel(stack))?.let { key -> stack.editMeta { it.setItemModel(key) } }
             val item = Item.builder()
@@ -33,5 +33,18 @@ internal class InvUiInventoryAdapter(
             .setUpperGui(gui)
             .build()
             .open()
+    }
+}
+
+/** InvUIへ渡すチェスト画面の列数・行数を表します。 */
+internal data class InventoryGrid(val width: Int, val height: Int) {
+    val slotCount: Int get() = width * height
+
+    companion object {
+        /** Bukkitの9列インベントリをInvUIの幅・高さ順へ変換します。 */
+        fun forInventorySize(size: Int): InventoryGrid {
+            val height = (size / 9).coerceIn(1, 6)
+            return InventoryGrid(width = 9, height = height)
+        }
     }
 }

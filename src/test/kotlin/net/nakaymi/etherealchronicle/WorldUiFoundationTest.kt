@@ -5,7 +5,9 @@ import net.nakaymi.etherealchronicle.data.PlayerStore
 import net.nakaymi.etherealchronicle.paper.ResourcePackArtifact
 import net.nakaymi.etherealchronicle.paper.ResourcePackEndpoint
 import net.nakaymi.etherealchronicle.paper.EmbeddedPackServer
+import net.nakaymi.etherealchronicle.paper.InventoryGrid
 import net.nakaymi.etherealchronicle.paper.UiThemeProvider
+import xyz.xenondevs.invui.gui.Gui
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.net.ServerSocket
@@ -18,6 +20,15 @@ import java.util.UUID
 import java.util.zip.ZipFile
 
 class WorldUiFoundationTest {
+    @Test
+    fun `invui adapter uses nine columns and inventory row count`() {
+        assertEquals(InventoryGrid(width = 9, height = 1), InventoryGrid.forInventorySize(9))
+        assertEquals(InventoryGrid(width = 9, height = 3), InventoryGrid.forInventorySize(27))
+        assertEquals(InventoryGrid(width = 9, height = 6), InventoryGrid.forInventorySize(54))
+        assertEquals(54, InventoryGrid.forInventorySize(54).slotCount)
+        assertNotNull(Gui.empty(InventoryGrid.forInventorySize(54).width, InventoryGrid.forInventorySize(54).height))
+    }
+
     @Test
     fun `generated pack is a reproducible distributable archive with matching hash`() {
         val zipResource = javaClass.getResourceAsStream("/resourcepack/etherealchronicle-resourcepack.zip")
