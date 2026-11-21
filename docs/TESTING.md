@@ -231,3 +231,6 @@ Suite after merge and the new QA tests: 146 tests, 0 skipped, 0 failures. New QA
 - Fixed right-click cadence bots (no state awareness): 330 ms reached 70% progress before the line went slack, 380 ms reached 57%, 320 ms ended at 12% — i.e. the minigame is winnable in principle but needs reacting to THRASH/DIVE; a human is needed. Scripted focus is unreliable (the host UI steals the foreground every few seconds, so some clicks may be lost).
 - (b) successful catch with reward/title and persistent `fish_records`: NOT achieved (`fish_records: {}`); (c) timeout reason log not observed this run (timeout chat line seen in the previous run).
 - Processes stopped; `server.properties` / `ops.json` restored; 0 ERROR lines.
+
+## Debug fishing cue check (codex 957f0e8, offline QaFresh, 2026-11-21)
+Real client: at tension 0% the action bar now reads `張力 0% | 進捗 0% 張力が低い！右クリックで引く` (low-tension cue confirmed). The high-tension "release" cue and a human-controlled successful catch (reward, title, `fish_records` persistence) are still NOT verified. Processes stopped; `server.properties` / `ops.json` restored.
