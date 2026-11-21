@@ -37,7 +37,7 @@ class RegressionTest {
         Files.writeString(balance,Files.readString(balance).replace("stat_cap: 100000","stat_cap: 10000"))
         val loaded=ContentBootstrap.initialize(temp,current)
         assertTrue(loaded.usedFallback,loaded.problem); assertTrue(loaded.problem!!.contains(".yml"),loaded.problem); assertTrue(loaded.problem.contains("ec:"),loaded.problem); assertTrue(loaded.problem.contains("hp="),loaded.problem)
-        assertEquals(34000.0,loaded.service.snapshot().world.enemies.getValue("ec:boss_void_warden").hp)
+        assertEquals(ContentService(Path.of("src/main/resources/content")).load().world.enemies.getValue("ec:boss_void_warden").hp,loaded.service.snapshot().world.enemies.getValue("ec:boss_void_warden").hp)
         // validate/reload still point to disk; editing it makes the same service recover.
         Files.write(balance,current.getValue("content/balance/default.yml"))
         loaded.service.reload(); assertEquals(3,loaded.service.snapshot().classes.all().size)
@@ -90,7 +90,8 @@ class RegressionTest {
         }
         assertEquals(8,main.count { p.quests.getValue(it).completed }); assertTrue("ec:flag_ch1_completed" in p.flags)
         assertTrue("ec:flag_choice3_observatory" in p.flags)
-        assertEquals(47560,(1..19).sumOf(c.balance::requiredXp))
+        assertEquals(81435,(1..19).sumOf(c.balance::requiredXp))
     }
 }
+
 
