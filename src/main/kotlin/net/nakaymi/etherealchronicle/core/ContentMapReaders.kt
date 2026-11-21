@@ -9,7 +9,7 @@ import net.nakaymi.etherealchronicle.data.strings
 
 /** YAMLの任意値を文字列キーのマップとして扱います。型違いを空値にせず、定義元を検証エラーにします。 */
 @Suppress("UNCHECKED_CAST")
-fun Any?.asMapping(): Map<String, Any?> = this as? Map<String, Any?> ?: error("マッピングが必要です。")
+fun Any?.asMapping(): Map<String, Any?> = this as? Map<String, Any?> ?: error("ec.error.invalid_content")
 
 /** 未指定時だけ空マップを返し、指定値が不正なら検証を失敗させます。 */
 internal fun Map<String, Any?>.mappingOrEmpty(key: String): Map<String, Any?> =
@@ -17,7 +17,7 @@ internal fun Map<String, Any?>.mappingOrEmpty(key: String): Map<String, Any?> =
 
 /** YAML内のマップ一覧を読み、要素ごとにマップ型を確認します。 */
 fun Map<String, Any?>.maps(key: String): List<Map<String, Any?>> =
-    if (key !in this) emptyList() else (this[key] as? List<*> ?: error("リストが必要です: $key")).map { it.asMapping() }
+    if (key !in this) emptyList() else (this[key] as? List<*> ?: error("ec.error.invalid_content: $key")).map { it.asMapping() }
 
 /** 指定数値を読み、省略時は明示した既定値を返します。 */
 fun Map<String, Any?>.number(key: String, default: Double): Double = if (key in this) num(key) else default
@@ -30,7 +30,7 @@ fun Map<String, Any?>.text(key: String, default: String): String = this[key] as?
 
 /** 真偽値を読み、存在するキーの型違いはデータエラーとして扱います。 */
 fun Map<String, Any?>.bool(key: String, default: Boolean): Boolean =
-    if (key in this) this[key] as? Boolean ?: error("真偽値が必要です: $key") else default
+    if (key in this) this[key] as? Boolean ?: error("ec.error.invalid_content: $key") else default
 
 /** ワールド位置を読み取ります。yawが省略されたときは0度にします。 */
 fun Map<String, Any?>.position(): Position = Position(string("world"), num("x"), num("y"), num("z"), number("yaw", 0.0).toFloat())
