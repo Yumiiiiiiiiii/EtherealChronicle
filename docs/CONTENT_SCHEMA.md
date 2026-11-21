@@ -145,3 +145,10 @@ Anti-macro settings in `life_balance`: `macro_min_samples` (8), `macro_response_
 - **Time/weather conditions:** NPCs and enemy `spawn_points` accept `time_windows` (`ANY|DAY|NIGHT|DAWN_DUSK`) and `weather` (`ANY|CLEAR|RAIN|THUNDER`). NPCs reconcile once per second; spawn checks only touch definitions and active point budgets.
 - **Dungeon ranks:** `score_ranks[]` entries accept `first_clear_flag` and `first_clear_items`; rewards are awarded once (idempotency flag and mailbox saved together).
 - **World:** `ec_world` v3 to v4 adds the Ashwood hidden spring (additive, idempotent, air-only).
+
+## Resource pack, datapack and UI additions (Task 15)
+
+- **Config:** `config.yml` `language` (auto|ja_jp|en_us) and `resource_pack` (`enabled`, `required`, `mode: embedded_http|external_url`, `external_url`, `external_sha1`, `embedded_http {bind_host, public_host, port, max_concurrent}`). The embedded server only serves the built pack (GET/HEAD, validated paths, bounded concurrency) with SHA-1 sent through Adventure `ResourcePackRequest`; per-player accept/decline status is tracked in the profile (schema 12).
+- **Datapack:** the plugin registers a bundled datapack through the Paper lifecycle API (custom wolf variants and six biomes).
+- **Content visuals (optional):** class/item `item_model` (namespaced model ID from `resourcepack/`) and enemy `visual.variant` (namespaced wolf-variant ID). Without a confirmed pack the UI falls back to built-in Materials, so content never requires the pack.
+- **UI:** class selection, shops, codex and enhancement use InvUI (shaded, relocated, MIT notice); dialogue uses the Paper Dialog API; the HUD stays on the existing ActionBar.
