@@ -428,6 +428,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             require(p.currency >= cost) { "所持金が足りません。" }
             require(inventory.exchange(mapOf(tuning.enhancementMaterial to 1),emptyMap())) { "強化素材が足りません。" }
             p.currency -= cost
+            p.bestEnhancementLevel=maxOf(p.bestEnhancementLevel,current+1)
+            game.quests.event(p,ObjectiveKind.ENHANCE_GEAR,(current+1).toString(),1,inventory)
         },beforePersist={
             val held=player.inventory.itemInMainHand
             require(identify(held) == definition.id && (held.itemMeta.persistentDataContainer.get(enhancementKey,PersistentDataType.INTEGER) ?: 0) == current) { "強化対象の装備が変わりました。費用は発生しません。" }
@@ -440,6 +442,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             enhancementFlights[player.uniqueId]=flight
         },success={
             if(settleEnhancement(player,p)) {
+                syncTitleAdvancements(player,p)
                 applyStats(player,p)
                 player.sendMessage(Component.text("装備を +${current+1} に強化しました。"))
             } else player.sendMessage(Component.text("強化対象が持ち物から見つからず、費用を返却しました。"))

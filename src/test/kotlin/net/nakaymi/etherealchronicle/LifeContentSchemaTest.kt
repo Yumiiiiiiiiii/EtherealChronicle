@@ -146,7 +146,8 @@ class LifeContentSchemaTest {
         val directory=Files.createTempDirectory("ec-life-player")
         PlayerStore(directory).use { store ->
             val migration=store.migrate(mapOf("schema_version" to 9))
-            assertEquals(10,migration["schema_version"])
+            assertEquals(11,migration["schema_version"])
+            assertEquals(0,migration["best_enhancement_level"])
             assertEquals("AUTO",migration["fishing_bait"])
             assertTrue((migration["life_skills"] as Map<*,*>).containsKey("FISHING"))
             val profile=PlayerProfile(UUID.randomUUID())
@@ -155,6 +156,7 @@ class LifeContentSchemaTest {
             profile.gatheringRecords["ec:node_hill_crystal_1"]=4
             profile.gatheringReadyAt["ec:node_hill_crystal_1"]=123456789
             profile.fishingBait="ec:item_bait_aether_lure"
+            profile.bestEnhancementLevel=4
             store.save(profile).join()
             val loaded=store.load(profile.uuid).join()
             assertEquals(profile.lifeSkills,loaded.lifeSkills)
@@ -162,6 +164,7 @@ class LifeContentSchemaTest {
             assertEquals(profile.gatheringRecords,loaded.gatheringRecords)
             assertEquals(profile.gatheringReadyAt,loaded.gatheringReadyAt)
             assertEquals(profile.fishingBait,loaded.fishingBait)
+            assertEquals(profile.bestEnhancementLevel,loaded.bestEnhancementLevel)
         }
     }
 }

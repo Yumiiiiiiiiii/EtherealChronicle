@@ -9,7 +9,7 @@ data class Condition(val minLevel: Int = 1, val hasFlags: Set<String> = emptySet
         completed.all { p.quests[it]?.let { q -> q.completed || q.completedAt > 0 } == true } && active.all { p.quests[it]?.completed == false } && notStarted.all { p.quests[it]?.let { q -> q.completed && now >= q.repeatAvailableAt } ?: true } &&
         (classes.isEmpty() || p.classId in classes) && (any.isEmpty() || any.any { it.matches(p,now) })
 }
-enum class ObjectiveKind { KILL, COLLECT, EXPLORE, TALK }
+enum class ObjectiveKind { KILL, COLLECT, EXPLORE, TALK, CATCH_FISH, GATHER_NODE, ENHANCE_GEAR }
 data class Objective(val id: String, val kind: ObjectiveKind, val target: String, val amount: Int, val consume: Boolean = true)
 data class ItemReward(val item: String, val amount: Int, val condition: Condition = Condition())
 data class Rewards(val xp: Long = 0, val currency: Long = 0, val items: List<ItemReward> = emptyList(), val flags: Set<String> = emptySet())
@@ -25,14 +25,19 @@ data class Area(val id: String, val name: String, val world: String, val minX: D
 }
 data class DungeonWave(val boss: String, val guards: List<String>, val guardOffsets: List<Pair<Int,Int>>, val bossOffset: Pair<Int,Int>)
 data class ScoreRank(val rank: String,val maxSeconds: Long)
-enum class TitleConditionType { FLAG, BESTIARY, COLLECTION }
-data class TitleProgressCondition(val type:TitleConditionType,val target:String?,val count:Int) {
+enum class TitleConditionType { FLAG, BESTIARY, COLLECTION, FISH_SPECIES_COUNT, LIFE_LEVEL, ENHANCE_LEVEL, CHALLENGE_RANK }
+data class TitleProgressCondition(val type:TitleConditionType,val target:String?,val count:Int,val rank:String="S") {
     fun met(profile:PlayerProfile,unlockFlag:String):Boolean = when(type) {
         TitleConditionType.FLAG -> (target ?: unlockFlag) in profile.flags
         TitleConditionType.BESTIARY -> (target?.let(profile.bestiary::get) ?: 0) >= count
         TitleConditionType.COLLECTION -> profile.discoveredItems.size >= count
+        TitleConditionType.FISH_SPECIES_COUNT -> profile.fishRecords.values.count { it.count > 0 } >= count
+        TitleConditionType.LIFE_LEVEL -> runCatching { LifeSkillKind.valueOf(target ?: "") }.getOrNull()?.let { (profile.lifeSkills[it]?.level ?: 1) >= count } ?: false
+        TitleConditionType.ENHANCE_LEVEL -> profile.bestEnhancementLevel >= count
+        TitleConditionType.CHALLENGE_RANK -> profile.challengeRecords[target]?.bestRank?.let { challengeRankValue(it) >= challengeRankValue(rank) } ?: false
     }
 }
+internal fun challengeRankValue(rank:String)=when(rank.uppercase()) { "S" -> 4; "A" -> 3; "B" -> 2; "C" -> 1; else -> 0 }
 data class TitleAdvancement(val title:String,val description:String,val icon:String,val parent:String?,val frame:String,val condition:TitleProgressCondition)
 data class TitleDefinition(val id: String,val name: String,val description: String,val unlockFlag: String,val advancement:TitleAdvancement? = null) {
     fun unlocked(profile:PlayerProfile) = unlockFlag in profile.flags || advancement?.condition?.met(profile,unlockFlag) == true
@@ -123,10 +128,19 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
                             TitleConditionType.FLAG -> raw.text("target",unlockFlag)
                             TitleConditionType.BESTIARY -> raw.string("target")
                             TitleConditionType.COLLECTION -> null
+                            TitleConditionType.FISH_SPECIES_COUNT -> null
+                            TitleConditionType.LIFE_LEVEL, TitleConditionType.CHALLENGE_RANK -> raw.string("target")
+                            TitleConditionType.ENHANCE_LEVEL -> null
                         }
-                        val condition=TitleProgressCondition(type,target,raw.integer("count",1))
+                        val condition=TitleProgressCondition(type,target,raw.integer("count",1),raw.text("rank","S").uppercase())
                         val definition=TitleAdvancement(a.text("title",d.string("name")),a.text("description",d.text("description","")),a.string("icon"),a["parent"] as? String,a.text("frame","TASK").uppercase(),condition)
-                        require(definition.title.isNotBlank() && definition.title.length <= 80 && definition.description.length <= 240 && definition.icon.matches(Regex("[A-Z][A-Z0-9_]*")) && (definition.parent == null || definition.parent.matches(Regex("[a-z0-9_.-]+:[a-z0-9_./-]+"))) && definition.frame in setOf("TASK","CHALLENGE","GOAL") && condition.count in 1..1_000_000 && (type == TitleConditionType.COLLECTION || target?.startsWith("ec:") == true)) { "$id: 進捗の表示または条件が不正です。" }
+                        val targetValid=when(type) {
+                            TitleConditionType.COLLECTION,TitleConditionType.FISH_SPECIES_COUNT,TitleConditionType.ENHANCE_LEVEL -> true
+                            TitleConditionType.LIFE_LEVEL -> target in LifeSkillKind.entries.map { it.name }
+                            TitleConditionType.CHALLENGE_RANK -> target?.startsWith("ec:")==true && condition.rank in setOf("S","A","B","C")
+                            else -> target?.startsWith("ec:")==true
+                        }
+                        require(definition.title.isNotBlank() && definition.title.length <= 80 && definition.description.length <= 240 && definition.icon.matches(Regex("[A-Z][A-Z0-9_]*")) && (definition.parent == null || definition.parent.matches(Regex("[a-z0-9_.-]+:[a-z0-9_./-]+"))) && definition.frame in setOf("TASK","CHALLENGE","GOAL") && condition.count in 1..1_000_000 && targetValid) { "$id: 進捗の表示または条件が不正です。" }
                         definition
                     }
                     titles[id] = TitleDefinition(id,d.string("name"),d.text("description",""),unlockFlag,advancement)
@@ -212,6 +226,9 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
             val advancement=title.advancement ?: return@forEach
             if(advancement.parent?.startsWith("ec:title_") == true) require(titles[advancement.parent]?.advancement != null) { "${title.id}: 親称号進捗が存在しません: ${advancement.parent}" }
             if(advancement.condition.type == TitleConditionType.BESTIARY) require(advancement.condition.target in enemies) { "${title.id}: 図鑑進捗の魔物が存在しません: ${advancement.condition.target}" }
+            if(advancement.condition.type == TitleConditionType.FISH_SPECIES_COUNT) require(advancement.condition.count <= fishSpecies.size) { "${title.id}: 条件数が魚種数を超えています。" }
+            if(advancement.condition.type == TitleConditionType.ENHANCE_LEVEL) require(advancement.condition.count <= tuning.enhancementCap) { "${title.id}: 強化条件が上限を超えています。" }
+            if(advancement.condition.type == TitleConditionType.CHALLENGE_RANK) require(advancement.condition.target in dungeons) { "${title.id}: 記録対象ダンジョンがありません: ${advancement.condition.target}" }
         }
         validateWorldReferences(documents)
         validateLifeReferences()

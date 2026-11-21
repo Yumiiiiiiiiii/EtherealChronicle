@@ -194,3 +194,10 @@
 - The 250ms pull buffer is retained. A shorter 150ms buffer was tested and reverted because all simulated sessions slack-failed; no simulation evidence supports reducing it.
 - CALM ActionBar guidance now warns `張力が低い！右クリックで引く` at <=18% and `張力が高い！手を離す` at >=70%; THRASH/DIVE/TELEGRAPH instructions remain higher priority. Tests cover both prompts.
 - Real-client successful reel, reward, size/crown record and persistence remain unverified; client input automation cannot react to the live ActionBar/behavior.
+## Codex-Impl — Task11 P0 checkpoint
+- Merged current `master` into `codex/foundation` at merge commit `77243d2`.
+- Audited early YAML: no new `ObjectiveKind`/`TitleConditionType` values appear yet. Fish quests use legacy `COLLECT` by fish-item ID; gather quests use `COLLECT`/`EXPLORE`; enhancement quest is collect-only; early title advancements use `FLAG`/`BESTIARY`/`COLLECTION`. The definitions validate because those are existing supported types—unknown values are parsed with `valueOf` and fail, not silently ignored.
+- Added `CATCH_FISH`, `GATHER_NODE`, `ENHANCE_GEAR` objectives with typed targets (`ANY`/category/node/species/minimum enhancement tier); controller events now report catches, node harvests with node-kind aliases, and enhancement tiers.
+- Added `FISH_SPECIES_COUNT`, `LIFE_LEVEL`, `ENHANCE_LEVEL`, and `CHALLENGE_RANK` title conditions. Enhancement best tier is now profile-backed, migration schema 10→11 defaults it to zero, and title flags remain the persisted source of advancement state.
+- Tests: focused `EarlyEngineObjectivesTest`, `LifeContentSchemaTest`, `SchemaNineToTenTest`, and `TitleAdvancementTest` pass; test compilation covers the existing content validation/chain suites with new exhaustive enum cases. Full suite pending after Tasks P1/P2.
+- Next: commit P0, then P1 treasure chests, fishing spot preference/unlock, DemoWorld v4 additive safe migration, and bounded time/weather NPC/enemy spawn conditions.

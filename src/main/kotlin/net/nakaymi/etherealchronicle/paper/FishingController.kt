@@ -319,6 +319,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
                 engine.record(profile,catch)
                 LifeSkillEngine(plugin.snapshot.world.lifeBalance).grant(profile.lifeSkills.getValue(LifeSkillKind.FISHING),catch.species.lifeXp)
                 plugin.snapshot.balance.grantXp(profile,catch.species.adventurerXp)
+                plugin.game.quests.event(profile,ObjectiveKind.CATCH_FISH,catch.species.id,1,inventory)
                 val score=engine.score(profile)
                 plugin.snapshot.world.lifeBalance.fishingMilestones.filter { score>=it.threshold }.forEach { profile.flags.add(it.flag) }
                 val key=player.uniqueId to s.spot.id

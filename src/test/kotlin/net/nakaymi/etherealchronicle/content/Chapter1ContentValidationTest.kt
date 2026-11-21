@@ -133,6 +133,9 @@ class Chapter1ContentValidationTest {
                     }
                     ObjectiveKind.EXPLORE -> assertTrue(obj.target in world.areas, "Unknown EXPLORE area ${obj.target} in $qid")
                     ObjectiveKind.TALK -> assertTrue(obj.target in world.npcs, "Unknown TALK npc ${obj.target} in $qid")
+                    ObjectiveKind.CATCH_FISH -> assertTrue(obj.target in world.fishSpecies || obj.target in setOf("ANY","*"))
+                    ObjectiveKind.GATHER_NODE -> assertTrue(obj.target in world.gatheringNodes || obj.target in setOf("ANY","*","HERB","ORE","WOOD","CRYSTAL"))
+                    ObjectiveKind.ENHANCE_GEAR -> assertTrue(obj.target in setOf("ANY","*") || obj.target.toIntOrNull() in 1..world.tuning.enhancementCap)
                 }
             }
         }

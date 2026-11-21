@@ -45,6 +45,9 @@ class TitleAdvancementTest {
                 TitleConditionType.FLAG -> assertTrue(adv.condition.target?.startsWith("ec:") == true)
                 TitleConditionType.BESTIARY -> assertTrue(adv.condition.target in content.world.enemies)
                 TitleConditionType.COLLECTION -> assertNull(adv.condition.target)
+                TitleConditionType.FISH_SPECIES_COUNT,TitleConditionType.ENHANCE_LEVEL -> assertNull(adv.condition.target)
+                TitleConditionType.LIFE_LEVEL -> assertTrue(adv.condition.target in LifeSkillKind.entries.map { it.name })
+                TitleConditionType.CHALLENGE_RANK -> assertTrue(adv.condition.target in content.world.dungeons)
             }
             assertTrue(adv.condition.count >= 1)
         }
