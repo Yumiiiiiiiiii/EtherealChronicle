@@ -40,3 +40,6 @@ basic_attack_cooldown_ms: 550
 element_res_cap: 0.5
 skill_gcd_ms: 1000
 drop_pity_attempt_cap: 100
+calendar_reset_zone: UTC
+daily_reset_hour: 20
+weekly_reset_day: MONDAY

@@ -19,3 +19,4 @@ rewards:
 auto_complete: false
 repeatable: true
 repeat_cooldown_ms: 604800000
+reset_schedule: WEEKLY

@@ -14,7 +14,7 @@ data class Objective(val id: String, val kind: ObjectiveKind, val target: String
 data class ItemReward(val item: String, val amount: Int, val condition: Condition = Condition())
 data class Rewards(val xp: Long = 0, val currency: Long = 0, val items: List<ItemReward> = emptyList(), val flags: Set<String> = emptySet())
 data class QuestDefinition(val id: String, val name: String, val condition: Condition, val objectives: List<Objective>,
-    val rewards: Rewards, val autoComplete: Boolean, val repeatable: Boolean, val repeatCooldown: Long)
+    val rewards: Rewards, val autoComplete: Boolean, val repeatable: Boolean, val repeatCooldown: Long, val resetSchedule: String? = null)
 data class DialogueAction(val kind: String, val target: String, val amount: Int = 1, val onceFlag: String? = null, val destination: Position? = null, val requiredFlag: String? = null)
 data class DialogueChoice(val id: String, val label: String, val condition: Condition, val next: String?, val flags: Set<String>, val clearFlags: Set<String>, val actions: List<DialogueAction>)
 data class DialogueNode(val text: String, val branches: List<Pair<Condition,String>>, val choices: List<DialogueChoice>)
@@ -59,7 +59,9 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
                         .ifEmpty { listOf(Objective("legacy_kills",ObjectiveKind.KILL,d["kill_target"] as? String ?: "*",d.integer("required_kills",1))) }
                     require(objectives.map { it.id }.distinct().size == objectives.size && objectives.all { it.amount in 1..1_000_000 }) { "$id: 目標IDまたは数量が不正です。" }
                     val rewards = if(d["rewards"] != null) d.mapping("rewards").rewards() else Rewards(d.whole("xp",0),d.whole("currency",0))
-                    quests[id] = QuestDefinition(id,d.string("name"),d.condition(),objectives,rewards,d.bool("auto_complete",d["objectives"] == null),d.bool("repeatable",false),d.whole("repeat_cooldown_ms",86_400_000))
+                    val reset=d["reset_schedule"] as? String
+                    require(reset == null || reset in setOf("DAILY","WEEKLY")) { "reset_schedule は DAILY または WEEKLY を指定してください。" }
+                    quests[id] = QuestDefinition(id,d.string("name"),d.condition(),objectives,rewards,d.bool("auto_complete",d["objectives"] == null),d.bool("repeatable",false),d.whole("repeat_cooldown_ms",86_400_000),reset)
                 }
                 "dialogue" -> {
                     fun parseChoice(c: Map<String,Any?>) = DialogueChoice(c.string("id"),c.string("label"),c.condition(),c["next"] as? String,c.strings("set_flags").toSet(),c.strings("clear_flags").toSet(),c.maps("actions").map { a ->

@@ -157,7 +157,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                 }
                 "shop" -> {
                     if(e.rawSlot in 0..53 && entry != null && e.isLeftClick) {
-                        val plan=trades.buy(p,menu.contentId,entry,plugin.inventory(player),UUID.randomUUID().toString(),System.currentTimeMillis()/86_400_000)
+                        val plan=trades.buy(p,menu.contentId,entry,plugin.inventory(player),UUID.randomUUID().toString(),System.currentTimeMillis())
                         transaction(player,{ inv -> require(inv.exchange(plan.remove,plan.add)); trades.commit(p,plan) }) { showShop(player,menu.contentId) }
                     } else if(e.clickedInventory == player.inventory && e.isRightClick) {
                         val id=plugin.identify(e.currentItem) ?: return
