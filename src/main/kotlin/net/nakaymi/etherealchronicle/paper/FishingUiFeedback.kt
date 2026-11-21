@@ -12,29 +12,29 @@ internal fun fishingEndLogLine(subject:String,reason:FishingEndReason,fishId:Str
 
 internal fun fishingReelAdvice(behavior:FishBehavior,tension:Double=50.0):String = when(behavior) {
     FishBehavior.CALM -> when {
-        tension<=18.0 -> "張力が低い！右クリックで引く"
-        tension>=70.0 -> "張力が高い！手を離す"
-        else -> "右クリックで引く"
+        tension<=18.0 -> "ec.fishing.low_tension"
+        tension>=70.0 -> "ec.fishing.high_tension"
+        else -> "ec.fishing.pull"
     }
-    FishBehavior.TELEGRAPH -> "予兆中：次の動きを見る"
-    FishBehavior.THRASH -> "暴れ中：手を離して張力を逃がす"
-    FishBehavior.DIVE -> "潜り！左クリックでいなす"
+    FishBehavior.TELEGRAPH -> "ec.fishing.telegraph"
+    FishBehavior.THRASH -> "ec.fishing.thrash"
+    FishBehavior.DIVE -> "ec.fishing.dive"
 }
 
 internal fun fishingEscapeTitle(cause:FishingEscapeCause?):Pair<String,String> = when(cause) {
-    FishingEscapeCause.BITE_MISSED -> "§eアタリを逃した！" to "§7次のヒットを待とう"
-    FishingEscapeCause.OVER_TENSION -> "§c糸が切れた！" to "§7張力を下げよう"
-    FishingEscapeCause.LINE_SLACK -> "§c魚に逃げられた…" to "§7張力を保とう"
-    FishingEscapeCause.TIMEOUT -> "§c時間切れ！" to "§7魚を逃してしまった…"
-    null -> "§c魚に逃げられた…" to "§7次は張力を調整しよう"
+    FishingEscapeCause.BITE_MISSED -> "ec.fishing.title_missed" to "ec.fishing.subtitle_next_bite"
+    FishingEscapeCause.OVER_TENSION -> "ec.fishing.title_line_snap" to "ec.fishing.subtitle_lower_tension"
+    FishingEscapeCause.LINE_SLACK -> "ec.fishing.title_escape" to "ec.fishing.subtitle_keep_tension"
+    FishingEscapeCause.TIMEOUT -> "ec.fishing.title_timeout" to "ec.fishing.subtitle_timeout"
+    null -> "ec.fishing.title_escape" to "ec.fishing.subtitle_retry"
 }
 
 internal fun fishingEscapeMessage(cause:FishingEscapeCause?):String = when(cause) {
-    FishingEscapeCause.BITE_MISSED -> "アタリを逃しました。次のヒットを待ちましょう。"
-    FishingEscapeCause.OVER_TENSION -> "糸が切れました。張力が高すぎます。"
-    FishingEscapeCause.LINE_SLACK -> "魚に逃げられました。張力を保ちましょう。"
-    FishingEscapeCause.TIMEOUT -> "制限時間を過ぎたため、魚を逃しました。"
-    null -> "魚に逃げられました。"
+    FishingEscapeCause.BITE_MISSED -> "ec.fishing.title_missed"
+    FishingEscapeCause.OVER_TENSION -> "ec.fishing.title_line_snap"
+    FishingEscapeCause.LINE_SLACK -> "ec.fishing.title_escape"
+    FishingEscapeCause.TIMEOUT -> "ec.fishing.title_timeout"
+    null -> "ec.fishing.title_escape"
 }
 
 internal fun defaultDebugFish(species:Collection<FishSpeciesDefinition>,spots:Collection<FishingSpotDefinition>,fishingLevel:Int,world:String):FishSpeciesDefinition? {

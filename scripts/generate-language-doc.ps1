@@ -36,7 +36,7 @@ $header = @(
 $rows = foreach ($key in @($ja.Keys | Sort-Object)) {
     $j = $ja[$key].Replace('|','\|').Replace("`n",'<br>')
     $e = $en[$key].Replace('|','\|').Replace("`n",'<br>')
-    $tokens = [regex]::Matches($ja[$key], '<([a-zA-Z][a-zA-Z0-9_]*)>') | ForEach-Object { '`<' + $_.Groups[1].Value + '>`' }
+    $tokens = [regex]::Matches($ja[$key], '<(?!aqua|black|blue|dark_aqua|dark_blue|dark_gray|dark_green|dark_purple|dark_red|gold|gray|green|italic|light_purple|red|reset|white|yellow)([a-zA-Z][a-zA-Z0-9_]*)>') | ForEach-Object { '`<' + $_.Groups[1].Value + '>`' } | Sort-Object -Unique
     $usage = @($references[$key]) -join '<br>'
     "| ``$key`` | $j | $e | $usage | $($tokens -join ', ') |"
 }

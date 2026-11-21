@@ -93,7 +93,7 @@ class LangCatalogTest {
 
     private companion object {
         val KEY = Regex("\\\"(ec(?:\\.[a-z0-9_]+)+)\\\"")
-        val PLACEHOLDER = Regex("<([a-zA-Z][a-zA-Z0-9_]*)>")
+        val PLACEHOLDER = Regex("<(?!aqua|black|blue|dark_aqua|dark_blue|dark_gray|dark_green|dark_purple|dark_red|gold|gray|green|italic|light_purple|red|reset|white|yellow)([a-zA-Z][a-zA-Z0-9_]*)>")
         val DOC_HEADER = listOf(
             "# 言語ファイルと翻訳キー",
             "",

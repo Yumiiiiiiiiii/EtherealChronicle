@@ -15,6 +15,8 @@ internal class CodexController(private val plugin: RpgPlugin) {
         val found = enemies.count { (profile.bestiary[it.id] ?: 0) > 0 }
         return found to enemies.size
     }
+    private fun plain(component:Component):String =
+        net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(component)
 
     /** エリアごとの魔物発見状況を表示します。 */
     fun openCodex(player:Player) {
@@ -23,7 +25,7 @@ internal class CodexController(private val plugin: RpgPlugin) {
         plugin.snapshot.world.areas.values.sortedBy { it.name }.take(45).forEachIndexed { slot,area ->
             val (found,total)=areaCodexPercent(profile,area)
             menu.setItem(slot,ItemStack(Material.FILLED_MAP).apply { itemMeta=itemMeta.apply {
-                displayName(Component.text(area.name)); lore(listOf(Component.text("発見: $found/$total (${if(total==0) 0 else found*100/total}%)")))
+                displayName(Component.text(area.name)); lore(listOf(plugin.message(player,"ec.codex.found_ratio","found" to found,"total" to total,"percent" to if(total==0) 0 else found*100/total)))
             } })
         }
         codexTabs(player,menu)
@@ -40,8 +42,9 @@ internal class CodexController(private val plugin: RpgPlugin) {
             val drops=plugin.snapshot.documents[enemy.id]?.get("droptable") as? String
             val dropIds=drops?.let(plugin.snapshot.drops::find)?.entries?.map { it.item }.orEmpty()
             menu.setItem(slot,ItemStack(if(discovered) Material.BLAZE_POWDER else Material.GRAY_DYE).apply { itemMeta=itemMeta.apply {
-                displayName(Component.text(if(discovered) enemy.name else "未発見の魔物"))
-                lore(if(discovered) listOf(Component.text("討伐数: $count"),Component.text("弱点: ${enemy.weaknesses.joinToString().ifEmpty { "なし" }}"),Component.text("ドロップ: ${dropIds.joinToString()}")) else listOf(Component.text("このエリアで魔物を探しましょう。")))
+                displayName(if(discovered) Component.text(enemy.name) else plugin.message(player,"ec.codex.undiscovered_enemy"))
+                val weaknesses=enemy.weaknesses.joinToString().ifEmpty { plain(plugin.message(player,"ec.codex.no_weakness")) }
+                lore(if(discovered) listOf(plugin.message(player,"ec.codex.defeated_count","count" to count),plugin.message(player,"ec.codex.weaknesses","values" to weaknesses),plugin.message(player,"ec.codex.drops","values" to dropIds.joinToString())) else listOf(plugin.message(player,"ec.codex.search_area")))
             } })
         }
         menu.setItem(53,ItemStack(Material.ARROW).apply { itemMeta=itemMeta.apply { displayName(plugin.message(player,"ec.codex.back_areas")) } }); codexTabs(player,menu)
@@ -72,8 +75,8 @@ internal class CodexController(private val plugin: RpgPlugin) {
         plugin.snapshot.world.fishSpecies.values.sortedBy { it.name }.take(45).forEachIndexed { slot,fish ->
             val record=profile.fishRecords[fish.id]; val discovered=record?.count?.let { it>0 }==true
             menu.setItem(slot,ItemStack(if(discovered) Material.COD else Material.GRAY_DYE).apply { itemMeta=itemMeta.apply {
-                displayName(Component.text(if(discovered) fish.name else "未発見の魚"))
-                lore(if(record!=null) listOf(Component.text("釣果: ${record.count}匹"),Component.text("最大: ${record.maxCm}cm / ${record.crown}"),Component.text(fish.loreHint)) else listOf(Component.text("釣り場で竿を出して探しましょう。")))
+                displayName(if(discovered) Component.text(fish.name) else plugin.message(player,"ec.codex.undiscovered_fish"))
+                lore(if(record!=null) listOf(plugin.message(player,"ec.codex.catch_count","count" to record.count),plugin.message(player,"ec.codex.maximum_size","size" to record.maxCm,"crown" to record.crown),Component.text(fish.loreHint)) else listOf(plugin.message(player,"ec.codex.seek_fishing_spot")))
             } })
         }
         codexTabs(player,menu); player.openInventory(menu)
@@ -85,8 +88,8 @@ internal class CodexController(private val plugin: RpgPlugin) {
         plugin.snapshot.world.gatheringNodes.values.sortedBy { it.name }.take(45).forEachIndexed { slot,node ->
             val count=profile.gatheringRecords[node.id] ?: 0
             menu.setItem(slot,ItemStack(if(count>0) Material.IRON_ORE else Material.GRAY_DYE).apply { itemMeta=itemMeta.apply {
-                displayName(Component.text(if(count>0) node.name else "未発見の採取地"))
-                lore(if(count>0) listOf(Component.text("採取回数: $count"),Component.text("種別: ${node.kind} / 必要道具 T${node.minToolTier}")) else listOf(Component.text("専用道具で採取地を調べましょう。")))
+                displayName(if(count>0) Component.text(node.name) else plugin.message(player,"ec.codex.undiscovered_gathering"))
+                lore(if(count>0) listOf(plugin.message(player,"ec.codex.gathering_count","count" to count),plugin.message(player,"ec.codex.gathering_kind","kind" to node.kind,"tier" to node.minToolTier)) else listOf(plugin.message(player,"ec.codex.seek_gathering_node")))
             } })
         }
         codexTabs(player,menu); player.openInventory(menu)
