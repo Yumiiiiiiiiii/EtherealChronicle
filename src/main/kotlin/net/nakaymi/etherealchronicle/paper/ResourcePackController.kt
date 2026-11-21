@@ -12,32 +12,33 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /** 同梱リソースパックを起動・配信し、クライアントの適用状態をUUID単位で保持します。 */
 class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoCloseable {
-    private val settings = plugin.config
-    private val enabled = settings.getBoolean("resource_pack.enabled", true)
-    private val required = settings.getBoolean("resource_pack.required", true)
-    private val requiredTimeoutSeconds = settings.getInt("resource_pack.required_timeout_seconds", 120).coerceIn(10, 600)
-    private val debug = settings.getBoolean("resource_pack.debug", false)
-    private val mode = settings.getString("resource_pack.mode", "embedded_http") ?: "embedded_http"
+    private val settings = ResourcePackSettings.from(plugin.config)
+    private val enabled = settings.enabled
+    private val required = settings.required
+    private val requiredTimeoutSeconds = settings.requiredTimeoutSeconds
+    private val debug = settings.debug
+    private val mode = settings.mode
     private val externalManaged = mode == "external_managed"
-    private val expectedPackIdText = settings.getString("resource_pack.expected_pack_id", "")?.trim().orEmpty()
-    private val expectedPackId = expectedPackIdText.takeIf(String::isNotBlank)?.let { value -> runCatching { UUID.fromString(value) }.getOrNull() }
-    private val invalidExpectedPackId = expectedPackIdText.isNotBlank() && expectedPackId == null
-    private val gamePortEnabled = settings.getBoolean("resource_pack.same_port_netty.enabled", false)
-    private val bindHost = settings.getString("resource_pack.embedded_http.bind_host", "0.0.0.0") ?: "0.0.0.0"
-    private val configuredHost = settings.getString("resource_pack.embedded_http.public_host", "") ?: ""
-    private val port = settings.getInt("resource_pack.embedded_http.port", 25580)
-    private val maxConcurrent = settings.getInt("resource_pack.embedded_http.max_concurrent", 32)
-    private val maxPerIp = settings.getInt("resource_pack.embedded_http.max_per_ip", 4)
-    private val idleReadTimeoutMillis = settings.getInt("resource_pack.embedded_http.idle_read_timeout_ms", 500)
-    private val headerDeadlineMillis = settings.getInt("resource_pack.embedded_http.header_deadline_ms", 1_500)
-    private val externalUrl = settings.getString("resource_pack.external_url", "") ?: ""
-    private val externalSha1 = settings.getString("resource_pack.external_sha1", "") ?: ""
-    private val gamePortMaxConnections = settings.getInt("resource_pack.same_port_netty.max_concurrent", 16)
-    private val gamePortMaxPerIp = settings.getInt("resource_pack.same_port_netty.max_per_ip", 2)
-    private val gamePortMaxHeaderBytes = settings.getInt("resource_pack.same_port_netty.max_header_bytes", 4_096)
-    private val gamePortHeaderDeadlineMillis = settings.getInt("resource_pack.same_port_netty.header_deadline_ms", 2_000)
-    private val gamePortIdleTimeoutMillis = settings.getInt("resource_pack.same_port_netty.idle_timeout_ms", 500)
-    private val gamePortBandwidthKbPerSecond = settings.getInt("resource_pack.same_port_netty.bandwidth_kb_per_sec", 1_024)
+    private val expectedPackIdText = settings.expectedPackIdText
+    private val expectedPackId = settings.expectedPackId
+    private val invalidExpectedPackId = settings.invalidExpectedPackId
+    private val gamePortEnabled = settings.gamePortEnabled
+    private val bindHost = settings.bindHost
+    private val configuredHost = settings.publicHost
+    private val port = settings.port
+    private val maxConcurrent = settings.maxConcurrent
+    private val maxPerIp = settings.maxPerIp
+    private val idleReadTimeoutMillis = settings.idleReadTimeoutMillis
+    private val headerDeadlineMillis = settings.headerDeadlineMillis
+    private val writeDeadlineMillis = settings.writeDeadlineMillis
+    private val externalUrl = settings.externalUrl
+    private val externalSha1 = settings.externalSha1
+    private val gamePortMaxConnections = settings.gamePortMaxConnections
+    private val gamePortMaxPerIp = settings.gamePortMaxPerIp
+    private val gamePortMaxHeaderBytes = settings.gamePortMaxHeaderBytes
+    private val gamePortHeaderDeadlineMillis = settings.gamePortHeaderDeadlineMillis
+    private val gamePortIdleTimeoutMillis = settings.gamePortIdleTimeoutMillis
+    private val gamePortBandwidthKbPerSecond = settings.gamePortBandwidthKbPerSecond
     private val preferences = mutableMapOf<UUID, PackPreference>()
     private val loadedPlayers = mutableSetOf<UUID>()
     private val requestId = UUID.nameUUIDFromBytes("etherealchronicle-resource-pack-v1".toByteArray())
@@ -55,7 +56,13 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
             if (mode == "game_port" && !gamePortEnabled) {
                 plugin.logger.warning("Game-port resource-pack mode is opt-in; enable resource_pack.same_port_netty.enabled. Falling back to HTTPS external_url when configured.")
                 if (externalUrl.isNotBlank()) createEndpoint("external_url") else null
-            } else createEndpoint(mode)
+            } else createEndpoint(mode).also { endpoint ->
+                if (mode != "external_url") {
+                    require(ResourcePackEndpointPolicy.canAdvertise(endpoint.bindHost, endpoint.publicHost)) {
+                        "Resource pack public_host resolves to loopback while bind_host is non-loopback; configure public_host."
+                    }
+                }
+            }
         }.onFailure { plugin.logger.warning("Resource pack distribution is disabled by invalid configuration: ${it.message}") }
             .getOrNull()
     }
@@ -68,7 +75,7 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
     private val requiredWarningLogged = AtomicBoolean(false)
     private val httpServer = if (configuredEndpoint?.mode == "embedded_http") runCatching {
         EmbeddedPackServer(requireNotNull(configuredEndpoint), requireNotNull(artifact), maxConcurrent, maxPerIp,
-            idleReadTimeoutMillis, headerDeadlineMillis)
+            idleReadTimeoutMillis, headerDeadlineMillis, writeDeadlineMillis)
     }.onFailure { plugin.logger.warning("Resource pack HTTP service failed to start: ${it.message}") }.getOrNull() else null
     private val gamePortServer = if (enabled && configuredEndpoint?.mode == "game_port" && gamePortEnabled) runCatching {
         GamePortPackServer(
@@ -92,6 +99,14 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
     private val endpoint = configuredEndpoint?.takeIf {
         (it.mode != "embedded_http" || httpServer != null) && (it.mode != "game_port" || gamePortServer != null)
     } ?: endpointFallback
+    private val bundledArtifact: ResourcePackArtifact? by lazy {
+        artifact ?: runCatching {
+            val bytes = requireNotNull(plugin.getResource("resourcepack/etherealchronicle-resourcepack.zip")).use { it.readBytes() }
+            val expected = requireNotNull(plugin.getResource("resourcepack/etherealchronicle-resourcepack.sha1"))
+                .bufferedReader().use { it.readLine().trim() }
+            ResourcePackArtifact(bytes, expected)
+        }.getOrNull()
+    }
 
     init {
         if (externalManaged || enabled && artifact != null) plugin.server.pluginManager.registerEvents(this, plugin)
@@ -106,12 +121,12 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
         preferences[player.uniqueId] = preference
         // 接続後の次tickに必須要求を出すまでは、プロフィール読込側からの早すぎる再送を止めます。
         if (player.uniqueId in scheduledJoinRequests) return
-        if (pendingRequests[player.uniqueId]?.required == true || player.uniqueId in loadedPlayers) return
+        val pendingRequired = pendingRequests[player.uniqueId]?.required == true
         val deliveryEndpoint = if (gamePortFailed.get()) endpointFallback else endpoint
         val bypass = player.hasPermission("etherealchronicle.pack.bypass")
-        val deliveryAvailable=isDeliveryAvailable()
+        val deliveryAvailable = isDeliveryAvailable()
         if (required && !deliveryAvailable) warnRequiredUnavailable()
-        val decision = ResourcePackPolicy.decide(required,deliveryAvailable,preference,bypass)
+        val decision = ResourcePackPolicy.decide(required, deliveryAvailable, preference, bypass)
         if (!decision.send || deliveryEndpoint == null || artifact == null) {
             pendingRequests.remove(player.uniqueId)
             loadedPlayers -= player.uniqueId
@@ -119,6 +134,7 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
             if (requiredPackGate.isWaiting(player.uniqueId) && !deliveryAvailable) releaseRequiredWait(player.uniqueId, continueJoin = true)
             return
         }
+        if (pendingRequired || player.uniqueId in loadedPlayers) return
         val hash = advertisedPackSha1(externalSha1,artifact.sha1)
         val info = ResourcePackInfo.resourcePackInfo(requestId, deliveryEndpoint.url(hash), hash)
         val promptKey = if (decision.required) "ec.resource_pack.required_prompt" else "ec.resource_pack.prompt"
@@ -205,12 +221,7 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
 
     /** 管理者へ、JARに格納された生成済みパックのハッシュとサイズを返します。 */
     internal fun buildInfo(): ResourcePackBuildInfo? {
-        val pack = artifact ?: runCatching {
-            val bytes = requireNotNull(plugin.getResource("resourcepack/etherealchronicle-resourcepack.zip")).use { it.readBytes() }
-            val expected = requireNotNull(plugin.getResource("resourcepack/etherealchronicle-resourcepack.sha1"))
-                .bufferedReader().use { it.readLine().trim() }
-            ResourcePackArtifact(bytes, expected)
-        }.getOrNull() ?: return null
+        val pack = bundledArtifact ?: return null
         return ResourcePackBuildInfo(pack.sha1, pack.bytes.size.toLong())
     }
 
@@ -238,7 +249,7 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
             val mustDisconnect = ManagedPackPolicy.disconnectsOnFailure(mode, request.required && isDeliveryAvailable(), event.status in terminalStatuses)
             releaseRequiredWait(event.player.uniqueId, continueJoin = !mustDisconnect)
             if (mustDisconnect && event.player.isOnline) {
-                event.player.kick(plugin.message(event.player, "ec.resource_pack.required_declined"))
+                event.player.kick(plugin.message(event.player, requiredFailureMessageKey(event.status)))
             }
         }
     }
@@ -258,6 +269,7 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
         loadedPlayers.clear()
         preferences.clear()
         pendingRequests.clear()
+        observedManagedStatuses.clear()
         requiredTimeouts.values.forEach(BukkitTask::cancel)
         requiredTimeouts.clear()
         requiredWaiters.clear()
@@ -305,9 +317,17 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
         status: String,
     ) {
         if (ManagedPackPolicy.recordStatus(profile, status)) plugin.save(profile)
-        val loaded = ManagedPackPolicy.isLoaded(status)
-        if (loaded) loadedPlayers += player.uniqueId else loadedPlayers -= player.uniqueId
-        plugin.refreshPackItemModels(player, loaded)
+        when (ManagedPackPolicy.visualTransition(status)) {
+            PackVisualTransition.LOADED -> {
+                loadedPlayers += player.uniqueId
+                plugin.refreshPackItemModels(player, true)
+            }
+            PackVisualTransition.UNLOADED -> {
+                loadedPlayers -= player.uniqueId
+                plugin.refreshPackItemModels(player, false)
+            }
+            PackVisualTransition.KEEP -> Unit
+        }
     }
 
     /** 配信設定が壊れている時に一度だけ翻訳済みの安全解除警告を記録します。 */
@@ -343,6 +363,11 @@ internal object ManagedPackPolicy {
     fun sendsPack(mode: String): Boolean = mode != "external_managed"
     fun matches(expectedId: UUID?, eventId: UUID): Boolean = expectedId == null || expectedId == eventId
     fun isLoaded(status: String): Boolean = status == "SUCCESSFULLY_LOADED"
+    fun visualTransition(status: String): PackVisualTransition = when (status) {
+        "SUCCESSFULLY_LOADED" -> PackVisualTransition.LOADED
+        "DECLINED", "FAILED_DOWNLOAD", "INVALID_URL", "FAILED_RELOAD", "DISCARDED" -> PackVisualTransition.UNLOADED
+        else -> PackVisualTransition.KEEP
+    }
     fun disconnectsOnFailure(mode: String, requestRequired: Boolean, terminalFailure: Boolean): Boolean =
         mode != "external_managed" && ResourcePackPolicy.disconnectOnFailure(requestRequired, terminalFailure)
 
@@ -353,6 +378,17 @@ internal object ManagedPackPolicy {
         profile.resourcePackStatus = status
         return true
     }
+}
+
+/** 外部パックの中間通知は表示状態を維持し、成功/終端失敗だけを反映します。 */
+internal enum class PackVisualTransition { LOADED, UNLOADED, KEEP }
+
+/** 必須パックの終了状態に応じて利用者へ原因別の案内を返します。 */
+internal fun requiredFailureMessageKey(status: PlayerResourcePackStatusEvent.Status): String = when (status) {
+    PlayerResourcePackStatusEvent.Status.DECLINED -> "ec.resource_pack.required_declined"
+    PlayerResourcePackStatusEvent.Status.FAILED_DOWNLOAD,
+    PlayerResourcePackStatusEvent.Status.INVALID_URL -> "ec.resource_pack.required_download_failed"
+    else -> "ec.resource_pack.required_apply_failed"
 }
 
 /** 必須パック待機の開始条件とタイムアウトを安全な範囲へ正規化します。 */

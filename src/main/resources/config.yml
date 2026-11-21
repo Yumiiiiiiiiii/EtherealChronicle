@@ -31,6 +31,7 @@ resource_pack:
     max_per_ip: 4
     idle_read_timeout_ms: 500
     header_deadline_ms: 1500
+    write_deadline_ms: 5000
   same_port_netty:
     # 実験的機能です。mode: game_port と enabled: true を両方指定した場合だけ有効です。
     enabled: false

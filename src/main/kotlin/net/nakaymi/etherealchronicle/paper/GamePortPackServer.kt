@@ -73,6 +73,7 @@ class GamePortPackServer(
             "Game-port pack delivery is not supported behind proxy plugins: ${unsupportedProxies().joinToString()}"
         }
         holderClass.getMethod("addListener", Key::class.java, listenerClass).invoke(null, listenerKey, listener)
+        plugin.logger.info("Experimental resource-pack HTTP sniffing enabled on the game port; Paper's internal channel-initialization hook is in use.")
     }
 
     /** Paperの内部Netty listener登録を解除し、進行中のHTTP要求だけを閉じます。 */
@@ -87,11 +88,19 @@ class GamePortPackServer(
         attachedChannels.clear()
     }
 
-    private fun unsupportedProxies(): List<String> {
-        val proxies = listOf("Velocity", "BungeeCord", "Waterfall", "TCPShield")
-            .filter { plugin.server.pluginManager.isPluginEnabled(it) }
-        return proxies
-    }
+    private fun unsupportedProxies(): List<String> = detectUnsupportedProxies(
+        bungeeCordEnabled = runCatching {
+            org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(
+                plugin.server.worldContainer.toPath().resolve("spigot.yml").toFile(),
+            ).getBoolean("settings.bungeecord", false)
+        }.getOrDefault(false),
+        velocityEnabled = runCatching {
+            org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(
+                plugin.server.worldContainer.toPath().resolve("config/paper-global.yml").toFile(),
+            ).getBoolean("proxies.velocity.enabled", false)
+        }.getOrDefault(false),
+        tcpShieldEnabled = plugin.server.pluginManager.isPluginEnabled("TCPShield"),
+    )
 
     companion object {
         private const val HANDLER_NAME = "etherealchronicle_game_port_pack"
@@ -108,8 +117,10 @@ internal class PackRequestSniffer(
 ) : ByteToMessageDecoder() {
     private enum class State { SNIFFING, MINECRAFT, HTTP, CLOSED }
 
-    private val prefix = ByteArrayOutputStream(5)
+    private val sniffPrefix = ByteArray(5)
+    private var sniffPrefixSize = 0
     private val request = ByteArrayOutputStream(256)
+    private var headerTerminatorWindow = 0
     private var state = State.SNIFFING
     private var httpLeaseIp: String? = null
     private var headerDeadline: java.util.concurrent.ScheduledFuture<*>? = null
@@ -131,21 +142,19 @@ internal class PackRequestSniffer(
 
         while (input.isReadable() && state == State.SNIFFING) {
             val firstByte = input.getUnsignedByte(input.readerIndex()).toInt()
-            if (prefix.size() == 0 && firstByte != 'G'.code && firstByte != 'H'.code) {
+            if (sniffPrefixSize == 0 && firstByte != 'G'.code && firstByte != 'H'.code) {
                 passThroughMinecraft(context, input, output)
                 return
             }
-            prefix.write(input.readUnsignedByte().toInt())
-            val candidate = prefix.toByteArray()
-            val getPrefix = "GET ".toByteArray(StandardCharsets.US_ASCII)
-            val headPrefix = "HEAD ".toByteArray(StandardCharsets.US_ASCII)
-            val isGetPrefix = candidate.isPrefixOf(getPrefix)
-            val isHeadPrefix = candidate.isPrefixOf(headPrefix)
+            if (sniffPrefixSize == 0) resetIdleTimeout(context)
+            sniffPrefix[sniffPrefixSize++] = input.readByte()
+            val isGetPrefix = sniffPrefix.matchesPrefix(sniffPrefixSize, GET_PREFIX)
+            val isHeadPrefix = sniffPrefix.matchesPrefix(sniffPrefixSize, HEAD_PREFIX)
             if (!isGetPrefix && !isHeadPrefix) {
-                passBufferedMinecraft(context, input, output, candidate)
+                passBufferedMinecraft(context, input, output)
                 return
             }
-            if (candidate.contentEquals(getPrefix) || candidate.contentEquals(headPrefix)) {
+            if (sniffPrefix.matches(GET_PREFIX) || sniffPrefix.matches(HEAD_PREFIX)) {
                 val ip = ((context.channel().remoteAddress() as? InetSocketAddress)?.address?.hostAddress).orEmpty().ifBlank { "unknown" }
                 if (!limiter.acquire(ip)) {
                     reject(context)
@@ -153,8 +162,9 @@ internal class PackRequestSniffer(
                 }
                 httpLeaseIp = ip
                 recognizedHttp = true
-                request.write(candidate)
+                request.write(sniffPrefix, 0, sniffPrefixSize)
                 state = State.HTTP
+                cancelIdleTimeout()
                 startHeaderTimeout(context)
                 context.channel().closeFuture().addListener { releaseIpLease() }
                 resetIdleTimeout(context)
@@ -162,12 +172,14 @@ internal class PackRequestSniffer(
         }
 
         while (input.isReadable() && state == State.HTTP) {
-            request.write(input.readUnsignedByte().toInt())
+            val nextByte = input.readUnsignedByte().toInt()
+            request.write(nextByte)
+            headerTerminatorWindow = ((headerTerminatorWindow shl 8) or nextByte) and TERMINATOR_MASK
             if (request.size() > maxHeaderBytes) {
                 reject(context)
                 return
             }
-            if (request.endsWithHeaderTerminator()) {
+            if (request.size() >= 4 && headerTerminatorWindow == HEADER_TERMINATOR) {
                 cancelTimeouts()
                 respond(context)
                 return
@@ -177,13 +189,15 @@ internal class PackRequestSniffer(
 
     private fun passThroughMinecraft(context: ChannelHandlerContext, input: ByteBuf, output: MutableList<Any>) {
         state = State.MINECRAFT
+        cancelTimeouts()
         if (input.isReadable) output += input.readRetainedSlice(input.readableBytes())
         removeAfterDecode(context)
     }
 
-    private fun passBufferedMinecraft(context: ChannelHandlerContext, input: ByteBuf, output: MutableList<Any>, savedPrefix: ByteArray) {
+    private fun passBufferedMinecraft(context: ChannelHandlerContext, input: ByteBuf, output: MutableList<Any>) {
         state = State.MINECRAFT
-        output += Unpooled.wrappedBuffer(savedPrefix)
+        cancelTimeouts()
+        output += Unpooled.wrappedBuffer(sniffPrefix.copyOf(sniffPrefixSize))
         if (input.isReadable) output += input.readRetainedSlice(input.readableBytes())
         removeAfterDecode(context)
     }
@@ -201,6 +215,11 @@ internal class PackRequestSniffer(
     private fun resetIdleTimeout(context: ChannelHandlerContext) {
         idleTimeout?.cancel(false)
         idleTimeout = context.executor().schedule({ reject(context) }, idleReadTimeoutMillis.toLong(), TimeUnit.MILLISECONDS)
+    }
+
+    private fun cancelIdleTimeout() {
+        idleTimeout?.cancel(false)
+        idleTimeout = null
     }
 
     private fun reject(context: ChannelHandlerContext) {
@@ -242,9 +261,8 @@ internal class PackRequestSniffer(
             context.close()
             return
         }
-        val ip = httpLeaseIp ?: "unknown"
         val count = minOf(BODY_CHUNK_BYTES, body.size - offset)
-        val delay = limiter.reserveDelayNanos(ip, count)
+        val delay = limiter.reserveDelayNanos(count)
         val send = Runnable {
             if (!context.channel().isActive) return@Runnable
             context.writeAndFlush(Unpooled.wrappedBuffer(body, offset, count)).addListener { result ->
@@ -262,23 +280,40 @@ internal class PackRequestSniffer(
         idleTimeout = null
     }
 
+    override fun channelInactive(context: ChannelHandlerContext) {
+        cancelTimeouts()
+        releaseIpLease()
+        super.channelInactive(context)
+    }
+
+    override fun handlerRemoved0(context: ChannelHandlerContext) {
+        cancelTimeouts()
+        releaseIpLease()
+        super.handlerRemoved0(context)
+    }
+
     private fun releaseIpLease() {
         if (!released.compareAndSet(false, true)) return
         httpLeaseIp?.let(limiter::release)
         httpLeaseIp = null
     }
 
-    private fun ByteArray.isPrefixOf(value: ByteArray): Boolean = size <= value.size && value.copyOfRange(0, size).contentEquals(this)
-    private fun ByteArrayOutputStream.endsWithHeaderTerminator(): Boolean {
-        val bytes = toByteArray()
-        return bytes.size >= 4 && bytes[bytes.size - 4] == '\r'.code.toByte() && bytes[bytes.size - 3] == '\n'.code.toByte() &&
-            bytes[bytes.size - 2] == '\r'.code.toByte() && bytes[bytes.size - 1] == '\n'.code.toByte()
-    }
+    private fun ByteArray.matchesPrefix(length: Int, value: ByteArray): Boolean =
+        length <= value.size && (0 until length).all { this[it] == value[it] }
 
-    private companion object { const val BODY_CHUNK_BYTES = 16 * 1024 }
+    private fun ByteArray.matches(value: ByteArray): Boolean =
+        size >= value.size && value.indices.all { this[it] == value[it] }
+
+    private companion object {
+        const val BODY_CHUNK_BYTES = 16 * 1024
+        const val HEADER_TERMINATOR = 0x0D0A0D0A
+        const val TERMINATOR_MASK = 0xFFFFFFFF.toInt()
+        val GET_PREFIX = "GET ".toByteArray(StandardCharsets.US_ASCII)
+        val HEAD_PREFIX = "HEAD ".toByteArray(StandardCharsets.US_ASCII)
+    }
 }
 
-/** 同一IPの同時接続を制限し、パックの各HTTP応答にも共有帯域予算を適用します。 */
+/** NAT共有の同一IP接続数を制限し、接続IPをまたいだ単一の帯域予算を適用します。 */
 internal class PackConnectionLimiter(
     maxConnections: Int,
     private val maxPerIp: Int,
@@ -287,7 +322,8 @@ internal class PackConnectionLimiter(
     private val maxConnections = maxConnections.also { require(it in 1..128) }
     private var active = 0
     private val perIp = mutableMapOf<String, Int>()
-    private val nextSendNanos = ConcurrentHashMap<String, AtomicLong>()
+    /** 全接続で共有する帯域予約。IP枠の解放・再取得でも予算をリセットしません。 */
+    private val globalNextSendNanos = AtomicLong()
 
     init {
         require(maxPerIp in 1..maxConnections)
@@ -309,19 +345,28 @@ internal class PackConnectionLimiter(
         active = (active - 1).coerceAtLeast(0)
         if (local <= 1) {
             perIp.remove(ip)
-            nextSendNanos.remove(ip)
         } else {
             perIp[ip] = local - 1
         }
     }
 
-    fun reserveDelayNanos(ip: String, bytes: Int): Long {
+    fun reserveDelayNanos(bytes: Int): Long {
         val duration = bytes.toLong() * NANOS_PER_SECOND / (bandwidthKbPerSecond.toLong() * 1024)
         val now = System.nanoTime()
-        val schedule = nextSendNanos.computeIfAbsent(ip) { AtomicLong() }
-        val start = schedule.getAndUpdate { previous -> maxOf(previous, now) + duration }
+        val start = globalNextSendNanos.getAndUpdate { previous -> maxOf(previous, now) + duration }
         return (start - now).coerceAtLeast(0)
     }
 
     private companion object { const val NANOS_PER_SECOND = 1_000_000_000L }
+}
+
+/** プロキシ設定とTCPShieldの組み合わせから同一ポート配信の非対応環境を判定します。 */
+internal fun detectUnsupportedProxies(
+    bungeeCordEnabled: Boolean,
+    velocityEnabled: Boolean,
+    tcpShieldEnabled: Boolean,
+): List<String> = buildList {
+    if (bungeeCordEnabled) add("BungeeCord/Waterfall")
+    if (velocityEnabled) add("Velocity")
+    if (tcpShieldEnabled) add("TCPShield")
 }
