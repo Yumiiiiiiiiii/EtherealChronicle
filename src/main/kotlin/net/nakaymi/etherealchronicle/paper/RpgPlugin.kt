@@ -470,6 +470,21 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     profile.currency=balance; save(profile); logger.info("管理者回復: ${sender.name} -> ${p.name} 所持金 $balance")
                     sender.sendMessage(Component.text("所持金を設定しました。"))
                 }
+                "flag" -> {
+                    require(args.size in 3..4) { "/ec flag <player> <flag> [set|clear]" }
+                    val p=server.getPlayerExact(args[1]) ?: error("プレイヤーが見つかりません。")
+                    val profile=profiles[p.uniqueId] ?: error("プロフィールを読み込み中です。")
+                    require(!adventure.locked(profile.uuid)) { "取引処理中のため変更できません。" }
+                    val flag=args[2]; require(Regex("ec:flag_[a-z][a-z0-9_]*").matches(flag)) { "フラグIDの形式が正しくありません。" }
+                    val operation=args.getOrNull(3) ?: "set"
+                    require(operation in setOf("set","clear")) { "操作は set または clear を指定してください。" }
+                    val declared=snapshot.world.chapters.values.flatMap { it.strings("flags") }.toSet()
+                    require(flag in declared || flag in profile.flags) { "章に定義されていないフラグです: $flag" }
+                    val changed=if(operation == "set") profile.flags.add(flag) else profile.flags.remove(flag)
+                    save(profile)
+                    logger.info("管理者フラグ操作: ${sender.name} -> ${p.name} $flag $operation")
+                    sender.sendMessage(Component.text(if(changed) "フラグを${if(operation == "set") "設定" else "解除"}しました: $flag" else "フラグは既に${if(operation == "set") "設定" else "解除"}済みです: $flag"))
+                }
                 "spawn" -> {
                     require(args.size == 3) { "/ec spawn <enemy> <player>" }
                     val p = server.getPlayerExact(args[2]) ?: error("プレイヤーが見つかりません。")
@@ -510,7 +525,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     sender.sendMessage(Component.text("職業を変更しました。"))
                 }
                 "debug" -> debug(sender,args.drop(1))
-                else -> sender.sendMessage(Component.text("/ec reload | validate | give <player> <item> [amount] | setlevel <player> <level> | class <player> <id> | debug sim …"))
+                else -> sender.sendMessage(Component.text("/ec reload | validate | give <player> <item> [amount] | setlevel <player> <level> | class <player> <id> | flag <player> <flag> [set|clear] | debug sim …"))
             }
         } catch(e: Exception) { sender.sendMessage(Component.text("操作失敗: ${e.message}")) }
         return true

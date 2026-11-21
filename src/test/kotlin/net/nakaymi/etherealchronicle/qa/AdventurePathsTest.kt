@@ -20,6 +20,7 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock
 import java.io.File
 import java.util.UUID
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /** Adventure paths under MockBukkit: NPC click -> dialogue GUI, shop click types, rapid clicks, drag, respawn, quit mid-transaction. */
@@ -72,6 +73,24 @@ class AdventurePathsTest {
             val profile = plugin.profiles.getValue(uuid)
             profile.currency = 1000; profile.level = 20
             fun potions() = (0..35).sumOf { i -> player.inventory.getItem(i)?.takeIf { it.persistentDataContainer.get(itemKey, PersistentDataType.STRING) == "ec:item_con_minor_hp_potion" }?.amount ?: 0 }
+            rec("admin flag command denies non-admin and persists set/clear") {
+                val flag = "ec:flag_sanctum_unlocked"
+                player.isOp = false
+                player.performCommand("ec flag ${player.name} $flag set")
+                assertFalse(flag in profile.flags, "non-admin changed flag")
+                player.isOp = true
+                player.performCommand("ec flag ${player.name} $flag set")
+                assertTrue(flag in profile.flags, "set did not add flag")
+                assertTrue(server.pump { player.nextMessage()?.contains("設定しました") == true }, "set confirmation not Japanese")
+                plugin.persist(profile).join()
+                val saved = File(plugin.dataFolder, "playerdata/${uuid}.yml").readText()
+                assertTrue(saved.contains(flag), "flag missing from saved profile")
+                player.performCommand("ec flag ${player.name} $flag clear")
+                assertFalse(flag in profile.flags, "clear did not remove flag")
+                assertTrue(server.pump { player.nextMessage()?.contains("解除しました") == true }, "clear confirmation not Japanese")
+                player.isOp = false
+                "non-admin denied; flag set persisted and cleared"
+            }
             rec("claim requested during a locked delivery waits and runs once after unlock") {
                 val claims=adv.javaClass.getMethod("claimPending",Player::class.java)
                 val unlock=adv.javaClass.getDeclaredMethod("unlock",UUID::class.java).also { it.isAccessible=true }
