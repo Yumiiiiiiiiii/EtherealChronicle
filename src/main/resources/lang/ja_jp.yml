@@ -2,6 +2,26 @@ ec:
   startup:
     loading: "冒険データを読み込んでいます…"
     starting: "冒険システムは起動中です。しばらくお待ちください。"
+  profile:
+    inventory_space: "持ち物に空きを作ってください。"
+    save_retry: "保存できませんでした。もう一度お試しください。"
+    starter_space: "持ち物の空きがなくなりました。管理者にスターター装備の再付与を依頼してください。"
+    welcome: "ようこそ！受付嬢セリアに話しかけて冒険を始めましょう。"
+    skill_slot_space: "9番のアイテムを空きに移して持ち物を閉じてください。保護品は地面に捨てません。"
+    skill_slot: "スキルスロット"
+  resource:
+    rage: "怒り"
+    focus: "集中"
+    mana: "マナ"
+  hud:
+    main: "HP <hp>/<max_hp>  <resource_name> <resource>/<max_resource>  <skill> CD <cooldown>秒  仲間 <party>人"
+  skill:
+    selected: "選択: <skill>"
+    weapon_requirements: "この装備の条件を満たしていません。"
+    obstructed: "魔物との間に障害物があります。"
+    resource_low: "リソースが足りません。"
+    target_missing: "射程内に魔物がいません。"
+    cooldown: "まだ使用できません。"
   class:
     choose: "職業を選んでください"
   menu:

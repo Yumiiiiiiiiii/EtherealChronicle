@@ -111,6 +111,7 @@
 | `ec.gathering.tool_wrong` | <name>には<required>が必要です（現在:<current>）。 | <name> requires <required> (held: <current>). | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<current>`, `<name>`, `<required>` |
 | `ec.gathering.transaction_locked` | 取引処理中は採取できません。 | You cannot gather during a transaction. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
 | `ec.gathering.world_only` | 管理対象の採取エリアでのみ採取できます。 | Gathering is only available in the managed gathering areas. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
+| `ec.hud.main` | HP <hp>/<max_hp>  <resource_name> <resource>/<max_resource>  <skill> CD <cooldown>秒  仲間 <party>人 | HP <hp>/<max_hp>  <resource_name> <resource>/<max_resource>  <skill> CD <cooldown>s  Party <party> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<cooldown>`, `<hp>`, `<max_hp>`, `<max_resource>`, `<party>`, `<resource>`, `<resource_name>`, `<skill>` |
 | `ec.menu.codex_area` | 冒険者の図鑑 — 魔物 | Adventurer Codex — Enemies | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.menu.codex_areas` | 冒険者の図鑑 — エリア | Adventurer Codex — Areas | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.menu.codex_fish` | 生活図鑑 — 魚類 | Life Codex — Fish | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
@@ -120,6 +121,21 @@
 | `ec.menu.enhance` | 装備強化 | Enhance Gear | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.menu.equipment` | 装備 | Equipment | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.menu.shop` | お店 | Shop | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
+| `ec.profile.inventory_space` | 持ち物に空きを作ってください。 | Make room in your inventory. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.profile.save_retry` | 保存できませんでした。もう一度お試しください。 | Could not save your profile. Please try again. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.profile.skill_slot` | スキルスロット | Skill Slot | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.profile.skill_slot_space` | 9番のアイテムを空きに移して持ち物を閉じてください。保護品は地面に捨てません。 | Move the item from hotbar slot 9 and close your inventory. Protected items will not be dropped. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.profile.starter_space` | 持ち物の空きがなくなりました。管理者にスターター装備の再付与を依頼してください。 | Your inventory filled up. Ask an administrator to restore your starter gear. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.profile.welcome` | ようこそ！受付嬢セリアに話しかけて冒険を始めましょう。 | Welcome! Talk to Celia at the reception desk to begin your adventure. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.resource.focus` | 集中 | Focus | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.resource.mana` | マナ | Mana | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.resource.rage` | 怒り | Rage | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.skill.cooldown` | まだ使用できません。 | That skill is not ready yet. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.skill.obstructed` | 魔物との間に障害物があります。 | An obstacle blocks your line to the enemy. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.skill.resource_low` | リソースが足りません。 | Not enough resource. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.skill.selected` | 選択: <skill> | Selected: <skill> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<skill>` |
+| `ec.skill.target_missing` | 射程内に魔物がいません。 | There is no enemy in range. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.skill.weapon_requirements` | この装備の条件を満たしていません。 | You do not meet this equipment's requirements. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.startup.loading` | 冒険データを読み込んでいます… | Loading your adventure data… | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.startup.starting` | 冒険システムは起動中です。しばらくお待ちください。 | The adventure system is starting. Please wait. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 

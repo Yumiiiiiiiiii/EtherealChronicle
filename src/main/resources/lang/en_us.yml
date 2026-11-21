@@ -2,6 +2,26 @@ ec:
   startup:
     loading: "Loading your adventure data…"
     starting: "The adventure system is starting. Please wait."
+  profile:
+    inventory_space: "Make room in your inventory."
+    save_retry: "Could not save your profile. Please try again."
+    starter_space: "Your inventory filled up. Ask an administrator to restore your starter gear."
+    welcome: "Welcome! Talk to Celia at the reception desk to begin your adventure."
+    skill_slot_space: "Move the item from hotbar slot 9 and close your inventory. Protected items will not be dropped."
+    skill_slot: "Skill Slot"
+  resource:
+    rage: "Rage"
+    focus: "Focus"
+    mana: "Mana"
+  hud:
+    main: "HP <hp>/<max_hp>  <resource_name> <resource>/<max_resource>  <skill> CD <cooldown>s  Party <party>"
+  skill:
+    selected: "Selected: <skill>"
+    weapon_requirements: "You do not meet this equipment's requirements."
+    obstructed: "An obstacle blocks your line to the enemy."
+    resource_low: "Not enough resource."
+    target_missing: "There is no enemy in range."
+    cooldown: "That skill is not ready yet."
   class:
     choose: "Choose a class"
   menu:

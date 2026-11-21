@@ -57,6 +57,12 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     /** プレイヤー以外の管理コマンドは設定言語、または日本語へフォールバックします。 */
     internal fun message(sender: CommandSender, key: String, vararg values: Pair<String, Any?>): Component =
         language.component((sender as? Player)?.locale()?.toString(), key, values.toMap())
+    /** クラスの資源種別を表示用の翻訳へ変換します。 */
+    private fun resourceName(player: Player,kind: ResourceKind): Component = message(player, when(kind) {
+        ResourceKind.RAGE -> "ec.resource.rage"
+        ResourceKind.FOCUS -> "ec.resource.focus"
+        ResourceKind.MANA -> "ec.resource.mana"
+    })
     internal fun persist(profile: PlayerProfile) = store.save(profile)
     internal fun identify(stack: ItemStack?) = stack?.itemMeta?.persistentDataContainer?.get(itemKey,PersistentDataType.STRING)
     internal fun inventory(player: Player,persistRemoval: Boolean = true): PaperInventoryAccess = PaperInventoryAccess(player,::identify,::createItem,persistRemoval) { logger.fine("取引の消費アイテムを保存しました: ${player.uniqueId}") }
@@ -232,20 +238,20 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         if(!choosing.add(p.uniqueId)) return
         val c = content.snapshot().classes[id]
         if(c.starterItems.size > p.inventory.storageContents.take(8).count { it == null } ) {
-            choosing.remove(p.uniqueId); p.sendMessage(Component.text("持ち物に空きを作ってください。")); return
+            choosing.remove(p.uniqueId); p.sendMessage(message(p,"ec.profile.inventory_space")); return
         }
         if(profile.classId == null) game.chooseClass(profile,id)
         profile.starterGranted = true
         // アイテムを配る前に権利消費を保存し、切断・再起動時の二重配布を防ぎます。
         store.save(profile).whenComplete { _,error -> sync {
             choosing.remove(p.uniqueId)
-            if(error != null) { profile.starterGranted = false; p.sendMessage(Component.text("保存できませんでした。もう一度お試しください。")); return@sync }
+            if(error != null) { profile.starterGranted = false; p.sendMessage(message(p,"ec.profile.save_retry")); return@sync }
             if(!p.isOnline || profiles[p.uniqueId] !== profile) return@sync
-            if(c.starterItems.size > (0..7).count { p.inventory.getItem(it) == null }) { p.sendMessage(Component.text("持ち物の空きがなくなりました。管理者にスターター装備の再付与を依頼してください。")); return@sync }
+            if(c.starterItems.size > (0..7).count { p.inventory.getItem(it) == null }) { p.sendMessage(message(p,"ec.profile.starter_space")); return@sync }
             c.starterItems.forEach { item -> val slot = (0..7).first { p.inventory.getItem(it) == null }; p.inventory.setItem(slot,createItem(item)); profile.discoverItem(item) }
             save(profile)
             skillSlot(p); applyStats(p,profile); p.health=p.getAttribute(Attribute.MAX_HEALTH)!!.value
-            p.closeInventory(); p.sendMessage(Component.text("ようこそ！受付嬢セリアに話しかけて冒険を始めましょう。"))
+            p.closeInventory(); p.sendMessage(message(p,"ec.profile.welcome"))
         } }
     }
     internal fun createItem(id: String, amount: Int = 1): ItemStack {
@@ -263,11 +269,11 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             val old = p.inventory.getItem(8)
             if(old != null && adventure.bound(old)) {
                 val free=(0 until p.inventory.storageContents.size).firstOrNull { it != 8 && p.inventory.getItem(it) == null }
-                if(free == null) { p.sendMessage(Component.text("9番のアイテムを空きに移して持ち物を閉じてください。保護品は地面に捨てません。")); return }
+                if(free == null) { p.sendMessage(message(p,"ec.profile.skill_slot_space")); return }
                 p.inventory.setItem(free,old)
             } else if(old != null) p.world.dropItemNaturally(p.location,old)
             p.inventory.setItem(8,ItemStack(Material.NETHER_STAR).apply { itemMeta = itemMeta.apply {
-                displayName(Component.text("スキルスロット")); persistentDataContainer.set(slotKey,PersistentDataType.BYTE,1)
+                displayName(message(p,"ec.profile.skill_slot")); persistentDataContainer.set(slotKey,PersistentDataType.BYTE,1)
             } })
         }
     }
@@ -445,7 +451,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             if(profile.resource != beforeResource) dirty.add(p.uniqueId)
             profile.selectedSkill = profile.selectedSkill.coerceIn(0,c.skills.lastIndex)
             val skill = c.skills[profile.selectedSkill]
-            if(shouldSendClassHud(gatheringActive,fishingActive)) p.sendActionBar(Component.text("HP ${p.health.toInt()}/${s.hp.toInt()}  ${when(c.resource){ResourceKind.RAGE -> "怒り";ResourceKind.FOCUS -> "集中";ResourceKind.MANA -> "マナ"}} ${profile.resource.toInt()}/${s.resource.toInt()}  ${content.snapshot().skills[skill].name} CD ${game.skills.remaining(p.uniqueId,skill)/1000.0}秒  仲間 ${adventure.parties.members(p.uniqueId).size}人"))
+            if(shouldSendClassHud(gatheringActive,fishingActive)) p.sendActionBar(message(p,"ec.hud.main", "hp" to p.health.toInt(), "max_hp" to s.hp.toInt(), "resource_name" to resourceName(p,c.resource), "resource" to profile.resource.toInt(), "max_resource" to s.resource.toInt(), "skill" to content.snapshot().skills[skill].name, "cooldown" to "%.1f".format(game.skills.remaining(p.uniqueId,skill)/1000.0), "party" to adventure.parties.members(p.uniqueId).size))
           } catch(error: Exception) { logger.warning("HUD更新失敗 ${p.uniqueId}: ${error.message}") }
         }
         if(++autosaveSeconds >= 60) {
@@ -456,7 +462,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val profile = profiles[p.uniqueId] ?: return
         val c = profile.classId?.let { content.snapshot().classes.find(it) } ?: return
         profile.selectedSkill = (profile.selectedSkill+1)%c.skills.size; dirty.add(p.uniqueId)
-        p.sendMessage(Component.text("選択: ${content.snapshot().skills[c.skills[profile.selectedSkill]].name}"))
+        p.sendMessage(message(p,"ec.skill.selected", "skill" to content.snapshot().skills[c.skills[profile.selectedSkill]].name))
     }
     @EventHandler fun swap(e: PlayerSwapHandItemsEvent) { if(::fishing.isInitialized && fishing.active(e.player.uniqueId)) { e.isCancelled=true; return }; e.isCancelled = true; cycle(e.player) }
     @EventHandler fun drop(e: PlayerDropItemEvent) { if(isSkill(e.itemDrop.itemStack) || e.player.uniqueId !in profiles) e.isCancelled = true }
@@ -469,13 +475,13 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         if(adventure.consume(p,p.inventory.itemInMainHand)) { e.isCancelled=true; return }
         val weapon = item(p.inventory.itemInMainHand)?.takeIf { it.slot == GearSlot.HAND } ?: return
         e.isCancelled = true
-        if(!weapon.canEquip(profile)) { p.sendMessage(Component.text("この装備の条件を満たしていません。")); return }
+        if(!weapon.canEquip(profile)) { p.sendMessage(message(p,"ec.skill.weapon_requirements")); return }
         val c = profile.classId?.let { content.snapshot().classes.find(it) } ?: return
         val skill = content.snapshot().skills[c.skills[profile.selectedSkill.coerceIn(0,c.skills.lastIndex)]]
         val target = p.world.rayTraceEntities(p.eyeLocation,p.eyeLocation.direction,skill.range,0.8) { it is LivingEntity && it !is Player && it.persistentDataContainer.has(enemyKey) }?.hitEntity as? LivingEntity
-        if(target != null && !p.hasLineOfSight(target)) { p.sendMessage(Component.text("魔物との間に障害物があります。")); return }
+        if(target != null && !p.hasLineOfSight(target)) { p.sendMessage(message(p,"ec.skill.obstructed")); return }
         val result=castSkill(p,target)
-        if(result != CastResult.SUCCESS) p.sendMessage(Component.text(when(result) { CastResult.RESOURCE -> "リソースが足りません。"; CastResult.INVALID_TARGET -> "射程内に魔物がいません。"; else -> "まだ使用できません。" }))
+        if(result != CastResult.SUCCESS) p.sendMessage(message(p,when(result) { CastResult.RESOURCE -> "ec.skill.resource_low"; CastResult.INVALID_TARGET -> "ec.skill.target_missing"; else -> "ec.skill.cooldown" }))
     }
     /** 実イベントとテストが共有するスキル経路です。照準対象を渡しray traceを分離できます。 */
     fun castSkill(player: Player,target: LivingEntity?): CastResult {

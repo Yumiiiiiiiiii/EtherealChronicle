@@ -31,7 +31,9 @@ class LangCatalog internal constructor(
             if (warnedMissing.add(key)) logger.warning("Missing language key: $key")
             return Component.text(key)
         }
-        val resolvers = placeholders.map { (name, value) -> Placeholder.unparsed(name, value?.toString() ?: "") }
+        val resolvers = placeholders.map { (name, value) ->
+            if (value is Component) Placeholder.component(name, value) else Placeholder.unparsed(name, value?.toString() ?: "")
+        }
         return MiniMessage.miniMessage().deserialize(template, *resolvers.toTypedArray())
     }
 
