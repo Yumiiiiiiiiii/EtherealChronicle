@@ -60,9 +60,10 @@ class SkillEngine(private val clock: Clock, private var balance: Balance) {
     fun cleanup() { val now = clock.millis(); ready.entries.removeIf { it.value <= now } }
 }
 
-enum class Rarity { COMMON, UNCOMMON, RARE, EPIC, LEGENDARY }
+enum class Rarity(val displayName: String) { COMMON("コモン"), UNCOMMON("アンコモン"), RARE("レア"), EPIC("エピック"), LEGENDARY("レジェンダリー") }
+enum class GearSlot { HAND, HEAD, CHEST, LEGS, FEET, NONE }
 data class ItemDefinition(val id: String, val name: String, val material: String, val rarity: Rarity,
-    val minLevel: Int, val classes: List<String>, val stats: Stats, val budget: Double, val budgetMultiplier: Double = 1.0, val affixes: Int = 0) {
+    val minLevel: Int, val classes: List<String>, val stats: Stats, val budget: Double, val budgetMultiplier: Double = 1.0, val affixes: Int = 0, val slot: GearSlot = GearSlot.HAND) {
     fun canEquip(player: PlayerProfile) = player.level >= minLevel && (classes.isEmpty() || player.classId in classes)
     fun withinBudget() = stats.hp / 10 + stats.resource / 10 + stats.attack + stats.defense + stats.crit * 100 +
         stats.critDamage * 10 + stats.elementResist * 100 + stats.skillPower * 10 <= budget * budgetMultiplier
@@ -75,10 +76,12 @@ data class DropTable(val id: String, val entries: List<DropEntry>) {
 }
 data class PlayerProfile(val uuid: UUID, var classId: String? = null, var level: Int = 1, var xp: Long = 0,
     var currency: Long = 0, var resource: Double = 0.0, var selectedSkill: Int = 0,
-    var starterGranted: Boolean = false, var tutorialQuest: String? = null,
+    var starterGranted: Boolean = false, val quests: MutableMap<String, QuestProgress> = mutableMapOf(),
     val skillLevels: MutableMap<String, Int> = mutableMapOf()) {
-    fun snapshot() = copy(skillLevels = skillLevels.toMutableMap())
+    fun snapshot() = copy(skillLevels = skillLevels.toMutableMap(), quests = quests.mapValues { it.value.copy() }.toMutableMap())
 }
+data class QuestProgress(var progress: Int = 0, var completed: Boolean = false)
+
 
 
 
