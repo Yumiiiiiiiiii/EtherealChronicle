@@ -216,7 +216,9 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         val now=System.currentTimeMillis(); val k=siteKey(site)
         if(!engine.readyAt(profile,k,now)) { reject(player,"ec.gathering.respawning", "seconds" to (profile.gatheringReadyAt[k]!!-now+999)/1000); return }
         val origin=player.location.clone(); val duration=(def.channelMillis*(1-tool.channelSpeedBonus)).toLong().coerceAtLeast(250)
-        val bar=Bukkit.createBossBar(plugin.message(Bukkit.getConsoleSender(),"ec.gathering.bossbar", "name" to def.name).toString(),BarColor.GREEN,BarStyle.SOLID).apply { addPlayer(player); progress=0.08 }
+        val barTitle=net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+            .serialize(plugin.message(player,"ec.gathering.bossbar", "name" to def.name))
+        val bar=Bukkit.createBossBar(barTitle,BarColor.GREEN,BarStyle.SOLID).apply { addPlayer(player); progress=0.08 }
         channels[player.uniqueId]=Channel(site,now,duration,origin,bar)
         lastAttempt[player.uniqueId]="開始成功 node=${site.node.id}/${site.location.id}"
         player.sendActionBar(plugin.message(player,"ec.gathering.actionbar_start"))
