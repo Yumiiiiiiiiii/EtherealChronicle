@@ -50,7 +50,9 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
                 state.objectives[o.id] = (state.objectives.getOrDefault(o.id,0).toLong()+amount).coerceAtMost(o.amount.toLong()).toInt()
                 state.progress = state.objectives.values.sum()
             }
-            if(q.autoComplete && ready(p,id,inventory)) complete(p,id,inventory)
+            if(q.autoComplete && ready(p,id,inventory)) {
+                try { complete(p,id,inventory) } catch(_: IllegalArgumentException) { /* ready quests remain claimable when storage is full */ }
+            }
         }
     }
     fun complete(p: PlayerProfile,id: String,inventory: InventoryAccess) {
@@ -124,3 +126,31 @@ data class WorldTuning(val sellRatio: Double,val maxCurrency: Long,val transacti
 fun Map<String,Any?>.tuning() = WorldTuning(number("sell_ratio",0.3),whole("max_currency",100_000_000),integer("transaction_amount_cap",64),integer("party_size_cap",4),number("party_xp_radius",32.0),integer("global_enemy_cap",100),integer("instance_cap",8),whole("instance_timeout_ticks",36000),number("weakness_multiplier",1.25),number("resistance_multiplier",0.8)).also {
     require(it.sellRatio in 0.0..0.49 && it.maxCurrency in 1..Long.MAX_VALUE/2 && it.transactionCap in 1..64 && it.partyCap in 1..8 && it.partyRadius in 1.0..128.0 && it.enemyCap in 1..1000 && it.instanceCap in 1..32 && it.instanceTimeout > 0)
 }
+
+/** Stages multiple quest/dialogue inventory effects, allowing one validated commit boundary. */
+class StagedInventory(private val base: InventoryAccess): InventoryAccess {
+    val remove=mutableMapOf<String,Int>()
+    val add=mutableMapOf<String,Int>()
+    override fun count(item: String) = base.count(item)-remove.getOrDefault(item,0)+add.getOrDefault(item,0)
+    private fun proposed(r: Map<String,Int>,a: Map<String,Int>): Pair<Map<String,Int>,Map<String,Int>> {
+        require((r.values+a.values).all { it >= 0 })
+        val removals=remove.toMutableMap(); val additions=add.toMutableMap()
+        r.forEach { (id,n) -> removals.merge(id,n,Int::plus) }; a.forEach { (id,n) -> additions.merge(id,n,Int::plus) }
+        (removals.keys+additions.keys).forEach { id -> val common=minOf(removals.getOrDefault(id,0),additions.getOrDefault(id,0)); removals[id]=removals.getOrDefault(id,0)-common; additions[id]=additions.getOrDefault(id,0)-common }
+        return removals.filterValues { it > 0 } to additions.filterValues { it > 0 }
+    }
+    override fun canExchange(remove: Map<String,Int>,add: Map<String,Int>): Boolean {
+        if(remove.any { (id,n) -> count(id) < n }) return false
+        val (r,a)=proposed(remove,add); return base.canExchange(r,a)
+    }
+    override fun exchange(remove: Map<String,Int>,add: Map<String,Int>): Boolean {
+        if(!canExchange(remove,add)) return false
+        val (r,a)=proposed(remove,add); this.remove.clear(); this.remove.putAll(r); this.add.clear(); this.add.putAll(a); return true
+    }
+}
+fun PlayerProfile.restore(other: PlayerProfile) {
+    classId=other.classId; level=other.level; xp=other.xp; currency=other.currency; resource=other.resource; selectedSkill=other.selectedSkill; starterGranted=other.starterGranted; accessory=other.accessory
+    skillLevels.clear(); skillLevels.putAll(other.skillLevels); flags.clear(); flags.addAll(other.flags)
+    quests.clear(); quests.putAll(other.snapshot().quests); dailyPurchases.clear(); dailyPurchases.putAll(other.dailyPurchases); transactions.clear(); transactions.addAll(other.transactions)
+}
+

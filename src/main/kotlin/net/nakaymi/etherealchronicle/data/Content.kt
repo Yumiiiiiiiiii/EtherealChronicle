@@ -76,7 +76,7 @@ class ContentService(private val root: Path, private val migration: ContentMigra
             require(balance.levelCap in 1..1000 && balance.xpBase > 0 && balance.xpExponent in 0.0..10.0 && balance.defenseScale > 0 && balance.statCap >= 1 && balance.damageCap > 0 && balance.skillLevelCap in 1..100 && balance.critDamageCap >= 1 && balance.elementCap >= 1 && balance.xpGainCap > 0 && balance.currencyGainCap > 0)
             val supported = setOf("balance","class","skill","item","enemy","boss","npc","quest","dialogue","chapter","droptable","shop")
             require(docs.values.all { it.string("type") in supported }) { "Unknown content type" }
-            val skills = typed("skill").associate { d -> d.string("id") to SkillDefinition(d.string("id"),d.string("name"),d.num("cost"),d.long("cooldown_ms"),d.num("multiplier"),d.num("range")) }
+            val skills = typed("skill").associate { d -> d.string("id") to SkillDefinition(d.string("id"),d.string("name"),d.num("cost"),d.long("cooldown_ms"),d.num("multiplier"),d.num("range"),d.text("element","PHYSICAL"),d.number("radius",0.0),d.number("heal",0.0),d.number("defense_buff",0.0),d.integer("buff_ticks",0)) }
             val classes = typed("class").associate { d -> d.string("id") to ClassDefinition(d.string("id"),d.string("name"),ResourceKind.valueOf(d.string("resource")),d.stats(),d.num("regeneration"),d.num("hit_gain"),d.strings("skills"),d.strings("starter_items"),(d["growth"] ?: emptyMap<String,Any?>()).asMapping().let { mapOf("stats" to it).stats(Stats.ZERO) }) }
             require(classes.values.all { c -> c.skills.size in 1..4 && c.skills.distinct().size == c.skills.size && c.stats.hp in 1.0..balance.statCap && c.stats.resource in 1.0..balance.statCap && c.skills.all { id -> skills[id]?.cost?.let { it <= c.stats.resource } == true } }) { "Invalid class skills/stats" }
             val items = typed("item").associate { d -> d.string("id") to ItemDefinition(d.string("id"),d.string("name"),d.string("material"),Rarity.valueOf(d.string("rarity")),d.int("min_level"),d.strings("classes").map { aliases[it] ?: it },d.stats(Stats.ZERO),d.num("budget"),b.mapping("rarities").mapping(d.string("rarity")).num("budget_multiplier"),b.mapping("rarities").mapping(d.string("rarity")).int("affixes"),GearSlot.valueOf(d["slot"] as? String ?: "HAND")) }
@@ -118,6 +118,7 @@ fun Map<String,Any?>.stats(d: Stats = Stats()): Stats {
 
 @Suppress("UNCHECKED_CAST")
 fun Map<String,Any?>.mapping(k: String) = this[k] as? Map<String,Any?> ?: error("Missing mapping $k")
+
 
 
 

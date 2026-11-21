@@ -27,13 +27,14 @@ class GameService(private val content: () -> ContentSnapshot, val skills: SkillE
         val b = content().balance
         return Stats(s.hp.coerceIn(1.0,b.statCap),s.resource.coerceIn(0.0,b.statCap),s.attack.coerceIn(0.0,b.statCap),s.defense.coerceIn(0.0,b.statCap),s.crit.coerceIn(0.0,b.critCap),s.critDamage.coerceIn(1.0,b.critDamageCap),s.elementResist.coerceIn(0.0,1.0),s.skillPower.coerceIn(0.0,b.statCap))
     }
-    fun kill(p: PlayerProfile, enemyId: String, inventory: InventoryAccess = MemoryInventory()): Map<String,Int> {
+    fun kill(p: PlayerProfile, enemyId: String, inventory: InventoryAccess = MemoryInventory(), xpAward: Long? = null, currencyAward: Long? = null, rollDrops: Boolean = true): Map<String,Int> {
         val c = content()
         val enemy = c.documents[enemyId] ?: error("魔物が見つかりません。")
         require(enemy.string("type") in setOf("enemy","boss"))
-        c.balance.grantXp(p,enemy.long("xp")); rewardCurrency(p,enemy.long("currency"))
+        c.balance.grantXp(p,xpAward ?: enemy.long("xp")); rewardCurrency(p,currencyAward ?: enemy.long("currency"))
         p.flags.addAll(c.world.enemies[enemyId]?.flags ?: emptySet())
         quests.event(p,ObjectiveKind.KILL,enemyId,1,inventory)
+        if(!rollDrops) return emptyMap()
         return (enemy["droptable"] as? String)?.let { c.drops[it].roll(kotlin.random.Random.Default) } ?: emptyMap()
     }
     fun onHit(p: PlayerProfile, maximum: Double = p.classId?.let { content().classes[it].stats.resource } ?: 0.0) {
@@ -51,6 +52,7 @@ class GameService(private val content: () -> ContentSnapshot, val skills: SkillE
         p.currency = p.currency.coerceAtMost(Long.MAX_VALUE-gain) + gain
     }
 }
+
 
 
 
