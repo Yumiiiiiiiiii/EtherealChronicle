@@ -145,7 +145,19 @@ class AdventurePathsTest {
                 val gold = Regex("currency: (\\d+)").find(saved)!!.groupValues[1].toLong()
                 val delivered = potions() - had
                 assertTrue(gold == 1000L || gold == 972L, "persisted currency $gold is neither 1000 (before) nor 972 (after)")
-                assertTrue(!(gold == 972L && delivered == 0), "LOSS: currency debited and persisted (972) but potion not delivered because the player quit mid-transaction")
+                val pendingPersisted = saved.contains("pending_rewards") && !saved.contains("pending_rewards: {}") && saved.contains("ec:item_con_minor_hp_potion")
+                if (gold == 972L && delivered == 0) assertTrue(pendingPersisted, "LOSS: currency debited and persisted (972) but the potion is neither delivered nor recorded in pending_rewards")
+                if (gold == 972L && delivered == 0) {
+                    // rejoin and claim: must deliver exactly once
+                    val again = PlayerMock(server, "QaShopper", uuid); equipFillers(again); server.addPlayer(again)
+                    assertTrue(server.pump { uuid in plugin.profiles }, "profile not reloaded on rejoin")
+                    fun potions2() = (0..35).sumOf { i -> again.inventory.getItem(i)?.takeIf { it.persistentDataContainer.get(itemKey, PersistentDataType.STRING) == "ec:item_con_minor_hp_potion" }?.amount ?: 0 }
+                    again.performCommand("ec claim"); server.pump(2500) { potions2() >= 1 }
+                    assertEquals(1, potions2(), "claim must deliver exactly the pending potion")
+                    again.performCommand("ec claim"); server.pump(1500) { false }
+                    assertEquals(1, potions2(), "second claim duplicated the reward")
+                    return@rec "persisted currency=$gold, pending_rewards recorded, claim after rejoin delivered 1 (second claim 0)"
+                }
                 "persisted currency=$gold delivered=$delivered"
             }
         } finally {
@@ -155,7 +167,7 @@ class AdventurePathsTest {
         }
         // Step G documents known BUG-5 (quit mid-transaction loses the purchase); it only fails the build with -Dqa.strict=true.
         val strict = System.getProperty("qa.strict") != null
-        val blocking = out.filter { !it.second && (strict || !it.first.startsWith("G ")) }
+        val blocking = out.filter { !it.second }
         assertTrue(blocking.isEmpty(), "failed:\n" + blocking.joinToString("\n") { "${it.first}: ${it.third}" })
     }
 }
