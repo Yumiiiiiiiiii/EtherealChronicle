@@ -1,5 +1,13 @@
 name: EtherealChronicle
 version: '${version}'
-main: dev.mcmmo.rpg.EtherealChroniclePlugin
+main: dev.mcmmo.rpg.paper.RpgPlugin
 api-version: '26.3'
 description: Original fantasy MMORPG for PaperMC
+commands:
+  ec:
+    description: エーテルの年代記 管理コマンド
+    usage: /ec
+permissions:
+  etherealchronicle.admin:
+    description: エーテルの年代記 管理者権限
+    default: op

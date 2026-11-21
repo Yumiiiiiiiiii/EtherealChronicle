@@ -15,16 +15,17 @@ data class Stats(val hp: Double = 100.0, val resource: Double = 100.0, val attac
 
 data class Balance(val levelCap: Int, val xpBase: Double, val xpExponent: Double, val xpGainCap: Long,
     val currencyGainCap: Long, val damageCap: Double, val statCap: Double, val critCap: Double,
-    val defenseScale: Double, val skillLevelCap: Int, val skillGrowth: Double) {
+    val defenseScale: Double, val skillLevelCap: Int, val skillGrowth: Double, val critDamageCap: Double, val elementCap: Double) {
     fun requiredXp(level: Int): Long = (xpBase * level.coerceIn(1, levelCap).toDouble().pow(xpExponent)).toLong().coerceAtLeast(1)
     fun damage(stats: Stats, defense: Double, multiplier: Double, weapon: Double, critical: Boolean, element: Double = 1.0): Double {
         val base = stats.attack.coerceIn(0.0, statCap) * multiplier.coerceAtLeast(0.0) + weapon.coerceIn(0.0, statCap)
         return (base * defenseScale / (defenseScale + defense.coerceIn(0.0, statCap)) *
-            (if (critical) stats.critDamage.coerceIn(1.0, 5.0) else 1.0) * element.coerceIn(0.0, 2.0)).coerceIn(0.0, damageCap)
+            (if (critical) stats.critDamage.coerceIn(1.0, critDamageCap) else 1.0) * element.coerceIn(0.0, elementCap)).coerceIn(0.0, damageCap)
     }
     fun grantXp(player: PlayerProfile, amount: Long): Int {
         require(amount >= 0)
-        player.xp = (player.xp + amount.coerceAtMost(xpGainCap)).coerceAtMost(Long.MAX_VALUE / 2)
+        val gain = amount.coerceAtMost(xpGainCap)
+        player.xp = player.xp.coerceAtMost(Long.MAX_VALUE - gain) + gain
         val before = player.level
         while (player.level < levelCap && player.xp >= requiredXp(player.level)) {
             player.xp -= requiredXp(player.level); player.level++
@@ -41,7 +42,8 @@ data class SkillDefinition(val id: String, val name: String, val cost: Double, v
     val multiplier: Double, val range: Double)
 fun interface Clock { fun millis(): Long }
 enum class CastResult { SUCCESS, COOLDOWN, RESOURCE, INVALID_LEVEL }
-class SkillEngine(private val clock: Clock, private val balance: Balance) {
+class SkillEngine(private val clock: Clock, private var balance: Balance) {
+    fun updateBalance(value: Balance) { balance = value }
     private val ready = mutableMapOf<Pair<UUID, String>, Long>()
     fun remaining(player: UUID, skill: String) = ((ready[player to skill] ?: 0) - clock.millis()).coerceAtLeast(0)
     fun cast(player: PlayerProfile, skill: SkillDefinition): CastResult {
@@ -55,15 +57,15 @@ class SkillEngine(private val clock: Clock, private val balance: Balance) {
     }
     fun multiplier(player: PlayerProfile, skill: SkillDefinition) = skill.multiplier *
         (1 + (player.skillLevels.getOrDefault(skill.id, 1).coerceIn(1, balance.skillLevelCap) - 1) * balance.skillGrowth)
-    fun forget(uuid: UUID) { ready.keys.removeIf { it.first == uuid } }
+    fun cleanup() { val now = clock.millis(); ready.entries.removeIf { it.value <= now } }
 }
 
-enum class Rarity(val budget: Double, val affixes: Int) { COMMON(1.0,0), UNCOMMON(1.2,1), RARE(1.5,2), EPIC(1.8,3), LEGENDARY(2.2,4) }
+enum class Rarity { COMMON, UNCOMMON, RARE, EPIC, LEGENDARY }
 data class ItemDefinition(val id: String, val name: String, val material: String, val rarity: Rarity,
-    val minLevel: Int, val classes: List<String>, val stats: Stats, val budget: Double) {
+    val minLevel: Int, val classes: List<String>, val stats: Stats, val budget: Double, val budgetMultiplier: Double = 1.0, val affixes: Int = 0) {
     fun canEquip(player: PlayerProfile) = player.level >= minLevel && (classes.isEmpty() || player.classId in classes)
     fun withinBudget() = stats.hp / 10 + stats.resource / 10 + stats.attack + stats.defense + stats.crit * 100 +
-        stats.critDamage * 10 + stats.elementResist * 100 + stats.skillPower * 10 <= budget * rarity.budget
+        stats.critDamage * 10 + stats.elementResist * 100 + stats.skillPower * 10 <= budget * budgetMultiplier
 }
 data class DropEntry(val item: String, val chance: Double, val min: Int, val max: Int)
 data class DropTable(val id: String, val entries: List<DropEntry>) {
@@ -77,4 +79,7 @@ data class PlayerProfile(val uuid: UUID, var classId: String? = null, var level:
     val skillLevels: MutableMap<String, Int> = mutableMapOf()) {
     fun snapshot() = copy(skillLevels = skillLevels.toMutableMap())
 }
+
+
+
 

@@ -21,6 +21,7 @@ class ContentService(private val root: Path, private val migration: ContentMigra
     private val current = AtomicReference<ContentSnapshot>()
     fun snapshot() = checkNotNull(current.get())
     fun reload() = load().also { current.set(it) }
+    fun install(snapshot: ContentSnapshot) { current.set(snapshot) }
     fun load(): ContentSnapshot {
         val errors = mutableListOf<String>()
         val docs = linkedMapOf<String,Map<String,Any?>>()
@@ -46,12 +47,12 @@ class ContentService(private val root: Path, private val migration: ContentMigra
         try {
             fun typed(type: String) = docs.values.filter { it.string("type") == type }
             val b = typed("balance").single()
-            val balance = Balance(b.int("level_cap"),b.num("xp_base"),b.num("xp_exponent"),b.long("xp_gain_cap"),b.long("currency_gain_cap"),b.num("damage_cap"),b.num("stat_cap"),b.num("crit_cap"),b.num("defense_scale"),b.int("skill_level_cap"),b.num("skill_growth"))
+            val balance = Balance(b.int("level_cap"),b.num("xp_base"),b.num("xp_exponent"),b.long("xp_gain_cap"),b.long("currency_gain_cap"),b.num("damage_cap"),b.num("stat_cap"),b.num("crit_cap"),b.num("defense_scale"),b.int("skill_level_cap"),b.num("skill_growth"),b.num("crit_damage_cap"),b.num("element_cap"))
             require(balance.levelCap in 1..1000 && balance.xpBase > 0 && balance.defenseScale > 0 && balance.statCap > 0 && balance.damageCap > 0 && balance.skillLevelCap > 0)
             val skills = typed("skill").associate { d -> d.string("id") to SkillDefinition(d.string("id"),d.string("name"),d.num("cost"),d.long("cooldown_ms"),d.num("multiplier"),d.num("range")) }
             val classes = typed("class").associate { d -> d.string("id") to ClassDefinition(d.string("id"),d.string("name"),ResourceKind.valueOf(d.string("resource")),d.stats(),d.num("regeneration"),d.num("hit_gain"),d.strings("skills"),d.strings("starter_items")) }
             require(classes.values.all { it.skills.size in 1..4 && it.stats.hp > 0 && it.stats.resource > 0 })
-            val items = typed("item").associate { d -> d.string("id") to ItemDefinition(d.string("id"),d.string("name"),d.string("material"),Rarity.valueOf(d.string("rarity")),d.int("min_level"),d.strings("classes"),d.stats(Stats.ZERO),d.num("budget")) }
+            val items = typed("item").associate { d -> d.string("id") to ItemDefinition(d.string("id"),d.string("name"),d.string("material"),Rarity.valueOf(d.string("rarity")),d.int("min_level"),d.strings("classes"),d.stats(Stats.ZERO),d.num("budget"),b.mapping("rarities").mapping(d.string("rarity")).num("budget_multiplier"),b.mapping("rarities").mapping(d.string("rarity")).int("affixes")) }
             require(items.values.all { it.withinBudget() && it.minLevel in 1..balance.levelCap }) { "Item budget/level invalid" }
             val drops = typed("droptable").associate { d -> d.string("id") to DropTable(d.string("id"),(d["entries"] as List<*>).map { raw ->
                 @Suppress("UNCHECKED_CAST") val e = raw as Map<String,Any?>
@@ -81,3 +82,8 @@ fun Map<String,Any?>.stats(d: Stats = Stats()): Stats {
     fun n(k: String, v: Double) = (s[k] as? Number)?.toDouble() ?: v
     return Stats(n("hp",d.hp),n("resource",d.resource),n("attack",d.attack),n("defense",d.defense),n("crit",d.crit),n("crit_damage",d.critDamage),n("element_resist",d.elementResist),n("skill_power",d.skillPower))
 }
+
+
+@Suppress("UNCHECKED_CAST")
+fun Map<String,Any?>.mapping(k: String) = this[k] as? Map<String,Any?> ?: error("Missing mapping $k")
+

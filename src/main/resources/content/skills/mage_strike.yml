@@ -1,0 +1,8 @@
+schema_version: 1
+id: ec:mage_strike
+type: skill
+name: 星火 1
+cost: 10
+cooldown_ms: 2000
+multiplier: 1.5
+range: 16
