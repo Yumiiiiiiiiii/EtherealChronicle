@@ -1,0 +1,8 @@
+{
+  "name": "ec-qa-bot",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Offline-mode protocol bot for EtherealChronicle QA (local test server only)",
+  "type": "commonjs",
+  "dependencies": { "mineflayer": "^4.39.0" }
+}

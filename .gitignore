@@ -4,3 +4,5 @@ build/
 .gradle/
 .idea/
 *.class
+node_modules/
+scripts/logs/
