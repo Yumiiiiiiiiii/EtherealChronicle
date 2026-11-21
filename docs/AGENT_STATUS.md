@@ -51,4 +51,10 @@
 - Next handoff: Claude lead owns integration/release judgement; QA rechecks d942b22 live simulation retention. No implementation blockers; do not present pending live checks as completed.
 - Final local verification on d942b22: `./gradlew.bat build test` SUCCESS (60 tests, 0 failures); `git diff --check` passed. Jar: build/libs/EtherealChronicle-0.1.0.jar. Compilation warnings remain for deprecated Paper APIs and MockBukkit/ByteBuddy Unsafe; no test failures or skipped failures were suppressed.
 
+## Codex-Impl — QA BUG-6 follow-up
+- Independent live QA confirmed console chunk retention/despawn, boss phase/HP damage, input errors, dialogue shop choice and virtual grants/sales on d942b22 with clean data. It exposed Slime size resetting MAX_HEALTH to 4 while the display adapter assumed 20, causing nonlethal hits to throw.
+- Fix: set Slime size once before reasserting the display attribute; initialize health from the actual attribute value; every virtual damage update now projects virtual HP into the live MAX_HEALTH range, including small maxima and lethal zero. Pure regression covers the observed 130/140 HP with max4 and boss phase/lethal ranges. Simulation give now has Japanese missing-item/quantity errors with regression assertions.
+- The Paper damage-event path and console path share the corrected adapter. Live Slime and boss lethal-hit re-verification remains a QA handoff; do not claim it run locally.
+- Verified: `./gradlew.bat build test` SUCCESS, 63 tests, 0 failures/skips; `git diff --check` passed.
+
 

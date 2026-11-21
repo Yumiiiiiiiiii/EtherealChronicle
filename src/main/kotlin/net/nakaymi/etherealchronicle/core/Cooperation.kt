@@ -58,3 +58,10 @@ data class BossState(val definition: EnemyDefinition,val partySize: Int,val star
     fun damageScale(tick: Long): Double = (1+(partySize.coerceAtLeast(1)-1)*definition.coopDamage)*(phase()?.damage ?: 1.0)*
         (if(tick-started >= definition.enrageTicks) definition.enrageMultiplier else 1.0)
 }
+
+/** Paper may change a mob's attribute maximum (notably Slime size); virtual HP remains authoritative. */
+fun displayedHealth(hp: Double, virtualMaximum: Double, liveMaximum: Double): Double {
+    require(virtualMaximum.isFinite() && virtualMaximum > 0 && liveMaximum.isFinite() && liveMaximum > 0)
+    if(hp <= 0) return 0.0
+    return (hp/virtualMaximum*liveMaximum).coerceIn(minOf(0.1,liveMaximum),liveMaximum)
+}

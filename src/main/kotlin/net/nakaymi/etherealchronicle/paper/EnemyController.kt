@@ -43,10 +43,11 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
         entity.persistentDataContainer.set(key,PersistentDataType.STRING,id)
         entity.customName(net.kyori.adventure.text.Component.text(d.name)); entity.isCustomNameVisible=true
         if(entity is Slime) entity.size=d.size
-        entity.getAttribute(Attribute.MAX_HEALTH)?.baseValue=20.0; entity.health=20.0
+        // Set size exactly once, then reassert the display attribute it may reset.
+        entity.getAttribute(Attribute.MAX_HEALTH)?.baseValue=20.0
+        entity.health=requireNotNull(entity.getAttribute(Attribute.MAX_HEALTH)).value
         entity.getAttribute(Attribute.MOVEMENT_SPEED)?.baseValue=d.speed
         if("KNOCKBACK_RESIST" in d.traits) entity.getAttribute(Attribute.KNOCKBACK_RESISTANCE)?.baseValue=0.7
-        if(entity is Slime) entity.size=d.size
         if(entity is PiglinAbstract) entity.isImmuneToZombification=true
         entity.isPersistent=false
         if(pinForSimulation) { entity.removeWhenFarAway=false; entity.setAI(false) }
@@ -174,7 +175,8 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
         attackers[entity]=attacker
         state.boss.hp=(state.boss.hp-amount.coerceAtMost(plugin.snapshot.balance.damageCap)).coerceAtLeast(0.0)
         val killed=state.boss.hp <= 0
-        state.entity.health=if(killed) 0.0 else (20*state.boss.hp/state.boss.maximumHp).coerceIn(0.1,20.0)
+        val liveMaximum=requireNotNull(state.entity.getAttribute(Attribute.MAX_HEALTH)).value
+        state.entity.health=displayedHealth(state.boss.hp,state.boss.maximumHp,liveMaximum)
         return killed
     }
     @EventHandler(priority=EventPriority.MONITOR) fun death(e: EntityDeathEvent) { remove(e.entity.uniqueId,false) }

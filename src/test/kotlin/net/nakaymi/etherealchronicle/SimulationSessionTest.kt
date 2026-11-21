@@ -11,6 +11,12 @@ class SimulationSessionTest {
     private val content=ContentService(Path.of("src/main/resources/content")).load()
     private val game=GameService({content},SkillEngine(Clock { 1000 },content.balance))
     private fun session()=SimulationSession({content},game)
+    @Test fun `invalid virtual grants explain item and quantity in Japanese`() {
+        val s=session(); val p=PlayerProfile(UUID.randomUUID())
+        assertContains(assertFails { s.execute(p,"give",listOf("ec:item_nope")) }.message!!,"アイテムが見つかりません")
+        assertContains(assertFails { s.execute(p,"give",listOf("ec:item_con_minor_hp_potion","999")) }.message!!,"数量")
+        assertTrue(s.inventory.contents.isEmpty())
+    }
     @Test fun `console shop shares plans and rejects replay without inventory mutation`() {
         val s=session(); val p=PlayerProfile(UUID.randomUUID()); s.execute(p,"currency",listOf("100"))
         s.execute(p,"buy",listOf("ec:shop_lumina_general","minor_hp_potion_convenience","tx"))
