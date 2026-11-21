@@ -35,6 +35,7 @@ $header = @(
 )
 $rows = foreach ($key in @($ja.Keys | Sort-Object)) {
     $j = $ja[$key].Replace('|','\|').Replace("`n",'<br>')
+    if (!$en.Contains($key)) { throw "Missing English translation for $key" }
     $e = $en[$key].Replace('|','\|').Replace("`n",'<br>')
     $tokenNames = @([regex]::Matches($ja[$key], '<(?!aqua|black|blue|dark_aqua|dark_blue|dark_gray|dark_green|dark_purple|dark_red|gold|gray|green|italic|light_purple|red|reset|white|yellow)([a-zA-Z][a-zA-Z0-9_]*)>') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)
     $tokenNames = [string[]]$tokenNames
@@ -46,5 +47,3 @@ $rows = foreach ($key in @($ja.Keys | Sort-Object)) {
 $footer = @('', '## コンテンツYAMLの多言語化案', '将来は `name_key` / `description_key` を追加し、同じ `ec.*` 翻訳表を参照します。既存の `name` / `description` は後方互換のフォールバックとして維持し、コンテンツschemaと保存形式を一括変更しない段階導入にします。')
 $output = @($header) + @($rows) + @($footer)
 [IO.File]::WriteAllText((Join-Path $Root 'docs/LANGUAGE.md'), (($output -join "`n") + "`n"), [Text.UTF8Encoding]::new($false))
-
-

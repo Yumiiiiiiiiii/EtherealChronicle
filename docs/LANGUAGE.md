@@ -6,7 +6,14 @@
 
 | キー | 日本語 | English | 使用箇所 | プレースホルダ |
 | --- | --- | --- | --- | --- |
+| `ec.advancement.pack_description` | エセリアルクロニクル: 称号進捗 | Ethereal Chronicle: title advancements | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.advancement.root_description` | 冒険の記録 | Adventure records | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.advancement.root_title` | エセリアルクロニクル | Ethereal Chronicle | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.area.teleported` | <name>へ転送しました。 | Teleported to <name>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt | `<name>` |
+| `ec.boss.telegraph` | 予兆: <attack>！<cue>範囲から離れてください。 | Telegraph: <attack>! Move away from the <cue> area. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt | `<attack>`, `<cue>` |
+| `ec.boss.telegraph_generic` | 危険な | dangerous | src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt |  |
+| `ec.boss.telegraph_ice` | 青白い | icy | src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt |  |
+| `ec.boss.telegraph_void` | 紫の | void | src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt |  |
 | `ec.class.choose` | 職業を選んでください | Choose a class | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.codex.back_areas` | エリア一覧へ戻る | Back to Areas | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.codex.catch_count` | 釣果: <count>匹 | Caught: <count> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<count>` |
@@ -16,6 +23,7 @@
 | `ec.codex.gathering_count` | 採取回数: <count> | Harvests: <count> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<count>` |
 | `ec.codex.gathering_kind` | 種別: <kind> / 必要道具 T<tier> | Type: <kind> / Required tool T<tier> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<kind>`, `<tier>` |
 | `ec.codex.maximum_size` | 最大: <size>cm / <crown> | Max: <size> cm / <crown> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<crown>`, `<size>` |
+| `ec.codex.new_discoveries` | 図鑑の発見率が上がりました: <items> | New codex discoveries: <items> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<items>` |
 | `ec.codex.no_weakness` | なし | None | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.codex.search_area` | このエリアで魔物を探しましょう。 | Explore this area to find enemies. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.codex.seek_fishing_spot` | 釣り場で竿を出して探しましょう。 | Cast your rod at a fishing spot to search. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
@@ -27,17 +35,35 @@
 | `ec.codex.undiscovered_fish` | 未発見の魚 | Undiscovered fish | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.codex.undiscovered_gathering` | 未発見の採取地 | Undiscovered gathering site | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.codex.weaknesses` | 弱点: <values> | Weaknesses: <values> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<values>` |
+| `ec.combat.enemy_defeated` | 魔物を討伐！ レベル <level> / 経験値 <xp> | Enemy defeated! Level <level> / XP <xp> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<level>`, `<xp>` |
+| `ec.combat.revive` | 装備の加護が命を守りました！ | Your equipment's blessing saved your life! | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.class_set` | 職業を変更しました。 | Class updated. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.currency_set` | 所持金を設定しました。 | Currency updated. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.command.enemy_spawned` | 魔物を召喚しました。 | Enemy spawned. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.failed` | 操作できません: <reason> | Could not complete that action: <reason> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<reason>` |
+| `ec.command.flag_changed` | フラグを<operation>しました: <flag> | Flag <flag> was <operation>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<flag>`, `<operation>` |
+| `ec.command.flag_clear` | 解除 | cleared | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.command.flag_set` | 設定 | set | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.command.flag_unchanged` | フラグは既に<operation>済みです: <flag> | Flag <flag> was already <operation>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<flag>`, `<operation>` |
+| `ec.command.help` | /ec reload \| validate \| give <player> <item> [amount] \| setlevel <player> <level> \| class <player> <id> \| flag <player> <flag> [set\|clear] \| debug sim … | /ec reload \| validate \| give <player> <item> [amount] \| setlevel <player> <level> \| class <player> <id> \| flag <player> <flag> [set\|clear] \| debug sim … | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<flag>`, `<id>`, `<item>`, `<level>`, `<player>` |
 | `ec.command.item_given` | アイテムを付与しました。 | Item granted. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.level_set` | レベルを変更しました。 | Level updated. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.command.life_level_set` | <kind> をレベル <level> に設定しました。 | Set <kind> to level <level>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<kind>`, `<level>` |
 | `ec.command.no_permission` | 権限がありません。 | You do not have permission to use this command. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.reload_busy` | 取引・職業選択・聖堂攻略中は再読み込みできません。 | Content cannot reload during a transaction, class selection, or trial. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.reload_content_in_use` | 使用中の職業または依頼を削除する変更は再読み込みできません。 | Reload cannot remove a class or quest currently in use. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.reload_success` | コンテンツを再読み込みしました。 | Content reloaded. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.validate_success` | コンテンツ検証成功。 | Content validation succeeded. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.validation_failed` | 検証失敗: <reason> | Validation failed: <reason> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<reason>` |
+| `ec.debug.fish_prefix` | FISH <name>: <detail> | FISH <name>: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<detail>`, `<name>` |
+| `ec.debug.fishing_active` | 釣りセッション / phase=<phase> / action=<action> / elapsed=<elapsed>s of <limit>s / fish=<fish> / progress=<progress>% / tension=<tension>% / bossbar=<bossbar> | Fishing session / phase=<phase> / action=<action> / elapsed=<elapsed>s of <limit>s / fish=<fish> / progress=<progress>% / tension=<tension>% / bossbar=<bossbar> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt | `<action>`, `<bossbar>`, `<elapsed>`, `<fish>`, `<limit>`, `<phase>`, `<progress>`, `<tension>` |
+| `ec.debug.fishing_inactive` | 釣りセッションはありません。 | No fishing session is active. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
+| `ec.debug.gather_prefix` | GATHER <name>: <detail> | GATHER <name>: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<detail>`, `<name>` |
+| `ec.debug.gathering_active` | 採取中 / node=<node> / progress=<progress>% / bossbar=<bossbar> / visible=<visible> / duration=<duration>ms | Gathering / node=<node> / progress=<progress>% / bossbar=<bossbar> / visible=<visible> / duration=<duration>ms | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<bossbar>`, `<duration>`, `<node>`, `<progress>`, `<visible>` |
+| `ec.debug.gathering_details` | <active> / world=<world> owned=<owned> pos=<x>,<y>,<z> profile=<profile> level=<level> held=<held> tool=<tool> nearest=<nearest> locked=<locked> | <active> / world=<world> owned=<owned> pos=<x>,<y>,<z> profile=<profile> level=<level> held=<held> tool=<tool> nearest=<nearest> locked=<locked> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<active>`, `<held>`, `<level>`, `<locked>`, `<nearest>`, `<owned>`, `<profile>`, `<tool>`, `<world>`, `<x>`, `<y>`, `<z>` |
+| `ec.debug.gathering_inactive` | 採取中ではありません。最終試行: <last> | Not gathering. Last attempt: <last> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<last>` |
+| `ec.debug.gathering_nearest` | <site> distance=<distance> expected=<kind>/T<tier>/Lv<level> cooldown=<cooldown>ms | <site> distance=<distance> expected=<kind>/T<tier>/Lv<level> cooldown=<cooldown>ms | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<cooldown>`, `<distance>`, `<kind>`, `<level>`, `<site>`, `<tier>` |
+| `ec.debug.none` | なし | none | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
 | `ec.dialogue.talk` | お話 | Talk | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.dungeon.clear` | <message> | <message> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<message>` |
 | `ec.dungeon.entry` | <message> | <message> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<message>` |
@@ -48,33 +74,79 @@
 | `ec.dungeon.result` | <message> 記録 <seconds>秒 / ランク<rank>（自己ベスト <best_seconds>秒 / <best_rank>） | <message> Time <seconds>s / Rank <rank> (best <best_seconds>s / <best_rank>) | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<best_rank>`, `<best_seconds>`, `<message>`, `<rank>`, `<seconds>` |
 | `ec.dungeon.timeout` | 聖堂の制限時間を迎えました。 | The trial time limit has been reached. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
 | `ec.dungeon.wave` | 試練 第<current>/<total>波が始まります。 | Trial wave <current>/<total> is beginning. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<current>`, `<total>` |
+| `ec.enhance.button` | +<level> に強化 | Enhance to +<level> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<level>` |
+| `ec.enhance.cap` | 上限: +<level> | Maximum: +<level> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<level>` |
+| `ec.enhance.cost` | 費用: <cost> G | Cost: <cost> G | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<cost>` |
+| `ec.enhance.level_lore` | 強化段階 +<level> | Enhancement +<level> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<level>` |
+| `ec.enhance.material` | 必要素材: <item> ×1 | Required material: <item> ×1 | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<item>` |
+| `ec.enhance.refunded` | 強化対象が持ち物から見つからず、費用を返却しました。 | The target equipment was missing, so the cost was refunded. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.enhance.success` | 装備を +<level> に強化しました。 | Equipment enhanced to +<level>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<level>` |
 | `ec.equipment.accessory_equipped` | 装飾品を装備しました。 | Accessory equipped. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.area_missing` | 転送先エリアが見つかりません。 | Destination area not found. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.argument_missing` | 引数が不足しています: <detail> | Missing argument: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt | `<detail>` |
 | `ec.error.class_already_selected` | 職業は既に選択されています。 | A class has already been selected. | src/main/kotlin/net/nakaymi/etherealchronicle/core/GameService.kt |  |
-| `ec.error.class_missing` | 職業が未選択です。 | No class has been selected. | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt |  |
+| `ec.error.class_missing` | 職業が未選択です。 | No class has been selected. | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.error.consumable_cooldown` | まだ使用できません。 | That item is not ready yet. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.currency_cap` | 所持金の上限を超えます。 | This would exceed your currency limit. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/WorldDefinitions.kt |  |
-| `ec.error.currency_low` | 所持金が足りません。 | You do not have enough currency. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
+| `ec.error.currency_low` | 所持金が足りません。 | You do not have enough currency. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.error.daily_limit` | 本日の購入上限に達しています。 | You have reached today's purchase limit. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
+| `ec.error.damage_range` | ダメージは0より大きく <cap> 以下で指定してください。 | Damage must be greater than 0 and at most <cap>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<cap>` |
 | `ec.error.dialogue_choice` | この選択肢は選べません。 | That dialogue choice is unavailable. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.dialogue_cycle` | 会話の分岐が循環しています。 | The dialogue branch contains a cycle. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.dialogue_missing` | 会話が見つかりません。 | Dialogue not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt |  |
 | `ec.error.dialogue_node_missing` | 会話ノードが見つかりません。 | Dialogue node not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.dialogue_too_deep` | 会話の分岐が長すぎます。 | The dialogue branch is too long. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
+| `ec.error.dungeon_already_inside` | 既にダンジョン内です。 | You are already in a dungeon. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
+| `ec.error.dungeon_full` | 聖堂が満員です。しばらくお待ちください。 | The sanctuary is full. Please wait. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
+| `ec.error.dungeon_missing` | ダンジョンが見つかりません: <detail> | Dungeon not found: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<detail>` |
 | `ec.error.dungeon_required` | 進捗の条件には有効なダンジョンIDが必要です。 | The advancement condition requires a valid dungeon ID. | src/main/kotlin/net/nakaymi/etherealchronicle/core/WorldContent.kt |  |
-| `ec.error.enemy_missing` | 魔物が見つかりません。 | Enemy not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/GameService.kt |  |
-| `ec.error.invalid_content` | コンテンツ定義が不正です。詳細を確認してください。 | Content definition is invalid. Check the diagnostic details. | src/main/kotlin/net/nakaymi/etherealchronicle/core/ContentMapReaders.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/WorldContent.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/WorldDefinitions.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/WorldValidation.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/data/Content.kt |  |
+| `ec.error.dungeon_unlock_required` | 仲間全員がダンジョンへの道を開放してください。 | All party members must unlock access to the dungeon. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
+| `ec.error.enemy_missing` | 魔物が見つかりません。 | Enemy not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/GameService.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
+| `ec.error.enhance_budget_cap` | 装備のステータス予算上限に達しています。 | The equipment stat budget cap has been reached. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.error.enhance_cap` | 強化上限です。 | The enhancement cap has been reached. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.error.enhance_hold_gear` | 強化できる冒険者装備を手に持ってください。 | Hold adventurer equipment that can be enhanced. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.error.enhance_item_changed` | 強化対象の装備が変わりました。もう一度開いてください。 | The target equipment changed. Reopen the menu. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.error.enhance_item_changed_no_cost` | 強化対象の装備が変わりました。費用は発生しません。 | The target equipment changed. No cost was charged. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.error.enhance_item_missing` | 強化対象の装備が見つかりません。 | The target equipment could not be found. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.error.enhance_level_changed` | 強化段階が更新されています。もう一度開いてください。 | The enhancement level changed. Reopen the menu. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.error.enhance_material_missing` | 強化素材が足りません。 | You do not have the required enhancement material. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.error.enhance_one_gear` | 装備品を1個だけ手に持ってください。 | Hold exactly one piece of equipment. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.error.equipment_requirements` | この装備は現在の職業・レベルでは使用できません。 | Your current class or level cannot use this equipment. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.error.fishing_active` | 既に釣りセッション中です。 | A fishing session is already active. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
+| `ec.error.fishing_bait` | 餌が見つかりません。 | Bait not found. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
+| `ec.error.fishing_bait_missing` | 選択中の餌を持っていません。 | You do not have the selected bait. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
+| `ec.error.fishing_capacity` | 釣りセッション数が上限に達しています。 | The fishing session limit has been reached. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
+| `ec.error.fishing_no_species` | この場所で釣れる魚がありません。 | No fish can be caught at this spot. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
+| `ec.error.fishing_profile` | プレイヤーデータを読み込み中です。 | The player profile is still loading. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
+| `ec.error.fishing_rod` | 釣り竿の定義がありません。 | No fishing rod is configured. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
+| `ec.error.fishing_species` | 魚種が見つかりません: <id> | Fish species not found: <id> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt | `<id>` |
+| `ec.error.fishing_spot` | このワールドに釣り場がありません。 | No fishing spot is configured in this world. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
+| `ec.error.fishing_world` | 管理ワールド内で実行してください。 | Run this inside the managed world. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
+| `ec.error.flag_format` | フラグIDの形式が正しくありません。 | The flag ID format is invalid. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.error.flag_not_declared` | 章に定義されていないフラグです: <detail> | This flag is not declared in a chapter: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<detail>` |
+| `ec.error.flag_operation` | 操作は set または clear を指定してください。 | Operation must be set or clear. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.error.guard_spawn_failed` | 護衛魔物を配置できませんでした。 | Could not spawn a guard enemy. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
+| `ec.error.invalid_content` | コンテンツ定義が不正です。詳細を確認してください。 | Content definition is invalid. Check the diagnostic details. | src/main/kotlin/net/nakaymi/etherealchronicle/core/ContentMapReaders.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/WorldContent.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/WorldDefinitions.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/WorldValidation.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/data/Content.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/data/PlayerStore.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.error.inventory_exchange` | 必要品が不足しているか、持ち物に空きがありません。 | Required items are missing or your inventory is full. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
-| `ec.error.inventory_full` | 持ち物に空きがありません。 | Make room in your inventory. | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
+| `ec.error.inventory_full` | 持ち物に空きがありません。 | Make room in your inventory. | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.error.item_missing` | アイテムが見つかりません。 | Item not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt |  |
 | `ec.error.item_unsellable` | このアイテムは売れません。 | This item cannot be sold. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
+| `ec.error.life_level_range` | 生活スキルレベルは1..<detail>で指定してください。 | Life skill level must be between 1 and <detail>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<detail>` |
 | `ec.error.materials_or_space` | 必要な素材が不足しているか、持ち物に空きがありません。 | Required materials are missing or your inventory is full. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
+| `ec.error.party_gather` | 仲間全員が近くに集まり、職業を選択してください。 | Gather your party nearby and make sure everyone has selected a class. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
 | `ec.error.party_invite_missing` | 招待がありません。 | There is no party invitation. | src/main/kotlin/net/nakaymi/etherealchronicle/core/Cooperation.kt |  |
+| `ec.error.party_leader_required` | パーティーリーダーが入場してください。 | The party leader must enter. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
+| `ec.error.party_member_missing` | 仲間が見つかりません。 | Party member not found. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.error.party_not_online` | パーティー全員がオンラインになってから入場してください。 | All party members must be online before entering. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
+| `ec.error.player_missing` | プレイヤーが見つかりません。 | Player not found. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.error.player_required` | プレイヤーを指定してください。 | Specify a player. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.error.profile_loading` | プロフィールを読み込み中です。 | Your profile is still loading. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.error.quantity_range` | 指定した数量は許容範囲外です。 | The quantity is outside the allowed range. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt |  |
 | `ec.error.quest_active` | この依頼は受注済みです。 | This quest is already active. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.quest_incomplete` | 依頼の達成条件を満たしていません。 | You have not met the quest objectives. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.quest_missing` | 依頼が見つかりません。 | Quest not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
+| `ec.error.quest_npc_complete` | 依頼はNPCに報告してください。 | Report quests to an NPC. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.error.quest_npc_start` | 依頼はNPCとの会話から受注してください。 | Accept quests through an NPC dialogue. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.error.quest_prerequisite` | 依頼の受注条件を満たしていません。 | You do not meet the quest requirements. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.reset_schedule` | リセット周期は DAILY または WEEKLY です。 | Reset schedule must be DAILY or WEEKLY. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.revive_is_passive` | 不死鳥の星羽は装飾品として装備し、致死ダメージ時に自動発動します。/ec equipment から装備してください。 | Equip the Phoenix Star Feather as an accessory. It activates automatically on lethal damage. Use /ec equipment. | src/main/kotlin/net/nakaymi/etherealchronicle/core/Consumable.kt |  |
@@ -85,18 +157,40 @@
 | `ec.error.shop_entry_missing` | 商品が見つかりません。 | Shop entry not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.shop_missing` | 店が見つかりません。 | Shop not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.shop_no_buyback` | この店は買取できません。 | This shop does not buy items. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
+| `ec.error.shop_npc_missing` | この店を開くNPCが見つかりません。 | No NPC was found for this shop. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.error.shop_too_far` | お店の近くに移動してください。 | Move closer to the shop. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.error.sim_exists` | その仮想プレイヤーは既に参加しています。 | That virtual player has already joined. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
+| `ec.error.sim_join_first` | 先に ec debug sim join を実行してください。 | Run ec debug sim join first. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
+| `ec.error.sim_load_failed` | 仮想プロフィールを読み込めませんでした: <reason> | Could not load virtual profile: <reason> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<reason>` |
 | `ec.error.sim_operation_unknown` | 不明なシミュレーション操作です: <detail> | Unknown simulation operation: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt | `<detail>` |
+| `ec.error.sim_peer_missing` | 相手の仮想プレイヤーが参加していません。 | The other virtual player has not joined. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
+| `ec.error.sim_save_failed` | 仮想プロフィールを保存できませんでした: <reason> | Could not save virtual profile: <reason> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<reason>` |
+| `ec.error.sim_usage` | /ec debug sim <operation> <name> [arguments] を指定してください。 | Use /ec debug sim <operation> <name> [arguments]. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<name>`, `<operation>` |
+| `ec.error.spawn_cap` | 魔物の出現上限に達しています。 | The enemy spawn limit has been reached. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
+| `ec.error.spawn_duplicate_or_cap` | 同じ魔物が既に存在するか、出現上限に達しています。 | That enemy already exists or the spawn limit was reached. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.error.spawn_unavailable` | 同じ魔物が存在するか、出現上限に達しています。 | The enemy already exists or the spawn limit has been reached. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
+| `ec.error.target_defeated` | 対象は討伐済みです。 | That target has already been defeated. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
+| `ec.error.target_missing` | 対象が見つかりません。 | The target was not found. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
+| `ec.error.target_participant` | 対象の参加者ではありません。 | You are not a participant in that target. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.error.teleport_condition` | 転送条件を満たしていません。 | You do not meet the teleport requirements. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.teleport_destination` | 転送座標は対象エリア内で指定してください。 | The teleport destination must be inside the selected area. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.teleport_world` | 管理ワールド以外へは転送できません。 | Teleporting outside the managed world is not allowed. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
-| `ec.error.transaction_busy` | 取引の処理中です。 | A transaction is already in progress. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
+| `ec.error.transaction_busy` | 取引の処理中です。 | A transaction is already in progress. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.error.transaction_changed` | 取引の状態が変化しました。 | The transaction state changed. Please try again. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.transaction_replayed` | 処理済みの取引です。 | This transaction has already been processed. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.transaction_rolled_back` | 保存に失敗したため取引を戻しました。 | The transaction was rolled back because saving failed. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
-| `ec.error.world_missing` | 転送先ワールドがありません。 | Destination world is unavailable. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
+| `ec.error.usage` | 使い方: <detail> | Usage: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<detail>` |
+| `ec.error.world_missing` | 転送先ワールドがありません。 | Destination world is unavailable. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
+| `ec.error.world_owned_only` | この操作は管理対象ワールド内でのみ利用できます。 | This action is only available in the managed world. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/NpcController.kt |  |
+| `ec.error.world_unavailable` | 専用ワールドの準備ができていません。 | The dedicated world is not ready. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.fishing.actionbar_status` | <aqua>張力 <tension>% \| 進捗 <progress>% | <aqua>Tension <tension>% \| Progress <progress>% | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt | `<progress>`, `<tension>` |
 | `ec.fishing.aim_water` | 水面を狙って竿を投げてください。 | Aim at the water before casting. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
+| `ec.fishing.bait_auto` | 自動 | Auto | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.fishing.bait_disabled` | 餌を使わない設定にしました。 | Bait disabled. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.fishing.bait_enabled_auto` | 自動で餌を選ぶ設定にしました。 | Automatic bait selection enabled. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.fishing.bait_failed` | 餌を消費できませんでした。 | Could not consume the bait. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
+| `ec.fishing.bait_none` | なし | None | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.fishing.bait_selected` | 餌を選択しました: <name> | Selected bait: <name> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<name>` |
 | `ec.fishing.behavior_calm` | 安定 | Steady | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
 | `ec.fishing.behavior_dive` | 潜り | Diving | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
 | `ec.fishing.behavior_telegraph` | 予告 | Telegraph | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
@@ -115,7 +209,9 @@
 | `ec.fishing.crown_silver` | [銀冠] | [Silver Crown] | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
 | `ec.fishing.damage` | 戦闘により釣りを中断しました。 | Fishing was interrupted by combat. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
 | `ec.fishing.death` | 倒れたため釣りを中断しました。 | Fishing was interrupted because you fell. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
-| `ec.fishing.debug_cancel` | デバッグ釣りを終了しました。 | Debug fishing ended. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
+| `ec.fishing.debug_bossbar` | <aqua>デバッグ釣り: <fish> | <aqua>Debug fishing: <fish> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt | `<fish>` |
+| `ec.fishing.debug_cancel` | デバッグ釣りを終了しました。 | Debug fishing ended. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.fishing.debug_started` | デバッグ釣りを開始しました: <fish>。左クリックでいなし、右クリックで引いてください。 | Started debug fishing: <fish>. Left-click to brace and right-click to pull. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt | `<fish>` |
 | `ec.fishing.distance` | 水面が近すぎるか、遠すぎます。 | The water is too close or too far away. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
 | `ec.fishing.dive` | 潜り！左クリックでいなす | Diving! Left-click to brace. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingUiFeedback.kt |  |
 | `ec.fishing.hand_swap` | 釣りを中断しました。 | Fishing was interrupted. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
@@ -126,6 +222,7 @@
 | `ec.fishing.macro_detected` | 機械的な操作間隔を検出しました。希少魚の出現率を調整します。 | Mechanical timing detected. Rare fish odds have been adjusted. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
 | `ec.fishing.new_record` | NEW! | NEW! | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
 | `ec.fishing.no_eligible_fish` | この竿と釣り場では狙える魚がいません。 | No fish can be caught with this rod at this spot. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
+| `ec.fishing.no_session` | 釣りセッションはありません。 | There is no fishing session. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.fishing.no_shadow` | この水辺には魚影が見当たりません。 | No fish are visible in these waters. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
 | `ec.fishing.profile_loading` | 冒険データを準備中です。 | Adventure data is still loading. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
 | `ec.fishing.profile_missing` | 冒険データを読み込めず、釣果を確定できませんでした。 | Could not load adventure data to confirm your catch. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
@@ -160,6 +257,7 @@
 | `ec.gathering.cancel_tool` | 道具を持ち替えたため採取を中断しました。 | Gathering stopped because you changed tools. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
 | `ec.gathering.capacity` | 採取が混み合っています。少し待ってください。 | Gathering is busy. Please wait a moment. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
 | `ec.gathering.channel_ended` | 採取チャンネルを終了しました。 | Gathering channel ended. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
+| `ec.gathering.channel_started` | 採取を開始しました。 | Gathering started. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
 | `ec.gathering.click_site` | 採取地点 <name> の表示または足元を右クリックしてください。 | Right-click the display or ground at <name>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<name>` |
 | `ec.gathering.level_low` | 採取レベルが足りません。採取Lv.<level>以上が必要です。 | Your gathering level is too low. Gathering Lv. <level> or higher is required. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<level>` |
 | `ec.gathering.node_label` | <green>[採取] <white><name> <gray>(Lv.<level>) | <green>[Gather] <white><name> <gray>(Lv. <level>) | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<level>`, `<name>` |
@@ -181,8 +279,11 @@
 | `ec.gathering.world_only` | 管理対象の採取エリアでのみ採取できます。 | Gathering is only available in the managed gathering areas. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
 | `ec.hud.main` | HP <hp>/<max_hp>  <resource_name> <resource>/<max_resource>  <skill> CD <cooldown>秒  仲間 <party>人 | HP <hp>/<max_hp>  <resource_name> <resource>/<max_resource>  <skill> CD <cooldown>s  Party <party> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<cooldown>`, `<hp>`, `<max_hp>`, `<max_resource>`, `<party>`, `<resource>`, `<resource_name>`, `<skill>` |
 | `ec.item.cannot_drop` | このアイテムは手放せません。 | You cannot drop this item. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
+| `ec.item.required_level` | 必要レベル: <level> / <rarity> | Required level: <level> / <rarity> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<level>`, `<rarity>` |
+| `ec.life.fishing` | 釣り | Fishing | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.life.fishing_bait_help` | /ec fish bait <item_id\|auto\|none> | /ec fish bait <item_id\|auto\|none> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.life.fishing_status` | 釣り Lv.<level> / 経験値 <xp>/<required> / スコア <score> / 発見 <found>/<total>種 / 餌 <bait> | Fishing Lv. <level> / XP <xp>/<required> / Score <score> / Discovered <found>/<total> / Bait <bait> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<bait>`, `<found>`, `<level>`, `<required>`, `<score>`, `<total>`, `<xp>` |
+| `ec.life.gathering` | 採取 | Gathering | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.life.gathering_status` | 採取 Lv.<level> / 経験値 <xp>/<required> / 累計 <count>回 / 発見 <found>/<total>種 | Gathering Lv. <level> / XP <xp>/<required> / Total <count> / Discovered <found>/<total> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<count>`, `<found>`, `<level>`, `<required>`, `<total>`, `<xp>` |
 | `ec.mailbox.inventory_full` | 報酬を保管しています。持ち物に空きを作り /ec claim で受け取ってください。 | Your reward is stored. Make room and use /ec claim to receive it. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.mailbox.save_retry` | 受取内容を保存できませんでした。/ec claim で再試行してください。 | Could not save the claim. Retry with /ec claim. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
@@ -195,12 +296,33 @@
 | `ec.menu.enhance` | 装備強化 | Enhance Gear | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.menu.equipment` | 装備 | Equipment | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.menu.shop` | お店 | Shop | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
+| `ec.party.invite_received` | <name> からパーティー招待です。/ec party accept（60秒以内） | <name> invited you to a party. Use /ec party accept within 60 seconds. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<name>` |
+| `ec.party.invite_sent` | <name> さんへ招待を送りました。 | Invitation sent to <name>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<name>` |
+| `ec.party.joined` | パーティーに参加しました。 | You joined the party. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.party.left` | パーティーを離れました。 | You left the party. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.party.members` | 仲間: <members> | Party: <members> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<members>` |
+| `ec.party.offline` | 離席中 | Offline | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.profile.class_data_missing` | 職業データが見つかりません。管理者にご連絡ください。 | Your class data could not be found. Please contact an administrator. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.profile.inventory_space` | 持ち物に空きを作ってください。 | Make room in your inventory. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.profile.read_failed` | 冒険データを読み込めませんでした。管理者にご連絡ください。 | Could not load your adventure data. Please contact an administrator. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.profile.save_retry` | 保存できませんでした。もう一度お試しください。 | Could not save your profile. Please try again. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.profile.skill_slot` | スキルスロット | Skill Slot | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.profile.skill_slot_space` | 9番のアイテムを空きに移して持ち物を閉じてください。保護品は地面に捨てません。 | Move the item from hotbar slot 9 and close your inventory. Protected items will not be dropped. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.profile.starter_space` | 持ち物の空きがなくなりました。管理者にスターター装備の再付与を依頼してください。 | Your inventory filled up. Ask an administrator to restore your starter gear. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.profile.welcome` | ようこそ！受付嬢セリアに話しかけて冒険を始めましょう。 | Welcome! Talk to Celia at the reception desk to begin your adventure. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.quest.accepted` | 依頼を受注しました。 | Quest accepted. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.quest.completed` | 依頼を達成しました！ | Quest completed! | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.quest.none_active` | 受注中の依頼はありません。 | You have no active quests. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.quest.objective_progress` | ・<target> <progress>/<amount> | - <target> <progress>/<amount> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<amount>`, `<progress>`, `<target>` |
+| `ec.quest.status` | <name>: <status> | <name>: <status> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<name>`, `<status>` |
+| `ec.quest.status_active` | 進行中 | In progress | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.quest.status_complete` | 達成済み | Complete | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.quest.status_ready` | 報告できます | Ready to report | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.rarity.common` | コモン | Common | src/main/kotlin/net/nakaymi/etherealchronicle/core/Game.kt |  |
+| `ec.rarity.epic` | エピック | Epic | src/main/kotlin/net/nakaymi/etherealchronicle/core/Game.kt |  |
+| `ec.rarity.legendary` | レジェンダリー | Legendary | src/main/kotlin/net/nakaymi/etherealchronicle/core/Game.kt |  |
+| `ec.rarity.rare` | レア | Rare | src/main/kotlin/net/nakaymi/etherealchronicle/core/Game.kt |  |
+| `ec.rarity.uncommon` | アンコモン | Uncommon | src/main/kotlin/net/nakaymi/etherealchronicle/core/Game.kt |  |
 | `ec.resource.focus` | 集中 | Focus | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.resource.mana` | マナ | Mana | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.resource.rage` | 怒り | Rage | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
@@ -208,6 +330,24 @@
 | `ec.shop.price_buy` | 価格 <price>G / 左クリックで購入 | Price: <price>G / Left-click to buy | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt | `<price>` |
 | `ec.shop.sell_hint` | 売却: 持ち物の品を右クリック | Sell: right-click an item in your inventory | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.shop.tokens` | 素材: <items> | Materials: <items> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt | `<items>` |
+| `ec.sim.cast` | スキル結果: <result> | Skill result: <result> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<result>` |
+| `ec.sim.choice` | 会話: <conversation> / 効果: <effects> | Dialogue: <conversation> / Effects: <effects> | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt | `<conversation>`, `<effects>` |
+| `ec.sim.currency` | 所持金を <amount> に設定しました。 | Set currency to <amount>. | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt | `<amount>` |
+| `ec.sim.despawned` | 仮想魔物とチャンク保持を解除しました。 | Removed simulated enemy and chunk ticket. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
+| `ec.sim.dialogue` | 会話 <node>: <text> / 選択肢: <choices> | Dialogue <node>: <text> / Choices: <choices> | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt | `<choices>`, `<node>`, `<text>` |
+| `ec.sim.hit` | 仮想攻撃: HP=<hp> / 討伐=<killed> / フェーズ=<phase>。実プレイヤー報酬は発生しません。 | Simulated hit: HP=<hp> / killed=<killed> / phase=<phase>. No real player rewards are issued. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<hp>`, `<killed>`, `<phase>` |
+| `ec.sim.level` | レベルを <level> に設定しました。 | Set level to <level>. | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt | `<level>` |
+| `ec.sim.loaded` | 仮想プロフィール <name> を読み込みました。仮想持ち物はリセットされました。 | Loaded virtual profile <name>. Virtual inventory was reset. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<name>` |
+| `ec.sim.loot` | 戦利品: <items> | Loot: <items> | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt | `<items>` |
+| `ec.sim.operation` | SIM <operation> <name>: <profile> | SIM <operation> <name>: <profile> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<name>`, `<operation>`, `<profile>` |
+| `ec.sim.party` | 仮想パーティー: <members> | Virtual party: <members> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<members>` |
+| `ec.sim.party_split` | パーティー経験値配分: <shares> | Party XP split: <shares> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<shares>` |
+| `ec.sim.quest_completed` | 依頼を達成しました: <quest> | Completed quest: <quest> | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt | `<quest>` |
+| `ec.sim.quest_started` | 依頼を受注しました: <quest> | Started quest: <quest> | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt | `<quest>` |
+| `ec.sim.result` | 結果: <result> | Result: <result> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<result>` |
+| `ec.sim.saved` | 仮想プロフィール <name> を保存しました。 | Saved virtual profile <name>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<name>` |
+| `ec.sim.spawn` | 仮想出現 UUID=<uuid> HP=<hp> | Simulated spawn UUID=<uuid> HP=<hp> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<hp>`, `<uuid>` |
+| `ec.sim.transaction` | 取引 <id> / 所持金: <currency> / 持ち物: <inventory> | Transaction <id> / Currency: <currency> / Inventory: <inventory> | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt | `<currency>`, `<id>`, `<inventory>` |
 | `ec.skill.cooldown` | まだ使用できません。 | That skill is not ready yet. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.skill.obstructed` | 魔物との間に障害物があります。 | An obstacle blocks your line to the enemy. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.skill.resource_low` | リソースが足りません。 | Not enough resource. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |

@@ -8,7 +8,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import kotlin.test.assertTrue
 
 /** 翻訳リソースの同期、プレースホルダー、利用一覧の鮮度を検証します。 */
 class LangCatalogTest {
@@ -28,6 +27,20 @@ class LangCatalogTest {
         assertTrue(japanese.toString().contains("<red>旅人"))
         assertTrue(english.toString().contains("Hello"))
         assertTrue(english.toString().contains("<red>traveler"))
+    }
+
+    /** 例外キーの後ろに付く診断値を翻訳テンプレートのplaceholderへ渡します。 */
+    @Test
+    fun diagnosticInterpolatesAppendedDetails() {
+        val catalog = LangCatalog(
+            "auto",
+            mapOf("ec.error.item" to "アイテム <id> がありません"),
+            mapOf("ec.error.item" to "Missing item <id>"),
+            Logger.getLogger("LangCatalogTest")
+        )
+
+        assertTrue(catalog.diagnostic("en_us", "ec.error.item: ec:item_missing").toString().contains("ec:item_missing"))
+        assertFalse(catalog.diagnostic("en_us", "ec.error.item: ec:item_missing").toString().contains("<id>"))
     }
 
     /** 言語ファイルは独立manifestを使い、編集済み同梱ファイルを上書きしないことを確認します。 */
@@ -50,6 +63,88 @@ class LangCatalogTest {
         assertFalse(Files.exists(root.resolve("content-manifest.properties")))
     }
 
+    /** Kotlinのコメントを除外し、実行時に表示される日本語文字列の直書きを禁止します。 */
+    @Test
+    fun kotlinStringLiteralsDoNotContainCjkText() {
+        val root = Path.of("").toAbsolutePath()
+        val sourceRoot = root.resolve("src/main/kotlin")
+        val cjk = Regex("[\\u3040-\\u30ff\\u3400-\\u9fff]")
+        val violations = mutableListOf<String>()
+
+        Files.walk(sourceRoot).use { paths ->
+            paths.filter { Files.isRegularFile(it) && it.toString().endsWith(".kt") }.forEach { file ->
+                val source = Files.readString(file)
+                scanKotlinStrings(source) { line, value ->
+                    if (cjk.containsMatchIn(value)) {
+                        violations += "${root.relativize(file)}:$line"
+                    }
+                }
+            }
+        }
+
+        assertTrue(violations.isEmpty(), "Kotlin文字列リテラルはLang経由にしてください: ${violations.joinToString()}")
+    }
+
+    private fun scanKotlinStrings(source: String, onString: (Int, String) -> Unit) {
+        var index = 0
+        var line = 1
+        while (index < source.length) {
+            when {
+                source.startsWith("//", index) -> {
+                    while (index < source.length && source[index] != '\n') index++
+                }
+                source.startsWith("/*", index) -> {
+                    index += 2
+                    var depth = 1
+                    while (index < source.length && depth > 0) {
+                        when {
+                            source.startsWith("/*", index) -> { depth++; index += 2 }
+                            source.startsWith("*/", index) -> { depth--; index += 2 }
+                            source[index] == '\n' -> { line++; index++ }
+                            else -> index++
+                        }
+                    }
+                }
+                source.startsWith("\"\"\"", index) -> {
+                    val startLine = line
+                    index += 3
+                    val start = index
+                    while (index < source.length && !source.startsWith("\"\"\"", index)) {
+                        if (source[index] == '\n') line++
+                        index++
+                    }
+                    onString(startLine, source.substring(start, index))
+                    index = (index + 3).coerceAtMost(source.length)
+                }
+                source[index] == '\"' -> {
+                    val startLine = line
+                    index++
+                    val value = StringBuilder()
+                    while (index < source.length && source[index] != '\"') {
+                        if (source[index] == '\\' && index + 1 < source.length) {
+                            value.append(source[index]).append(source[index + 1])
+                            index += 2
+                        } else {
+                            if (source[index] == '\n') line++
+                            value.append(source[index++])
+                        }
+                    }
+                    onString(startLine, value.toString())
+                    if (index < source.length) index++
+                }
+                source[index] == '\'' -> {
+                    index++
+                    while (index < source.length && source[index] != '\'') {
+                        if (source[index] == '\\' && index + 1 < source.length) index += 2 else index++
+                    }
+                    if (index < source.length) index++
+                }
+                source[index] == '\n' -> { line++; index++ }
+                else -> index++
+            }
+        }
+    }
+
     @Test
     fun bundledLanguagesAndGeneratedReferenceStayInSync() {
         val root = Path.of("").toAbsolutePath()
@@ -62,7 +157,7 @@ class LangCatalogTest {
 
         val catalog = LangCatalog.load(temporaryData, "auto", Logger.getLogger("LangCatalogTest"))
         val entries = catalog.entries()
-        assertTrue(entries.values.all { (japanese, english) -> japanese != null && english != null })
+        assertTrue(entries.values.all { (japanese, english) -> japanese != null && english != null }, entries.filterValues { it.first == null || it.second == null }.toString())
         assertEquals(
             entries.mapValues { (_, values) -> placeholders(values.first!!) },
             entries.mapValues { (_, values) -> placeholders(values.second!!) }
@@ -111,4 +206,3 @@ class LangCatalogTest {
         )
     }
 }
-
