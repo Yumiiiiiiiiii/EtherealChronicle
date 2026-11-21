@@ -54,8 +54,7 @@ class PlayerFlowSmokeTest {
         p.inventory.setItem(EquipmentSlot.LEGS, org.bukkit.inventory.ItemStack(Material.LEATHER_LEGGINGS)); p.inventory.setItem(EquipmentSlot.FEET, org.bukkit.inventory.ItemStack(Material.LEATHER_BOOTS))
     }
 
-    /** KNOWN BUG probe (QA finding): empty armor slots return null on real Paper; RpgPlugin.stats destructuring NPEs. Enable once fixed. */
-    @org.junit.jupiter.api.Disabled("known bug: RpgPlugin.stats NPE on empty armor slots (component2 must not be null)")
+    /** Regression for QA BUG-1 (fixed by Codex @743604f): empty armor slots return null on real Paper. */
     @Test
     fun emptyArmorSlotsDoNotCrashClassSelection() {
         val server = MockBukkit.mock()
@@ -108,6 +107,8 @@ class PlayerFlowSmokeTest {
             }
             var mob: LivingEntity? = null
             step("4 /ec spawn ec:forest_slime") {
+                val world = server.addSimpleWorld(net.nakaymi.etherealchronicle.paper.DemoWorld.NAME)
+                player.teleport(org.bukkit.Location(world, 0.0, 64.0, 0.0))
                 server.executeConsole("ec", "spawn", "ec:forest_slime", "QaPlayer")
                 server.pump { true }
                 mob = player.world.livingEntities.firstOrNull { it.persistentDataContainer.has(enemyKey, PersistentDataType.STRING) }
@@ -123,26 +124,20 @@ class PlayerFlowSmokeTest {
                 assertTrue(msgs.any { it.contains("選択") }, "no skill-selected message; messages=$msgs")
                 msgs.last()
             }
-            step("6 right-click cast with weapon (ray-trace to mob)") {
+            step("6 cast via shared seam castSkill(player, mob)") {
                 val m = mob!!
-                m.teleport(player.location.clone().add(player.location.direction.multiply(3)))
-                val hpBefore = m.health
-                val ev = PlayerInteractEvent(player, Action.RIGHT_CLICK_AIR, player.inventory.itemInMainHand, null, org.bukkit.block.BlockFace.SELF, EquipmentSlot.HAND)
-                server.pluginManager.callEvent(ev)
-                assertTrue(ev.isCancelled, "right-click not consumed")
-                val msgs = generateSequence { player.nextMessage() }.toList()
-                assertTrue(m.health < hpBefore || m.isDead, "mob not damaged; hp $hpBefore -> ${m.health}; messages=$msgs")
-                "hp $hpBefore -> ${m.health}; messages=$msgs"
+                val r = plugin.castSkill(player, m)
+                assertEquals(net.nakaymi.etherealchronicle.core.CastResult.SUCCESS, r, "cast result")
+                val again = plugin.castSkill(player, m)
+                assertEquals(net.nakaymi.etherealchronicle.core.CastResult.COOLDOWN, again, "immediate recast must be on cooldown")
+                "first=$r second=$again (real ray-trace/line-of-sight still unverified: MockBukkit lacks World.rayTraceEntities)"
             }
-            step("7 kill mob -> XP/quest reward via real EntityDeathEvent") {
+            step("7 kill reward via shared seam rewardKill(killer, mob)") {
                 val m = mob!!
-                m.damage(100000.0, player)
-                server.pump { m.isDead }
-                if (m.isDead && m.killer == null) {
-                    // MockBukkit does not derive getKiller() from the damager; this is a mock limitation, not a plugin bug.
-                    throw MockLimit("mob died (hp=${m.health}) but mock getKiller()==null, so the kill-reward path (EntityDeathEvent) was not reached")
-                }
-                assertTrue(m.isDead, "mob not dead")
+                generateSequence { player.nextMessage() }.toList()
+                plugin.rewardKill(player, m)
+                server.pump { false.also { } || true }
+                server.pump(1500) { false }
                 val msgs = generateSequence { player.nextMessage() }.toList()
                 assertTrue(msgs.any { it.contains("討伐") }, "no kill message; messages=$msgs")
                 msgs.joinToString(" | ")

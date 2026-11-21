@@ -81,3 +81,10 @@ Each item: scope, how to verify, status. Environment for all server items: Paper
 - Every bug found gets a unit test where it is expressible in `core.*`; otherwise a checklist row/note.
 - Reviewer != implementer. Record findings in `docs/AGENT_STATUS.md`.
 
+
+## Update 2026-11-21 (codex/foundation 743604f merged)
+- `./gradlew test`: 29 tests, 0 failures (AdventureServicesTest 6, FoundationTest 17, QA fixtures 4, PlayerFlowSmokeTest 2). BUG-1 (empty armor NPE) is **fixed** (regression test `emptyArmorSlotsDoNotCrashClassSelection` now enabled and passing).
+- MockBukkit scenario: all 9 steps PASS, using the new seams `castSkill` (SUCCESS then COOLDOWN) and `rewardKill` (`魔物を討伐！ レベル 2 / 経験値 25`). `/ec spawn` now requires the owned world `ec_world` (test creates a simple world with that name). Real ray-trace/line-of-sight and real `EntityDeathEvent.killer` remain unverified.
+- Live Paper smoke (validate / sim join,class,skill,kill,save / reload) PASS.
+- **BUG-3 (live, found by smoke)**: `[ERROR] 専用ワールドを準備できませんでした: .\ec_world\.etherealchronicle-owned` on every boot. Paper 26.x stores custom worlds under `world/dimensions/minecraft/ec_world`, so `worldContainer/ec_world` never exists and `Files.writeString(marker)` throws. `DemoWorld.ensure` should use `world.worldFolder` (and create parents) for the marker/built flags; as is, the demo world is created every boot but its marker is never written. NOT-RUN on a real client: `ec world`, party/dungeon/NPC/shop.
+- Harness: log analyser now also flags `[hh:mm:ss ERROR]` lines (it previously missed Paper's bracket format).

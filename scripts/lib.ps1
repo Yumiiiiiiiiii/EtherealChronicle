@@ -72,7 +72,8 @@ $script:BadPatterns = @(
     'Error occurred while enabling EtherealChronicle',
     'Exception',
     '\[ERROR\]',
-    '/ERROR\]',
+    '/ERROR]',
+    ' ERROR]',
     'Unhandled exception',
     'Failed to (start|bind|load)',
     'Encountered an unexpected exception'
