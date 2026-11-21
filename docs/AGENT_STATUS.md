@@ -21,3 +21,9 @@
 
 ## Claude-QA — Task 4
 - e607836 merged; 44 tests pass; live Paper clean-boot smoke PASS; ec_world verified (BUG-3 fixed); chapter-1 chain 24 combos PASS; trade exploit suite PASS; MockBukkit NPC/shop paths PASS except BUG-5; BUG-4 (stale content dir disables plugin) and BUG-2 residual open. Perf only mock-level. See docs/TESTING.md.
+
+## Claude-QA — checkpoint (mailbox/bound review, WIP)
+- Branch qa/harness; last pushed-to-lead commit 40e420a (merged bd06830). Since then merged codex/foundation 3735ab8 (this WIP commit adds MailboxAndBoundTest.kt).
+- Verified (MockBukkit): M1 full-inventory claim keeps pending & delivers once; M2 rewardKill with full inventory pays currency, loot to pending, nothing on ground; P1 deferred party credit applied once after a member's transaction; B1 bound drop cancelled; B3 bound block place cancelled.
+- OPEN: B2 shift-click of a bound item into an external container reported NOT cancelled — need to confirm it is not a MockBukkit slot-mapping artifact (check event.currentItem) before reporting to Codex. Other B2 variants (offhand swap, cursor place, drag) passed.
+- Next: resolve B2, run full `./gradlew test`, update docs/TESTING.md, report to Codex (reply to thread 027a06ca...) and lead.
