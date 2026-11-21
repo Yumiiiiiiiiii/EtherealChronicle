@@ -45,6 +45,11 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
     private val catchHistory=mutableMapOf<Pair<UUID,String>,ArrayDeque<Long>>()
     private val disabledUntil=mutableMapOf<Pair<UUID,String>,Long>()
     private val macroDetectors=mutableMapOf<UUID,FishingMacroDetector>()
+    private val pullBufferSeconds=0.25
+
+    private fun logEnd(subject:String,fishId:String,state:FishingState,reason:FishingEndReason) {
+        plugin.logger.info(fishingEndLogLine(subject,reason,fishId,state.progress.toInt(),state.tension.toInt()))
+    }
     private var task:org.bukkit.scheduler.BukkitTask?=null
 
     init {
@@ -87,14 +92,18 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
     }
     fun close() {
         task?.cancel(); task=null
-        sessions.values.toList().forEach { cleanup(it) }
+        sessions.toMap().forEach { (id,session) ->
+            logEnd(Bukkit.getPlayer(id)?.name ?: id.toString(),session.state.fish.id,session.state,FishingEndReason.WORLD_UNLOAD)
+            cleanup(session)
+        }
         sessions.clear(); catchHistory.clear(); disabledUntil.clear(); macroDetectors.clear()
     }
     fun reload() { close(); task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },2,2) }
     private fun cleanup(session:Session) { session.bar.removeAll(); Bukkit.getEntity(session.bobber)?.remove() }
-    private fun cancel(player:org.bukkit.entity.Player,message:String?=null):Boolean {
+    private fun cancel(player:org.bukkit.entity.Player,message:String?=null,reason:FishingEndReason=FishingEndReason.CANCELLED):Boolean {
         val session=sessions.remove(player.uniqueId) ?: return false
         cleanup(session)
+        logEnd(player.name,session.state.fish.id,session.state,reason)
         if(message!=null && player.isOnline) player.sendMessage(Component.text(message))
         return true
     }
@@ -194,14 +203,14 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         val s=sessions[e.player.uniqueId] ?: return
         if(s.state.phase==FishingPhase.REELING && e.animationType==org.bukkit.event.player.PlayerAnimationType.ARM_SWING) pulse(e.player,s,ReelInput.BRACE)
     }
-    @EventHandler fun held(e:PlayerItemHeldEvent) { if(active(e.player.uniqueId)) cancel(e.player,"竿を持ち替えたため釣りを中断しました。") }
-    @EventHandler fun swap(e:PlayerSwapHandItemsEvent) { if(active(e.player.uniqueId)) cancel(e.player,"釣りを中断しました。") }
-    @EventHandler fun quit(e:PlayerQuitEvent) { cancel(e.player) }
-    @EventHandler fun death(e:PlayerDeathEvent) { cancel(e.entity,"倒れたため釣りを中断しました。") }
-    @EventHandler(ignoreCancelled=true) fun damage(e:EntityDamageEvent) { (e.entity as? org.bukkit.entity.Player)?.let { if(active(it.uniqueId)) cancel(it,"戦闘により釣りを中断しました。") } }
+    @EventHandler fun held(e:PlayerItemHeldEvent) { if(active(e.player.uniqueId)) cancel(e.player,"竿を持ち替えたため釣りを中断しました。",FishingEndReason.ROD_CHANGED) }
+    @EventHandler fun swap(e:PlayerSwapHandItemsEvent) { if(active(e.player.uniqueId)) cancel(e.player,"釣りを中断しました。",FishingEndReason.CANCELLED) }
+    @EventHandler fun quit(e:PlayerQuitEvent) { cancel(e.player,"釣りを終了しました。",FishingEndReason.QUIT) }
+    @EventHandler fun death(e:PlayerDeathEvent) { cancel(e.entity,"倒れたため釣りを中断しました。",FishingEndReason.DEATH) }
+    @EventHandler(ignoreCancelled=true) fun damage(e:EntityDamageEvent) { (e.entity as? org.bukkit.entity.Player)?.let { if(active(it.uniqueId)) cancel(it,"戦闘により釣りを中断しました。",FishingEndReason.DAMAGE) } }
     @EventHandler fun moved(e:org.bukkit.event.player.PlayerMoveEvent) {
         val session=sessions[e.player.uniqueId] ?: return
-        if(e.from.world!=e.to.world || e.to.distanceSquared(session.castOrigin)>25.0 || e.to.distanceSquared(session.water)>225.0) cancel(e.player,"釣り場から離れたため中断しました。")
+        if(e.from.world!=e.to.world || e.to.distanceSquared(session.castOrigin)>25.0 || e.to.distanceSquared(session.water)>225.0) cancel(e.player,"釣り場から離れたため中断しました。",FishingEndReason.LEFT_SPOT)
     }
     @EventHandler fun chunk(e:ChunkLoadEvent) {
         e.chunk.entities.filter { it.persistentDataContainer.has(bobberKey,PersistentDataType.STRING) }.forEach { ent ->
@@ -247,9 +256,12 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         catchHistory.values.forEach { it.removeIf { ts -> now-ts>plugin.snapshot.world.lifeBalance.fatigueWindowSeconds*1000 } }
         sessions.toMap().forEach { (id,s) ->
             val player=Bukkit.getPlayer(id)
-            if(player==null || !player.isOnline) { sessions.remove(id)?.let(::cleanup); return@forEach }
+            if(player==null || !player.isOnline) {
+                sessions.remove(id)?.let { logEnd(id.toString(),it.state.fish.id,it.state,FishingEndReason.QUIT); cleanup(it) }
+                return@forEach
+            }
             val stack=plugin.identify(player.inventory.itemInMainHand)
-            if(stack!=s.rod.item || player.world.name!=s.water.world.name) { cancel(player,"竿を持ち替えたため釣りを中断しました。"); return@forEach }
+            if(stack!=s.rod.item || player.world.name!=s.water.world.name) { cancel(player,"竿を持ち替えたため釣りを中断しました。",FishingEndReason.ROD_CHANGED); return@forEach }
             if(plugin.adventure.locked(id)) return@forEach
             val phaseBefore=s.state.phase
             if(s.bitePending) {
@@ -262,7 +274,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
             val buffered=s.input; s.input=ReelInput.IDLE
             val input=when {
                 buffered==ReelInput.BRACE -> { s.pullRemaining=0.0; ReelInput.BRACE }
-                buffered==ReelInput.PULL -> { s.pullRemaining=0.35; ReelInput.PULL }
+                buffered==ReelInput.PULL -> { s.pullRemaining=pullBufferSeconds; ReelInput.PULL }
                 s.pullRemaining>0.0 -> { s.pullRemaining=(s.pullRemaining-0.1).coerceAtLeast(0.0); ReelInput.PULL }
                 else -> ReelInput.IDLE
             }
@@ -272,10 +284,18 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
                 when(phase) {
                     FishingPhase.CAUGHT -> reward(player,s)
                     FishingPhase.ESCAPED -> {
-                        val (title,subtitle)=fishingEscapeTitle(s.state.escapeCause)
+                        val cause=s.state.escapeCause
+                        val (title,subtitle)=fishingEscapeTitle(cause)
+                        val message=fishingEscapeMessage(cause)
+                        cancel(player,message,when(cause) {
+                            FishingEscapeCause.TIMEOUT -> FishingEndReason.TIMEOUT
+                            FishingEscapeCause.OVER_TENSION -> FishingEndReason.LINE_SNAP
+                            FishingEscapeCause.LINE_SLACK -> FishingEndReason.LINE_SLACK
+                            FishingEscapeCause.BITE_MISSED -> FishingEndReason.ESCAPED_BITE
+                            null -> FishingEndReason.CANCELLED
+                        })
+                        // Keep the terminal result visible even if another event replaces chat/actionbar feedback.
                         player.sendTitle(title,subtitle,0,24,8)
-                        if(s.state.escapeCause==FishingEscapeCause.TIMEOUT) player.sendMessage(Component.text("制限時間を過ぎたため、魚を逃しました。"))
-                        cancel(player)
                     }
                     else -> Unit
                 }
@@ -290,9 +310,9 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         }
     }
     private fun reward(player:org.bukkit.entity.Player,s:Session) {
-        val profile=plugin.profiles[player.uniqueId] ?: run { cancel(player); return }
+        val profile=plugin.profiles[player.uniqueId] ?: run { cancel(player,"冒険データを読み込めず、釣果を確定できませんでした。",FishingEndReason.REWARD_FAILED); return }
         val catch=engine.catch(s.state,s.rod.sizeBonus,profile.lifeSkills.getValue(LifeSkillKind.FISHING).level)
-        cancel(player)
+        cancel(player,"魚を掛けました。釣果を確定しています。",FishingEndReason.CAUGHT)
         try {
             plugin.adventure.transaction(player,{ inventory ->
                 require(inventory.exchange(emptyMap(),mapOf(catch.species.item to 1)))
@@ -312,6 +332,10 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
                 player.playSound(player.location,org.bukkit.Sound.ENTITY_PLAYER_LEVELUP,0.5f,1.6f)
                 plugin.markDirty(profile.uuid)
             })
-        } catch(error:Exception) { player.sendMessage(Component.text("魚の受け取りに失敗しました。所持品を整理して再度お試しください。")) }
+        } catch(error:Exception) {
+            plugin.logger.warning("FISH ${player.name}: 終了 reason=${FishingEndReason.REWARD_FAILED.name} fish=${catch.species.id} error=${error.message}")
+            player.sendMessage(Component.text("魚の受け取りに失敗しました。所持品を整理して再度お試しください。"))
+            player.sendTitle("§c受け取り失敗","§7所持品を整理してください",0,24,8)
+        }
     }
 }

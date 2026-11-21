@@ -17,6 +17,22 @@ class FishingUiFeedbackTest {
     }
     @Test fun `reeling timeout has a visible timeout title`() {
         assertEquals("§c時間切れ！" to "§7魚を逃してしまった…",fishingEscapeTitle(FishingEscapeCause.TIMEOUT))
+        assertContains(fishingEscapeMessage(FishingEscapeCause.TIMEOUT),"制限時間")
+    }
+    @Test fun `every fishing escape cause has a title and a chat fallback`() {
+        FishingEscapeCause.entries.forEach { cause ->
+            val (title,subtitle)=fishingEscapeTitle(cause)
+            assertContains(title,"§")
+            assertContains(subtitle,"§")
+            assertContains(fishingEscapeMessage(cause),"。");
+        }
+    }
+    @Test fun `every fishing end reason has a structured diagnostic line`() {
+        FishingEndReason.entries.forEach { reason ->
+            val line=fishingEndLogLine("QA",reason,"ec:fish_sunbeam_trout",42,61)
+            assertContains(line,"FISH QA: 終了 reason=${reason.name}")
+            assertContains(line,"progress=42% tension=61%")
+        }
     }
     @Test fun `default debug fishing selects an accessible fish for the local area`() {
         val world=ContentService(Path.of("src/main/resources/content")).load().world
