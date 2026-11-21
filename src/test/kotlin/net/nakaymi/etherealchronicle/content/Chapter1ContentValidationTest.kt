@@ -1,20 +1,26 @@
 package net.nakaymi.etherealchronicle.content
 
+import net.nakaymi.etherealchronicle.core.BossState
+import net.nakaymi.etherealchronicle.core.DialogueEngine
 import net.nakaymi.etherealchronicle.core.GearSlot
+import net.nakaymi.etherealchronicle.core.MemoryInventory
 import net.nakaymi.etherealchronicle.core.ObjectiveKind
+import net.nakaymi.etherealchronicle.core.PlayerProfile
 import net.nakaymi.etherealchronicle.core.Rarity
+import net.nakaymi.etherealchronicle.core.TradeEngine
 import net.nakaymi.etherealchronicle.data.ContentService
 import net.nakaymi.etherealchronicle.data.string
 import net.nakaymi.etherealchronicle.data.strings
 import org.junit.jupiter.api.Test
 import java.nio.file.Path
+import java.util.UUID
 import kotlin.math.floor
 import kotlin.test.*
 
 /**
  * Loads every bundled YAML under src/main/resources/content through the real ContentService
  * and verifies Chapter 1 schema compliance, cross-references, spatial bounds, economy invariants,
- * and quest reachability.
+ * dialogue/trade runtime behavior, boss scaling, and quest reachability.
  */
 class Chapter1ContentValidationTest {
     private fun loadBundled() = ContentService(Path.of("src/main/resources/content")).load()
@@ -202,7 +208,118 @@ class Chapter1ContentValidationTest {
     }
 
     @Test
-    fun `boss definitions have valid virtual HP, descending phases, and kill flags`() {
+    fun `trade engine applies choice discounts and token discount subtraction accurately`() {
+        val snap = loadBundled()
+        val trade = TradeEngine { snap }
+
+        // Choice 1A: Apothecary 10% discount
+        val p1 = PlayerProfile(UUID.randomUUID(), currency = 1000)
+        val bag1 = MemoryInventory(capacity = 50)
+        val fullPrice = trade.buy(p1, "ec:shop_lumina_apothecary", "antidote_herb", bag1, "tx-1", 1)
+        assertEquals(1000 - 40, fullPrice.currencyAfter)
+        p1.flags.add("ec:flag_choice1_purify")
+        val discounted = trade.buy(p1, "ec:shop_lumina_apothecary", "antidote_herb", bag1, "tx-2", 1)
+        assertEquals(1000 - 36, discounted.currencyAfter)
+
+        // Choice 3B: Stargazer Relic Observatory discount subtracts 5 Starshard Fragments only
+        val p3 = PlayerProfile(UUID.randomUUID(), currency = 0, flags = mutableSetOf("ec:flag_void_warden_defeated"))
+        val tokenBag = MemoryInventory(
+            mutableMapOf(
+                "ec:item_mat_void_core_essence" to 10,
+                "ec:item_mat_starshard_fragment" to 40,
+            ),
+            capacity = 100,
+        )
+        val ringNoDiscount = trade.buy(p3, "ec:shop_stargazer_relic", "void_heart_ring", tokenBag, "tx-ring-base", 1)
+        assertEquals(
+            mapOf("ec:item_mat_void_core_essence" to 4, "ec:item_mat_starshard_fragment" to 25),
+            ringNoDiscount.remove,
+        )
+        val cleaverNoDiscount = trade.buy(p3, "ec:shop_stargazer_relic", "void_cleaver", tokenBag, "tx-cleaver-base", 1)
+        assertEquals(
+            mapOf("ec:item_mat_void_core_essence" to 5, "ec:item_mat_starshard_fragment" to 30),
+            cleaverNoDiscount.remove,
+        )
+
+        p3.flags.add("ec:flag_choice3_observatory")
+        val ringDiscounted = trade.buy(p3, "ec:shop_stargazer_relic", "void_heart_ring", tokenBag, "tx-ring-disc", 1)
+        assertEquals(
+            mapOf("ec:item_mat_void_core_essence" to 4, "ec:item_mat_starshard_fragment" to 20),
+            ringDiscounted.remove,
+        )
+        val cleaverDiscounted = trade.buy(p3, "ec:shop_stargazer_relic", "void_cleaver", tokenBag, "tx-cleaver-disc", 1)
+        assertEquals(
+            mapOf("ec:item_mat_void_core_essence" to 5, "ec:item_mat_starshard_fragment" to 25),
+            cleaverDiscounted.remove,
+        )
+    }
+
+    @Test
+    fun `dialogue engine resolves all NPCs across chapter states without cycles or broken links`() {
+        val snap = loadBundled()
+        val dialogueEngine = DialogueEngine { snap }
+
+        val profiles = listOf(
+            PlayerProfile(UUID.randomUUID(), level = 1),
+            PlayerProfile(
+                UUID.randomUUID(),
+                classId = "ec:class_warrior",
+                level = 5,
+                flags = mutableSetOf("ec:flag_class_selected", "ec:flag_ch1_started"),
+            ),
+            PlayerProfile(
+                UUID.randomUUID(),
+                classId = "ec:class_archer",
+                level = 15,
+                flags = mutableSetOf(
+                    "ec:flag_class_selected",
+                    "ec:flag_ch1_started",
+                    "ec:flag_ashwood_cleared",
+                    "ec:flag_choice1_purify",
+                    "ec:flag_mine_unlocked",
+                    "ec:flag_choice2_forgive",
+                    "ec:flag_iron_grinder_defeated",
+                    "ec:flag_stargazer_unlocked",
+                    "ec:flag_sanctum_unlocked",
+                ),
+            ),
+            PlayerProfile(
+                UUID.randomUUID(),
+                classId = "ec:class_mage",
+                level = 19,
+                flags = mutableSetOf(
+                    "ec:flag_class_selected",
+                    "ec:flag_ch1_started",
+                    "ec:flag_ashwood_cleared",
+                    "ec:flag_choice1_extract",
+                    "ec:flag_mine_unlocked",
+                    "ec:flag_choice2_report",
+                    "ec:flag_iron_grinder_defeated",
+                    "ec:flag_stargazer_unlocked",
+                    "ec:flag_sanctum_unlocked",
+                    "ec:flag_void_warden_defeated",
+                    "ec:flag_choice3_observatory",
+                    "ec:flag_ch1_completed",
+                ),
+            ),
+        )
+
+        snap.world.dialogues.values.forEach { dlg ->
+            profiles.forEach { profile ->
+                val (nodeId, node) = dialogueEngine.node(profile, dlg.id)
+                assertTrue(nodeId in dlg.nodes, "Resolved invalid node $nodeId in ${dlg.id}")
+                assertTrue(node.text.isNotBlank(), "Blank text in ${dlg.id}/$nodeId")
+                node.choices.forEach { choice ->
+                    choice.next?.let { nextId ->
+                        assertTrue(nextId in dlg.nodes, "Broken next link $nextId in ${dlg.id}/$nodeId/${choice.id}")
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `boss definitions have valid virtual HP, descending phases, kill flags, and coop scaling`() {
         val snap = loadBundled()
         val world = snap.world
         val warden = world.enemies["ec:boss_void_warden"] ?: fail("Missing ec:boss_void_warden")
@@ -215,5 +332,18 @@ class Chapter1ContentValidationTest {
         assertEquals(7800.0, grinder.hp)
         assertTrue("ec:flag_void_warden_defeated" in warden.flags)
         assertTrue("ec:flag_iron_grinder_defeated" in grinder.flags)
+
+        // Verify real BossState scaling & phase transitions for 4-player party
+        val wardenState = BossState(warden, partySize = 4, started = 0L)
+        assertTrue(wardenState.maximumHp > warden.hp, "4-player boss HP should scale above solo HP")
+        assertEquals(warden.phases.first().id, wardenState.phase()?.id)
+        wardenState.hp = wardenState.maximumHp * 0.50
+        assertEquals(warden.phases[1].id, wardenState.phase()?.id)
+        wardenState.hp = wardenState.maximumHp * 0.20
+        assertEquals(warden.phases[2].id, wardenState.phase()?.id)
+        assertTrue(
+            wardenState.damageScale(warden.enrageTicks) > wardenState.damageScale(0L),
+            "Enrage tick should raise damage scale"
+        )
     }
 }
