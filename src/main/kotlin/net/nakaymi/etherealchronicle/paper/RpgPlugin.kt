@@ -29,6 +29,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal lateinit var fishing: FishingController
     internal lateinit var treasures: TreasureController
     private lateinit var content: ContentService
+    private lateinit var language: LangCatalog
     private lateinit var store: PlayerStore
     internal lateinit var game: GameService
     internal val profiles = mutableMapOf<UUID,PlayerProfile>()
@@ -50,17 +51,35 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private lateinit var slotKey: NamespacedKey
     /** 現在の不変コンテンツSnapshotをControllerへ公開します。 */
     internal val snapshot get() = content.snapshot()
+    /** クライアントlocaleに合わせて翻訳済みComponentを生成します。 */
+    internal fun message(player: Player, key: String, vararg values: Pair<String, Any?>): Component =
+        language.component(player.locale().toString(), key, values.toMap())
+    /** プレイヤー以外の管理コマンドは設定言語、または日本語へフォールバックします。 */
+    internal fun message(sender: CommandSender, key: String, vararg values: Pair<String, Any?>): Component =
+        language.component((sender as? Player)?.locale()?.toString(), key, values.toMap())
     internal fun persist(profile: PlayerProfile) = store.save(profile)
     internal fun identify(stack: ItemStack?) = stack?.itemMeta?.persistentDataContainer?.get(itemKey,PersistentDataType.STRING)
     internal fun inventory(player: Player,persistRemoval: Boolean = true): PaperInventoryAccess = PaperInventoryAccess(player,::identify,::createItem,persistRemoval) { logger.fine("取引の消費アイテムを保存しました: ${player.uniqueId}") }
     internal fun markDirty(player: UUID) { dirty.add(player) }
     /** YAMLを非同期検証した後、メインスレッドで各ゲームControllerを登録します。 */
     override fun onEnable() {
+        saveDefaultConfig()
         itemKey = NamespacedKey(this,"item_id"); enhancementKey=NamespacedKey(this,"enhancement_level"); enhancementTransactionKey=NamespacedKey(this,"enhancement_transaction"); enemyKey = NamespacedKey(this,"enemy_id"); slotKey = NamespacedKey(this,"skill_slot")
         // 非同期初期化中でも管理コマンドが「起動中」と返せるよう、先にexecutorを登録します。
         getCommand("ec")!!.setExecutor(this)
         server.scheduler.runTaskAsynchronously(this,Runnable {
             try {
+                val languageDefaults = listOf("ja_jp.yml", "en_us.yml").associate { name ->
+                    "lang/$name" to getResource("lang/$name")!!.use { it.readBytes() }
+                }
+                val oldLanguageDefaults = getResource("language-defaults.properties")
+                    ?.use { DefaultContentInstaller.manifest(it.readBytes()) } ?: emptyMap()
+                val languageInstall = DefaultContentInstaller.installTracked(
+                    dataFolder.toPath(), languageDefaults, oldLanguageDefaults, "lang-manifest.properties"
+                )
+                languageInstall.updated.forEach { logger.info("未編集の同梱言語ファイルを更新しました: $it") }
+                languageInstall.changed.forEach { logger.info("サーバー編集の言語ファイルを優先します: $it") }
+                language = LangCatalog.load(dataFolder.toPath(), config.getString("language", "auto") ?: "auto", logger)
                 val bundled = getResource("content-index.txt")!!.bufferedReader().use { reader ->
                     reader.readLines().filter { it.isNotBlank() }.associate { path ->
                         val clean = path.removePrefix("\uFEFF")
@@ -143,7 +162,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     /** 接続世代tokenで古い非同期loadを捨て、完了したプロフィールだけを反映します。 */
     private fun join(player: Player) {
         val token = UUID.randomUUID(); sessions[player.uniqueId] = token
-        player.sendMessage(Component.text("冒険データを読み込んでいます…"))
+        player.sendMessage(message(player,"ec.startup.loading"))
         store.load(player.uniqueId).whenComplete { profile,error -> sync {
             if(sessions[player.uniqueId] != token || !player.isOnline) return@sync
             if(error != null) { logger.severe("読み込み失敗: ${error.message}"); player.kick(Component.text("冒険データを読み込めませんでした。管理者にご連絡ください。")); return@sync }
@@ -178,7 +197,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
 
     }
     private fun menu(player: Player) {
-        val menu = ClassMenu().inventory
+        val menu = ClassMenu(message(player,"ec.class.choose")).inventory
         content.snapshot().classes.all().take(9).forEachIndexed { index,c ->
             val icon=c.icon?.let(Material::valueOf) ?: when(c.resource) { ResourceKind.RAGE -> Material.IRON_SWORD; ResourceKind.FOCUS -> Material.BOW; ResourceKind.MANA -> Material.BLAZE_ROD }
             menu.setItem(index,ItemStack(icon).apply {
@@ -345,7 +364,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         require(definition.canEquip(profiles[player.uniqueId] ?: error("プロフィールを読み込み中です。"))) { "この装備は現在の職業・レベルでは使用できません。" }
         val level=stack.itemMeta.persistentDataContainer.get(enhancementKey,PersistentDataType.INTEGER) ?: 0
         val tuning=snapshot.world.tuning
-        val menu=RpgMenu("enhance",definition.id,level.toString()).inventory
+        val menu=RpgMenu("enhance",definition.id,level.toString(),message(player,"ec.menu.enhance")).inventory
         menu.setItem(4,stack.clone())
         menu.setItem(13,ItemStack(Material.ANVIL).apply { itemMeta=itemMeta.apply {
             displayName(Component.text("+${level+1} に強化"))
@@ -640,7 +659,11 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         c.documents.values.filter { it["type"] in setOf("enemy","boss") }.forEach { d -> validate(d.string("id")) { require(EntityType.valueOf(d.string("entity")).isAlive) { "entity は生物である必要があります。" } } }
     }
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
-        if(!ready) { sender.sendMessage(Component.text("冒険システムは起動中です。しばらくお待ちください。")); return true }
+        if(!ready) {
+            val starting = if(::language.isInitialized) message(sender,"ec.startup.starting") else Component.text("冒険システムは起動中です。しばらくお待ちください。")
+            sender.sendMessage(starting)
+            return true
+        }
         if(sender is Player && args.firstOrNull() in setOf("quest","party","equipment","dungeon","shop","claim","title","codex","enhance","fish","gather")) {
             try { playerCommand(sender,args.toList()) } catch(error: Exception) { sender.sendMessage(Component.text("操作できません: ${error.message}")) }
             return true

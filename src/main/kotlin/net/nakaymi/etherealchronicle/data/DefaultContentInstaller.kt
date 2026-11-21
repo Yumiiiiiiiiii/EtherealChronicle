@@ -21,13 +21,14 @@ object DefaultContentInstaller {
         val properties=Properties().apply { bytes.toString(Charsets.UTF_8).removePrefix("\uFEFF").reader().use(::load) }
         return properties.stringPropertyNames().filter { it != "format" }.associateWith(properties::getProperty)
     }
-    private fun installed(root: Path): Map<String,String> {
-        val path=root.resolve("content-manifest.properties")
+    private fun installed(root: Path, manifestFile: String): Map<String,String> {
+        val path=root.resolve(manifestFile).normalize()
+        require(path.startsWith(root.toAbsolutePath().normalize())) { "配布ファイル一覧のパスが不正です: $manifestFile" }
         return if(Files.exists(path)) manifest(Files.readAllBytes(path)) else emptyMap()
     }
     fun retire(root: Path,active: Set<String>,legacy: Map<String,String> = emptyMap()): Retirement {
         val retired=mutableListOf<String>(); val preserved=mutableListOf<String>()
-        (legacy+installed(root)).filterKeys { it !in active }.forEach { (name,expected) ->
+        (legacy+installed(root,"content-manifest.properties")).filterKeys { it !in active }.forEach { (name,expected) ->
             val target=resolve(root,name)
             if(!Files.exists(target)) return@forEach
             if(hash(Files.readAllBytes(target)) != expected) { preserved += name; return@forEach }
@@ -44,9 +45,16 @@ object DefaultContentInstaller {
     }
     /** 直前配布版のhashと一致するファイルだけを安全な同梱更新対象にします。 */
     /** 前回同梱hashに一致する旧版だけ更新し、編集済みファイルは保持します。 */
-    fun installTracked(root: Path,bundled: Map<String,ByteArray>,legacyDefaults: Map<String,String> = emptyMap()): Installation {
+    fun installTracked(
+        root: Path,
+        bundled: Map<String,ByteArray>,
+        legacyDefaults: Map<String,String> = emptyMap(),
+        manifestFile: String = "content-manifest.properties"
+    ): Installation {
         val changed=mutableListOf<String>(); val updated=mutableListOf<String>()
-        val previous=legacyDefaults+installed(root)
+        val manifestPath=root.resolve(manifestFile).normalize()
+        require(manifestPath.startsWith(root.toAbsolutePath().normalize())) { "配布ファイル一覧のパスが不正です: $manifestFile" }
+        val previous=legacyDefaults+installed(root,manifestFile)
         bundled.forEach { (name,bytes) ->
             val target=resolve(root,name)
             Files.createDirectories(target.parent)
@@ -64,11 +72,12 @@ object DefaultContentInstaller {
                 } else if(currentHash != newHash) changed += name
             }
         }
-        val values=Properties().apply { putAll(installed(root)+bundled.mapValues { hash(it.value) }); setProperty("format","1") }
+        val values=Properties().apply { putAll(installed(root,manifestFile)+bundled.mapValues { hash(it.value) }); setProperty("format","1") }
         Files.createDirectories(root)
-        val tmp=root.resolve("content-manifest.properties.tmp")
+        Files.createDirectories(manifestPath.parent)
+        val tmp=manifestPath.resolveSibling(manifestPath.fileName.toString()+".tmp")
         Files.newBufferedWriter(tmp).use { values.store(it,"EtherealChronicle installed default file set / normalized SHA-256") }
-        Files.move(tmp,root.resolve("content-manifest.properties"),StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING)
+        Files.move(tmp,manifestPath,StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING)
         return Installation(changed,updated)
     }
 }

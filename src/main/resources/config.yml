@@ -1,0 +1,2 @@
+# auto follows each player's Minecraft client language. Supported values: auto, ja_jp, en_us.
+language: auto

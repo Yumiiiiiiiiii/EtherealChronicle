@@ -75,7 +75,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         val p=plugin.profiles[player.uniqueId] ?: return
         val (at,definition)=dialogues.node(p,id,node)
         dialogueSessions[p.uuid]=id to at
-        val menu=RpgMenu("dialogue",id,at).inventory
+        val menu=RpgMenu("dialogue",id,at,plugin.message(player,"ec.menu.dialogue")).inventory
         menu.setItem(4,ItemStack(Material.WRITTEN_BOOK).apply { itemMeta=itemMeta.apply {
             displayName(Component.text("お話")); lore(definition.text.chunked(28).map { mm.deserialize(it) })
         } })
@@ -89,7 +89,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     fun showShop(player: Player,id: String) {
         val p=plugin.profiles[player.uniqueId] ?: return
         val shop=plugin.snapshot.world.shops[id] ?: error("店が見つかりません。")
-        val menu=RpgMenu("shop",id).inventory
+        val menu=RpgMenu("shop",id,title=plugin.message(player,"ec.menu.shop")).inventory
         shop.entries.forEachIndexed { index,e ->
             if(e.condition.matches(p)) menu.setItem(index,plugin.createItem(e.item,e.amount).apply { itemMeta=itemMeta.apply {
                 val extra=listOf(Component.text("価格 ${e.price}G / 左クリックで購入"),Component.text("素材: ${e.tokens.joinToString { "${it.item} ×${it.amount}" }}"),Component.text("売却: 持ち物の品を右クリック"))
@@ -101,7 +101,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     /** 装備可能なアクセサリー一覧を表示します。 */
     fun equipment(player: Player) {
         val p=plugin.profiles[player.uniqueId] ?: return
-        val menu=RpgMenu("equipment","").inventory
+        val menu=RpgMenu("equipment","",title=plugin.message(player,"ec.menu.equipment")).inventory
         player.inventory.storageContents.filterNotNull().mapNotNull { plugin.item(it) }.filter { it.slot == GearSlot.ACCESSORY && it.canEquip(p) }.distinctBy { it.id }.take(54).forEachIndexed { i,item ->
             menu.setItem(i,plugin.createItem(item.id).apply { itemMeta=itemMeta.apply { persistentDataContainer.set(entryKey,PersistentDataType.STRING,item.id) } })
         }

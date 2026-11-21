@@ -1,0 +1,21 @@
+ec:
+  startup:
+    loading: "Loading your adventure data…"
+    starting: "The adventure system is starting. Please wait."
+  class:
+    choose: "Choose a class"
+  menu:
+    dialogue: "Dialogue"
+    shop: "Shop"
+    equipment: "Equipment"
+    codex_areas: "Adventurer Codex — Areas"
+    codex_area: "Adventurer Codex — Enemies"
+    codex_items: "Adventurer Codex — Items"
+    codex_fish: "Life Codex — Fish"
+    codex_gathering: "Life Codex — Gathering"
+    enhance: "Enhance Gear"
+  codex:
+    back_areas: "Back to Areas"
+    tab_fish: "Fish Codex"
+    tab_gathering: "Gathering Codex"
+    tab_items: "Discovered Items"

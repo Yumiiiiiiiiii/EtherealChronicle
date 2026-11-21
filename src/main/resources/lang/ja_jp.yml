@@ -1,0 +1,21 @@
+ec:
+  startup:
+    loading: "冒険データを読み込んでいます…"
+    starting: "冒険システムは起動中です。しばらくお待ちください。"
+  class:
+    choose: "職業を選んでください"
+  menu:
+    dialogue: "会話"
+    shop: "お店"
+    equipment: "装備"
+    codex_areas: "冒険者の図鑑 — エリア"
+    codex_area: "冒険者の図鑑 — 魔物"
+    codex_items: "冒険者の図鑑 — アイテム"
+    codex_fish: "生活図鑑 — 魚類"
+    codex_gathering: "生活図鑑 — 採取"
+    enhance: "装備強化"
+  codex:
+    back_areas: "エリア一覧へ戻る"
+    tab_fish: "魚類図鑑"
+    tab_gathering: "採取図鑑"
+    tab_items: "発見したアイテム"
