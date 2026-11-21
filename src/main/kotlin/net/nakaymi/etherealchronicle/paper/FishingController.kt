@@ -52,6 +52,32 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },2,2)
     }
     fun active(id:UUID)=id in sessions
+    fun debugStatus(id:UUID):String = sessions[id]?.let { s ->
+        "釣りセッション phase=${s.state.phase} 魚=${s.state.fish.id} 進捗=${s.state.progress.toInt()}% 張力=${s.state.tension.toInt()}% BossBar=${s.bar.players.any { it.uniqueId==id }}"
+    } ?: "釣りセッションなし"
+    fun debugCancel(player:org.bukkit.entity.Player):Boolean = cancel(player,"デバッグ釣りを終了しました。")
+    fun debugStart(player:org.bukkit.entity.Player,speciesId:String?):String {
+        require(player.world.name==DemoWorld.NAME && DemoWorld.isOwned(player.world)) { "管理対象ワールドで実行してください。" }
+        require(plugin.profiles[player.uniqueId]!=null) { "プレイヤーデータを読み込み中です。" }
+        require(!active(player.uniqueId)) { "既に釣り中です。" }
+        val definitions=plugin.snapshot.world
+        val rod=plugin.identify(player.inventory.itemInMainHand)?.let { id -> definitions.tackle.values.firstOrNull { it.item==id && it.kind==TackleKind.ROD } }
+            ?: definitions.tackle.values.firstOrNull { it.kind==TackleKind.ROD } ?: error("釣り竿定義がありません。")
+        val fish=speciesId?.let { definitions.fishSpecies[it] ?: error("魚種が見つかりません: $it") }
+            ?: definitions.fishSpecies.values.firstOrNull() ?: error("魚種定義がありません。")
+        val spot=definitions.fishingSpots.values.firstOrNull { it.world==player.world.name && (it.id in fish.habitats || it.area in fish.habitats) }
+            ?: definitions.fishingSpots.values.firstOrNull { it.world==player.world.name } ?: error("このワールドの釣り場がありません。")
+        require(sessions.size<capacity) { "釣りセッション数の上限です。" }
+        val now=System.currentTimeMillis(); val bobberAt=player.location.clone().add(0.0,1.0,0.0)
+        val bobber=player.world.spawn(bobberAt,ItemDisplay::class.java) { display ->
+            display.setItemStack(org.bukkit.inventory.ItemStack(Material.HEART_OF_THE_SEA)); display.isPersistent=false; display.isInvulnerable=true
+            display.persistentDataContainer.set(bobberKey,PersistentDataType.STRING,player.uniqueId.toString())
+        }
+        val bar=Bukkit.createBossBar("§bデバッグ釣り: ${fish.name}",BarColor.BLUE,BarStyle.SOLID).apply { addPlayer(player); progress=0.0 }
+        val state=FishingState(fish,phase=FishingPhase.REELING,waitSeconds=0.0,tensionStability=rod.tensionStability,sweetSpotBonus=rod.sweetSpotBonus)
+        sessions[player.uniqueId]=Session(state,spot,rod,player.location.clone(),bobberAt,bobber.uniqueId,bar)
+        return "デバッグ釣りを開始しました: ${fish.id} (左クリックでいなし、右クリックで引く)。"
+    }
     fun selectBait(profile:PlayerProfile,value:String):String {
         val normalized=when(value.lowercase()) { "auto" -> "AUTO"; "none" -> "NONE"; else -> value }
         require(normalized in setOf("AUTO","NONE") || plugin.snapshot.world.tackle.values.any { it.item==normalized && it.kind==TackleKind.BAIT }) { "餌が見つかりません。" }
@@ -65,9 +91,11 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
     }
     fun reload() { close(); task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },2,2) }
     private fun cleanup(session:Session) { session.bar.removeAll(); Bukkit.getEntity(session.bobber)?.remove() }
-    private fun cancel(player:org.bukkit.entity.Player,message:String?=null) {
-        sessions.remove(player.uniqueId)?.let(::cleanup)
+    private fun cancel(player:org.bukkit.entity.Player,message:String?=null):Boolean {
+        val session=sessions.remove(player.uniqueId) ?: return false
+        cleanup(session)
         if(message!=null && player.isOnline) player.sendMessage(Component.text(message))
+        return true
     }
 
     @EventHandler(priority=EventPriority.LOWEST)
@@ -128,11 +156,13 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
             if(recent>=balance.fatigueSoftThreshold) fish.rarity !in setOf(Rarity.EPIC,Rarity.LEGENDARY) else true
         }
         val baitDef=bait?.let { id -> plugin.snapshot.world.tackle.values.firstOrNull { it.item==id } }
-        val macro=macroDetectors.getOrPut(player.uniqueId) { FishingMacroDetector() }.suspicious()
+        val macroConfig=plugin.snapshot.world.lifeBalance
+        val detector=macroDetectors.getOrPut(player.uniqueId) { FishingMacroDetector() }
+        val macro=detector.suspicious(macroConfig.macroMinSamples,macroConfig.macroResponseDeviationMillis,macroConfig.macroCastIntervalDeviationMillis)
         val weighted=candidates.map { fish ->
             val weight=(baitDef?.rarityWeights?.get(fish.rarity.name) ?: if(baitDef==null && fish.rarity>=Rarity.RARE) 0.35 else 1.0) *
                 (if(recent>=balance.fatigueSoftThreshold && fish.rarity>=Rarity.RARE) 0.7 else 1.0) *
-                (if(macro && fish.rarity>=Rarity.RARE) 0.1 else 1.0) *
+                (if(macro && fish.rarity>=Rarity.RARE) macroConfig.macroRareWeightMultiplier else 1.0) *
                 if(baitDef!=null && baitDef.preferredTags.any { it in fish.tags }) baitDef.preferredTagMultiplier else 1.0
             fish.copy(baseWeight=fish.baseWeight*weight)
         }
@@ -146,6 +176,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         }
         val bar=Bukkit.createBossBar("釣り場を探っています…",BarColor.BLUE,BarStyle.SOLID).apply { addPlayer(player); progress=0.0 }
         sessions[player.uniqueId]=Session(state,spot,rod,player.location.clone(),target,bobber.uniqueId,bar,bait=bait,baitCountBefore=bait?.let { plugin.inventory(player).count(it) } ?: 0,softThrottle=macro)
+        detector.cast(System.currentTimeMillis())
         player.playSound(target,org.bukkit.Sound.ENTITY_FISHING_BOBBER_SPLASH,0.5f,1.4f)
         player.sendActionBar(Component.text("§b釣り糸を垂らしました。再度右クリックで回収できます。"))
     }
@@ -155,7 +186,8 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         session.lastInput=now; session.input=input
         val detector=macroDetectors.getOrPut(player.uniqueId) { FishingMacroDetector() }
         detector.pull(now)
-        if(detector.suspicious() && !session.softThrottle) { session.softThrottle=true; player.sendMessage(Component.text("機械的な操作間隔を検出しました。別の釣り場へ移動してください。")) }
+        val balance=plugin.snapshot.world.lifeBalance
+        if(detector.suspicious(balance.macroMinSamples,balance.macroResponseDeviationMillis,balance.macroCastIntervalDeviationMillis) && !session.softThrottle) { session.softThrottle=true; player.sendMessage(Component.text("機械的な操作間隔を検出しました。希少魚の出現率を調整します。")) }
     }
     @EventHandler fun swing(e:PlayerAnimationEvent) {
         val s=sessions[e.player.uniqueId] ?: return
@@ -165,7 +197,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
     @EventHandler fun swap(e:PlayerSwapHandItemsEvent) { if(active(e.player.uniqueId)) cancel(e.player,"釣りを中断しました。") }
     @EventHandler fun quit(e:PlayerQuitEvent) { cancel(e.player) }
     @EventHandler fun death(e:PlayerDeathEvent) { cancel(e.entity,"倒れたため釣りを中断しました。") }
-    @EventHandler fun damage(e:EntityDamageEvent) { (e.entity as? org.bukkit.entity.Player)?.let { if(active(it.uniqueId)) cancel(it,"戦闘により釣りを中断しました。") } }
+    @EventHandler(ignoreCancelled=true) fun damage(e:EntityDamageEvent) { (e.entity as? org.bukkit.entity.Player)?.let { if(active(it.uniqueId)) cancel(it,"戦闘により釣りを中断しました。") } }
     @EventHandler fun moved(e:org.bukkit.event.player.PlayerMoveEvent) {
         val session=sessions[e.player.uniqueId] ?: return
         if(e.from.world!=e.to.world || e.to.distanceSquared(session.castOrigin)>25.0 || e.to.distanceSquared(session.water)>225.0) cancel(e.player,"釣り場から離れたため中断しました。")
