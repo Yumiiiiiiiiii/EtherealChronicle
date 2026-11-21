@@ -27,7 +27,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
             else -> Color.fromRGB(255,65,65)
         }
     }
-    data class MobState(val entity: LivingEntity,val home: Location,val point: String,val boss: BossState,val participants: Set<UUID>,val bar: BossBar?,var target: UUID?=null,var nextAttack: Long=0,val specials: MutableMap<String,Long> = mutableMapOf(),val pinned: Boolean=false)
+    data class MobState(val entity: LivingEntity,val home: Location,val point: String,val boss: BossState,val participants: Set<UUID>,val bar: BossBar?,var target: UUID?=null,var nextAttack: Long=0,val specials: MutableMap<String,Long> = mutableMapOf(),val pinned: Boolean=false,val threat: MutableMap<UUID,Double> = mutableMapOf(),var tauntTarget: UUID?=null,var tauntUntil: Long=0)
     private data class Warning(val owner: UUID,val attack: SpecialAttack,val location: Location,val direction: org.bukkit.util.Vector,val due: Long)
     private val key=NamespacedKey(plugin,"enemy_id")
     private val states=mutableMapOf<UUID,MobState>()
@@ -76,7 +76,11 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
             val d=state.boss.definition
             val eligible=entity.world.players.filter { p -> p.isOnline && !p.isDead && p.gameMode !in setOf(GameMode.CREATIVE,GameMode.SPECTATOR) && !isSafe(p) && plugin.profiles[p.uniqueId]?.classId != null &&
                 (state.participants.isEmpty() || p.uniqueId in state.participants) && p.location.distanceSquared(entity.location) <= d.aggro*d.aggro }
-            val target=eligible.minByOrNull { it.location.distanceSquared(entity.location) }
+            if(tick >= state.tauntUntil) state.tauntTarget=null
+            val target=eligible.firstOrNull { it.uniqueId == state.tauntTarget }
+                ?: eligible.maxWithOrNull(compareBy<Player> { state.threat[it.uniqueId] ?: 0.0 }.thenByDescending { -it.location.distanceSquared(entity.location) })
+                    ?.takeIf { (state.threat[it.uniqueId] ?: 0.0) > 0 }
+                ?: eligible.minByOrNull { it.location.distanceSquared(entity.location) }
             state.bar?.let { bar ->
                 val viewers=eligible.map { it.uniqueId }.toSet()
                 bar.players.filter { it.uniqueId !in viewers }.forEach(bar::removePlayer); eligible.forEach { if(it !in bar.players) bar.addPlayer(it) }
@@ -172,6 +176,21 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
             }
         }
     }
+    /** Apply a time-bounded taunt to nearby, active RPG enemies; no world entity scan is performed. */
+    fun taunt(player: Player,radius: Double,ticks: Int,threatMultiplier: Double): Int {
+        require(radius in 0.1..64.0 && ticks in 1..72000 && threatMultiplier in 1.0..100.0)
+        var affected=0
+        states.values.forEach { state ->
+            if(state.entity.world != player.world || state.entity.location.distanceSquared(player.location) > radius*radius ||
+                state.participants.isNotEmpty() && player.uniqueId !in state.participants) return@forEach
+            val highest=state.threat.values.maxOrNull() ?: 1.0
+            state.threat[player.uniqueId]=maxOf(state.threat[player.uniqueId] ?: 0.0,highest*threatMultiplier)
+            state.tauntTarget=player.uniqueId; state.tauntUntil=maxOf(state.tauntUntil,tick+ticks)
+            if(state.entity is Mob) state.entity.target=player
+            affected++
+        }
+        return affected
+    }
     @EventHandler(priority=EventPriority.LOWEST,ignoreCancelled=true) fun vanillaAttack(e: EntityDamageByEntityEvent) {
         val owner=(e.damager as? Projectile)?.shooter as? Entity ?: e.damager
         if(owner.uniqueId in states && owner.uniqueId !in dealing) e.isCancelled=true
@@ -193,6 +212,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
         require(amount.isFinite() && amount > 0)
         if(state.participants.isNotEmpty() && attacker !in state.participants) return false
         attackers[entity]=attacker
+        state.threat[attacker]=state.threat.getOrDefault(attacker,0.0)+amount
         state.boss.hp=(state.boss.hp-amount.coerceAtMost(plugin.snapshot.balance.damageCap)).coerceAtLeast(0.0)
         val killed=state.boss.hp <= 0
         val liveMaximum=requireNotNull(state.entity.getAttribute(Attribute.MAX_HEALTH)).value

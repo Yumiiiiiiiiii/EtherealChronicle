@@ -10,3 +10,4 @@ skills: [ec:assassin_slash, ec:assassin_shadowstep, ec:assassin_fan, ec:assassin
 starter_items: [ec:item_wpn_iron_dirk]
 stats: {hp: 105, resource: 100, attack: 16, defense: 9, crit: 0.14, crit_damage: 1.65, element_resist: 0, skill_power: 1.0}
 growth: {hp: 19, resource: 0, attack: 4.1, defense: 2.3, crit: 0.007, crit_damage: 0.003, element_resist: 0, skill_power: 0.02}
+icon: IRON_SWORD

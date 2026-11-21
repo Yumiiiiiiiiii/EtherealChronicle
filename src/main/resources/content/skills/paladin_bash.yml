@@ -9,3 +9,5 @@ range: 4
 element: AETHER
 defense_buff: 14
 buff_ticks: 80
+taunt_ticks: 80
+threat_multiplier: 6

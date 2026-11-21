@@ -10,3 +10,4 @@ skills: [ec:paladin_bash, ec:paladin_aegis, ec:paladin_judgment, ec:paladin_sanc
 starter_items: [ec:item_wpn_recruit_mace]
 stats: {hp: 165, resource: 100, attack: 11, defense: 18, crit: 0.04, crit_damage: 1.5, element_resist: 0.06, skill_power: 1.0}
 growth: {hp: 29, resource: 0, attack: 2.9, defense: 4.4, crit: 0.002, crit_damage: 0, element_resist: 0.005, skill_power: 0.02}
+icon: SHIELD

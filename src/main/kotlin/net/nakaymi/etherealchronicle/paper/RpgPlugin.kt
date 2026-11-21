@@ -151,7 +151,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private fun menu(player: Player) {
         val menu = ClassMenu().inventory
         content.snapshot().classes.all().take(9).forEachIndexed { index,c ->
-            menu.setItem(index,ItemStack(when(c.resource) { ResourceKind.RAGE -> Material.IRON_SWORD; ResourceKind.FOCUS -> Material.BOW; ResourceKind.MANA -> Material.BLAZE_ROD }).apply {
+            val icon=c.icon?.let(Material::valueOf) ?: when(c.resource) { ResourceKind.RAGE -> Material.IRON_SWORD; ResourceKind.FOCUS -> Material.BOW; ResourceKind.MANA -> Material.BLAZE_ROD }
+            menu.setItem(index,ItemStack(icon).apply {
                 itemMeta = itemMeta.apply { displayName(Component.text(c.name)); persistentDataContainer.set(itemKey,PersistentDataType.STRING,c.id) }
             })
         }
@@ -292,13 +293,21 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val weapon=item(player.inventory.itemInMainHand)?.takeIf { it.slot == GearSlot.HAND && it.canEquip(profile) } ?: return CastResult.INVALID_TARGET
         val c=profile.classId?.let { snapshot.classes.find(it) } ?: return CastResult.INVALID_TARGET
         val skill=snapshot.skills[c.skills[profile.selectedSkill.coerceIn(0,c.skills.lastIndex)]]
-        if(target == null && skill.heal <= 0 && skill.defenseBuff <= 0) return CastResult.INVALID_TARGET
+        if(target == null && skill.heal <= 0 && skill.defenseBuff <= 0 && skill.tauntTicks <= 0) return CastResult.INVALID_TARGET
         if(target != null && (target.world != player.world || target.location.distanceSquared(player.location) > skill.range*skill.range || !target.persistentDataContainer.has(enemyKey))) return CastResult.INVALID_TARGET
         if(target != null && enemies.state(target.uniqueId)?.participants?.let { it.isNotEmpty() && player.uniqueId !in it } == true) return CastResult.INVALID_TARGET
         val result=game.skills.cast(profile,skill)
         if(result != CastResult.SUCCESS) return result
-        if(skill.heal > 0) player.health=(player.health+effectiveStats(player,profile).hp*skill.heal).coerceAtMost(player.getAttribute(Attribute.MAX_HEALTH)!!.value)
-        if(skill.defenseBuff > 0) defenseBuffs[player.uniqueId]=skill.defenseBuff to (System.nanoTime()/1_000_000+skill.buffTicks*50L)
+        if(skill.heal > 0 || skill.defenseBuff > 0) {
+            val recipientIds=if((skill.partyHeal || skill.partyDefenseBuff) && skill.allyRadius > 0) adventure.parties.members(player.uniqueId) else setOf(player.uniqueId)
+            val recipients=player.world.players.filter { it.uniqueId in recipientIds && it.location.distanceSquared(player.location) <= skill.allyRadius*skill.allyRadius || it.uniqueId == player.uniqueId }
+            recipients.forEach { recipient ->
+                val recipientProfile=profiles[recipient.uniqueId] ?: return@forEach
+                if(skill.heal > 0 && (recipient.uniqueId == player.uniqueId || skill.partyHeal)) recipient.health=(recipient.health+effectiveStats(recipient,recipientProfile).hp*skill.heal).coerceAtMost(recipient.getAttribute(Attribute.MAX_HEALTH)!!.value)
+                if(skill.defenseBuff > 0 && (recipient.uniqueId == player.uniqueId || skill.partyDefenseBuff)) defenseBuffs[recipient.uniqueId]=skill.defenseBuff to (System.nanoTime()/1_000_000+skill.buffTicks*50L)
+            }
+        }
+        if(skill.tauntTicks > 0) enemies.taunt(player,skill.radius.coerceAtLeast(skill.allyRadius).coerceAtLeast(skill.range),skill.tauntTicks,skill.threatMultiplier)
         if(target != null) {
             val targets=if(skill.radius > 0) target.getNearbyEntities(skill.radius,skill.radius,skill.radius).filterIsInstance<LivingEntity>().filter { it.persistentDataContainer.has(enemyKey) }+target else listOf(target)
             targets.forEach { hit(player,it,game.skills.multiplier(profile,skill),skill.element,useSkillPower=true) }
@@ -427,6 +436,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private fun validatePaperContent(c: ContentSnapshot) {
         fun validate(id: String, action: () -> Unit) { try { action() } catch(e: Exception) { throw IllegalArgumentException("${c.sources[id]} [$id]: ${e.message}",e) } }
         c.items.all().forEach { item -> validate(item.id) { require(Material.valueOf(item.material).isItem) { "material はアイテムである必要があります。" } } }
+        c.classes.all().filter { it.icon != null }.forEach { definition -> validate(definition.id) { require(Material.valueOf(definition.icon!!).isItem) { "icon はアイテム素材である必要があります。" } } }
         c.documents.values.filter { it["type"] in setOf("enemy","boss") }.forEach { d -> validate(d.string("id")) { require(EntityType.valueOf(d.string("entity")).isAlive) { "entity は生物である必要があります。" } } }
     }
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {

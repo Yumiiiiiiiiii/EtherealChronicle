@@ -9,3 +9,5 @@ range: 14
 radius: 4.0
 element: LIGHTNING
 heal: 0.14
+party_heal: true
+ally_radius: 8

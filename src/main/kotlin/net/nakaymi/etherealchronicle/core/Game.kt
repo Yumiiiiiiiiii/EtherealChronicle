@@ -41,9 +41,10 @@ data class Balance(val levelCap: Int, val xpBase: Double, val xpExponent: Double
 
 enum class ResourceKind { RAGE, FOCUS, MANA }
 data class ClassDefinition(val id: String, val name: String, val resource: ResourceKind, val stats: Stats,
-    val regeneration: Double, val hitGain: Double, val skills: List<String>, val starterItems: List<String>, val growth: Stats = Stats.ZERO)
+    val regeneration: Double, val hitGain: Double, val skills: List<String>, val starterItems: List<String>, val growth: Stats = Stats.ZERO, val icon: String? = null)
 data class SkillDefinition(val id: String, val name: String, val cost: Double, val cooldownMillis: Long,
-    val multiplier: Double, val range: Double, val element: String = "PHYSICAL", val radius: Double = 0.0, val heal: Double = 0.0, val defenseBuff: Double = 0.0, val buffTicks: Int = 0)
+    val multiplier: Double, val range: Double, val element: String = "PHYSICAL", val radius: Double = 0.0, val heal: Double = 0.0, val defenseBuff: Double = 0.0, val buffTicks: Int = 0,
+    val partyHeal: Boolean = false, val partyDefenseBuff: Boolean = false, val allyRadius: Double = 0.0, val tauntTicks: Int = 0, val threatMultiplier: Double = 1.0)
 fun interface Clock { fun millis(): Long }
 enum class CastResult { SUCCESS, COOLDOWN, RESOURCE, INVALID_LEVEL, INVALID_TARGET }
 class SkillEngine(private val clock: Clock, private var balance: Balance) {

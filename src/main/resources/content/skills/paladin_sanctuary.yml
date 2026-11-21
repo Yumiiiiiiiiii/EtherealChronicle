@@ -11,3 +11,8 @@ element: AETHER
 heal: 0.25
 defense_buff: 45
 buff_ticks: 160
+party_heal: true
+party_defense_buff: true
+ally_radius: 12
+taunt_ticks: 160
+threat_multiplier: 8

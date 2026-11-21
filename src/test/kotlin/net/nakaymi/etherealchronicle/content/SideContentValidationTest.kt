@@ -43,6 +43,18 @@ class SideContentValidationTest {
     private val contentRoot = Path.of("src/main/resources/content")
     private fun loadBundled(): ContentSnapshot = ContentService(contentRoot).load()
 
+    @Test
+    fun `new roles parse optional icons and party support plus taunt fields`() {
+        val snapshot=loadBundled()
+        assertEquals("SHIELD",snapshot.classes["ec:class_paladin"].icon)
+        assertEquals("END_CRYSTAL",snapshot.classes["ec:class_cleric"].icon)
+        val mend=snapshot.skills["ec:cleric_mend"]
+        assertTrue(mend.partyHeal && mend.partyDefenseBuff)
+        assertTrue(mend.allyRadius > 0)
+        val bash=snapshot.skills["ec:paladin_bash"]
+        assertTrue(bash.tauntTicks > 0 && bash.threatMultiplier > 1.0)
+    }
+
     private val newClasses = listOf(
         "ec:class_paladin" to "ec:paladin",
         "ec:class_cleric" to "ec:cleric",
