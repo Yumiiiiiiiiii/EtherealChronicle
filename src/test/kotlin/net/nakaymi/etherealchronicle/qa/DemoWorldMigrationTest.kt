@@ -112,4 +112,23 @@ class DemoWorldMigrationTest {
             assertEquals(Material.WATER,world.getBlockAt(124,65,-24).type)
         } finally { MockBukkit.unmock() }
     }
+
+    @Test
+    fun `v4 structure migration leaves occupied cells intact and advances once`() {
+        val server=MockBukkit.mock()
+        try {
+            val world=server.addSimpleWorld(DemoWorld.NAME)
+            val plugin=MockBukkit.load(RpgPlugin::class.java)
+            val folder=Files.createTempDirectory("ec-owned-v4")
+            Files.writeString(folder.resolve(".etherealchronicle-owned"),"test-owned\n")
+            Files.writeString(folder.resolve(".etherealchronicle-built"),"v4\n")
+            val playerBlock=world.getBlockAt(26,66,28)
+            playerBlock.type=Material.EMERALD_BLOCK
+
+            assertTrue(DemoWorld.migrateToV5(plugin,world,folder))
+            assertEquals("v5",Files.readString(folder.resolve(".etherealchronicle-built")).trim())
+            assertEquals(Material.EMERALD_BLOCK,playerBlock.type)
+            assertTrue(!DemoWorld.migrateToV5(plugin,world,folder))
+        } finally { MockBukkit.unmock() }
+    }
 }

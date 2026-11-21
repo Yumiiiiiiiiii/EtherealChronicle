@@ -64,6 +64,7 @@ object DemoWorld {
             migrateToV2(plugin,existing,existing.worldFolder.toPath())
             migrateToV3(plugin,existing,existing.worldFolder.toPath())
             migrateToV4(plugin,existing,existing.worldFolder.toPath())
+            migrateToV5(plugin,existing,existing.worldFolder.toPath())
             enforceHubSpawnSafety(plugin,existing)
             return existing
         }
@@ -91,6 +92,7 @@ object DemoWorld {
         migrateToV2(plugin,world,world.worldFolder.toPath())
         migrateToV3(plugin,world,world.worldFolder.toPath())
         migrateToV4(plugin,world,world.worldFolder.toPath())
+        migrateToV5(plugin,world,world.worldFolder.toPath())
         return world
     }
     private fun enforceHubSpawnSafety(plugin:RpgPlugin,world:World) {
@@ -129,7 +131,7 @@ object DemoWorld {
                 plugin.logger.info("Migrated ec_world terrain v1 to v2; Chapter 1 terrain was preserved.")
                 return true
             }
-            "v2", "v3", "v4" -> return true
+            "v2", "v3", "v4", "v5" -> return true
             else -> { plugin.logger.warning("Unknown ec_world terrain version; no changes made: $marker"); return false }
         }
     }
@@ -137,7 +139,7 @@ object DemoWorld {
         Files.writeString(folder.resolve(".etherealchronicle-built"),"v2\n")
     }
     internal fun markFreshBuild(folder: java.nio.file.Path,version:String) {
-        require(version in setOf("v2","v3","v4"))
+        require(version in setOf("v2","v3","v4","v5"))
         Files.writeString(folder.resolve(".etherealchronicle-built"),"$version\n")
     }
     internal fun migrateToV3(plugin:RpgPlugin,world:World,folder:java.nio.file.Path):Boolean {
@@ -151,7 +153,7 @@ object DemoWorld {
                 plugin.logger.info("Added fishing spots to ec_world (v2->v3); existing blocks were preserved.")
                 return true
             }
-            "v3", "v4" -> return false
+            "v3", "v4", "v5" -> return false
             else -> { plugin.logger.warning("ec_world v2 is required before upgrading terrain to v3: $marker"); return false }
         }
     }
@@ -166,8 +168,29 @@ object DemoWorld {
                 plugin.logger.info("Added hidden fishing pools to ec_world (v3->v4); existing blocks were preserved.")
                 return true
             }
-            "v4" -> return false
+            "v4", "v5" -> return false
             else -> { plugin.logger.warning("ec_world v3 is required before upgrading terrain to v4: $marker"); return false }
+        }
+    }
+    /** v4所有ワールドに同梱NBTの小さな道標を安全に追加し、完了versionを記録します。 */
+    internal fun migrateToV5(plugin:RpgPlugin,world:World,folder:java.nio.file.Path):Boolean {
+        if(!Files.exists(folder.resolve(".etherealchronicle-owned"))) return false
+        val marker=folder.resolve(".etherealchronicle-built")
+        if(!Files.exists(marker)) return false
+        when(Files.readString(marker).trim()) {
+            "v4" -> {
+                try {
+                    val placed=DemoStructureTemplate.placeWhenClear(plugin,world,24,65,28)
+                    Files.writeString(marker,"v5\n")
+                    plugin.logger.info(if(placed) "Added the Lumina waystone structure (v4->v5)." else "Kept the occupied Lumina waystone area unchanged (v4->v5).")
+                    return true
+                } catch(error:Exception) {
+                    plugin.logger.warning("Could not migrate ec_world v4 to v5; the version marker was preserved: ${error.message}")
+                    return false
+                }
+            }
+            "v5" -> return false
+            else -> { plugin.logger.warning("ec_world v4 is required before upgrading terrain to v5: $marker"); return false }
         }
     }
     internal fun buildSecretSpring(world:World) {

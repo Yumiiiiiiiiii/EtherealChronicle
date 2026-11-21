@@ -19,6 +19,14 @@ import kotlin.math.*
 /** YAML定義の魔物、virtual HP、脅威、特殊攻撃、出現上限を管理します。 */
 class EnemyController(private val plugin: RpgPlugin,private val adventure: AdventureController): Listener {
     companion object {
+        /** namespaced variant IDをPaperのWolf variantへ解決します。 */
+        internal fun wolfVariantKey(variantId: String): NamespacedKey? = NamespacedKey.fromString(variantId)
+
+        internal fun resolveWolfVariant(variantId: String): Wolf.Variant? {
+            val key = wolfVariantKey(variantId) ?: return null
+            return Registry.WOLF_VARIANT.get(key)
+        }
+
         internal fun telegraphColor(element: String): Color = when(element.uppercase()) {
             "ICE" -> Color.fromRGB(150,235,255)
             "VOID" -> Color.fromRGB(185,90,255)
@@ -55,8 +63,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
         entity.persistentDataContainer.set(key,PersistentDataType.STRING,id)
         d.visualVariant?.let { variantId ->
             if (entity is Wolf) {
-                val variantKey = NamespacedKey.fromString(variantId)
-                val variant = variantKey?.let { Registry.WOLF_VARIANT.get(it) }
+                val variant = resolveWolfVariant(variantId)
                 if (variant != null) entity.variant = variant
                 else if (missingVariantWarnings.add(variantId)) plugin.logger.warning("Configured wolf variant is unavailable: $variantId")
             }
