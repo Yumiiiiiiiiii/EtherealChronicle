@@ -12,6 +12,9 @@ permissions:
   etherealchronicle.admin:
     description: エーテルの年代記 管理者権限
     default: op
+  etherealchronicle.pack.bypass:
+    description: 必須リソースパックを拒否しても接続できる運用・QA用権限
+    default: op
 
 website: https://nakaymi.net
 authors: [nakaymi]

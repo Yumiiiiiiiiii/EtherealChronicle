@@ -4,6 +4,9 @@ ec:
     starting: "The adventure system is starting. Please wait."
   resource_pack:
     prompt: "<gold>Apply the EtherealChronicle resource pack?<newline><gray>You can play without it."
+    required_prompt: "<gold>This server requires the EtherealChronicle resource pack.<newline><yellow>Enable Server Resource Packs in the server list settings, then reconnect."
+    required_declined: "This server requires its resource pack. Enable Server Resource Packs in the server list settings, then reconnect."
+    required_unavailable: "The required resource pack has no working delivery endpoint, so enforcement is temporarily disabled. Check the distribution settings and startup log."
     preference_set: "Resource pack display is now <preference>."
     preference_auto: "automatic"
     preference_on: "on"
@@ -18,6 +21,8 @@ ec:
     welcome: "Welcome! Talk to Celia at the reception desk to begin your adventure."
     skill_slot_space: "Move the item from hotbar slot 9 and close your inventory. Protected items will not be dropped."
     skill_slot: "Skill Slot"
+  content:
+    unknown_name: "Unknown content"
   item:
     required_level: "Required level: <level> / <rarity>"
     cannot_drop: "You cannot drop this item."
@@ -87,9 +92,9 @@ ec:
     result: "<message> Time <seconds>s / Rank <rank> (best <best_seconds>s / <best_rank>)"
     clear: "<message>"
     timeout: "The trial time limit has been reached."
-    preparing: "Preparing dungeon: <id>"
+    preparing: "Preparing <name>."
     no_records: "No trial records yet."
-    record: "<id>: <seconds>s / Rank <rank>"
+    record: "<name>: <seconds>s / Rank <rank>"
   dialogue:
     talk: "Talk"
     close: "Close"
@@ -129,7 +134,7 @@ ec:
     fishing: "Fishing"
     gathering: "Gathering"
   title:
-    list_entry: "<status> <id>: <name><equipped>"
+    list_entry: "<status> <name><equipped>"
     equipped_mark: " [Equipped]"
     help: "Use /ec title <title_id|none> to change your displayed title."
     locked: "You have not unlocked that title yet."
@@ -239,10 +244,13 @@ ec:
     fishing_bait: "Bait not found."
     fishing_bait_missing: "You do not have the selected bait."
   quest:
+    name: "<name>"
+    unknown_name: "Unknown quest"
+    unknown_target: "Unknown objective"
     accepted: "Quest accepted."
     completed: "Quest completed!"
     none_active: "You have no active quests."
-    status: "<name>: <status>"
+    status: "Status: <status>"
     status_complete: "Complete"
     status_ready: "Ready to report"
     status_active: "In progress"

@@ -66,7 +66,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
             "action" to s.state.behavior,
             "elapsed" to "%.1f".format(s.state.elapsedSeconds),
             "limit" to plugin.snapshot.world.lifeBalance.reelingTimeoutSeconds,
-            "fish" to s.state.fish.id,
+            "fish" to s.state.fish.name,
             "progress" to s.state.progress.toInt(),
             "tension" to s.state.tension.toInt(),
             "bossbar" to (s.bar.players.any { it.uniqueId==id })
@@ -96,7 +96,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         val bar=Bukkit.createBossBar(plain(plugin.message(player,"ec.fishing.debug_bossbar", "fish" to fish.name)),BarColor.BLUE,BarStyle.SOLID).apply { addPlayer(player); progress=0.03 }
         val state=FishingState(fish,phase=FishingPhase.REELING,waitSeconds=0.0,tensionStability=rod.tensionStability,sweetSpotBonus=rod.sweetSpotBonus)
         sessions[player.uniqueId]=Session(state,spot,rod,player.location.clone(),bobberAt,bobber.uniqueId,bar)
-        return plain(plugin.message(player,"ec.fishing.debug_started", "fish" to fish.id))
+        return plain(plugin.message(player,"ec.fishing.debug_started", "fish" to fish.name))
     }
     /** 次回の釣りで使う餌の設定を検証して保存します。 */
     fun selectBait(profile:PlayerProfile,value:String):String {

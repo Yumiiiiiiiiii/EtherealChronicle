@@ -32,7 +32,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     private val npcs=NpcController(plugin)
     private val dialogueSessions=mutableMapOf<UUID,Pair<String,String>>()
     private val invUiShops=mutableMapOf<UUID,String>()
-    var enterDungeon: (Player,String) -> Unit = { p,id -> p.sendMessage(plugin.message(p,"ec.dungeon.preparing", "id" to id)) }
+    var enterDungeon: (Player,String) -> Unit = { p,id -> p.sendMessage(plugin.message(p,"ec.dungeon.preparing", "name" to plugin.contentName(p,id))) }
     init { plugin.server.pluginManager.registerEvents(this,plugin) }
     /** 非同期保存を含むプロフィール取引中かを返します。 */
     fun locked(id: UUID) = id in locks

@@ -5,6 +5,7 @@ import org.bukkit.Material
 import org.bukkit.NamespacedKey
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
+import net.kyori.adventure.key.Key
 import org.bukkit.inventory.ItemFlag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -36,6 +37,22 @@ class UiQAFixesTest {
     }
 
     @Test
+    fun `safe theme modes avoid background glyphs unless full mode is explicit`() {
+        val title=Component.text("Enhancement")
+        val plain=PlainTextComponentSerializer.plainText()
+
+        assertEquals(ThemeMode.ICONS_ONLY,UiThemeProvider.mode(null))
+        assertEquals(ThemeMode.ICONS_ONLY,UiThemeProvider.mode("unknown"))
+        assertEquals(title,UiThemeProvider.title(true,title,"enhance",ThemeMode.ICONS_ONLY))
+        assertTrue(plain.serialize(UiThemeProvider.title(true,title,"enhance",ThemeMode.FULL)).contains('\uE103'))
+        assertEquals(null,UiThemeProvider.itemModel(true,"enhance",13,Material.ANVIL,null,ThemeMode.OFF))
+        assertEquals(NamespacedKey.fromString("ec:ui_btn_confirm"),UiThemeProvider.itemModel(true,"enhance",13,Material.ANVIL,null,ThemeMode.ICONS_ONLY))
+
+        val fullTitle=UiThemeProvider.title(true,title,"enhance",ThemeMode.FULL)
+        assertEquals(Key.key("minecraft","default"),fullTitle.children()[1].font())
+    }
+
+    @Test
     fun `advancement root uses the modern texture identifier`() {
         val root = AdvancementDatapack.rootJson("Chronicle", "Records")
         assertTrue(root.contains("\"background\":\"minecraft:gui/advancements/backgrounds/adventure\""))
@@ -45,8 +62,16 @@ class UiQAFixesTest {
     @Test
     fun `quest objective npc ids resolve to content display names`() {
         val content = ContentService(Path.of("src/main/resources/content")).load()
-        assertEquals("受付嬢セリア", questObjectiveLabel("ec:npc_celia", content))
-        assertEquals("ec:unknown_target", questObjectiveLabel("ec:unknown_target", content))
+        assertEquals("受付嬢セリア", questObjectiveLabel("ec:npc_celia", content,"Unknown objective"))
+        assertEquals("Unknown objective", questObjectiveLabel("ec:unknown_target", content,"Unknown objective"))
+    }
+
+    @Test
+    fun `enhancement material uses content name instead of id`() {
+        val content=ContentService(Path.of("src/main/resources/content")).load()
+        val material=content.items.find("ec:item_mat_artisan_whetstone")
+        assertEquals("名匠の研磨砥石",material?.name)
+        assertTrue(material?.name != "ec:item_mat_artisan_whetstone")
     }
 
     @Test
@@ -58,6 +83,55 @@ class UiQAFixesTest {
             val potion = plugin.createItem("ec:item_con_minor_hp_potion")
             assertEquals(Material.POTION, potion.type)
             assertTrue(ItemFlag.HIDE_ADDITIONAL_TOOLTIP in potion.itemMeta.itemFlags)
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
+    fun `quest name and localized status are sent as separate language components`() {
+        val server=MockBukkit.mock()
+        try {
+            val plugin=MockBukkit.load(RpgPlugin::class.java)
+            val player=PlayerMock(server,"QuestLocale",UUID.randomUUID())
+            server.addPlayer(player)
+            assertTrue(await(server) { player.uniqueId in plugin.profiles })
+            val profile=plugin.profiles.getValue(player.uniqueId)
+            plugin.game.chooseClass(profile,"ec:class_warrior")
+            while(player.nextMessage()!=null) { }
+
+            player.performCommand("ec quest")
+            val messages=generateSequence { player.nextMessage() }.toList()
+            val questName=plugin.snapshot.world.quests.getValue("ec:quest_m01_awakening").name
+
+            assertTrue(messages.any { it==questName },"content-owned quest name should remain a separate line")
+            assertTrue(messages.any { it=="Status: In progress" },"English status should come from the language catalog")
+            assertTrue(messages.none { it.contains("$questName:") },"a Japanese content name must not share a line with an English status")
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
+    fun `enhancement menu lore shows translated whetstone name`() {
+        val server=MockBukkit.mock()
+        try {
+            val plugin=MockBukkit.load(RpgPlugin::class.java)
+            val player=PlayerMock(server,"EnhanceLocale",UUID.randomUUID())
+            server.addPlayer(player)
+            assertTrue(await(server) { player.uniqueId in plugin.profiles })
+            val profile=plugin.profiles.getValue(player.uniqueId)
+            plugin.game.chooseClass(profile,"ec:class_warrior")
+            profile.classId="ec:class_warrior"
+            player.inventory.setItemInMainHand(plugin.createItem("ec:item_wpn_rusty_broadsword"))
+
+            plugin.openEnhancement(player)
+            val lore=player.openInventory.topInventory.getItem(13)!!.itemMeta.lore().orEmpty()
+                .joinToString(" ") { PlainTextComponentSerializer.plainText().serialize(it) }
+            val materialName=plugin.snapshot.items.get("ec:item_mat_artisan_whetstone").name
+
+            assertTrue(lore.contains(materialName),"enhancement lore should use the material display name: $lore")
+            assertFalse(lore.contains("ec:item_mat_artisan_whetstone"),"internal item id leaked into lore: $lore")
         } finally {
             MockBukkit.unmock()
         }

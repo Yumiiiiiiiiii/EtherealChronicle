@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test
 import org.mockbukkit.mockbukkit.MockBukkit
 import org.mockbukkit.mockbukkit.ServerMock
 import org.mockbukkit.mockbukkit.entity.PlayerMock
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import java.util.UUID
 import kotlin.test.*
 
@@ -57,8 +58,8 @@ class CodexGuiTest {
             assertTrue(player.openInventory.topInventory.getItem(53)!=null,"next page button is missing")
             plugin.codexClick(player.simulateInventoryClick(player.openInventory,53))
             assertEquals("codex-items",(player.openInventory.topInventory.holder as RpgMenu).kind)
-            val secondPageIds=player.openInventory.topInventory.getItem(0)?.itemMeta?.lore()?.map { it.toString() }.orEmpty()
-            assertTrue(secondPageIds.any { it.contains(expected[45].id) },"the next item did not appear on page 2: $secondPageIds")
+            val secondPageName=player.openInventory.topInventory.getItem(0)?.itemMeta?.displayName()?.let(PlainTextComponentSerializer.plainText()::serialize).orEmpty()
+            assertTrue(secondPageName.contains(expected[45].name),"the next item did not appear on page 2 by display name: $secondPageName")
             assertTrue(player.openInventory.topInventory.getItem(45)!=null,"previous page button is missing")
             assertEquals(null,player.openInventory.topInventory.getItem(53),"last page must not expose next")
             plugin.codexClick(player.simulateInventoryClick(player.openInventory,45))
