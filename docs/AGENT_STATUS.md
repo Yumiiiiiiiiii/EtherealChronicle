@@ -235,3 +235,10 @@
 - Merged latest local `master` by fast-forward from `d7d8cc5` to `4e594b1` before changes.
 - Baseline before refactoring: `./gradlew.bat build test --no-daemon --rerun-tasks` SUCCESS; 180 tests, 0 failures, 0 errors, 0 skipped.
 - Next: add Japanese architecture guide and perform behavior-preserving package-by-package readability/docs refactors. Re-run the same full command after each commit and compare against the baseline.
+
+## Codex-Impl — Task13 core/docs + codex view split
+- Branch `codex/foundation`; latest master merged at `4e594b1`.
+- Commit `8de7018`: Japanese KDocs/comments for core game rules, split world definitions and YAML map readers, and added `docs/ARCHITECTURE.md`.
+- Current Paper refactor: moved codex GUI rendering into `paper/CodexController.kt`; kept the existing `RpgPlugin.openCodex*` entry points as delegates. `RpgPlugin.kt` is now 930 lines.
+- Verification after each commit: baseline and first core/docs slice both pass `./gradlew.bat build test --no-daemon --rerun-tasks`, 180 tests, 0 failures, 0 errors, 0 skipped. The Paper slice also passed the full command with the same counts. `git diff --check` is clean after trimming generated trailing blank lines.
+- Next: commit the codex split and continue extracting/debugging RpgPlugin responsibilities and documenting remaining controllers/core/data classes; finish with another full suite and status report.

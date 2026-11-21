@@ -54,7 +54,7 @@ sequenceDiagram
 
 ## PaperイベントとController
 
-- `RpgPlugin`: 起動、参加/退出、HUD、基本戦闘、コマンドをつなぐエントリーポイントです。
+- `RpgPlugin`: 起動、参加/退出、HUD、基本戦闘、コマンドをつなぐエントリーポイントです。`CodexController` は討伐・生活・アイテム図鑑の描画を担当します。
 - `AdventureController`: NPC会話、ショップ、クエスト進行、パーティ、取引ロックと報酬配布を扱います。
 - `EnemyController` / `DungeonController`: 管理対象の敵、ボス、ウェーブ、専用ワールド内のダンジョンを扱います。追跡対象を保持し、毎tick全エンティティを走査しません。
 - `FishingController` / `GatheringController`: 有界セッションと短い周期処理で生活コンテンツを扱い、完了時にcore計算と既存取引経路へ結果を渡します。
@@ -68,3 +68,4 @@ sequenceDiagram
 - イベント、GUI、ワールド実体を変える場合は該当Paper ControllerとMockBukkit回帰テストを確認します。
 - 保存形式を変える場合は `PlayerStore` の移行段階と古いschema fixtureを必ず更新します。
 - 経済・インベントリは取引ロック、保存順、pending reward、切断時復旧を維持します。
+

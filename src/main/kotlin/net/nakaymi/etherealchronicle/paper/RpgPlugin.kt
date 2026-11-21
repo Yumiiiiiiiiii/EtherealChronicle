@@ -24,6 +24,7 @@ class ClassMenu: InventoryHolder {
 
 open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private var ready = false
+    private val codexController by lazy { CodexController(this) }
     internal lateinit var adventure: AdventureController
     internal lateinit var enemies: EnemyController
     internal lateinit var dungeons: DungeonController
@@ -50,6 +51,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private lateinit var enhancementTransactionKey: NamespacedKey
     private lateinit var enemyKey: NamespacedKey
     private lateinit var slotKey: NamespacedKey
+    /** 現在の不変コンテンツSnapshotをControllerへ公開します。 */
     internal val snapshot get() = content.snapshot()
     internal fun persist(profile: PlayerProfile) = store.save(profile)
     internal fun identify(stack: ItemStack?) = stack?.itemMeta?.persistentDataContainer?.get(itemKey,PersistentDataType.STRING)
@@ -328,76 +330,11 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val found=enemies.count { (profile.bestiary[it.id] ?: 0) > 0 }
         return found to enemies.size
     }
-    internal fun openCodex(player:Player) {
-        val profile=profiles[player.uniqueId] ?: return
-        val menu=RpgMenu("codex-areas","").inventory
-        snapshot.world.areas.values.sortedBy { it.name }.take(45).forEachIndexed { slot,area ->
-            val (found,total)=areaCodexPercent(profile,area)
-            menu.setItem(slot,ItemStack(Material.FILLED_MAP).apply { itemMeta=itemMeta.apply {
-                displayName(Component.text(area.name)); lore(listOf(Component.text("発見: $found/$total (${if(total==0) 0 else found*100/total}%)")))
-            } })
-        }
-        codexTabs(menu)
-        player.openInventory(menu)
-    }
-    internal fun openCodexArea(player:Player,areaId:String) {
-        val profile=profiles[player.uniqueId] ?: return
-        val area=snapshot.world.areas[areaId] ?: return openCodex(player)
-        val menu=RpgMenu("codex-area",areaId).inventory
-        snapshot.world.enemiesInArea(areaId).take(45).forEachIndexed { slot,enemy ->
-            val count=profile.bestiary[enemy.id] ?: 0
-            val discovered=count > 0
-            val drops=snapshot.documents[enemy.id]?.get("droptable") as? String
-            val dropIds=drops?.let(snapshot.drops::find)?.entries?.map { it.item }.orEmpty()
-            menu.setItem(slot,ItemStack(if(discovered) Material.BLAZE_POWDER else Material.GRAY_DYE).apply { itemMeta=itemMeta.apply {
-                displayName(Component.text(if(discovered) enemy.name else "未発見の魔物"))
-                lore(if(discovered) listOf(Component.text("討伐数: $count"),Component.text("弱点: ${enemy.weaknesses.joinToString().ifEmpty { "なし" }}"),Component.text("ドロップ: ${dropIds.joinToString()}")) else listOf(Component.text("このエリアで魔物を探しましょう。")))
-            } })
-        }
-        menu.setItem(53,ItemStack(Material.ARROW).apply { itemMeta=itemMeta.apply { displayName(Component.text("エリア一覧へ戻る")) } }); codexTabs(menu)
-        player.openInventory(menu)
-    }
-    internal fun openCodexItems(player:Player) {
-        val profile=profiles[player.uniqueId] ?: return
-        val menu=RpgMenu("codex-items","").inventory
-        profile.discoveredItems.sorted().take(45).forEachIndexed { slot,id ->
-            val name=snapshot.documents[id]?.get("name") as? String ?: id
-            menu.setItem(slot,ItemStack(Material.PAPER).apply { itemMeta=itemMeta.apply { displayName(Component.text(name)); lore(listOf(Component.text(id))) } })
-        }
-        menu.setItem(53,ItemStack(Material.ARROW).apply { itemMeta=itemMeta.apply { displayName(Component.text("エリア一覧へ戻る")) } }); codexTabs(menu)
-        player.openInventory(menu)
-    }
-    private fun codexTabs(menu:Inventory) {
-        val holder=menu.holder as? RpgMenu
-        if(holder?.kind in setOf("codex-area","codex-items","codex-fish","codex-gathering")) menu.setItem(50,ItemStack(Material.ARROW).apply { itemMeta=itemMeta.apply { displayName(Component.text("エリア図鑑へ戻る")) } })
-        menu.setItem(51,ItemStack(Material.FISHING_ROD).apply { itemMeta=itemMeta.apply { displayName(Component.text("魚類図鑑")) } })
-        menu.setItem(52,ItemStack(Material.IRON_PICKAXE).apply { itemMeta=itemMeta.apply { displayName(Component.text("採取図鑑")) } })
-        menu.setItem(53,ItemStack(Material.BOOK).apply { itemMeta=itemMeta.apply { displayName(Component.text("発見したアイテム")) } })
-    }
-    internal fun openCodexFish(player:Player) {
-        val profile=profiles[player.uniqueId] ?: return
-        val menu=RpgMenu("codex-fish","").inventory
-        snapshot.world.fishSpecies.values.sortedBy { it.name }.take(45).forEachIndexed { slot,fish ->
-            val record=profile.fishRecords[fish.id]; val discovered=record?.count?.let { it>0 }==true
-            menu.setItem(slot,ItemStack(if(discovered) Material.COD else Material.GRAY_DYE).apply { itemMeta=itemMeta.apply {
-                displayName(Component.text(if(discovered) fish.name else "未発見の魚"))
-                lore(if(record!=null) listOf(Component.text("釣果: ${record.count}匹"),Component.text("最大: ${record.maxCm}cm / ${record.crown}"),Component.text(fish.loreHint)) else listOf(Component.text("釣り場で竿を出して探しましょう。")))
-            } })
-        }
-        codexTabs(menu); player.openInventory(menu)
-    }
-    internal fun openCodexGathering(player:Player) {
-        val profile=profiles[player.uniqueId] ?: return
-        val menu=RpgMenu("codex-gathering","").inventory
-        snapshot.world.gatheringNodes.values.sortedBy { it.name }.take(45).forEachIndexed { slot,node ->
-            val count=profile.gatheringRecords[node.id] ?: 0
-            menu.setItem(slot,ItemStack(if(count>0) Material.IRON_ORE else Material.GRAY_DYE).apply { itemMeta=itemMeta.apply {
-                displayName(Component.text(if(count>0) node.name else "未発見の採取地"))
-                lore(if(count>0) listOf(Component.text("採取回数: $count"),Component.text("種別: ${node.kind} / 必要道具 T${node.minToolTier}")) else listOf(Component.text("専用道具で採取地を調べましょう。")))
-            } })
-        }
-        codexTabs(menu); player.openInventory(menu)
-    }
+    internal fun openCodex(player: Player) = codexController.openCodex(player)
+    internal fun openCodexArea(player: Player, areaId: String) = codexController.openCodexArea(player, areaId)
+    internal fun openCodexItems(player: Player) = codexController.openCodexItems(player)
+    internal fun openCodexFish(player: Player) = codexController.openCodexFish(player)
+    internal fun openCodexGathering(player: Player) = codexController.openCodexGathering(player)
     internal fun openEnhancement(player:Player) {
         val stack=player.inventory.itemInMainHand
         val definition=item(stack) ?: error("強化できる冒険者装備を手に持ってください。")
@@ -965,27 +902,4 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         sender.sendMessage(Component.text("SIM $operation $name: ${simulated[name]}"))
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
