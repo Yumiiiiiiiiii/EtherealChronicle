@@ -272,3 +272,12 @@
 
 - `NpcController` now owns NPC identity PDC, time/weather reconciliation, chunk cleanup, and entity removal; `AdventureController.reloadNpcs()/close()/tick()` remain delegates. This is a behavior-preserving boundary split.
 
+
+## Task13 完了チェックポイント (2026-11-22)
+- Branch: `codex/foundation`; latest commit before this status update: `9e0ce7d`.
+- Readability work committed in `8de7018`, `e39db5e`, `5226815`, `9bbede4`, `f5c3b8f`, `2068b10`, `0ea2063`, and `9e0ce7d`.
+- Added Japanese KDocs and comments for core/data/Paper rules, including transaction ordering, persistence/migration, world ownership, and controller lifecycle. Added `docs/ARCHITECTURE.md` for package layout and key flows.
+- Extracted `CodexController.kt`, `SimulationCommandController.kt`, `NpcController.kt`, and `MenuHolders.kt`; moved world definition models and map readers from `WorldContent.kt` into `core/WorldDefinitions.kt` and `core/ContentMapReaders.kt`. `RpgPlugin.kt` reduced from 991 to 852 lines. `AdventureController` delegates NPC lifecycle while preserving its existing entry points.
+- Verification: baseline and every implementation commit passed `./gradlew.bat build test --no-daemon --rerun-tasks`; final run on 2026-11-22 passed: 180 tests, 0 failures, 0 errors, 0 skipped. `git diff --check` was clean before the final controller extraction.
+- No YAML content, public command names, config keys, player save schema, or event behavior intentionally changed. Paper deprecation warnings remain in pre-existing APIs; see the final build output.
+- Remaining scope note: `FishingController` and `GatheringController` received Japanese documentation/readability cleanup but remain separate files (349 and 290 lines); `AdventureController` is 351 lines. Further decomposition can be done as a distinct follow-up if desired.
