@@ -230,3 +230,8 @@
 - Replaced affected enhancement/teleport test worlds with `OwnedWorldMock` and an already-built v4 marker; made `EnhanceFlightTest` fail fast if profile load times out. Its tick pump no longer calls MockBukkit `waitAsyncTasksFinished()`, which spins while recurring tasks are active during reload. NPCs now use persistent entity state rather than deprecated `removeWhenFarAway`.
 - Verified required command `./gradlew.bat build test --no-daemon --rerun-tasks`: SUCCESS, 180 tests, 0 failures, 0 errors, 0 skipped. `git diff --check` clean apart from CRLF normalization warning.
 - No production join-path change was needed. Regression fix commit pending.
+
+## Codex-Impl — Task13 readability refactor checkpoint
+- Merged latest local `master` by fast-forward from `d7d8cc5` to `4e594b1` before changes.
+- Baseline before refactoring: `./gradlew.bat build test --no-daemon --rerun-tasks` SUCCESS; 180 tests, 0 failures, 0 errors, 0 skipped.
+- Next: add Japanese architecture guide and perform behavior-preserving package-by-package readability/docs refactors. Re-run the same full command after each commit and compare against the baseline.
