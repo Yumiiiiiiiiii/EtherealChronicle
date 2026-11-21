@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_tool_sickle_moon
+type: item
+name: 月露の採薬鎌
+material: DIAMOND_HOE
+rarity: RARE
+slot: NONE
+min_level: 10
+classes: []
+budget: 0
+stats: {}
+price: 480
+lore: '月光を宿す細身の刃を持つ上位採薬鎌。霜花の薬草や月露の霊草を効率よく摘み取れる（ランク2）。'

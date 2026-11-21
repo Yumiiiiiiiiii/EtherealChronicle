@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_starwood_resin
+type: item
+name: 星木の樹脂
+material: HONEYCOMB
+rarity: UNCOMMON
+slot: NONE
+min_level: 4
+classes: []
+budget: 0
+stats: {}
+price: 95
+lore: '星木の伐採時に稀に採取できる黄金色の樹液。霊薬の調合や星片疑似餌の接着材に用いられる。'

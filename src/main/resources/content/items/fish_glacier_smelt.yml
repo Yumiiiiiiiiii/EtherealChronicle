@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_fish_glacier_smelt
+type: item
+name: 凍氷ワカサギ
+material: COD
+rarity: UNCOMMON
+slot: NONE
+min_level: 14
+classes: []
+budget: 0
+stats: {}
+price: 120
+lore: '蒼氷の前哨基地の氷穴で釣れる透き通る氷魚。脂の乗りが良く、極寒の星鍋に欠かせない（体長目安 12〜30cm）。'

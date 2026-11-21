@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_frostbloom_herb
+type: item
+name: 霜花の薬草
+material: BLUE_ORCHID
+rarity: RARE
+slot: NONE
+min_level: 15
+classes: []
+budget: 0
+stats: {}
+price: 180
+lore: '霧氷の尾根の極寒に咲く蒼い花草。上位採薬鎌で摘み取れ、蒼氷の海鮮星鍋の香味料となる。'

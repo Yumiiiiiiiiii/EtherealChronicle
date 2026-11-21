@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_tool_pick_iron
+type: item
+name: 星鉄の採掘ピッケル
+material: IRON_PICKAXE
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 120
+lore: '鉱脈ノードを採取するための専用ピッケル。鉱脈を右クリックして星鉄鉱石などを採掘できる（ランク1）。'

@@ -1,0 +1,18 @@
+schema_version: 1
+id: ec:quest_life_f02_forest_stream
+type: quest
+name: 【釣り】森の清流と月影コイ
+condition: {min_level: 5, completed_quests: ['ec:quest_life_f01_angler_intro']}
+objectives:
+  - {id: explore_forest, kind: EXPLORE, target: 'ec:area_ashwood_forest', amount: 1}
+  - {id: collect_trout, kind: COLLECT, target: 'ec:item_fish_sunbeam_trout', amount: 2, consume: true}
+  - {id: report_minato, kind: TALK, target: 'ec:npc_minato', amount: 1}
+rewards:
+  xp: 450
+  currency: 260
+  set_flags: ['ec:flag_title_sky_angler']
+  items:
+    - {item: 'ec:item_fish_moon_carp', amount: 2}
+    - {item: 'ec:item_bait_aether_lure', amount: 3}
+auto_complete: false
+repeatable: false

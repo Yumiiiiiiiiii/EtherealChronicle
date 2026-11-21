@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_bait_aether_lure
+type: item
+name: 星片疑似餌
+material: AMETHYST_SHARD
+rarity: UNCOMMON
+slot: NONE
+min_level: 5
+classes: []
+budget: 0
+stats: {}
+price: 45
+lore: '微弱な星片の光を放つ特製ルアー。夜間の幻想魚やレア魚種を引き寄せる効果が高い。'

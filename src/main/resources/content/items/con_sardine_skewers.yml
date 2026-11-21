@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_con_sardine_skewers
+type: item
+name: 銀鱗イワシの塩串焼き
+material: COOKED_COD
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 50
+lore: 'ルミナ港の桟橋名物。香ばしく焼き上げた銀鱗イワシで体力を220回復する（再使用6秒）。'
+effects:
+  - {kind: HEAL, amount: 220, cooldown_ms: 6000}

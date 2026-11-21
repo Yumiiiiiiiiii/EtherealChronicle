@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_fish_sunbeam_trout
+type: item
+name: 木漏れ日ヤマメ
+material: SALMON
+rarity: COMMON
+slot: NONE
+min_level: 3
+classes: []
+budget: 0
+stats: {}
+price: 50
+lore: 'アッシュウッドの森の清流に棲む淡緑模様の渓流魚。薬草と煮込むと滋養豊かな温スープになる（体長目安 22〜52cm）。'

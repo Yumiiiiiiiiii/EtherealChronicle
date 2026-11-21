@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_fish_milkyway_dace
+type: item
+name: 天の川ウオ
+material: TROPICAL_FISH
+rarity: RARE
+slot: NONE
+min_level: 10
+classes: []
+budget: 0
+stats: {}
+price: 200
+lore: '星見の泉で夜間にのみ星片疑似餌へ食いつく幻想魚。鱗が星屑のように淡く明滅する（体長目安 30〜75cm）。'

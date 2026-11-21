@@ -1,0 +1,18 @@
+schema_version: 1
+id: ec:quest_life_f01_angler_intro
+type: quest
+name: 【釣り】蒼穹の初投げ
+condition: {min_level: 1, has_flags: ['ec:flag_ch1_started']}
+objectives:
+  - {id: visit_port, kind: EXPLORE, target: 'ec:area_lumina_port', amount: 1}
+  - {id: talk_minato, kind: TALK, target: 'ec:npc_minato', amount: 1}
+rewards:
+  xp: 120
+  currency: 100
+  set_flags: ['ec:flag_life_angler_enrolled']
+  items:
+    - {item: 'ec:item_tool_rod_oak', amount: 1}
+    - {item: 'ec:item_bait_earthworm', amount: 5}
+    - {item: 'ec:item_fish_silver_sardine', amount: 2}
+auto_complete: false
+repeatable: false

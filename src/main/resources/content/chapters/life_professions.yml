@@ -1,0 +1,26 @@
+schema_version: 1
+id: ec:chapter_life_professions
+type: chapter
+name: 生活録「蒼穹の釣師と採集匠」
+min_level: 1
+max_level: 20
+quests:
+  - ec:quest_life_f01_angler_intro
+  - ec:quest_life_f02_forest_stream
+  - ec:quest_life_f03_abyssal_catch
+  - ec:quest_life_d01_daily_angler
+  - ec:quest_life_g01_gatherer_intro
+  - ec:quest_life_g02_mine_vein_survey
+  - ec:quest_life_g03_master_harvest
+  - ec:quest_life_d02_daily_gatherer
+npcs:
+  - ec:npc_minato
+  - ec:npc_hana
+dungeons: []
+flags:
+  - ec:flag_life_angler_enrolled
+  - ec:flag_life_gatherer_enrolled
+  - ec:flag_title_sky_angler
+  - ec:flag_title_abyssal_fisher
+  - ec:flag_title_master_gatherer
+areas: []
