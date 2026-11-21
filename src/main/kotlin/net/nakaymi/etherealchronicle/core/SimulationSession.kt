@@ -22,8 +22,10 @@ class SimulationSession(private val content: () -> ContentSnapshot, private val 
         when(operation) {
             "inventory" -> inventory.contents.toString()
             "give" -> {
-                val id=arg(0); content().items[id]; val amount=args.getOrNull(1)?.toInt() ?: 1
-                require(amount in 1..64 && inventory.exchange(emptyMap(),mapOf(id to amount))); inventory.contents.toString()
+                val id=arg(0); require(content().items.find(id) != null) { "アイテムが見つかりません: $id" }
+                val amount=args.getOrNull(1)?.toIntOrNull() ?: if(args.size > 1) error("数量は1..64の整数で指定してください。") else 1
+                require(amount in 1..64) { "数量は1..64で指定してください。" }
+                require(inventory.exchange(emptyMap(),mapOf(id to amount))) { "持ち物の上限を超えます。" }; inventory.contents.toString()
             }
             "currency" -> { val n=arg(0).toLong(); require(n in 0..content().world.tuning.maxCurrency); p.currency=n; "所持金=$n" }
             "level" -> { val n=arg(0).toInt(); require(n in 1..content().balance.levelCap); p.level=n; p.xp=0; "レベル=$n" }

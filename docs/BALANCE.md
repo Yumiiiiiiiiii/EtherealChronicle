@@ -1,14 +1,16 @@
-# Balance — foundation
+# Balance — Chapter 1
 
 All tunable progression, damage caps, rarity budgets and class/skill/item numbers are YAML. Source defaults are in `src/main/resources/content/`; installed server files take priority and are never overwritten. `/ec validate` checks disk content without activation; `/ec reload` validates and atomically replaces the snapshot. Existing active class/quest references cannot be removed by reload.
 
-- Level requirement: `floor(xp_base * level ^ xp_exponent)`, minimum 1. Default `100 * level^1.5`; cap 20. XP carries across levels and becomes zero at the cap. Each award is limited by `xp_gain_cap` (10,000). Currency awards are capped by `currency_gain_cap` (1,000), with overflow-safe arithmetic.
+- Level requirement: `floor(xp_base * level ^ xp_exponent)`, minimum 1. Shipped curve is POWER, `100 * level^1.575`; cap 20. XP carries across levels and becomes zero at the cap. Each award is limited by `xp_gain_cap` (10,000). Currency awards are capped by `currency_gain_cap` (5,000), with overflow-safe arithmetic and a 100,000,000 wallet cap. Optional POLYNOMIAL curves use the separately configured linear/quadratic/rounding fields.
 - Damage: `(ATK * skillMultiplier + weapon) * defense_scale/(defense_scale + DEF) * crit * elementModifier`. Default defense scale 100. Attack/defense/weapon are bounded by `stat_cap`; final damage is bounded by `damage_cap`. Crit chance, crit multiplier and elemental multiplier use explicit caps. Equipped item attack is part of ATK, so the Paper adapter supplies weapon=0 to avoid double counting. Skills multiply their base multiplier by `1 + (rank-1)*skill_growth`, then by SKILL_POWER.
 - Paper RPG damage clears vanilla armor/resistance/blocking damage modifiers and retains absorption, so RPG DEF is applied once. This adapter uses a deprecated Paper damage-modifier API and needs live-server verification. Vanilla environmental and PvP damage keep vanilla rules.
 - Warrior rage starts at 0 and gains 10 on a successful RPG hit. Archer focus starts full and regenerates 5/second while stationary. Mage mana starts full and regenerates 8/second during movement too. Resource maxima include eligible equipment. No per-tick entity scans.
 - Rarity multipliers: common 1.0/0 affixes, uncommon 1.2/1, rare 1.5/2, epic 1.8/3, legendary 2.2/4. Values live in balance YAML. Budget consumption uses absolute stat values: HP/10 + resource/10 + ATK + DEF + crit*100 + critDamage*10 + elemental resistance*100 + skillPower*10. An item must fit its base budget times its rarity multiplier. Affix counts are definition metadata; random affix generation is not part of Task 1.
 
-Foundation content is deliberately small: three classes, four damage skills per class, three starter weapons, a field ration drop, one explicit-spawn enemy and the tutorial kill quest. Chapter 1's full content and engines follow in Task 2. Normal slimes, spawners, spawn eggs and slime splits never receive RPG rewards. Admin `/ec spawn ec:forest_slime <player>` creates an explicitly tagged RPG mob; tagged slime splitting is cancelled.
+Chapter 1 bundles three classes, twelve skills, twenty quests, fourteen enemies, two bosses, NPCs, dialogue and shops. Normal slimes, spawners, spawn eggs and slime splits never receive RPG rewards. Explicit plugin spawn points and `/ec spawn <enemy-id> <player>` create tagged RPG mobs. Legacy foundation content remains only in test fixtures.
+
+Basic attacks have a configurable 550 ms gate and do not multiply by SKILL_POWER. Skills share a shipped 1,000 ms global cooldown in addition to their individual cooldowns. Gear ATTACK_PROC amounts are flat damage, mitigated by defense/element and bounded by damage_cap, with a re-entrancy guard. Player HP is capped at 1,024 and displayed on a 20-point health scale; bosses use virtual HP (Void Warden 55,000). Element resistance is capped at 0.5. Sell ratio is 0.3; bound/quest items cannot be sold. Party XP and currency totals are divided among eligible members; item drops rotate between recipients.
 
 ---
 
@@ -27,3 +29,5 @@ Tuned against the real core/content engine via `BalanceSimulationTest` (550 ms b
 | Final Boss (`void_warden`, 55,000 HP, 108 ATK, `coop_hp_per_player: 0.9`) | Lv16 Solo: **87.2–119.0 s** (8–13 pots); Lv18 Solo: **82.4–113.6 s** (7–13 pots); 4P: **75.8–110.0 s** | 60–120 s solo; Mage survivable non-trivially (10 pots @ Lv16) |
 | Economy (Ch1 Sinks vs Income) | Full Warrior shop + consumables `11,190 G` vs `Typical+10` `11,876 G` (All 20 quests `19,920 G`) | Balanced w/ side quests |
 | Key Drop Pacing (`N = 1,000`) | `starshard_fragment` (`0.35–0.40`): **79.8–88.2 kills** for 32; Void Warden Legendary pity: **5.0 clears** | ~80–90 kills / 5-clear pity |
+
+The table reports the balance author's simulation assumptions, not measured client combat. Independent per-entry drop rolls are implemented; the table's modeled five-clear pity is not an implemented pity counter. Real telegraph avoidance, movement and network timing remain unverified without a compatible client.
