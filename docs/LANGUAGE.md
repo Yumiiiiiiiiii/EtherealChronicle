@@ -81,6 +81,36 @@
 | `ec.fishing.title_reward_failed` | 受け取り失敗 | Reward failed | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
 | `ec.fishing.title_timeout` | 時間切れ！ | Time is up! | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingUiFeedback.kt |  |
 | `ec.fishing.world_only` | 釣りは管理された冒険ワールドでのみ行えます。 | Fishing is only available in the managed adventure world. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
+| `ec.gathering.actionbar_progress` | <green>採取中 <percent>% <gray><name> | <green>Gathering <percent>% <gray><name> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<name>`, `<percent>` |
+| `ec.gathering.actionbar_start` | <green>採取中… 動かずにお待ちください | <green>Gathering… Stay still. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
+| `ec.gathering.already_gathering` | 採取中です。完了までお待ちください。 | Gathering is in progress. Please wait until it finishes. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
+| `ec.gathering.bossbar` | 採取中: <name> | Gathering: <name> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<name>` |
+| `ec.gathering.cancel_damage` | 戦闘により採取を中断しました。 | Gathering was interrupted by combat. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
+| `ec.gathering.cancel_death` | 倒れたため採取を中断しました。 | Gathering stopped because you fell. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
+| `ec.gathering.cancel_generic` | 採取を中断しました。 | Gathering stopped. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
+| `ec.gathering.cancel_move` | 移動したため採取を中断しました。 | Gathering stopped because you moved. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
+| `ec.gathering.cancel_tool` | 道具を持ち替えたため採取を中断しました。 | Gathering stopped because you changed tools. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
+| `ec.gathering.capacity` | 採取が混み合っています。少し待ってください。 | Gathering is busy. Please wait a moment. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
+| `ec.gathering.channel_ended` | 採取チャンネルを終了しました。 | Gathering channel ended. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
+| `ec.gathering.click_site` | 採取地点 <name> の表示または足元を右クリックしてください。 | Right-click the display or ground at <name>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<name>` |
+| `ec.gathering.level_low` | 採取レベルが足りません。採取Lv.<level>以上が必要です。 | Your gathering level is too low. Gathering Lv. <level> or higher is required. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<level>` |
+| `ec.gathering.node_label` | <green>[採取] <white><name> <gray>(Lv.<level>) | <green>[Gather] <white><name> <gray>(Lv. <level>) | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<level>`, `<name>` |
+| `ec.gathering.profile_loading` | プレイヤーデータを読み込み中です。少し待ってからお試しください。 | Your profile is loading. Please wait and try again. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
+| `ec.gathering.protected_terrain` | 採取地点の地形は変更できません。道具で採取してください。 | Gathering site terrain is protected. Use the tool to gather. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
+| `ec.gathering.requirements` | この採取地点の条件を満たしていません。 | You do not meet the requirements for this gathering site. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
+| `ec.gathering.respawned` | この採取地点は再生中です。 | This gathering site is regenerating. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
+| `ec.gathering.respawning` | この採取地点は再生中です。あと <seconds> 秒お待ちください。 | This gathering site is regenerating. Wait <seconds> seconds. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<seconds>` |
+| `ec.gathering.reward` | 採取しました: <items> / 採取経験値 <xp> | Gathered: <items> / Gathering XP <xp> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<items>`, `<xp>` |
+| `ec.gathering.reward_empty` | 空振り | Nothing gathered | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
+| `ec.gathering.reward_failed` | 採取を完了できませんでした: <reason> | Could not complete gathering: <reason> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<reason>` |
+| `ec.gathering.site_unavailable` | この採取地点の設定を読み込めませんでした。管理者にお知らせください。 | This gathering site could not be loaded. Please contact an administrator. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
+| `ec.gathering.start_notice` | <name>の採取を開始しました。完了まで動かずにお待ちください。 | Gathering <name>. Stay still until it finishes. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<name>` |
+| `ec.gathering.tool_level_low` | この道具を使うには生活スキルLv.<level>以上が必要です。 | This tool requires Life Skill Lv. <level> or higher. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<level>` |
+| `ec.gathering.tool_required` | <name>の採取には<kind>専用道具が必要です。 | A dedicated <kind> tool is required to gather <name>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<kind>`, `<name>` |
+| `ec.gathering.tool_tier_low` | 道具の段階が足りません。T<tier>以上が必要です。 | Your tool tier is too low. Tier <tier> or higher is required. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<tier>` |
+| `ec.gathering.tool_wrong` | <name>には<required>が必要です（現在:<current>）。 | <name> requires <required> (held: <current>). | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<current>`, `<name>`, `<required>` |
+| `ec.gathering.transaction_locked` | 取引処理中は採取できません。 | You cannot gather during a transaction. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
+| `ec.gathering.world_only` | 管理対象の採取エリアでのみ採取できます。 | Gathering is only available in the managed gathering areas. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
 | `ec.menu.codex_area` | 冒険者の図鑑 — 魔物 | Adventurer Codex — Enemies | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.menu.codex_areas` | 冒険者の図鑑 — エリア | Adventurer Codex — Areas | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.menu.codex_fish` | 生活図鑑 — 魚類 | Life Codex — Fish | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |

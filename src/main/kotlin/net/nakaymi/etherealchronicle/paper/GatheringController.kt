@@ -87,7 +87,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         return "$active world=${player.world.name} owned=$owned pos=${player.location.blockX},${player.location.blockY},${player.location.blockZ} profile=${profile!=null} gatheringLv=${profile?.lifeSkills?.get(LifeSkillKind.GATHERING)?.level ?: "?"} held=$held tackle=${tackle?.kind ?: "なし"}/T${tackle?.tier ?: 0} nearest=$nearestText lock=${profile?.let { plugin.adventure.locked(it.uuid) } ?: false}"
     }
     /** 戦闘ダメージを受けた採取者だけを中断します。 */
-    fun interrupt(player: UUID) { Bukkit.getPlayer(player)?.let { cancel(it,"戦闘により採取を中断しました。") } }
+    fun interrupt(player: UUID) { Bukkit.getPlayer(player)?.let { cancel(it,"ec.gathering.cancel_damage") } }
     /** タスク、チャネルBossBar、管理表示を解除します。 */
     fun close() {
         task?.cancel(); task=null
@@ -126,7 +126,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
             entity.persistentDataContainer.set(displayKey,PersistentDataType.STRING,k)
         }
         val label=world.spawn(at.clone().add(0.0,1.15,0.0),TextDisplay::class.java) { entity ->
-            entity.text(Component.text("§a[採取] §f${site.node.name} §7(Lv.${site.node.minGatheringLevel})"))
+            entity.text(plugin.message(Bukkit.getConsoleSender(), "ec.gathering.node_label", "name" to site.node.name, "level" to site.node.minGatheringLevel))
             entity.isPersistent=false; entity.isInvulnerable=true
             entity.persistentDataContainer.set(displayKey,PersistentDataType.STRING,k)
         }
@@ -143,7 +143,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true)
     fun breakBlock(e: BlockBreakEvent) {
         val pos=e.block.location
-        if(isProtected(pos)) { e.isCancelled=true; e.player.sendMessage(Component.text("採取地点の地形は変更できません。道具で採取してください。")) }
+        if(isProtected(pos)) { e.isCancelled=true; e.player.sendMessage(plugin.message(e.player,"ec.gathering.protected_terrain")) }
     }
     /** コンテンツで管理する採取地点へのブロック設置を禁止します。 */
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true)
@@ -180,7 +180,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
             val nearby=sites.values.distinctBy(::siteKey).filter { it.location.world==block.world.name }.minByOrNull { (it.location.x-block.x)*(it.location.x-block.x)+(it.location.z-block.z)*(it.location.z-block.z) }
             if(nearby!=null && kotlin.math.abs(nearby.location.y-block.y)<=2 && (nearby.location.x-block.x)*(nearby.location.x-block.x)+(nearby.location.z-block.z)*(nearby.location.z-block.z)<=4) {
                 e.isCancelled=true
-                reject(e.player,"採取地点 ${nearby.node.name} の表示または足元を右クリックしてください。")
+                reject(e.player,"ec.gathering.click_site", "name" to nearby.node.name)
             }
             return
         }
@@ -191,68 +191,68 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
     /** 可視ノードに重ねたInteraction entityからのクリックを同じ座標経路へ送ります。 */
     fun interactDisplay(e: PlayerInteractEntityEvent) {
         val k=e.rightClicked.persistentDataContainer.get(hitboxKey,PersistentDataType.STRING) ?: return
-        val site=sitesById[k] ?: run { reject(e.player,"この採取地点の設定を読み込めませんでした。管理者にお知らせください。"); return }
+        val site=sitesById[k] ?: run { reject(e.player,"ec.gathering.site_unavailable"); return }
         e.isCancelled=true
         begin(e.player,site)
     }
     private fun begin(player: org.bukkit.entity.Player,site: Site) {
-        if(player.world.name!=DemoWorld.NAME || !DemoWorld.isOwned(player.world)) { reject(player,"管理対象の採取エリアでのみ採取できます。"); return }
-        val profile=plugin.profiles[player.uniqueId] ?: run { reject(player,"プレイヤーデータを読み込み中です。少し待ってからお試しください。"); return }
-        if(plugin.adventure.locked(profile.uuid)) { reject(player,"取引処理中は採取できません。"); return }
-        if(channels.containsKey(player.uniqueId)) { reject(player,"採取中です。完了までお待ちください。"); return }
-        if(channels.size>=limit) { reject(player,"採取が混み合っています。少し待ってください。"); return }
+        if(player.world.name!=DemoWorld.NAME || !DemoWorld.isOwned(player.world)) { reject(player,"ec.gathering.world_only"); return }
+        val profile=plugin.profiles[player.uniqueId] ?: run { reject(player,"ec.gathering.profile_loading"); return }
+        if(plugin.adventure.locked(profile.uuid)) { reject(player,"ec.gathering.transaction_locked"); return }
+        if(channels.containsKey(player.uniqueId)) { reject(player,"ec.gathering.already_gathering"); return }
+        if(channels.size>=limit) { reject(player,"ec.gathering.capacity"); return }
         val def=site.node
         val toolId=plugin.identify(player.inventory.itemInMainHand)
         val tool=toolId?.let { id -> plugin.snapshot.world.tackle.values.find { it.item==id && it.kind in setOf(TackleKind.PICKAXE,TackleKind.SICKLE,TackleKind.HATCHET,TackleKind.EXTRACTOR) } }
         val lifeLevel=profile.lifeSkills[LifeSkillKind.GATHERING]?.level ?: 1
-        if(tool==null) { reject(player,"${def.name}の採取には${def.toolKind}専用道具が必要です。"); return }
-        if(tool.kind!=def.toolKind) { reject(player,"${def.name}には${def.toolKind}が必要です（現在:${tool.kind}）。"); return }
-        if(tool.tier<def.minToolTier) { reject(player,"道具の段階が足りません。T${def.minToolTier}以上が必要です。"); return }
-        if(lifeLevel<def.minGatheringLevel) { reject(player,"採取レベルが足りません。採取Lv.${def.minGatheringLevel}以上が必要です。"); return }
-        if(lifeLevel<tool.minLifeLevel) { reject(player,"この道具を使うには生活スキルLv.${tool.minLifeLevel}以上が必要です。"); return }
+        if(tool==null) { reject(player,"ec.gathering.tool_required", "name" to def.name, "kind" to def.toolKind); return }
+        if(tool.kind!=def.toolKind) { reject(player,"ec.gathering.tool_wrong", "name" to def.name, "required" to def.toolKind, "current" to tool.kind); return }
+        if(tool.tier<def.minToolTier) { reject(player,"ec.gathering.tool_tier_low", "tier" to def.minToolTier); return }
+        if(lifeLevel<def.minGatheringLevel) { reject(player,"ec.gathering.level_low", "level" to def.minGatheringLevel); return }
+        if(lifeLevel<tool.minLifeLevel) { reject(player,"ec.gathering.tool_level_low", "level" to tool.minLifeLevel); return }
         if(!engine.canHarvest(def,tool.kind,tool.tier,lifeLevel)) {
-            reject(player,"この採取地点の条件を満たしていません。"); return
+            reject(player,"ec.gathering.requirements"); return
         }
         val now=System.currentTimeMillis(); val k=siteKey(site)
-        if(!engine.readyAt(profile,k,now)) { reject(player,"この採取地点は再生中です。あと ${(profile.gatheringReadyAt[k]!!-now+999)/1000}秒お待ちください。"); return }
+        if(!engine.readyAt(profile,k,now)) { reject(player,"ec.gathering.respawning", "seconds" to (profile.gatheringReadyAt[k]!!-now+999)/1000); return }
         val origin=player.location.clone(); val duration=(def.channelMillis*(1-tool.channelSpeedBonus)).toLong().coerceAtLeast(250)
-        val bar=Bukkit.createBossBar("採取中: ${def.name}",BarColor.GREEN,BarStyle.SOLID).apply { addPlayer(player); progress=0.08 }
+        val bar=Bukkit.createBossBar(plugin.message(Bukkit.getConsoleSender(),"ec.gathering.bossbar", "name" to def.name).toString(),BarColor.GREEN,BarStyle.SOLID).apply { addPlayer(player); progress=0.08 }
         channels[player.uniqueId]=Channel(site,now,duration,origin,bar)
         lastAttempt[player.uniqueId]="開始成功 node=${site.node.id}/${site.location.id}"
-        player.sendActionBar(Component.text("§a採取中… 動かずにお待ちください"))
-        player.sendMessage(Component.text("${def.name}の採取を開始しました。完了まで動かずにお待ちください。"))
+        player.sendActionBar(plugin.message(player,"ec.gathering.actionbar_start"))
+        player.sendMessage(plugin.message(player,"ec.gathering.start_notice", "name" to def.name))
     }
 
     @EventHandler fun moved(e: PlayerMoveEvent) {
         val channel=channels[e.player.uniqueId] ?: return
         val to=e.to
-        if(e.from.world != to.world || e.from.distanceSquared(to) > 0.09) cancel(e.player,"移動したため採取を中断しました。")
+        if(e.from.world != to.world || e.from.distanceSquared(to) > 0.09) cancel(e.player,"ec.gathering.cancel_move")
     }
     @EventHandler fun quit(e: PlayerQuitEvent) { cancel(e.player,null); lastAttempt.remove(e.player.uniqueId) }
-    @EventHandler fun death(e: PlayerDeathEvent) { cancel(e.entity,"倒れたため採取を中断しました。") }
+    @EventHandler fun death(e: PlayerDeathEvent) { cancel(e.entity,"ec.gathering.cancel_death") }
     @EventHandler(ignoreCancelled=true) fun damage(e: EntityDamageEvent) { (e.entity as? org.bukkit.entity.Player)?.let { interrupt(it.uniqueId) } }
-    @EventHandler fun held(e: PlayerItemHeldEvent) { if(active(e.player.uniqueId)) cancel(e.player,"道具を持ち替えたため採取を中断しました。") }
-    private fun cancel(player: org.bukkit.entity.Player,message:String?):Boolean {
+    @EventHandler fun held(e: PlayerItemHeldEvent) { if(active(e.player.uniqueId)) cancel(e.player,"ec.gathering.cancel_tool") }
+    private fun cancel(player: org.bukkit.entity.Player,messageKey:String?):Boolean {
         val channel=channels.remove(player.uniqueId) ?: return false
         channel.bar.removeAll()
-        lastAttempt[player.uniqueId]=message ?: "採取チャンネルを終了しました。"
-        if(message!=null && player.isOnline) player.sendMessage(Component.text(message))
+        lastAttempt[player.uniqueId]=messageKey ?: "ec.gathering.channel_ended"
+        if(messageKey!=null && player.isOnline) player.sendMessage(plugin.message(player,messageKey))
         return true
     }
-    private fun reject(player:org.bukkit.entity.Player,message:String) {
-        lastAttempt[player.uniqueId]=message
+    private fun reject(player:org.bukkit.entity.Player,key:String,vararg values:Pair<String,Any?>) {
+        lastAttempt[player.uniqueId]=key
         if(lastAttempt.size>1000) lastAttempt.keys.firstOrNull()?.let(lastAttempt::remove)
-        plugin.logger.fine("GATHER ${player.name}: $message")
-        if(player.isOnline) player.sendMessage(Component.text(message))
+        plugin.logger.fine("GATHER ${player.name}: $key")
+        if(player.isOnline) player.sendMessage(plugin.message(player,key,*values))
     }
     private fun tick() {
         val now=System.currentTimeMillis()
         channels.toMap().forEach { (id,channel) ->
             val player=Bukkit.getPlayer(id)
             if(player==null || !player.isOnline) { channels.remove(id)?.bar?.removeAll(); return@forEach }
-            if(plugin.profiles[id]==null || plugin.adventure.locked(id)) { cancel(player,"採取を中断しました。"); return@forEach }
+            if(plugin.profiles[id]==null || plugin.adventure.locked(id)) { cancel(player,"ec.gathering.cancel_generic"); return@forEach }
             val elapsed=now-channel.started; val ratio=(elapsed.toDouble()/channel.duration).coerceIn(0.0,1.0)
-            channel.bar.progress=ratio; player.sendActionBar(Component.text("§a採取中 ${floor(ratio*100).toInt()}% §7${channel.site.node.name}"))
+            channel.bar.progress=ratio; player.sendActionBar(plugin.message(player,"ec.gathering.actionbar_progress", "percent" to floor(ratio*100).toInt(), "name" to channel.site.node.name))
             if(elapsed>=channel.duration) complete(player,channel)
         }
     }
@@ -270,7 +270,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         val result=engine.roll(node,tackle.tier,profile.lifeSkills[LifeSkillKind.GATHERING]?.level ?: 1,nearbyParty(player),plugin.snapshot.world.lifeBalance.partyGatherRareBonus,pity,plugin.snapshot.balance.dropPityAttemptCap)
         try {
             plugin.adventure.transaction(player,{ inv ->
-                require(engine.reserve(profile,k,node.respawnSeconds,now)) { "この採取地点は再生中です。" }
+                require(engine.reserve(profile,k,node.respawnSeconds,now)) { "ec.gathering.respawned" }
                 profile.dropPity.clear(); profile.dropPity.putAll(pity)
                 result.groupBy { it.item }.forEach { (item,stacks) -> require(inv.exchange(emptyMap(),mapOf(item to stacks.sumOf { it.amount }))) }
                 val progress=profile.lifeSkills.getValue(LifeSkillKind.GATHERING)
@@ -282,9 +282,13 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
                 plugin.snapshot.world.lifeBalance.gatheringMilestones.filter { total>=it.threshold && profile.gatheringRecords.size>=it.uniqueNodes }.forEach { profile.flags.add(it.flag) }
             },success={
                 plugin.syncTitleAdvancements(player,profile)
-                player.sendMessage(Component.text("採取しました: ${result.joinToString { "${it.item} ×${it.amount}" }.ifEmpty { "空振り" }} / 採取経験値 ${node.lifeXp}"))
+                val items=result.joinToString { "${it.item} ×${it.amount}" }.ifEmpty { plugin.message(player,"ec.gathering.reward_empty").toString() }
+                player.sendMessage(plugin.message(player,"ec.gathering.reward", "items" to items, "xp" to node.lifeXp))
                 plugin.markDirty(profile.uuid)
             })
-        } catch(error: Exception) { player.sendMessage(Component.text("採取を完了できませんでした: ${error.message}")) }
+        } catch(error: Exception) {
+            val reason=if(error.message=="ec.gathering.respawned") plugin.message(player,"ec.gathering.respawned").toString() else error.message.orEmpty()
+            player.sendMessage(plugin.message(player,"ec.gathering.reward_failed", "reason" to reason))
+        }
     }
 }

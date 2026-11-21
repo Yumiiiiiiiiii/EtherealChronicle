@@ -78,7 +78,7 @@ class GatheringLifeTest {
                 server.pluginManager.callEvent(EntityDamageEvent(a,EntityDamageEvent.DamageCause.CUSTOM,1.0))
                 server.pluginManager.callEvent(EntityDamageEvent(a,EntityDamageEvent.DamageCause.CUSTOM,1.0))
                 server.pluginManager.callEvent(PlayerDeathEvent(a,DamageSource.builder(DamageType.GENERIC).build(),mutableListOf(),0,"QA"))
-                val activeMessages=generateSequence { a.nextMessage() }.toList().filter { it.contains("採取を中断") || it.contains("倒れたため採取") }
+                val activeMessages=generateSequence { a.nextMessage() }.toList().filter { it.contains("Gathering was interrupted") || it.contains("採取を中断") }
                 assertEquals(1,activeMessages.size,"transition should notify exactly once: $activeMessages")
                 "inactive silence, one active interruption"
             }
@@ -87,12 +87,13 @@ class GatheringLifeTest {
                 a.inventory.setItemInMainHand(ItemStack(Material.AIR)); generateSequence { a.nextMessage() }.toList()
                 interactAt(a,world.getBlockAt(nodeLoc.x,nodeLoc.y,nodeLoc.z))
                 val message=a.nextMessage() ?: error("missing gather requirement message")
-                assertTrue(message.contains("SICKLE") && message.contains("専用道具"),"unexpected gate message: $message")
+                assertTrue(message.contains("SICKLE") && (message.contains("dedicated") || message.contains("専用道具")),"unexpected gate message: $message")
                 assertTrue(plugin.gathering.debugStatus(a).contains("last=") && plugin.gathering.debugStatus(a).contains("held=vanilla:AIR"),plugin.gathering.debugStatus(a))
                 a.inventory.setItemInMainHand(plugin.createItem("ec:item_tool_sickle_silver")); interactAt(a,world.getBlockAt(nodeLoc.x,nodeLoc.y,nodeLoc.z))
                 assertTrue(plugin.gathering.active(a.uniqueId),"clicking visual block coordinate did not start a channel")
                 assertTrue(plugin.gathering.debugStatus(a).contains("BossBar=true"),plugin.gathering.debugStatus(a))
-                assertTrue((a.nextMessage() ?: "").contains("採取を開始しました"),"channel start did not give chat feedback")
+                val startMessage=a.nextMessage() ?: ""
+                assertTrue(startMessage.contains("Gathering") || startMessage.contains("採取を開始しました"),"channel start did not give chat feedback")
                 plugin.gathering.interrupt(a.uniqueId)
                 "visible block and ground coordinates resolve; missing tool explained"
             }
@@ -111,7 +112,8 @@ class GatheringLifeTest {
                 generateSequence { a.nextMessage() }.toList()
                 a.inventory.setItemInMainHand(ItemStack(Material.AIR)); interact(a); server.pump(300) { false }
                 assertTrue(!plugin.gathering.active(a.uniqueId), "bare hand started a channel")
-                assertTrue((a.nextMessage() ?: "").contains("専用道具"),"missing tool reason missing"); null
+                val missingReason=a.nextMessage() ?: ""
+                assertTrue(missingReason.contains("dedicated") || missingReason.contains("専用道具"),"missing tool reason missing"); null
             }
             rec("G3 correct tool: channel completes once, 1-2 leaves granted, node on cooldown for that player") {
                 generateSequence { a.nextMessage() }.toList()
@@ -130,7 +132,8 @@ class GatheringLifeTest {
                 val got = count(a, "ec:item_mat_ash_leaf"); assertTrue(got in 1..2, "leaf amount $got")
                 generateSequence { a.nextMessage() }.toList()
                 interact(a); server.pump(300) { false }; assertTrue(!plugin.gathering.active(a.uniqueId), "no cooldown: re-gathered immediately")
-                assertTrue((a.nextMessage() ?: "").contains("再生中"),"cooldown refusal had no Japanese explanation"); "leaves=$got, second attempt refused"
+                val cooldownReason=a.nextMessage() ?: ""
+                assertTrue(cooldownReason.contains("regenerating") || cooldownReason.contains("再生中"),"cooldown refusal was not explained"); "leaves=$got, second attempt refused"
             }
             rec("G4 respawn is per player: B can gather the node A just depleted") {
                 b.inventory.setItemInMainHand(plugin.createItem("ec:item_tool_sickle_silver")); interact(b)
