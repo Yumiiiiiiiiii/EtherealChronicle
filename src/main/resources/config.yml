@@ -1,5 +1,9 @@
 # auto follows each player's Minecraft client language. Supported values: auto, ja_jp, en_us.
 language: auto
+bettermodel:
+  # 任意依存です。trueにして entity_models にIDを設定した場合だけモデル連携します。
+  enabled: false
+  entity_models: {}
 resource_pack:
   enabled: true
   required: false

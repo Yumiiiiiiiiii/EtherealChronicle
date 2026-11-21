@@ -53,3 +53,17 @@ DNS名が `server.properties` の `server-ip` と異なる場合は、`resource_
 | `game_port` | 実験的な同一ポート配信。明示的な二重 opt-in が必要 | Minecraft ゲームポート |
 
 `external_url` が設定されていれば、同一ポート機能の起動に失敗したときの配布先にもなります。
+
+## BetterModel 連携
+
+BetterModel は任意依存です。Paper のソフト依存として先に読み込まれますが、導入しなくてもバニラ/`wolf_variant` の見た目で動作します。BetterModel と対応するクライアント用モデル・リソースパックを別途導入し、設定後に再起動してください。
+
+```yaml
+bettermodel:
+  enabled: true
+  entity_models:
+    "ec:enemy_thorn_wolf": "thorn_wolf"
+    "ec:boss_ashwood_alpha": "ashwood_alpha"
+```
+
+`entity_models` のキーは魔物・ボスの安定ID、値は BetterModel 側のモデル名です。登録されていないモデル、API互換性エラー、プラグイン未導入の場合は警告を一度出し、通常の魔物表示を維持します。連携は BetterModel の公開 renderer/adapter API を反射で呼び出すため、BetterModel のAPI更新後は再検証してください。

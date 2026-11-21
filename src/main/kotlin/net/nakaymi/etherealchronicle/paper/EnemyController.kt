@@ -39,6 +39,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
     data class MobState(val entity: LivingEntity,val home: Location,val point: String,val boss: BossState,val participants: Set<UUID>,val bar: BossBar?,var target: UUID?=null,var nextAttack: Long=0,val specials: MutableMap<String,Long> = mutableMapOf(),val pinned: Boolean=false,val threat: MutableMap<UUID,Double> = mutableMapOf(),var tauntTarget: UUID?=null,var tauntUntil: Long=0)
     private data class Warning(val owner: UUID,val attack: SpecialAttack,val location: Location,val direction: org.bukkit.util.Vector,val due: Long)
     private val key=NamespacedKey(plugin,"enemy_id")
+    private val betterModel=BetterModelBridge(plugin)
     private val states=mutableMapOf<UUID,MobState>()
     private val attackers=mutableMapOf<UUID,UUID>()
     private val budget=SpawnBudget { plugin.snapshot.world.tuning.enemyCap }
@@ -81,6 +82,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
         val boss=BossState(d,participants.size.coerceAtLeast(1),tick)
         val bar=if(d.boss) Bukkit.createBossBar(d.name,BarColor.PURPLE,BarStyle.SEGMENTED_10) else null
         states[entity.uniqueId]=MobState(entity,location.clone(),point,boss,participants,bar,pinned=pinForSimulation)
+        betterModel.attach(entity,id)
         return entity
     }
     fun tick() {
@@ -245,12 +247,13 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
     @EventHandler fun load(e: ChunkLoadEvent) { e.chunk.entities.filter { it.persistentDataContainer.has(key) && it.uniqueId !in states }.forEach(Entity::remove) }
     private fun remove(id: UUID,removeEntity: Boolean) {
         val state=states.remove(id) ?: return
+        betterModel.detach(id)
         state.bar?.removeAll(); if(removeEntity) state.entity.remove(); budget.release(id); attackers.remove(id); warnings.removeIf { it.owner == id }
         if(state.pinned && states.values.none { it.pinned && it.home.chunk == state.home.chunk }) state.home.chunk.removePluginChunkTicket(plugin)
     }
     fun removeSimulation(participant: UUID) { states.filterValues { it.pinned && participant in it.participants }.keys.toList().forEach { remove(it,true) } }
     fun removeParticipants(participants: Set<UUID>) { states.filterValues { it.participants == participants }.keys.toList().forEach { remove(it,true) } }
-    fun close() { states.keys.toList().forEach { remove(it,true) } }
+    fun close() { states.keys.toList().forEach { remove(it,true) }; betterModel.close() }
 }
 
 

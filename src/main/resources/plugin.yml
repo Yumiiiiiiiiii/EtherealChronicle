@@ -3,6 +3,7 @@ version: '${version}'
 main: net.nakaymi.etherealchronicle.paper.RpgPlugin
 api-version: '26.3'
 description: Original fantasy MMORPG for PaperMC
+softdepend: [BetterModel]
 commands:
   ec:
     description: エーテルの年代記 管理コマンド
