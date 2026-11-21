@@ -26,10 +26,23 @@
 | `ec.codex.undiscovered_fish` | 未発見の魚 | Undiscovered fish | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.codex.undiscovered_gathering` | 未発見の採取地 | Undiscovered gathering site | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.codex.weaknesses` | 弱点: <values> | Weaknesses: <values> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<values>` |
+| `ec.command.class_set` | 職業を変更しました。 | Class updated. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.command.currency_set` | 所持金を設定しました。 | Currency updated. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.command.failed` | 操作できません: <reason> | Could not complete that action: <reason> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<reason>` |
+| `ec.command.item_given` | アイテムを付与しました。 | Item granted. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.command.level_set` | レベルを変更しました。 | Level updated. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.command.no_permission` | 権限がありません。 | You do not have permission to use this command. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.command.reload_busy` | 取引・職業選択・聖堂攻略中は再読み込みできません。 | Content cannot reload during a transaction, class selection, or trial. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.command.reload_content_in_use` | 使用中の職業または依頼を削除する変更は再読み込みできません。 | Reload cannot remove a class or quest currently in use. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.command.reload_success` | コンテンツを再読み込みしました。 | Content reloaded. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.command.validate_success` | コンテンツ検証成功。 | Content validation succeeded. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.command.validation_failed` | 検証失敗: <reason> | Validation failed: <reason> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<reason>` |
 | `ec.dialogue.talk` | お話 | Talk | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.dungeon.clear` | <message> | <message> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<message>` |
 | `ec.dungeon.entry` | <message> | <message> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<message>` |
 | `ec.dungeon.first_rank_reward` | 初回ランク報酬を受け取りました。 | You received the first-clear rank reward. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
+| `ec.dungeon.no_records` | 試練の記録はまだありません。 | No trial records yet. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.dungeon.record` | <id>: <seconds>秒 / ランク<rank> | <id>: <seconds>s / Rank <rank> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<id>`, `<rank>`, `<seconds>` |
 | `ec.dungeon.result` | <message> 記録 <seconds>秒 / ランク<rank>（自己ベスト <best_seconds>秒 / <best_rank>） | <message> Time <seconds>s / Rank <rank> (best <best_seconds>s / <best_rank>) | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<best_rank>`, `<best_seconds>`, `<message>`, `<rank>`, `<seconds>` |
 | `ec.dungeon.timeout` | 聖堂の制限時間を迎えました。 | The trial time limit has been reached. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
 | `ec.dungeon.wave` | 試練 第<current>/<total>波が始まります。 | Trial wave <current>/<total> is beginning. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<current>`, `<total>` |
@@ -121,6 +134,9 @@
 | `ec.gathering.world_only` | 管理対象の採取エリアでのみ採取できます。 | Gathering is only available in the managed gathering areas. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
 | `ec.hud.main` | HP <hp>/<max_hp>  <resource_name> <resource>/<max_resource>  <skill> CD <cooldown>秒  仲間 <party>人 | HP <hp>/<max_hp>  <resource_name> <resource>/<max_resource>  <skill> CD <cooldown>s  Party <party> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<cooldown>`, `<hp>`, `<max_hp>`, `<max_resource>`, `<party>`, `<resource>`, `<resource_name>`, `<skill>` |
 | `ec.item.cannot_drop` | このアイテムは手放せません。 | You cannot drop this item. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
+| `ec.life.fishing_bait_help` | /ec fish bait <item_id\|auto\|none> | /ec fish bait <item_id\|auto\|none> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.life.fishing_status` | 釣り Lv.<level> / 経験値 <xp>/<required> / スコア <score> / 発見 <found>/<total>種 / 餌 <bait> | Fishing Lv. <level> / XP <xp>/<required> / Score <score> / Discovered <found>/<total> / Bait <bait> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<bait>`, `<found>`, `<level>`, `<required>`, `<score>`, `<total>`, `<xp>` |
+| `ec.life.gathering_status` | 採取 Lv.<level> / 経験値 <xp>/<required> / 累計 <count>回 / 発見 <found>/<total>種 | Gathering Lv. <level> / XP <xp>/<required> / Total <count> / Discovered <found>/<total> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<count>`, `<found>`, `<level>`, `<required>`, `<total>`, `<xp>` |
 | `ec.mailbox.inventory_full` | 報酬を保管しています。持ち物に空きを作り /ec claim で受け取ってください。 | Your reward is stored. Make room and use /ec claim to receive it. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.mailbox.save_retry` | 受取内容を保存できませんでした。/ec claim で再試行してください。 | Could not save the claim. Retry with /ec claim. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.menu.codex_area` | 冒険者の図鑑 — 魔物 | Adventurer Codex — Enemies | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
@@ -153,6 +169,12 @@
 | `ec.skill.weapon_requirements` | この装備の条件を満たしていません。 | You do not meet this equipment's requirements. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.startup.loading` | 冒険データを読み込んでいます… | Loading your adventure data… | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.startup.starting` | 冒険システムは起動中です。しばらくお待ちください。 | The adventure system is starting. Please wait. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.title.cleared` | 称号表示を解除しました。 | Displayed title cleared. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.title.equipped` | 称号を装備しました: <name> | Title equipped: <name> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<name>` |
+| `ec.title.equipped_mark` |  [装備中] |  [Equipped] | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.title.help` | /ec title <称号ID\|none> で表示を切り替えます。 | Use /ec title <title_id\|none> to change your displayed title. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.title.list_entry` | <status> <id>: <name><equipped> | <status> <id>: <name><equipped> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<equipped>`, `<id>`, `<name>`, `<status>` |
+| `ec.title.locked` | 称号をまだ解放していません。 | You have not unlocked that title yet. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.treasure.busy` | 処理中です。少し待ってください。 | An operation is in progress. Please wait. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/TreasureController.kt |  |
 | `ec.treasure.empty` | この宝箱は空です。 | This treasure chest is empty. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/TreasureController.kt |  |
 | `ec.treasure.failed` | 宝箱を開けられません。 | Could not open the treasure chest. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/TreasureController.kt |  |

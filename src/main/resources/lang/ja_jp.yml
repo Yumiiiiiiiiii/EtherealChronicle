@@ -34,6 +34,8 @@ ec:
     result: "<message> 記録 <seconds>秒 / ランク<rank>（自己ベスト <best_seconds>秒 / <best_rank>）"
     clear: "<message>"
     timeout: "聖堂の制限時間を迎えました。"
+    no_records: "試練の記録はまだありません。"
+    record: "<id>: <seconds>秒 / ランク<rank>"
   dialogue:
     talk: "お話"
   shop:
@@ -48,6 +50,29 @@ ec:
   mailbox:
     inventory_full: "報酬を保管しています。持ち物に空きを作り /ec claim で受け取ってください。"
     save_retry: "受取内容を保存できませんでした。/ec claim で再試行してください。"
+  command:
+    failed: "操作できません: <reason>"
+    no_permission: "権限がありません。"
+    validation_failed: "検証失敗: <reason>"
+    reload_busy: "取引・職業選択・聖堂攻略中は再読み込みできません。"
+    reload_content_in_use: "使用中の職業または依頼を削除する変更は再読み込みできません。"
+    reload_success: "コンテンツを再読み込みしました。"
+    validate_success: "コンテンツ検証成功。"
+    currency_set: "所持金を設定しました。"
+    item_given: "アイテムを付与しました。"
+    level_set: "レベルを変更しました。"
+    class_set: "職業を変更しました。"
+  life:
+    fishing_status: "釣り Lv.<level> / 経験値 <xp>/<required> / スコア <score> / 発見 <found>/<total>種 / 餌 <bait>"
+    fishing_bait_help: "/ec fish bait <item_id|auto|none>"
+    gathering_status: "採取 Lv.<level> / 経験値 <xp>/<required> / 累計 <count>回 / 発見 <found>/<total>種"
+  title:
+    list_entry: "<status> <id>: <name><equipped>"
+    equipped_mark: " [装備中]"
+    help: "/ec title <称号ID|none> で表示を切り替えます。"
+    locked: "称号をまだ解放していません。"
+    cleared: "称号表示を解除しました。"
+    equipped: "称号を装備しました: <name>"
   class:
     choose: "職業を選んでください"
   menu:

@@ -667,27 +667,29 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     }
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if(!ready) {
-            val starting = if(::language.isInitialized) message(sender,"ec.startup.starting") else Component.text("冒険システムは起動中です。しばらくお待ちください。")
-            sender.sendMessage(starting)
+            sender.sendMessage(message(sender,"ec.startup.starting"))
             return true
         }
         if(sender is Player && args.firstOrNull() in setOf("quest","party","equipment","dungeon","shop","claim","title","codex","enhance","fish","gather")) {
-            try { playerCommand(sender,args.toList()) } catch(error: Exception) { sender.sendMessage(Component.text("操作できません: ${error.message}")) }
+            try { playerCommand(sender,args.toList()) } catch(error: Exception) {
+                val reason=error.message?.let { if(it.startsWith("ec.")) message(sender,it) else Component.text(it) } ?: Component.empty()
+                sender.sendMessage(message(sender,"ec.command.failed", "reason" to reason))
+            }
             return true
         }
-        if(!sender.hasPermission("etherealchronicle.admin")) { sender.sendMessage(Component.text("権限がありません。")); return true }
+        if(!sender.hasPermission("etherealchronicle.admin")) { sender.sendMessage(message(sender,"ec.command.no_permission")); return true }
         try {
             when(args.firstOrNull()) {
                 "reload", "validate" -> {
                     val reload = args[0] == "reload"
                     CompletableFuture.supplyAsync { content.load().also(::validatePaperContent) }.whenComplete { snapshot,error -> sync {
-                        if(error != null) sender.sendMessage(Component.text("検証失敗: ${error.cause?.message ?: error.message}"))
+                        if(error != null) sender.sendMessage(message(sender,"ec.command.validation_failed", "reason" to (error.cause?.message ?: error.message)))
                         else {
                             if(reload) {
-                                if(adventure.hasTransactions() || choosing.isNotEmpty() || dungeons.activeCount() > 0) { sender.sendMessage(Component.text("取引・職業選択・聖堂攻略中は再読み込みできません。")); return@sync }
+                                if(adventure.hasTransactions() || choosing.isNotEmpty() || dungeons.activeCount() > 0) { sender.sendMessage(message(sender,"ec.command.reload_busy")); return@sync }
                                 val all = profiles.values + simulated.values
                                 if(all.any { p -> p.classId?.let { snapshot.classes.find(it) == null } == true || p.quests.any { (id,q) -> !q.completed && snapshot.documents[id]?.get("type") != "quest" } }) {
-                                    sender.sendMessage(Component.text("使用中の職業または依頼を削除する変更は再読み込みできません。")); return@sync
+                                    sender.sendMessage(message(sender,"ec.command.reload_content_in_use")); return@sync
                                 }
                                 content.install(snapshot); game.skills.updateBalance(snapshot.balance)
                                 all.forEach { p -> p.level=p.level.coerceAtMost(snapshot.balance.levelCap); if(p.level == snapshot.balance.levelCap) p.xp=0; p.skillLevels.replaceAll { _,level -> level.coerceIn(1,snapshot.balance.skillLevelCap) } }
@@ -698,7 +700,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                                 if(::fishing.isInitialized) fishing.reload()
                     if(::treasures.isInitialized) treasures.reload()
                             }
-                            sender.sendMessage(Component.text(if(reload) "コンテンツを再読み込みしました。" else "コンテンツ検証成功。"))
+                            sender.sendMessage(message(sender,if(reload) "ec.command.reload_success" else "ec.command.validate_success"))
                         }
                     } }
                 }
@@ -712,7 +714,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     val profile=profiles[p.uniqueId] ?: error("読み込み中です。")
                     require(!adventure.locked(profile.uuid)); val balance=args[2].toLong(); require(balance in 0..snapshot.world.tuning.maxCurrency)
                     profile.currency=balance; save(profile); logger.info("管理者回復: ${sender.name} -> ${p.name} 所持金 $balance")
-                    sender.sendMessage(Component.text("所持金を設定しました。"))
+                    sender.sendMessage(message(sender,"ec.command.currency_set"))
                 }
                 "flag" -> {
                     require(args.size in 3..4) { "/ec flag <player> <flag> [set|clear]" }
@@ -758,7 +760,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     require(amount in 1..64)
                     require(!adventure.locked(p.uniqueId))
                     require(inventory(p).exchange(emptyMap(),mapOf(args[2] to amount))) { "持ち物に空きがありません。" }
-                    sender.sendMessage(Component.text("アイテムを付与しました。"))
+                    sender.sendMessage(message(sender,"ec.command.item_given"))
                 }
                 "setlevel" -> {
                     require(args.size == 3)
@@ -767,7 +769,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     require(!adventure.locked(profile.uuid))
                     val level = args[2].toInt(); require(level in 1..content.snapshot().balance.levelCap)
                     profile.level = level; profile.xp = 0; save(profile)
-                    sender.sendMessage(Component.text("レベルを変更しました。"))
+                    sender.sendMessage(message(sender,"ec.command.level_set"))
                 }
                 "class" -> {
                     require(args.size == 3)
@@ -776,12 +778,15 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     val c = content.snapshot().classes[args[2]]
                     require(!adventure.locked(profile.uuid))
                     game.changeClass(profile,c.id); save(profile); applyStats(p,profile)
-                    sender.sendMessage(Component.text("職業を変更しました。"))
+                    sender.sendMessage(message(sender,"ec.command.class_set"))
                 }
                 "debug" -> debug(sender,args.drop(1))
                 else -> sender.sendMessage(Component.text("/ec reload | validate | give <player> <item> [amount] | setlevel <player> <level> | class <player> <id> | flag <player> <flag> [set|clear] | debug sim …"))
             }
-        } catch(e: Exception) { sender.sendMessage(Component.text("操作失敗: ${e.message}")) }
+        } catch(e: Exception) {
+            val reason=e.message?.let { if(it.startsWith("ec.")) message(sender,it) else Component.text(it) } ?: Component.empty()
+            sender.sendMessage(message(sender,"ec.command.failed", "reason" to reason))
+        }
         return true
     }
     private fun playerCommand(player: Player,args: List<String>) {
@@ -797,32 +802,32 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 } else {
                     val life=p.lifeSkills.getValue(LifeSkillKind.FISHING); val required=LifeSkillEngine(snapshot.world.lifeBalance).requiredXp(life.level)
                     val bait=when(p.fishingBait){"AUTO"->"自動";"NONE"->"なし";else->p.fishingBait}
-                    player.sendMessage(Component.text("釣り Lv.${life.level} / 経験値 ${life.xp}/$required / スコア ${FishingEngine(snapshot.world.lifeBalance).score(p)} / 発見 ${p.fishRecords.values.count { it.count>0 }}/${snapshot.world.fishSpecies.size}種 / 餌 $bait"))
-                    player.sendMessage(Component.text("/ec fish bait <item_id|auto|none>"))
+                    player.sendMessage(message(player,"ec.life.fishing_status", "level" to life.level, "xp" to life.xp, "required" to required, "score" to FishingEngine(snapshot.world.lifeBalance).score(p), "found" to p.fishRecords.values.count { it.count>0 }, "total" to snapshot.world.fishSpecies.size, "bait" to bait))
+                    player.sendMessage(message(player,"ec.life.fishing_bait_help"))
                 }
             }
             "gather" -> {
                 val life=p.lifeSkills.getValue(LifeSkillKind.GATHERING); val required=LifeSkillEngine(snapshot.world.lifeBalance).requiredXp(life.level)
-                player.sendMessage(Component.text("採取 Lv.${life.level} / 経験値 ${life.xp}/$required / 累計 ${p.gatheringRecords.values.sum()}回 / 発見 ${p.gatheringRecords.count { it.value>0 }}/${snapshot.world.gatheringNodes.size}種"))
+                player.sendMessage(message(player,"ec.life.gathering_status", "level" to life.level, "xp" to life.xp, "required" to required, "count" to p.gatheringRecords.values.sum(), "found" to p.gatheringRecords.count { it.value>0 }, "total" to snapshot.world.gatheringNodes.size))
             }
             "title" -> {
                 syncTitleAdvancements(player,p)
                 val id=args.getOrNull(1)
                 if(id == null) {
-                    snapshot.world.titles.values.forEach { title -> player.sendMessage(Component.text("${if(title.unlockFlag in p.flags) "✓" else "○"} ${title.id}: ${title.name}${if(title.id == p.selectedTitle) " [装備中]" else ""}")) }
-                    player.sendMessage(Component.text("/ec title <称号ID|none> で表示を切り替えます。"))
+                    snapshot.world.titles.values.forEach { title -> player.sendMessage(message(player,"ec.title.list_entry", "status" to if(title.unlockFlag in p.flags) "✓" else "○", "id" to title.id, "name" to title.name, "equipped" to if(title.id == p.selectedTitle) message(player,"ec.title.equipped_mark") else Component.empty())) }
+                    player.sendMessage(message(player,"ec.title.help"))
                 } else {
                     val selected=if(id == "none") null else id
-                    require(p.equipTitle(selected,snapshot.world.titles)) { "称号をまだ解放していません。" }
+                    require(p.equipTitle(selected,snapshot.world.titles)) { "ec.title.locked" }
                     save(p); applyTitle(player,p)
-                    player.sendMessage(Component.text(if(selected == null) "称号表示を解除しました。" else "称号を装備しました: ${snapshot.world.titles.getValue(selected).name}"))
+                    player.sendMessage(message(player,if(selected == null) "ec.title.cleared" else "ec.title.equipped", "name" to selected?.let { snapshot.world.titles.getValue(it).name }))
                 }
             }
             "claim" -> adventure.claimPending(player)
             "equipment" -> adventure.equipment(player)
             "dungeon" -> when(args.getOrNull(1)) {
                 "leave" -> dungeons.leave(player)
-                "records" -> if(p.challengeRecords.isEmpty()) player.sendMessage(Component.text("試練の記録はまだありません。")) else p.challengeRecords.forEach { (id,record) -> player.sendMessage(Component.text("$id: ${record.bestSeconds}秒 / ランク${record.bestRank}")) }
+                "records" -> if(p.challengeRecords.isEmpty()) player.sendMessage(message(player,"ec.dungeon.no_records")) else p.challengeRecords.forEach { (id,record) -> player.sendMessage(message(player,"ec.dungeon.record", "id" to id, "seconds" to record.bestSeconds, "rank" to record.bestRank)) }
                 "enter" -> dungeons.enter(player,args.getOrNull(2) ?: "ec:dungeon_void_sanctum")
                 null -> dungeons.enter(player)
                 else -> dungeons.enter(player,args[1])

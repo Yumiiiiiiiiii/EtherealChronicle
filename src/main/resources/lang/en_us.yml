@@ -34,6 +34,8 @@ ec:
     result: "<message> Time <seconds>s / Rank <rank> (best <best_seconds>s / <best_rank>)"
     clear: "<message>"
     timeout: "The trial time limit has been reached."
+    no_records: "No trial records yet."
+    record: "<id>: <seconds>s / Rank <rank>"
   dialogue:
     talk: "Talk"
   shop:
@@ -48,6 +50,29 @@ ec:
   mailbox:
     inventory_full: "Your reward is stored. Make room and use /ec claim to receive it."
     save_retry: "Could not save the claim. Retry with /ec claim."
+  command:
+    failed: "Could not complete that action: <reason>"
+    no_permission: "You do not have permission to use this command."
+    validation_failed: "Validation failed: <reason>"
+    reload_busy: "Content cannot reload during a transaction, class selection, or trial."
+    reload_content_in_use: "Reload cannot remove a class or quest currently in use."
+    reload_success: "Content reloaded."
+    validate_success: "Content validation succeeded."
+    currency_set: "Currency updated."
+    item_given: "Item granted."
+    level_set: "Level updated."
+    class_set: "Class updated."
+  life:
+    fishing_status: "Fishing Lv. <level> / XP <xp>/<required> / Score <score> / Discovered <found>/<total> / Bait <bait>"
+    fishing_bait_help: "/ec fish bait <item_id|auto|none>"
+    gathering_status: "Gathering Lv. <level> / XP <xp>/<required> / Total <count> / Discovered <found>/<total>"
+  title:
+    list_entry: "<status> <id>: <name><equipped>"
+    equipped_mark: " [Equipped]"
+    help: "Use /ec title <title_id|none> to change your displayed title."
+    locked: "You have not unlocked that title yet."
+    cleared: "Displayed title cleared."
+    equipped: "Title equipped: <name>"
   class:
     choose: "Choose a class"
   menu:
