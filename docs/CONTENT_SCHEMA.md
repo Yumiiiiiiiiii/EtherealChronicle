@@ -121,3 +121,15 @@ Core skill fields optionally include `element`, `radius`, `heal`, `defense_buff`
 ### Title advancements (Task 7)
 
 `titles/*.yml` may add an optional `advancement` block: `title`, `description`, `icon` (Material), `parent`, `frame` (TASK/GOAL/CHALLENGE) and `condition: {type: FLAG|BESTIARY|COLLECTION, target, count}`. `unlock_flag` stays the authoritative persisted unlock; a met advancement condition promotes that flag into the profile, and advancement progress is re-synced on join, transaction completion, once per second and content reload. The plugin generates an owned datapack with an `EtherealChronicle` advancement tab (supported Paper `DatapackManager` API, no `UnsafeValues.loadAdvancement`); if registration fails, profile-backed titles still work. Not yet verified on a live server or client.
+
+## Life professions: fishing and gathering (Task 8)
+
+Five content types (all `schema_version: 1`, `ec:` IDs) plus a balance document. Fishing is a fully custom system (vanilla `PlayerFishEvent` rewards are suppressed); gathering uses fixed nodes with vanilla block breaking blocked. Life items use `slot: NONE`. Profile schema is 10.
+
+- **`tackle`** (`tackle/*.yml`): `item`, `kind` (ROD|BAIT|...), `tier`, `min_life_level`, `wait_reduction`, `sweet_spot_bonus`, `tension_stability`, `size_bonus`, `channel_speed_bonus`, `rare_chance_bonus`, `preferred_tags`, `preferred_tag_multiplier`, `rarity_weights` (per rarity multiplier).
+- **`fishing_spot`**: `name`, `area`, `world`, `center {x,y,z}`, `radius`, `default_for_area`, `tags`.
+- **`fish_species`**: `name`, `item`, `rarity`, `tags`, `habitats` (area IDs), `time_windows` (e.g. NIGHT, DAWN_DUSK), `weather`, `min_rod_tier`, `min_fishing_level`, `base_weight`, `min_cm`/`max_cm`, `silver_crown_cm`/`gold_crown_cm`, `life_xp`, `adventurer_xp`, `lore_hint`, and `minigame {bite_window_ms, difficulty, sweet_width, progress_per_sec, tension_decay_per_sec, thrash_chance_per_sec, dive_chance_per_sec}`.
+- **`gathering_node`**: `name`, `node_kind` (ORE|HERB|WOOD|CRYSTAL), `display_material`, `depleted_material`, `required_tool_kind`, `min_tool_tier`, `min_gathering_level`, `channel_ms`, `respawn_seconds`, `per_player_respawn`, `life_xp`, `adventurer_xp`, `yields [{item,min,max,chance}]`, `rare_yields [{item,min,max,chance,pity_after}]`, `locations [{id,area,world,x,y,z}]` (every location must lie inside an `ec_world` area).
+- **`life_balance`** (`balance/life_skills.yml`): `life_level_cap`, `life_xp_base`, `life_xp_exponent`, `cast_range_blocks`, `cast_cooldown_ms`, `max_concurrent_fishing_sessions`, fatigue (`fatigue_window_seconds`, `fatigue_soft_threshold`, `fatigue_hard_threshold`, `fatigue_cooldown_seconds`), `reeling_timeout_seconds`, `slack_fail_seconds`, `party_gather_rare_bonus`, `fishing_score_milestones [{score,flag}]`, `gathering_milestones [{total_harvests,unique_nodes,flag}]`.
+
+Sessions are bounded and ticked only for active anglers; no per-tick world scans. Repeated casts follow an anti-macro check and fatigue. Fish records (size, crowns), fishing score and harvest counts persist in the profile and feed `/ec codex`, titles and advancements.
