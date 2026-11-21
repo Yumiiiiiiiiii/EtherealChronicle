@@ -1,4 +1,4 @@
-package dev.mcmmo.rpg.qa
+package net.nakaymi.etherealchronicle.qa
 
 import java.nio.file.Files
 import java.time.Duration
@@ -46,3 +46,4 @@ class FixturesTest {
         assertEquals(seededRandom().nextInt(), seededRandom().nextInt())
     }
 }
+

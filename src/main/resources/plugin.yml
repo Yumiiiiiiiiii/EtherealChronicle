@@ -1,6 +1,6 @@
 name: EtherealChronicle
 version: '${version}'
-main: dev.mcmmo.rpg.paper.RpgPlugin
+main: net.nakaymi.etherealchronicle.paper.RpgPlugin
 api-version: '26.3'
 description: Original fantasy MMORPG for PaperMC
 commands:
@@ -11,3 +11,6 @@ permissions:
   etherealchronicle.admin:
     description: エーテルの年代記 管理者権限
     default: op
+
+website: https://nakaymi.net
+authors: [nakaymi]

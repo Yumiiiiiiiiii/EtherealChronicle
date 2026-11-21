@@ -1,6 +1,6 @@
-package dev.mcmmo.rpg.core
+package net.nakaymi.etherealchronicle.core
 
-import dev.mcmmo.rpg.data.*
+import net.nakaymi.etherealchronicle.data.*
 
 /** Main-thread owned gameplay operations shared by Paper events and the console simulator. */
 class GameService(private val content: () -> ContentSnapshot, val skills: SkillEngine) {
@@ -59,3 +59,4 @@ class GameService(private val content: () -> ContentSnapshot, val skills: SkillE
         p.currency = p.currency.coerceAtMost(Long.MAX_VALUE-gain) + gain
     }
 }
+

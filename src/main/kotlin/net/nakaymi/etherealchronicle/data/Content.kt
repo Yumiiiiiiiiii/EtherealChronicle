@@ -1,6 +1,6 @@
-package dev.mcmmo.rpg.data
+package net.nakaymi.etherealchronicle.data
 
-import dev.mcmmo.rpg.core.*
+import net.nakaymi.etherealchronicle.core.*
 import org.yaml.snakeyaml.LoaderOptions
 import org.yaml.snakeyaml.Yaml
 import org.yaml.snakeyaml.constructor.SafeConstructor
@@ -107,6 +107,7 @@ fun Map<String,Any?>.stats(d: Stats = Stats()): Stats {
 
 @Suppress("UNCHECKED_CAST")
 fun Map<String,Any?>.mapping(k: String) = this[k] as? Map<String,Any?> ?: error("Missing mapping $k")
+
 
 
 

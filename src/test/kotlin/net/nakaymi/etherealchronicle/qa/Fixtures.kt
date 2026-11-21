@@ -1,4 +1,4 @@
-package dev.mcmmo.rpg.qa
+package net.nakaymi.etherealchronicle.qa
 
 import java.nio.file.Files
 import java.nio.file.Path
@@ -95,3 +95,4 @@ object FakePlayers {
     val ALICE: java.util.UUID = java.util.UUID.fromString("00000000-0000-0000-0000-00000000a11c")
     val BOB: java.util.UUID = java.util.UUID.fromString("00000000-0000-0000-0000-0000000000b0")
 }
+
