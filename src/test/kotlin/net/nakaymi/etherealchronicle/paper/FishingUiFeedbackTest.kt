@@ -9,24 +9,24 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 
 class FishingUiFeedbackTest {
-    @Test fun `action bar only recommends bracing for a dive and gives calm advice otherwise`() {
-        assertContains(fishingReelAdvice(FishBehavior.DIVE),"左クリック")
-        assertContains(fishingReelAdvice(FishBehavior.THRASH),"手を離して")
-        assertContains(fishingReelAdvice(FishBehavior.CALM),"右クリック")
-        assertContains(fishingReelAdvice(FishBehavior.CALM,10.0),"張力が低い")
-        assertContains(fishingReelAdvice(FishBehavior.CALM,80.0),"張力が高い")
-        assertContains(fishingReelAdvice(FishBehavior.TELEGRAPH),"予兆")
+    @Test fun `action bar advice maps each fishing behavior to a translation key`() {
+        assertEquals("ec.fishing.dive",fishingReelAdvice(FishBehavior.DIVE))
+        assertEquals("ec.fishing.thrash",fishingReelAdvice(FishBehavior.THRASH))
+        assertEquals("ec.fishing.pull",fishingReelAdvice(FishBehavior.CALM))
+        assertEquals("ec.fishing.low_tension",fishingReelAdvice(FishBehavior.CALM,10.0))
+        assertEquals("ec.fishing.high_tension",fishingReelAdvice(FishBehavior.CALM,80.0))
+        assertEquals("ec.fishing.telegraph",fishingReelAdvice(FishBehavior.TELEGRAPH))
     }
     @Test fun `reeling timeout has a visible timeout title`() {
-        assertEquals("§c時間切れ！" to "§7魚を逃してしまった…",fishingEscapeTitle(FishingEscapeCause.TIMEOUT))
-        assertContains(fishingEscapeMessage(FishingEscapeCause.TIMEOUT),"制限時間")
+        assertEquals("ec.fishing.title_timeout" to "ec.fishing.subtitle_timeout",fishingEscapeTitle(FishingEscapeCause.TIMEOUT))
+        assertEquals("ec.fishing.title_timeout",fishingEscapeMessage(FishingEscapeCause.TIMEOUT))
     }
     @Test fun `every fishing escape cause has a title and a chat fallback`() {
         FishingEscapeCause.entries.forEach { cause ->
             val (title,subtitle)=fishingEscapeTitle(cause)
-            assertContains(title,"§")
-            assertContains(subtitle,"§")
-            assertContains(fishingEscapeMessage(cause),"。");
+            assertContains(title,"ec.fishing.")
+            assertContains(subtitle,"ec.fishing.")
+            assertContains(fishingEscapeMessage(cause),"ec.fishing.")
         }
     }
     @Test fun `every fishing end reason has a structured diagnostic line`() {
