@@ -46,12 +46,17 @@ class LangCatalog internal constructor(
 
     companion object {
         /** 言語ファイルを読み込みます。既存サーバー編集は初期化側のhash管理で保護します。 */
-        fun load(dataFolder: Path, configuredLanguage: String, logger: Logger): LangCatalog {
+        fun load(
+            dataFolder: Path,
+            configuredLanguage: String,
+            logger: Logger,
+            bundledDefaults: Map<String, ByteArray> = emptyMap()
+        ): LangCatalog {
             val languageFolder = dataFolder.resolve("lang")
             return LangCatalog(
                 normalizeSetting(configuredLanguage),
-                read(languageFolder.resolve("ja_jp.yml")),
-                read(languageFolder.resolve("en_us.yml")),
+                read(languageFolder.resolve("ja_jp.yml"), bundledDefaults["lang/ja_jp.yml"]),
+                read(languageFolder.resolve("en_us.yml"), bundledDefaults["lang/en_us.yml"]),
                 logger
             )
         }
@@ -61,9 +66,14 @@ class LangCatalog internal constructor(
             else -> "auto"
         }
 
-        private fun read(path: Path): Map<String, String> {
-            if (!Files.exists(path)) return emptyMap()
-            val yaml = YamlConfiguration.loadConfiguration(path.toFile())
+        private fun read(path: Path, bundledDefault: ByteArray?): Map<String, String> {
+            val yaml = when {
+                Files.exists(path) -> YamlConfiguration.loadConfiguration(path.toFile())
+                bundledDefault != null -> YamlConfiguration.loadConfiguration(
+                    bundledDefault.toString(Charsets.UTF_8).reader()
+                )
+                else -> return emptyMap()
+            }
             val result = linkedMapOf<String, String>()
             collect(yaml, "", result)
             return result

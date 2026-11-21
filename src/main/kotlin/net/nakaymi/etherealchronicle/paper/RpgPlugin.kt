@@ -65,13 +65,14 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     override fun onEnable() {
         saveDefaultConfig()
         itemKey = NamespacedKey(this,"item_id"); enhancementKey=NamespacedKey(this,"enhancement_level"); enhancementTransactionKey=NamespacedKey(this,"enhancement_transaction"); enemyKey = NamespacedKey(this,"enemy_id"); slotKey = NamespacedKey(this,"skill_slot")
+        val languageDefaults = listOf("ja_jp.yml", "en_us.yml").associate { name ->
+            "lang/$name" to getResource("lang/$name")!!.use { it.readBytes() }
+        }
+        language = LangCatalog.load(dataFolder.toPath(), config.getString("language", "auto") ?: "auto", logger, languageDefaults)
         // 非同期初期化中でも管理コマンドが「起動中」と返せるよう、先にexecutorを登録します。
         getCommand("ec")!!.setExecutor(this)
         server.scheduler.runTaskAsynchronously(this,Runnable {
             try {
-                val languageDefaults = listOf("ja_jp.yml", "en_us.yml").associate { name ->
-                    "lang/$name" to getResource("lang/$name")!!.use { it.readBytes() }
-                }
                 val oldLanguageDefaults = getResource("language-defaults.properties")
                     ?.use { DefaultContentInstaller.manifest(it.readBytes()) } ?: emptyMap()
                 val languageInstall = DefaultContentInstaller.installTracked(
