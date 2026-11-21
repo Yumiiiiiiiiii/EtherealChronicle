@@ -105,7 +105,9 @@ class TradeEngine(private val content: () -> ContentSnapshot) {
         return TradePlan(transaction,p.currency,p.currency-cost,remove,add,key,purchased+e.amount)
     }
     fun sell(p: PlayerProfile,shopId: String,item: String,amount: Int,inventory: InventoryAccess,transaction: String): TradePlan {
-        val c=content(); require(transaction !in p.transactions && amount in 1..c.world.tuning.transactionCap)
+        val c=content()
+        require(transaction !in p.transactions) { "処理済みの取引です。" }
+        require(amount in 1..c.world.tuning.transactionCap) { "数量は1..${c.world.tuning.transactionCap}で指定してください。" }
         require(c.world.shops[shopId]?.buyback == true) { "この店は買取できません。" }
         val properties=c.world.itemProperties[item] ?: error("アイテムが見つかりません。")
         require(!properties.bound && !properties.questItem && properties.price > 0) { "このアイテムは売れません。" }

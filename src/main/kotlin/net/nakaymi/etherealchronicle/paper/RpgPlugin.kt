@@ -582,16 +582,19 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     val id=args[3]; val definition=snapshot.world.enemies[id] ?: error("魔物が見つかりません。")
                     val pos=definition.spawns.firstOrNull()?.position
                     val location=pos?.let { Location(world,it.x,it.y,it.z) } ?: world.spawnLocation
-                    val mob=enemies.spawn(id,location,"sim:$name:$id",1,setOf(p.uuid)) ?: error("出現上限です。")
+                    val mob=enemies.spawn(id,location,"sim:$name:$id",1,setOf(p.uuid),pinForSimulation=true) ?: error("出現上限です。")
                     sender.sendMessage(Component.text("SIM spawn=${mob.uniqueId} hp=${enemies.state(mob.uniqueId)?.boss?.hp}"))
                 }
                 "hit" -> {
-                    val entity=UUID.fromString(args[3]); val damage=args[4].toDouble(); require(damage.isFinite() && damage > 0 && damage <= snapshot.balance.damageCap)
+                    val entity=UUID.fromString(args[3]); val damage=args[4].toDouble(); require(damage.isFinite() && damage > 0 && damage <= snapshot.balance.damageCap) { "ダメージは0より大きく ${snapshot.balance.damageCap} 以下で指定してください。" }
                     val state=enemies.state(entity) ?: error("対象が見つかりません。")
+                    require(state.boss.hp > 0) { "対象は討伐済みです。" }
                     require(state.participants.isEmpty() || p.uuid in state.participants) { "参加者が一致しません。" }
                     val killed=enemies.applyVirtualDamage(entity,p.uuid,damage)
-                    sender.sendMessage(Component.text("SIM hit hp=${state.boss.hp} killed=$killed (実Playerの討伐報酬は発生しません)"))
+                    if(killed) sender.sendMessage(Component.text("SIM ${session.execute(p,"kill",listOf(state.boss.definition.id))}"))
+                    sender.sendMessage(Component.text("SIM hit hp=${state.boss.hp} killed=$killed phase=${state.boss.phase()?.id} (実Playerの討伐報酬は発生しません)"))
                 }
+                "despawn" -> { enemies.removeSimulation(p.uuid); sender.sendMessage(Component.text("SIM 出現対象とチャンク保持を解除しました。")) }
                 "skill" -> {
                     val c = content.snapshot().classes[p.classId ?: error("職業未選択")]
                     val skill = content.snapshot().skills[args.getOrNull(3) ?: c.skills[p.selectedSkill]]
