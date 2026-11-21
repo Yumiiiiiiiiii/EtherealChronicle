@@ -53,18 +53,19 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
     }
     fun active(id:UUID)=id in sessions
     fun debugStatus(id:UUID):String = sessions[id]?.let { s ->
-        "釣りセッション phase=${s.state.phase} 魚=${s.state.fish.id} 進捗=${s.state.progress.toInt()}% 張力=${s.state.tension.toInt()}% BossBar=${s.bar.players.any { it.uniqueId==id }}"
+        "釣りセッション phase=${s.state.phase} 行動=${s.state.behavior} 経過=${"%.1f".format(s.state.elapsedSeconds)}/${plugin.snapshot.world.lifeBalance.reelingTimeoutSeconds}秒 魚=${s.state.fish.id} 進捗=${s.state.progress.toInt()}% 張力=${s.state.tension.toInt()}% BossBar=${s.bar.players.any { it.uniqueId==id }}"
     } ?: "釣りセッションなし"
     fun debugCancel(player:org.bukkit.entity.Player):Boolean = cancel(player,"デバッグ釣りを終了しました。")
     fun debugStart(player:org.bukkit.entity.Player,speciesId:String?):String {
         require(player.world.name==DemoWorld.NAME && DemoWorld.isOwned(player.world)) { "管理対象ワールドで実行してください。" }
-        require(plugin.profiles[player.uniqueId]!=null) { "プレイヤーデータを読み込み中です。" }
+        val profile=plugin.profiles[player.uniqueId] ?: error("プレイヤーデータを読み込み中です。")
         require(!active(player.uniqueId)) { "既に釣り中です。" }
         val definitions=plugin.snapshot.world
         val rod=plugin.identify(player.inventory.itemInMainHand)?.let { id -> definitions.tackle.values.firstOrNull { it.item==id && it.kind==TackleKind.ROD } }
             ?: definitions.tackle.values.firstOrNull { it.kind==TackleKind.ROD } ?: error("釣り竿定義がありません。")
         val fish=speciesId?.let { definitions.fishSpecies[it] ?: error("魚種が見つかりません: $it") }
-            ?: definitions.fishSpecies.values.firstOrNull() ?: error("魚種定義がありません。")
+            ?: defaultDebugFish(definitions.fishSpecies.values,definitions.fishingSpots.values,profile.lifeSkills.getValue(LifeSkillKind.FISHING).level,player.world.name)
+            ?: error("釣り場に合う魚種がありません。")
         val spot=definitions.fishingSpots.values.firstOrNull { it.world==player.world.name && (it.id in fish.habitats || it.area in fish.habitats) }
             ?: definitions.fishingSpots.values.firstOrNull { it.world==player.world.name } ?: error("このワールドの釣り場がありません。")
         require(sessions.size<capacity) { "釣りセッション数の上限です。" }
@@ -270,7 +271,12 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
             if(phase!=phaseBefore) {
                 when(phase) {
                     FishingPhase.CAUGHT -> reward(player,s)
-                    FishingPhase.ESCAPED -> { player.sendTitle("§c逃げられた…","§7糸が切れてしまった",0,18,6); cancel(player) }
+                    FishingPhase.ESCAPED -> {
+                        val (title,subtitle)=fishingEscapeTitle(s.state.escapeCause)
+                        player.sendTitle(title,subtitle,0,24,8)
+                        if(s.state.escapeCause==FishingEscapeCause.TIMEOUT) player.sendMessage(Component.text("制限時間を過ぎたため、魚を逃しました。"))
+                        cancel(player)
+                    }
                     else -> Unit
                 }
             }
@@ -279,7 +285,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
                 s.bar.setTitle(if(s.state.phase==FishingPhase.REELING) "§b格闘中 [$behavior] 進捗 ${s.state.progress.toInt()}%" else "§b魚影を探しています…")
                 s.bar.progress=(s.state.progress/100).coerceIn(0.0,1.0)
                 s.bar.color=when(s.state.behavior) { FishBehavior.DIVE -> BarColor.BLUE; FishBehavior.THRASH -> BarColor.RED; FishBehavior.TELEGRAPH -> BarColor.YELLOW; else -> BarColor.GREEN }
-                player.sendActionBar(Component.text("§b張力 ${s.state.tension.toInt()}%  |  進捗 ${s.state.progress.toInt()}%  右:引く / 左:いなす"))
+                player.sendActionBar(Component.text("§b張力 ${s.state.tension.toInt()}%  |  進捗 ${s.state.progress.toInt()}%  ${fishingReelAdvice(s.state.behavior)}"))
             }
         }
     }
