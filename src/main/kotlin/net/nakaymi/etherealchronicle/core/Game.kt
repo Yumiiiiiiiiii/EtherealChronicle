@@ -138,9 +138,14 @@ fun PlayerProfile.recordChallenge(dungeon:String,seconds:Long,rank:String): Pair
     return challengeRecords.getValue(dungeon) to updated
 }
 fun PlayerProfile.equipTitle(id:String?,titles:Map<String,TitleDefinition>):Boolean {
-    if(id != null && (titles[id]?.unlockFlag !in flags)) return false
+    if(id != null && titles[id]?.unlocked(this) != true) return false
     selectedTitle=id
     return true
+}
+/** Profile flags remain the durable source of truth; advancement-backed conditions are promoted to unlock flags. */
+fun PlayerProfile.syncTitleUnlockFlags(titles:Map<String,TitleDefinition>):Set<String> {
+    val newlyUnlocked=titles.values.filter { it.unlocked(this) }.map { it.unlockFlag }.filter(flags::add).toSet()
+    return newlyUnlocked
 }
 fun PlayerProfile.recordEnemyKill(enemy:String,areas:Map<String,Area>,definitions:Map<String,EnemyDefinition>):Set<String> {
     bestiary[enemy]=(bestiary.getOrDefault(enemy,0)+1).coerceAtMost(1_000_000)

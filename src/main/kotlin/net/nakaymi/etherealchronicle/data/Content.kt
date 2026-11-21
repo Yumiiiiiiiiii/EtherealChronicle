@@ -61,7 +61,7 @@ class ContentService(private val root: Path, private val migration: ContentMigra
           } catch(e: Exception) { val id=d["id"]; errors += "${sources[id]} [$id]: ${e.message}"; emptyList() }
         }
         if(declarations.distinct().size != declarations.size) errors += "章内の宣言IDが重複しています。"
-        val knownIds = docs.keys + aliases.keys + declarations
+        val knownIds = docs.keys + aliases.keys + declarations + "ec:chronicle/root"
         val refTypes = mapOf("skills" to "skill","starter_items" to "item","classes" to "class","item" to "item","class" to "class","enemy" to "enemy","boss" to "boss","guards" to "enemy","quest" to "quest","dialogue" to "dialogue","chapter" to "chapter","droptable" to "droptable","shop" to "shop","npc" to "npc","kill_target" to "enemy","enhancement_material" to "item")
         val listRefs = setOf("skills","starter_items","classes","requires","guards")
         fun refs(v: Any?, key: String = "", inWave: Boolean = false) { when(v) {
