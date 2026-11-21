@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_alpha_fang
+type: item
+name: 獣王の星牙
+material: BONE
+rarity: RARE
+slot: NONE
+min_level: 5
+classes: []
+budget: 0
+stats: {}
+price: 90
+lore: '見習い試練の闘技場で灰森の獣王アルファを討ち倒した証。ルーク教官のもとで護符や研磨砥石へ交換できる。'

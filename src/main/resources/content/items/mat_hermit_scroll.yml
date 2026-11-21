@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_hermit_scroll
+type: item
+name: 古木の秘録断簡
+material: PAPER
+rarity: RARE
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 75
+lore: 'アッシュウッドの森の奥に隠棲するバルドが記した生態覚書。希少魚の好む天候や古木の歴史が綴られている。'

@@ -1,0 +1,25 @@
+schema_version: 1
+id: ec:shop_rookie_board
+type: shop
+name: ルミナ見習い掲示板交換所
+npc: ec:npc_leila
+buyback: true
+discount: 0
+entries:
+  - {id: craft_early_whetstone, item: 'ec:item_mat_artisan_whetstone', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_whetstone_shard', amount: 4}, {item: 'ec:item_mat_river_pebble_ore', amount: 2}]}
+  - {id: exchange_rookie_whetstone, item: 'ec:item_mat_artisan_whetstone', amount: 1, price: 40, tokens: [{item: 'ec:item_mat_rookie_crest', amount: 3}]}
+  - {id: exchange_rookie_charm, item: 'ec:item_acc_rookie_charm', amount: 1, price: 160, tokens: [{item: 'ec:item_mat_rookie_crest', amount: 4}], condition: {min_level: 3}}
+  - {id: craft_rod_willow, item: 'ec:item_tool_rod_willow', amount: 1, price: 140, tokens: [{item: 'ec:item_mat_starwood_log', amount: 2}, {item: 'ec:item_mat_amber_sap', amount: 1}], condition: {min_level: 3}}
+  - {id: buy_bait_dew_grub, item: 'ec:item_bait_dew_grub', amount: 5, price: 110}
+  - {id: craft_bait_dew_grub, item: 'ec:item_bait_dew_grub', amount: 3, price: 0, tokens: [{item: 'ec:item_mat_dew_moss', amount: 2}, {item: 'ec:item_mat_amber_sap', amount: 1}]}
+  - {id: cook_goby_fritter, item: 'ec:item_con_goby_fritter', amount: 1, price: 0, tokens: [{item: 'ec:item_fish_harbor_goby', amount: 2}]}
+  - {id: cook_loach_broth, item: 'ec:item_con_loach_broth', amount: 1, price: 0, tokens: [{item: 'ec:item_fish_moss_loach', amount: 1}, {item: 'ec:item_mat_dew_moss', amount: 2}]}
+  - {id: cook_amber_koi_glaze, item: 'ec:item_con_amber_koi_glaze', amount: 1, price: 0, tokens: [{item: 'ec:item_fish_amber_koi', amount: 1}]}
+  - {id: market_river_pebble_ore, item: 'ec:item_mat_river_pebble_ore', amount: 1, price: 70, daily_limit: 5}
+  - {id: market_dew_moss, item: 'ec:item_mat_dew_moss', amount: 1, price: 70, daily_limit: 5}
+  - {id: market_amber_sap, item: 'ec:item_mat_amber_sap', amount: 1, price: 160, daily_limit: 3, condition: {min_level: 3}}
+  - {id: market_whetstone_shard, item: 'ec:item_mat_whetstone_shard', amount: 1, price: 85, daily_limit: 4}
+  - {id: market_harbor_goby, item: 'ec:item_fish_harbor_goby', amount: 1, price: 90, daily_limit: 5}
+  - {id: market_moss_loach, item: 'ec:item_fish_moss_loach', amount: 1, price: 110, daily_limit: 5, condition: {min_level: 2}}
+  - {id: market_dawn_minnow, item: 'ec:item_fish_dawn_minnow', amount: 1, price: 220, daily_limit: 2, condition: {min_level: 3}}
+  - {id: market_rain_eel, item: 'ec:item_fish_rain_eel', amount: 1, price: 420, daily_limit: 2, condition: {min_level: 5}}

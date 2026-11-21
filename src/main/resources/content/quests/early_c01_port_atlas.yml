@@ -1,0 +1,20 @@
+schema_version: 1
+id: ec:quest_early_c01_port_atlas
+type: quest
+name: 【収集】ルミナ港の恵み図鑑
+condition: {min_level: 2, has_flags: ['ec:flag_ch1_started']}
+objectives:
+  - {id: atlas_goby, kind: COLLECT, target: 'ec:item_fish_harbor_goby', amount: 2, consume: true}
+  - {id: atlas_pebble, kind: COLLECT, target: 'ec:item_mat_river_pebble_ore', amount: 2, consume: true}
+  - {id: atlas_moss, kind: COLLECT, target: 'ec:item_mat_dew_moss', amount: 2, consume: true}
+  - {id: report_leila, kind: TALK, target: 'ec:npc_leila', amount: 1}
+rewards:
+  xp: 320
+  currency: 160
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_rookie_crest', amount: 2}
+    - {item: 'ec:item_con_goby_fritter', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 0

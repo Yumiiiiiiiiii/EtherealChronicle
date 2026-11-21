@@ -1,0 +1,28 @@
+schema_version: 1
+id: ec:fish_harbor_goby
+type: fish_species
+name: 港ハゼ
+item: ec:item_fish_harbor_goby
+rarity: COMMON
+tags: [PORT, FRESHWATER]
+habitats: [ec:area_lumina_port]
+time_windows: [ANY]
+weather: [ANY]
+min_rod_tier: 1
+min_fishing_level: 1
+base_weight: 34
+min_cm: 12
+max_cm: 32
+silver_crown_cm: 26
+gold_crown_cm: 30
+life_xp: 16
+adventurer_xp: 8
+minigame:
+  bite_window_ms: 2050
+  difficulty: 1.25
+  sweet_width: 35
+  progress_per_sec: 22
+  tension_decay_per_sec: 23
+  thrash_chance_per_sec: 0.13
+  dive_chance_per_sec: 0.04
+lore_hint: 'ルミナ港の桟橋付近で一日中釣れる定番の小魚。香草揚げにして序盤の回復食にしよう。'

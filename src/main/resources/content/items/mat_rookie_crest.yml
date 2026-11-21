@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_rookie_crest
+type: item
+name: 蒼穹見習いの証
+material: SUNFLOWER
+rarity: UNCOMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 30
+lore: 'ルミナ港のギルド掲示板依頼を達成した証票。レイラやルークの窓口で装備や研磨砥石と交換できる。'

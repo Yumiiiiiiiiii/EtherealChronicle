@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:title_rookie_slayer
+type: title
+name: 港町の新鋭討伐者
+description: ルミナ港周辺のエーテルスライムを10体討伐し、冒険者の第一歩を刻んだ証。
+unlock_flag: ec:flag_title_rookie_slayer
+advancement:
+  title: 港町の新鋭討伐者
+  description: エーテルスライムを10体討伐した。
+  icon: WOODEN_SWORD
+  frame: TASK
+  condition:
+    type: BESTIARY
+    target: ec:enemy_aether_slime
+    count: 10

@@ -1,0 +1,20 @@
+schema_version: 1
+id: ec:quest_early_d02_forest_bounty
+type: quest
+name: 【序盤デイリー】灰森の獣・小鬼駆除
+condition: {min_level: 3, has_flags: ['ec:flag_ch1_started']}
+objectives:
+  - {id: bounty_wolves, kind: KILL, target: 'ec:enemy_thorn_wolf', amount: 4}
+  - {id: bounty_goblins, kind: KILL, target: 'ec:enemy_moss_goblin', amount: 4}
+  - {id: report_leila, kind: TALK, target: 'ec:npc_leila', amount: 1}
+rewards:
+  xp: 360
+  currency: 150
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_rookie_crest', amount: 2}
+    - {item: 'ec:item_mat_whetstone_shard', amount: 2}
+auto_complete: false
+repeatable: true
+repeat_cooldown_ms: 86400000
+reset_schedule: DAILY

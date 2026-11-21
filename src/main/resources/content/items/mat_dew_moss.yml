@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_dew_moss
+type: item
+name: 朝露苔
+material: MOSS_CARPET
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 20
+lore: 'アッシュウッドの森の木陰で朝露を蓄えた柔らかな苔。滋養汁の具材や朝露ミミズ虫の餌づくりに重宝される。'

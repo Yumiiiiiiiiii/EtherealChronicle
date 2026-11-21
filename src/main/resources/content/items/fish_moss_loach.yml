@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_fish_moss_loach
+type: item
+name: 苔ドジョウ
+material: TROPICAL_FISH
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 34
+lore: 'アッシュウッドの森の清流底に棲む縞模様のドジョウ。朝露苔と煮込むと体が芯から温まる。'

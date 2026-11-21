@@ -1,0 +1,22 @@
+schema_version: 1
+id: ec:node_ashwood_surface_ore
+type: gathering_node
+name: 灰森の表層星鉄脈
+node_kind: ORE
+display_material: IRON_ORE
+depleted_material: COBBLESTONE
+required_tool_kind: PICKAXE
+min_tool_tier: 1
+min_gathering_level: 3
+channel_ms: 2400
+respawn_seconds: 100
+per_player_respawn: true
+life_xp: 28
+adventurer_xp: 13
+yields:
+  - {item: ec:item_mat_river_pebble_ore, min: 1, max: 2, chance: 1.0}
+  - {item: ec:item_mat_iron_scrap, min: 1, max: 1, chance: 0.6}
+rare_yields:
+  - {item: ec:item_mat_whetstone_shard, min: 1, max: 1, chance: 0.28, pity_after: 6}
+locations:
+  - {id: ashwood_surface_ore_1, area: ec:area_ashwood_forest, world: ec_world, x: 128, y: 65, z: -10}

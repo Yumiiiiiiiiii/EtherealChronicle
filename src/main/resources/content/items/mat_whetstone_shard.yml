@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_whetstone_shard
+type: item
+name: 粗砥の欠片
+material: FLINT
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 25
+lore: '港や灰森の鉱脈から採れる硬質な砥石片。川底の星鉄礫と一緒にレイラの窓口で名匠の研磨砥石へ精錬できる。'

@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_con_goby_fritter
+type: item
+name: 港ハゼの香草揚げ
+material: COOKED_COD
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 48
+lore: '釣りたての港ハゼをカリッと揚げた港町の名物軽食。HPを55回復する。'
+effects:
+  - {kind: HEAL, amount: 55, cooldown_ms: 10000, chance: 1.0}

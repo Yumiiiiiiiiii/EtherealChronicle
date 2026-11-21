@@ -1,0 +1,20 @@
+schema_version: 1
+id: ec:quest_early_t02_arena_daily
+type: quest
+name: 【試練デイリー】見習い闘技場のタイムアタック
+condition: {min_level: 6, has_flags: ['ec:flag_early_trial_cleared']}
+objectives:
+  - {id: daily_alpha, kind: KILL, target: 'ec:boss_ashwood_alpha', amount: 1}
+  - {id: report_rook, kind: TALK, target: 'ec:npc_rook', amount: 1}
+rewards:
+  xp: 520
+  currency: 210
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_rookie_crest', amount: 2}
+    - {item: 'ec:item_mat_alpha_fang', amount: 1}
+    - {item: 'ec:item_mat_whetstone_shard', amount: 1}
+auto_complete: false
+repeatable: true
+repeat_cooldown_ms: 86400000
+reset_schedule: DAILY

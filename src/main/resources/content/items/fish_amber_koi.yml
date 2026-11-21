@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_fish_amber_koi
+type: item
+name: 琥珀ニシキゴイ
+material: TROPICAL_FISH
+rarity: EPIC
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 240
+lore: '琥珀樹液が溶け込む灰森の清流で薄明と夜にのみ姿を現す幻の錦鯉。釣り上げれば序盤屈指の武勇伝になる。'

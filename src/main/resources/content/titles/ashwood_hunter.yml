@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:title_ashwood_hunter
+type: title
+name: 灰森の熟練猟師
+description: アッシュウッドの森の主たる星蝕トレントを3体討伐した熟練猟師の証。
+unlock_flag: ec:flag_title_ashwood_hunter
+advancement:
+  title: 灰森の熟練猟師
+  description: 星蝕トレントを3体討伐した。
+  icon: IRON_AXE
+  parent: ec:title_rookie_slayer
+  frame: GOAL
+  condition:
+    type: BESTIARY
+    target: ec:enemy_corrupted_treant
+    count: 3

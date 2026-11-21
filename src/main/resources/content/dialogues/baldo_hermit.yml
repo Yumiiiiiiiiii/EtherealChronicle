@@ -1,0 +1,62 @@
+schema_version: 1
+id: ec:dlg_baldo_hermit
+type: dialogue
+name: 森の隠者バルドの庵
+speaker: ec:npc_baldo
+start: root
+nodes:
+  root:
+    text: ほう……アッシュウッドの森の北東の隅まで足を踏み入れる若者がおるとはな。わしは森の隠者バルド。古木と星片の記憶を書き留めておる。
+    branches:
+      - {condition: {has_flags: ['ec:flag_early_baldo_found']}, next: found_root}
+    choices:
+      - id: greet_baldo
+        label: こんな森の奥で暮らしているんですか？
+        next: found_root
+        set_flags: ['ec:flag_early_baldo_found']
+      - id: bye_first
+        label: 失礼しました、また来ます
+  found_root:
+    text: 縁があったのう。森の奥に隠しておいた古木の覚え書きを授けてやろう。さらに森の恵みを集めてくれるなら、とっておきの砥石とご馳走、それに秘録発見者の名誉を贈ろうぞ。
+    choices:
+      - id: claim_baldo_cache
+        label: 古木の根元の隠し箱を開ける（初回限定）
+        condition: {has_flags: ['ec:flag_early_baldo_found'], not_flags: ['ec:flag_early_baldo_cache']}
+        next: baldo_cache_done
+        actions:
+          - {kind: GIVE_ITEM, target: 'ec:item_mat_hermit_scroll', amount: 1, once_flag: 'ec:flag_early_baldo_cache'}
+      - id: start_h02
+        label: 【隠し】森の隠者と古木の秘録を受ける（Lv5〜）
+        condition: {min_level: 5, has_flags: ['ec:flag_early_baldo_found'], not_started_quests: ['ec:quest_early_h02_baldo_grove_secret']}
+        next: h02_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_early_h02_baldo_grove_secret'}
+      - id: complete_h02
+        label: 【隠し】森の恵みをバルドへ届ける
+        condition: {active_quests: ['ec:quest_early_h02_baldo_grove_secret']}
+        next: h02_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_early_h02_baldo_grove_secret'}
+      - id: grove_lore
+        label: 灰森の採取脈と琥珀の星木について聞く
+        next: lore_node
+      - id: bye_found
+        label: また森を歩いたときに寄るよ
+  baldo_cache_done:
+    text: それが『古木の秘録断簡』じゃ。手にするだけでおぬしの収集図鑑へ新たな一頁が刻まれるはずじゃよ。
+    choices:
+      - id: back_from_cache
+        label: 大切に保管します
+        next: found_root
+  lore_node:
+    text: 灰森の北側と西側には柔らかな『朝露苔』、南岸には『琥珀の星木』、そして東の岩陰には廃坑へ入らずとも掘れる『表層星鉄脈』が顔を出しておる。こまめに巡れば序盤の強化砥石には困らんぞ。
+    choices:
+      - id: back_from_lore
+        label: いい採取ルートを教わったよ
+        next: found_root
+  h02_started:
+    text: では頼もうかの。アッシュウッドの森を隅々まで歩き、『朝露苔』2つと『森の琥珀樹液』2つを集めてわしへ届けてくれい。
+    choices: []
+  h02_done:
+    text: 見事じゃ！これで古木の秘録は完成した。約束通り『名匠の研磨砥石』2個と『琥珀コイの照り焼き』を授けよう。おぬしの名は『灰森の秘録発見者』として語り継がれるじゃろう！
+    choices: []
