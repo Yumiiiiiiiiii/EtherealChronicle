@@ -17,7 +17,7 @@ import java.util.UUID
 import kotlin.math.*
 
 class EnemyController(private val plugin: RpgPlugin,private val adventure: AdventureController): Listener {
-    data class MobState(val entity: LivingEntity,val home: Location,val point: String,val boss: BossState,val participants: Set<UUID>,val bar: BossBar?,var target: UUID?=null,var nextAttack: Long=0,val specials: MutableMap<String,Long> = mutableMapOf())
+    data class MobState(val entity: LivingEntity,val home: Location,val point: String,val boss: BossState,val participants: Set<UUID>,val bar: BossBar?,var target: UUID?=null,var nextAttack: Long=0,val specials: MutableMap<String,Long> = mutableMapOf(),val pinned: Boolean=false)
     private data class Warning(val owner: UUID,val attack: SpecialAttack,val location: Location,val direction: org.bukkit.util.Vector,val due: Long)
     private val key=NamespacedKey(plugin,"enemy_id")
     private val states=mutableMapOf<UUID,MobState>()
@@ -32,11 +32,12 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
     fun activeCount() = budget.total()
     fun killer(id: UUID): Player? = attackers[id]?.let(Bukkit::getPlayer)
     fun multiplier(id: UUID) = dealing[id] ?: states[id]?.boss?.damageScale(tick) ?: 1.0
-    fun spawn(id: String,location: Location,point: String="admin:$id",cap: Int=1,participants: Set<UUID> = emptySet()): LivingEntity? {
+    fun spawn(id: String,location: Location,point: String="admin:$id",cap: Int=1,participants: Set<UUID> = emptySet(),pinForSimulation: Boolean=false): LivingEntity? {
         val d=plugin.snapshot.world.enemies[id] ?: error("魔物が見つかりません。")
         if(budget.count(point) >= cap || budget.total() >= plugin.snapshot.world.tuning.enemyCap) return null
         val world=location.world ?: return null
         if(world.name != DemoWorld.NAME) error("魔物は管理対象ワールドにのみ召喚できます。")
+        if(pinForSimulation) location.chunk.addPluginChunkTicket(plugin)
         val entity=world.spawnEntity(location,EntityType.valueOf(d.entity)) as LivingEntity
         if(!budget.reserve(entity.uniqueId,point,cap)) { entity.remove(); return null }
         entity.persistentDataContainer.set(key,PersistentDataType.STRING,id)
@@ -48,9 +49,10 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
         if(entity is Slime) entity.size=d.size
         if(entity is PiglinAbstract) entity.isImmuneToZombification=true
         entity.isPersistent=false
+        if(pinForSimulation) { entity.removeWhenFarAway=false; entity.setAI(false) }
         val boss=BossState(d,participants.size.coerceAtLeast(1),tick)
         val bar=if(d.boss) Bukkit.createBossBar(d.name,BarColor.PURPLE,BarStyle.SEGMENTED_10) else null
-        states[entity.uniqueId]=MobState(entity,location.clone(),point,boss,participants,bar)
+        states[entity.uniqueId]=MobState(entity,location.clone(),point,boss,participants,bar,pinned=pinForSimulation)
         return entity
     }
     fun tick() {
@@ -59,6 +61,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
             val entity=state.entity
             if(entity.isDead) { remove(entity.uniqueId,false); return@forEach }
             if(!entity.isValid) return@forEach
+            if(state.pinned) return@forEach // Console targets retain HP without players or AI/leash resets.
             val d=state.boss.definition
             val eligible=entity.world.players.filter { p -> p.isOnline && !p.isDead && p.gameMode !in setOf(GameMode.CREATIVE,GameMode.SPECTATOR) && !isSafe(p) && plugin.profiles[p.uniqueId]?.classId != null &&
                 (state.participants.isEmpty() || p.uniqueId in state.participants) && p.location.distanceSquared(entity.location) <= d.aggro*d.aggro }
@@ -183,7 +186,9 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
     private fun remove(id: UUID,removeEntity: Boolean) {
         val state=states.remove(id) ?: return
         state.bar?.removeAll(); if(removeEntity) state.entity.remove(); budget.release(id); attackers.remove(id); warnings.removeIf { it.owner == id }
+        if(state.pinned && states.values.none { it.pinned && it.home.chunk == state.home.chunk }) state.home.chunk.removePluginChunkTicket(plugin)
     }
+    fun removeSimulation(participant: UUID) { states.filterValues { it.pinned && participant in it.participants }.keys.toList().forEach { remove(it,true) } }
     fun removeParticipants(participants: Set<UUID>) { states.filterValues { it.participants == participants }.keys.toList().forEach { remove(it,true) } }
     fun close() { states.keys.toList().forEach { remove(it,true) } }
 }

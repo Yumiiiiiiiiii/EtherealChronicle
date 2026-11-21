@@ -19,6 +19,8 @@ class SimulationSessionTest {
         assertEquals(72,p.currency); assertEquals(1,s.inventory.count("ec:item_con_minor_hp_potion"))
         s.execute(p,"sell",listOf("ec:shop_lumina_general","ec:item_con_minor_hp_potion","1","sell"))
         assertEquals(79,p.currency); assertEquals(0,s.inventory.count("ec:item_con_minor_hp_potion"))
+        assertContains(assertFails { s.execute(p,"sell",listOf("ec:shop_lumina_general","ec:item_con_minor_hp_potion","1","sell")) }.message!!,"処理済み")
+        assertContains(assertFails { s.execute(p,"sell",listOf("ec:shop_lumina_general","ec:item_con_minor_hp_potion","999","oversize")) }.message!!,"数量")
     }
     @Test fun `console dialogue acceptance objective sequence and rewards use chapter engines`() {
         val s=session(); val p=PlayerProfile(UUID.randomUUID())
@@ -32,10 +34,15 @@ class SimulationSessionTest {
         val gold=p.currency; assertFails { s.execute(p,"complete",listOf("ec:quest_m01_awakening")) }; assertEquals(gold,p.currency)
     }
     @Test fun `failed dialogue actions roll flags and bag back together`() {
-        val s=session(); val p=PlayerProfile(UUID.randomUUID())
-        s.execute(p,"dialogue",listOf("ec:dlg_celia_hub")); s.execute(p,"choice",listOf("register"))
+        val doc=mapOf<String,Any?>("id" to "ec:rollback", "type" to "dialogue", "start" to "root", "nodes" to mapOf("root" to mapOf(
+            "choices" to listOf(mapOf("id" to "fail", "label" to "失敗", "set_flags" to listOf("ec:changed"), "actions" to listOf(
+                mapOf("kind" to "GIVE_ITEM", "target" to "ec:item_con_minor_hp_potion", "once_flag" to "ec:given"),
+                mapOf("kind" to "COMPLETE_QUEST", "target" to "ec:quest_m01_awakening")))))))
+        val c=content.copy(documents=content.documents+("ec:rollback" to doc))
+        val s=SimulationSession({c},GameService({c},SkillEngine(Clock { 1000 },c.balance))); val p=PlayerProfile(UUID.randomUUID())
+        s.execute(p,"dialogue",listOf("ec:rollback"))
         val before=p.snapshot(); val bag=s.inventory.contents.toMap()
-        assertFails { s.execute(p,"choice",listOf("register")) }
+        assertFails { s.execute(p,"choice",listOf("fail")) }
         assertEquals(before,p); assertEquals(bag,s.inventory.contents)
     }
 }
