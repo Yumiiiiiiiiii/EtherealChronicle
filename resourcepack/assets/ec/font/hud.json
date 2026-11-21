@@ -1,0 +1,71 @@
+{
+  "providers": [
+    {
+      "type": "space",
+      "advances": {
+        "": -1,
+        "": -2,
+        "": -4,
+        "": -8,
+        "": -16,
+        "": -32,
+        "": -64,
+        "": -128,
+        "": -256,
+        "": 1,
+        "": 2,
+        "": 4,
+        "": 8,
+        "": 16,
+        "": 32,
+        "": 64,
+        "": 128
+      }
+    },
+    {
+      "type": "bitmap",
+      "file": "ec:hud/hud_icons.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": [
+        ""
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "ec:hud/elements.png",
+      "ascent": 8,
+      "height": 9,
+      "chars": [
+        ""
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "ec:hud/bar_hp.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        ""
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "ec:hud/bar_mp.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        ""
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "ec:hud/bar_tension.png",
+      "ascent": 7,
+      "height": 8,
+      "chars": [
+        ""
+      ]
+    }
+  ]
+}

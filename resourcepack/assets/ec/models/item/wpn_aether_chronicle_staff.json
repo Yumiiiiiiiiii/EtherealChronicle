@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/handheld",
+  "textures": {
+    "layer0": "ec:item/wpn_aether_chronicle_staff"
+  }
+}
