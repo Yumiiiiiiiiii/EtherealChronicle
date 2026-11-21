@@ -142,3 +142,23 @@ Shots: `D:\test\mcmmo-client-qa\shots\i01..i09*.png, j01..j08*.png, v_*.png` (no
 | Wolf variants | PARTIAL | frost_wolf spawned and killed the test player; visual not inspected; ashwood_alpha NOT-RUN |
 | NPC Paper Dialog quest accept, /ec quest names, potion tooltip, class-change weapon, language forcing, en_us advancement title | NOT-RUN | time |
 Processes stopped; server.properties/ops.json/config restored; ports closed.
+
+## Task 17 real-client check (master 4b73918, offline QaPack, en_us client, 2026-11-22)
+Shots: `D:\test\mcmmo-client-qa\shots\k01..k12*.png, w1..w3*.png, l_*.png` (not in repo).
+| Item | Result | Evidence |
+|---|---|---|
+| Build | PASS | `gradlew build` green |
+| `/ec currency` grant | PASS | 5000G set |
+| Shop buy success | PASS | 5000 -> 4972 -> 4944 G, 2 potions received (k02b) |
+| Shop insufficient funds | PASS | no ERROR/stack in server log (0 ERROR for the whole session) |
+| Enhance success | PASS | whetstone 3 -> 2, `Equipment enhanced to +1` message (k06) |
+| Codex area -> enemy page | PASS | k09/k08 |
+| Codex paging beyond one page | NOT-RUN | |
+| Pack-themed GUI | FAIL (sent) | dark panel smaller than container, vanilla grey showing, rows misaligned; menu titles are rows of empty boxes (missing glyphs) (k04, k08) |
+| Without-pack fallback screenshots | NOT-CAPTURED | `/ec ui pack off` leaves the loaded pack's look; true decline path needs a fresh client profile |
+| Enhance tooltip | MINOR (sent) | raw id `ec:item_mat_artisan_whetstone` |
+| `/ec quest` names | PASS | NPC names shown (受付嬢セリア etc.); header mixes languages on en client (minor) |
+| Wolf variants (pack applied) | PASS (thorn, alpha) | thorn_wolf green/vines (w1), ashwood_alpha black+cyan (w3); frost_wolf not captured (spawn cap) |
+| TPS | PASS | 20.0/20.0/20.0 |
+| NPC Paper Dialog quest accept, potion tooltip, class-change weapon, forced ja_jp/en_us, en advancement tab, ping, slowloris on 25580 | NOT-RUN | time (language switch script failed) |
+Processes stopped; server.properties/ops.json/config restored; ports closed.
