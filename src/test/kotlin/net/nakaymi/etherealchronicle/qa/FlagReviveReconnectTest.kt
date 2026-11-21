@@ -109,14 +109,15 @@ class FlagReviveReconnectTest {
                 val before=ownedRare(a,pa)+ownedRare(b,pb)
                 val kills=12
                 repeat(kills) {
-                    server.executeConsole("ec","spawn","ec:enemy_crystal_bat",a.name); server.pump(200) { false }
-                    val m=world.livingEntities.last { it.persistentDataContainer.has(enemyKey,PersistentDataType.STRING) }
+                    val m=world.spawn(a.location,org.bukkit.entity.Phantom::class.java)
+                    m.persistentDataContainer.set(enemyKey,PersistentDataType.STRING,"ec:enemy_crystal_bat")
                     plugin.rewardKill(a,m); m.remove(); server.pump(200) { false }
                 }
                 assertTrue(server.pump(10000) { !plugin.adventure.hasTransactions() },"party rewards did not drain")
                 val drops=ownedRare(a,pa)+ownedRare(b,pb)-before
                 val sum=(pa.dropPity[pityKey] ?: 0)+(pb.dropPity[pityKey] ?: 0)
-                val info="kills=$kills pity a=${pa.dropPity[pityKey]} b=${pb.dropPity[pityKey]} misses=$sum delivered+pending drops=$drops"
+                val info="kills=$kills currency=${pa.currency}+${pb.currency} pity a=${pa.dropPity[pityKey]} b=${pb.dropPity[pityKey]} misses=$sum delivered+pending drops=$drops"
+                assertEquals(kills*43L,pa.currency+pb.currency,"all tagged rewardKill calls must grant currency; $info")
                 assertEquals(kills,sum+drops,"each kill must count as one pity miss or rare drop; $info")
                 info
             }
