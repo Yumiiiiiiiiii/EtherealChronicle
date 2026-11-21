@@ -1,0 +1,55 @@
+# リソースパックの配布
+
+## 推奨: 外部 HTTPS 配布
+
+公開サーバーでは GitHub Releases、オブジェクトストレージ、または自分の HTTPS サイトを使います。別ポートの開放やゲーム通信への介入が不要です。
+
+1. `./gradlew packageResourcePack resourcePackSha1` を実行します。
+2. `build/generated/resourcepack/etherealchronicle-resourcepack.zip` を HTTPS で取得できる場所へアップロードします。
+3. 同じ出力ディレクトリの `.sha1` を読み、SHA-1 値を控えます。
+4. `plugins/EtherealChronicle/config.yml` を次のように設定し、サーバーを再起動します。
+
+```yaml
+resource_pack:
+  enabled: true
+  required: false
+  mode: external_url
+  external_url: "https://downloads.example.net/etherealchronicle-resourcepack.zip"
+  external_sha1: "生成された40桁のSHA-1"
+```
+
+ゲーム内で `/ec ui pack on` を使うと、現在オンラインのプレイヤーへ再送信できます。既定の `AUTO` は初回参加時に送信し、各プレイヤーの選択はプロフィールに保存されます。
+
+## 実験的: ゲームポート同一ポート配信
+
+`game_port` は Paper 26.3 の内部 `ChannelInitializeListenerHolder` をリフレクションで使い、新規 TCP 接続の最初のバイトが `GET ` または `HEAD ` の場合だけ固定パスの HTTP 配信に切り替えます。その他のバイト列は Minecraft の Netty パイプラインへ戻します。これは Paper 内部 API への依存があり、Paper の更新で壊れる可能性があります。既定では無効です。
+
+有効化する場合は、バンドル済み ZIP を使う開発・検証サーバーに限り、以下を指定します。
+
+```yaml
+resource_pack:
+  enabled: true
+  mode: game_port
+  same_port_netty:
+    enabled: true
+    max_concurrent: 16
+    max_per_ip: 2
+    max_header_bytes: 4096
+    header_deadline_ms: 2000
+    idle_timeout_ms: 500
+    bandwidth_kb_per_sec: 1024
+```
+
+DNS名が `server.properties` の `server-ip` と異なる場合は、`resource_pack.embedded_http.public_host` に外部から解決できるホスト名を指定してください。通常のゲームポートだけを開放します。Velocity、BungeeCord、Waterfall、TCPShield 等のプロキシプラグインが検出された場合は同一ポート機能を無効にし、`external_url` があれば HTTPS へフォールバックします。
+
+固定パス以外、過大ヘッダー、期限超過、同一IP接続上限超過は接続を閉じます。HTTP読み取りにはアイドル期限と全体期限を設けています。注入や要求処理に失敗した場合も Minecraft の接続パイプラインには要求を渡さず、機能を無効にします。
+
+## モード一覧
+
+| モード | 用途 | ポート |
+| --- | --- | --- |
+| `external_url` | 公開サーバー向け推奨 | 外部 HTTPS |
+| `embedded_http` | 開発・検証用。別ポートを設定可能 | `embedded_http.port` |
+| `game_port` | 実験的な同一ポート配信。明示的な二重 opt-in が必要 | Minecraft ゲームポート |
+
+`external_url` が設定されていれば、同一ポート機能の起動に失敗したときの配布先にもなります。

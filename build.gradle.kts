@@ -18,12 +18,14 @@ repositories {
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:$paperVersion")
+    compileOnly("io.netty:netty-codec:4.2.16.Final")
     implementation(kotlin("stdlib"))
     compileOnly("org.yaml:snakeyaml:2.2")
     implementation("xyz.xenondevs.invui:invui:2.5.1")
     testImplementation("org.yaml:snakeyaml:2.2")
     testImplementation("io.papermc.paper:paper-api:26.3.build.200-stable") // must match MockBukkit manifest Paper-Version
     testImplementation("org.mockbukkit.mockbukkit:mockbukkit-v26.3:4.123.0") // QA: in-JVM Player/event tests
+    testImplementation("io.netty:netty-codec:4.2.16.Final")
     testImplementation(kotlin("test"))
     testImplementation(platform("org.junit:junit-bom:5.13.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")

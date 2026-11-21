@@ -130,6 +130,16 @@ class WorldUiFoundationTest {
     }
 
     @Test
+    fun `game port endpoint uses the minecraft port and fixed sha path`() {
+        val endpoint = ResourcePackEndpoint("0.0.0.0", "play.example.net", 25565, "game_port", "")
+
+        assertEquals("http://play.example.net:25565/pack/${"a".repeat(40)}.zip", endpoint.url("a".repeat(40)).toString())
+        assertEquals(false, org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(
+            javaClass.classLoader.getResourceAsStream("config.yml")!!.bufferedReader(),
+        ).getBoolean("resource_pack.same_port_netty.enabled"))
+    }
+
+    @Test
     fun `custom item models fall back until pack load is confirmed`() {
         assertNull(UiThemeProvider.modelKey(false, "ec:ui_class_warrior"))
         assertEquals(org.bukkit.NamespacedKey.fromString("ec:ui_class_warrior"), UiThemeProvider.modelKey(true, "ec:ui_class_warrior"))

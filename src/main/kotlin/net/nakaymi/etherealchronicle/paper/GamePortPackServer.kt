@@ -1,0 +1,311 @@
+package net.nakaymi.etherealchronicle.paper
+
+import io.netty.buffer.ByteBuf
+import io.netty.buffer.Unpooled
+import io.netty.channel.Channel
+import io.netty.channel.ChannelHandlerContext
+import io.netty.handler.codec.ByteToMessageDecoder
+import net.kyori.adventure.key.Key
+import org.bukkit.plugin.java.JavaPlugin
+import java.io.ByteArrayOutputStream
+import java.net.InetSocketAddress
+import java.nio.charset.StandardCharsets
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
+
+/** Paperの新規接続へ軽量な先頭バイト判定を追加し、HTTPパック要求だけを処理します。 */
+class GamePortPackServer(
+    private val plugin: JavaPlugin,
+    private val endpoint: ResourcePackEndpoint,
+    private val artifact: ResourcePackArtifact,
+    maxConnections: Int,
+    maxPerIp: Int,
+    maxHeaderBytes: Int,
+    headerDeadlineMillis: Int,
+    idleReadTimeoutMillis: Int,
+    bandwidthKbPerSecond: Int,
+) : AutoCloseable {
+    private val limiter = PackConnectionLimiter(maxConnections, maxPerIp, bandwidthKbPerSecond)
+    private val listenerKey = Key.key("etherealchronicle", "resource_pack")
+    private val attachedChannels = ConcurrentHashMap.newKeySet<Channel>()
+    private val listenerClass = Class.forName("io.papermc.paper.network.ChannelInitializeListener")
+    private val holderClass = Class.forName("io.papermc.paper.network.ChannelInitializeListenerHolder")
+    private val listener = java.lang.reflect.Proxy.newProxyInstance(
+        listenerClass.classLoader,
+        arrayOf(listenerClass),
+    ) { _, method, args ->
+        if (method.name == "afterInitChannel") {
+            val channel = args?.firstOrNull() as? Channel ?: return@newProxyInstance null
+            if (channel.isActive && attachedChannels.add(channel)) {
+                val sniffer = PackRequestSniffer(
+                    artifact,
+                    limiter,
+                    maxHeaderBytes,
+                    headerDeadlineMillis,
+                    idleReadTimeoutMillis,
+                )
+                channel.pipeline().addFirst(HANDLER_NAME, sniffer)
+                channel.closeFuture().addListener { attachedChannels.remove(channel) }
+            }
+        }
+        null
+    }
+
+    init {
+        require(maxHeaderBytes in 256..16_384)
+        require(headerDeadlineMillis in 500..10_000)
+        require(idleReadTimeoutMillis in 100..headerDeadlineMillis)
+        require(unsupportedProxies().isEmpty()) {
+            "Game-port pack delivery is not supported behind proxy plugins: ${unsupportedProxies().joinToString()}"
+        }
+        holderClass.getMethod("addListener", Key::class.java, listenerClass).invoke(null, listenerKey, listener)
+    }
+
+    /** Paperの内部Netty listener登録を解除し、進行中のHTTP要求だけを閉じます。 */
+    override fun close() {
+        runCatching { holderClass.getMethod("removeListener", Key::class.java).invoke(null, listenerKey) }
+        attachedChannels.toList().forEach { channel ->
+            val sniffer = channel.pipeline().get(HANDLER_NAME) as? PackRequestSniffer ?: return@forEach
+            if (sniffer.isHttpRequest) channel.close()
+            else runCatching { channel.pipeline().remove(HANDLER_NAME) }
+        }
+        attachedChannels.clear()
+    }
+
+    private fun unsupportedProxies(): List<String> {
+        val proxies = listOf("Velocity", "BungeeCord", "Waterfall", "TCPShield")
+            .filter { plugin.server.pluginManager.isPluginEnabled(it) }
+        return proxies
+    }
+
+    companion object {
+        private const val HANDLER_NAME = "etherealchronicle_game_port_pack"
+    }
+}
+
+/** GET/HEADの固定パスだけを読み、Minecraftパケットはそのまま次のハンドラーへ渡します。 */
+internal class PackRequestSniffer(
+    private val artifact: ResourcePackArtifact,
+    private val limiter: PackConnectionLimiter,
+    private val maxHeaderBytes: Int,
+    private val headerDeadlineMillis: Int,
+    private val idleReadTimeoutMillis: Int,
+) : ByteToMessageDecoder() {
+    private enum class State { SNIFFING, MINECRAFT, HTTP, CLOSED }
+
+    private val prefix = ByteArrayOutputStream(5)
+    private val request = ByteArrayOutputStream(256)
+    private var state = State.SNIFFING
+    private var httpLeaseIp: String? = null
+    private var headerDeadline: java.util.concurrent.ScheduledFuture<*>? = null
+    private var idleTimeout: java.util.concurrent.ScheduledFuture<*>? = null
+    private val released = AtomicBoolean(false)
+    val isHttpRequest: Boolean get() = state == State.HTTP
+
+    override fun decode(context: ChannelHandlerContext, input: ByteBuf, output: MutableList<Any>) {
+        if (state == State.MINECRAFT) {
+            if (input.isReadable) output += input.readRetainedSlice(input.readableBytes())
+            return
+        }
+        if (state == State.CLOSED) {
+            input.skipBytes(input.readableBytes())
+            return
+        }
+        if (state == State.HTTP) resetIdleTimeout(context)
+
+        while (input.isReadable() && state == State.SNIFFING) {
+            val firstByte = input.getUnsignedByte(input.readerIndex()).toInt()
+            if (prefix.size() == 0 && firstByte != 'G'.code && firstByte != 'H'.code) {
+                passThroughMinecraft(context, input, output)
+                return
+            }
+            prefix.write(input.readUnsignedByte().toInt())
+            val candidate = prefix.toByteArray()
+            val getPrefix = "GET ".toByteArray(StandardCharsets.US_ASCII)
+            val headPrefix = "HEAD ".toByteArray(StandardCharsets.US_ASCII)
+            val isGetPrefix = candidate.isPrefixOf(getPrefix)
+            val isHeadPrefix = candidate.isPrefixOf(headPrefix)
+            if (!isGetPrefix && !isHeadPrefix) {
+                passBufferedMinecraft(context, input, output, candidate)
+                return
+            }
+            if (candidate.contentEquals(getPrefix) || candidate.contentEquals(headPrefix)) {
+                val ip = ((context.channel().remoteAddress() as? InetSocketAddress)?.address?.hostAddress).orEmpty().ifBlank { "unknown" }
+                if (!limiter.acquire(ip)) {
+                    reject(context)
+                    return
+                }
+                httpLeaseIp = ip
+                request.write(candidate)
+                state = State.HTTP
+                startHeaderTimeout(context)
+                context.channel().closeFuture().addListener { releaseIpLease() }
+                resetIdleTimeout(context)
+            }
+        }
+
+        while (input.isReadable() && state == State.HTTP) {
+            request.write(input.readUnsignedByte().toInt())
+            if (request.size() > maxHeaderBytes) {
+                reject(context)
+                return
+            }
+            if (request.endsWithHeaderTerminator()) {
+                cancelTimeouts()
+                respond(context)
+                return
+            }
+        }
+    }
+
+    private fun passThroughMinecraft(context: ChannelHandlerContext, input: ByteBuf, output: MutableList<Any>) {
+        state = State.MINECRAFT
+        if (input.isReadable) output += input.readRetainedSlice(input.readableBytes())
+        removeAfterDecode(context)
+    }
+
+    private fun passBufferedMinecraft(context: ChannelHandlerContext, input: ByteBuf, output: MutableList<Any>, savedPrefix: ByteArray) {
+        state = State.MINECRAFT
+        output += Unpooled.wrappedBuffer(savedPrefix)
+        if (input.isReadable) output += input.readRetainedSlice(input.readableBytes())
+        removeAfterDecode(context)
+    }
+
+    private fun removeAfterDecode(context: ChannelHandlerContext) {
+        context.executor().execute {
+            if (context.pipeline().context(this) != null) context.pipeline().remove(this)
+        }
+    }
+
+    private fun startHeaderTimeout(context: ChannelHandlerContext) {
+        headerDeadline = context.executor().schedule({ reject(context) }, headerDeadlineMillis.toLong(), TimeUnit.MILLISECONDS)
+    }
+
+    private fun resetIdleTimeout(context: ChannelHandlerContext) {
+        idleTimeout?.cancel(false)
+        idleTimeout = context.executor().schedule({ reject(context) }, idleReadTimeoutMillis.toLong(), TimeUnit.MILLISECONDS)
+    }
+
+    private fun reject(context: ChannelHandlerContext) {
+        if (state == State.CLOSED) return
+        state = State.CLOSED
+        cancelTimeouts()
+        releaseIpLease()
+        context.close()
+    }
+
+    private fun respond(context: ChannelHandlerContext) {
+        val lines = request.toString(StandardCharsets.ISO_8859_1).split("\r\n")
+        val parts = lines.firstOrNull()?.split(' ', limit = 3).orEmpty()
+        val method = parts.getOrNull(0)
+        val path = parts.getOrNull(1)
+        val httpVersion = parts.getOrNull(2)
+        val allowed = method in setOf("GET", "HEAD") && path == "/pack/${artifact.sha1}.zip" && httpVersion in setOf("HTTP/1.0", "HTTP/1.1")
+        val status = if (allowed) 200 else 404
+        val body = if (allowed) artifact.bytes else ByteArray(0)
+        val reason = if (allowed) "OK" else "Not Found"
+        val contentType = if (allowed) "Content-Type: application/zip\r\n" else ""
+        val headers = "HTTP/1.1 $status $reason\r\n$contentType" +
+            "Cache-Control: public, max-age=3600, immutable\r\n" +
+            "X-Content-Type-Options: nosniff\r\n" +
+            "Content-Length: ${body.size}\r\nConnection: close\r\n\r\n"
+        state = State.CLOSED
+        context.writeAndFlush(Unpooled.copiedBuffer(headers, StandardCharsets.ISO_8859_1)).addListener { result ->
+            if (!result.isSuccess || method != "GET" || status != 200) {
+                context.close()
+            } else {
+                streamBody(context, body, parts[0], 0)
+            }
+        }
+    }
+
+    private fun streamBody(context: ChannelHandlerContext, body: ByteArray, method: String, offset: Int) {
+        if (!context.channel().isActive) return
+        if (offset >= body.size) {
+            context.close()
+            return
+        }
+        val ip = httpLeaseIp ?: "unknown"
+        val count = minOf(BODY_CHUNK_BYTES, body.size - offset)
+        val delay = limiter.reserveDelayNanos(ip, count)
+        val send = Runnable {
+            if (!context.channel().isActive) return@Runnable
+            context.writeAndFlush(Unpooled.wrappedBuffer(body, offset, count)).addListener { result ->
+                if (result.isSuccess) streamBody(context, body, method, offset + count) else context.close()
+            }
+        }
+        if (delay <= 0) send.run()
+        else context.executor().schedule(send, delay, TimeUnit.NANOSECONDS)
+    }
+
+    private fun cancelTimeouts() {
+        headerDeadline?.cancel(false)
+        idleTimeout?.cancel(false)
+        headerDeadline = null
+        idleTimeout = null
+    }
+
+    private fun releaseIpLease() {
+        if (!released.compareAndSet(false, true)) return
+        httpLeaseIp?.let(limiter::release)
+        httpLeaseIp = null
+    }
+
+    private fun ByteArray.isPrefixOf(value: ByteArray): Boolean = size <= value.size && value.copyOfRange(0, size).contentEquals(this)
+    private fun ByteArrayOutputStream.endsWithHeaderTerminator(): Boolean {
+        val bytes = toByteArray()
+        return bytes.size >= 4 && bytes[bytes.size - 4] == '\r'.code.toByte() && bytes[bytes.size - 3] == '\n'.code.toByte() &&
+            bytes[bytes.size - 2] == '\r'.code.toByte() && bytes[bytes.size - 1] == '\n'.code.toByte()
+    }
+
+    private companion object { const val BODY_CHUNK_BYTES = 16 * 1024 }
+}
+
+/** 同一IPの同時接続を制限し、パックの各HTTP応答にも共有帯域予算を適用します。 */
+internal class PackConnectionLimiter(
+    maxConnections: Int,
+    private val maxPerIp: Int,
+    private val bandwidthKbPerSecond: Int,
+) {
+    private val maxConnections = maxConnections.also { require(it in 1..128) }
+    private val active = AtomicInteger()
+    private val perIp = ConcurrentHashMap<String, AtomicInteger>()
+    private val nextSendNanos = ConcurrentHashMap<String, AtomicLong>()
+
+    init {
+        require(maxPerIp in 1..maxConnections)
+        require(bandwidthKbPerSecond in 64..16_384)
+    }
+
+    fun acquire(ip: String): Boolean {
+        val count = perIp.computeIfAbsent(ip) { AtomicInteger() }
+        val total = active.incrementAndGet()
+        val local = count.incrementAndGet()
+        if (total <= maxConnections && local <= maxPerIp) return true
+        release(ip)
+        return false
+    }
+
+    fun release(ip: String) {
+        active.updateAndGet { (it - 1).coerceAtLeast(0) }
+        perIp[ip]?.let { count ->
+            if (count.decrementAndGet() <= 0) {
+                perIp.remove(ip, count)
+                nextSendNanos.remove(ip)
+            }
+        }
+    }
+
+    fun reserveDelayNanos(ip: String, bytes: Int): Long {
+        val duration = bytes.toLong() * NANOS_PER_SECOND / (bandwidthKbPerSecond.toLong() * 1024)
+        val now = System.nanoTime()
+        val schedule = nextSendNanos.computeIfAbsent(ip) { AtomicLong() }
+        val start = schedule.getAndUpdate { previous -> maxOf(previous, now) + duration }
+        return (start - now).coerceAtLeast(0)
+    }
+
+    private companion object { const val NANOS_PER_SECOND = 1_000_000_000L }
+}

@@ -3,11 +3,11 @@ language: auto
 resource_pack:
   enabled: true
   required: false
-  mode: embedded_http
+  mode: game_port # experimental; requires same_port_netty.enabled: true
   external_url: ""
   external_sha1: ""
   embedded_http:
-    # 自宅・検証用の初期値です。公開サーバーではHTTPS対応の external_url を推奨し、内蔵HTTPを使う場合はこのポートを開放してください。
+    # 公開サーバーではポート開放が不要なHTTPS対応 external_url を推奨します。
     bind_host: "0.0.0.0"
     public_host: ""
     port: 25580
@@ -15,3 +15,12 @@ resource_pack:
     max_per_ip: 4
     idle_read_timeout_ms: 500
     header_deadline_ms: 1500
+  same_port_netty:
+    # 実験的機能です。mode: game_port と enabled: true を両方指定した場合だけ有効です。
+    enabled: false
+    max_concurrent: 16
+    max_per_ip: 2
+    max_header_bytes: 4096
+    header_deadline_ms: 2000
+    idle_timeout_ms: 500
+    bandwidth_kb_per_sec: 1024

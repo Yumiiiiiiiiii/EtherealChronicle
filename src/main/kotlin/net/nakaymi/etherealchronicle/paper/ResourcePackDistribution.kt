@@ -35,7 +35,7 @@ data class ResourcePackArtifact(val bytes: ByteArray, val sha1: String) {
 /** 設定文字列を検証して、プレイヤーへ送信するURLと配信モードを決定します。 */
 data class ResourcePackEndpoint(val bindHost: String, val publicHost: String, val port: Int, val mode: String, val externalUrl: String) {
     init {
-        require(mode in setOf("embedded_http", "external_url"))
+        require(mode in setOf("embedded_http", "external_url", "game_port"))
         require(port in 1024..65535)
         require(bindHost.isNotBlank() && bindHost.none(Char::isISOControl))
         require(publicHost.isNotBlank() && publicHost.none { it.isWhitespace() || it.isISOControl() || it == '/' || it == '\\' })
