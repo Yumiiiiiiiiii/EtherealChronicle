@@ -31,14 +31,14 @@ class MemoryInventory(val contents: MutableMap<String,Int> = mutableMapOf(), pri
 class QuestEngine(private val content: () -> ContentSnapshot, private val clock: Clock) {
     /** 前提条件を満たす依頼を開始し、progress状態を初期化します。 */
     fun start(p: PlayerProfile,id: String) {
-        val q = content().world.quests[id] ?: error("依頼が見つかりません。")
-        require(q.condition.matches(p)) { "依頼の受注条件を満たしていません。" }
+        val q = content().world.quests[id] ?: error("ec.error.quest_missing")
+        require(q.condition.matches(p)) { "ec.error.quest_prerequisite" }
         val old = p.quests[id]
         if(old != null) {
             val now=clock.millis()
             val eligible=if(q.resetSchedule != null) old.completed && if(old.resetPeriod != null) old.resetPeriod != ResetPeriods.key(now,q.resetSchedule,content().world.tuning) else now-old.completedAt >= q.repeatCooldown
                 else old.completed && q.repeatable && now-old.completedAt >= q.repeatCooldown
-            require(eligible) { "この依頼は受注済みです。" }
+            require(eligible) { "ec.error.quest_active" }
         }
         p.quests[id] = QuestProgress(completedAt=old?.completedAt ?: 0)
     }
@@ -78,12 +78,12 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
     }
     /** 報酬と消費物を一度だけ反映し、repeat/reset状態を記録します。 */
     fun complete(p: PlayerProfile,id: String,inventory: InventoryAccess) {
-        val q = content().world.quests[id] ?: error("依頼が見つかりません。")
-        require(ready(p,id,inventory)) { "依頼の達成条件を満たしていません。" }
+        val q = content().world.quests[id] ?: error("ec.error.quest_missing")
+        require(ready(p,id,inventory)) { "ec.error.quest_incomplete" }
         val remove = mutableMapOf<String,Int>(); val add = mutableMapOf<String,Int>()
         q.objectives.filter { it.kind == ObjectiveKind.COLLECT && it.consume }.forEach { remove.merge(it.target,it.amount,Int::plus) }
         q.rewards.items.filter { it.condition.matches(p) }.forEach { add.merge(it.item,it.amount,Int::plus) }
-        require(inventory.exchange(remove,add)) { "必要品が不足しているか、持ち物に空きがありません。" }
+        require(inventory.exchange(remove,add)) { "ec.error.inventory_exchange" }
         val state=p.quests.getValue(id); state.completed=true; state.completedAt=clock.millis()
         state.resetPeriod=q.resetSchedule?.let { ResetPeriods.key(clock.millis(),it,content().world.tuning) }
         state.repeatAvailableAt=if(q.repeatable) clock.millis()+q.repeatCooldown else Long.MAX_VALUE
@@ -96,54 +96,54 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
 /** flag・プロフィール条件と分岐に従って会話ノード・選択肢を解決します。 */
 class DialogueEngine(private val content: () -> ContentSnapshot) {
     fun node(p: PlayerProfile,id: String,start: String? = null): Pair<String,DialogueNode> {
-        val dialogue=content().world.dialogues[id] ?: error("会話が見つかりません。")
+        val dialogue=content().world.dialogues[id] ?: error("ec.error.dialogue_missing")
         var at=start ?: dialogue.start; val visited=mutableSetOf<String>()
         repeat(32) {
-            require(visited.add(at)) { "会話の分岐が循環しています。" }
-            val node=dialogue.nodes[at] ?: error("会話ノードが見つかりません。")
+            require(visited.add(at)) { "ec.error.dialogue_cycle" }
+            val node=dialogue.nodes[at] ?: error("ec.error.dialogue_node_missing")
             val next=node.branches.firstOrNull { it.first.matches(p) }?.second
             if(next == null) return at to node.copy(choices=(node.choices+dialogue.globalChoices).filter { it.condition.matches(p) })
             at=next
         }
-        error("会話の分岐が長すぎます。")
+        error("ec.error.dialogue_too_deep")
     }
     fun choice(p: PlayerProfile,id: String,node: String,choice: String): DialogueChoice =
-        node(p,id,node).second.choices.firstOrNull { it.id == choice } ?: error("この選択肢は選べません。")
+        node(p,id,node).second.choices.firstOrNull { it.id == choice } ?: error("ec.error.dialogue_choice")
 }
 data class TradePlan(val id: String,val currencyBefore: Long,val currencyAfter: Long,val remove: Map<String,Int>,val add: Map<String,Int>,val dailyKey: String?,val dailyCount: Int)
 /** 二重実行IDと上限を確認し、所持品を変更せず取引planを作成します。 */
 class TradeEngine(private val content: () -> ContentSnapshot) {
     fun buy(p: PlayerProfile,shopId: String,entryId: String,inventory: InventoryAccess,transaction: String,day: Long): TradePlan {
-        require(transaction !in p.transactions) { "処理済みの取引です。" }
-        val c=content(); val shop=c.world.shops[shopId] ?: error("店が見つかりません。")
-        val e=shop.entries.firstOrNull { it.id == entryId } ?: error("商品が見つかりません。")
-        require(e.condition.matches(p)) { "この商品は条件を満たしていません。" }
-        require(e.amount <= c.world.tuning.transactionCap) { "商品の数量が上限を超えています。" }
+        require(transaction !in p.transactions) { "ec.error.transaction_replayed" }
+        val c=content(); val shop=c.world.shops[shopId] ?: error("ec.error.shop_missing")
+        val e=shop.entries.firstOrNull { it.id == entryId } ?: error("ec.error.shop_entry_missing")
+        require(e.condition.matches(p)) { "ec.error.shop_condition" }
+        require(e.amount <= c.world.tuning.transactionCap) { "ec.error.shop_amount_cap" }
         val cost=ceil(e.price.toDouble()*(if(shop.discountFlag in p.flags) 1-shop.discount else 1.0)).toLong()
-        require(cost >= 0 && p.currency >= cost) { "所持金が足りません。" }
+        require(cost >= 0 && p.currency >= cost) { "ec.error.currency_low" }
         val key="${ResetPeriods.key(day,"DAILY",c.world.tuning)}:$shopId:$entryId"; val purchased=p.dailyPurchases.getOrDefault(key,0)
-        require(e.dailyLimit == 0 || purchased+e.amount <= e.dailyLimit) { "本日の購入上限に達しています。" }
+        require(e.dailyLimit == 0 || purchased+e.amount <= e.dailyLimit) { "ec.error.daily_limit" }
         val remove=e.tokens.associate { it.item to it.amount }.toMutableMap()
         if(e.tokenDiscountFlag in p.flags) e.tokenDiscount.forEach { remove[it.item]=(remove.getOrDefault(it.item,0)-it.amount).coerceAtLeast(0) }
         val add=mapOf(e.item to e.amount)
-        require(inventory.canExchange(remove,add)) { "必要な素材が不足しているか、持ち物に空きがありません。" }
+        require(inventory.canExchange(remove,add)) { "ec.error.materials_or_space" }
         return TradePlan(transaction,p.currency,p.currency-cost,remove,add,key,purchased+e.amount)
     }
     fun sell(p: PlayerProfile,shopId: String,item: String,amount: Int,inventory: InventoryAccess,transaction: String): TradePlan {
         val c=content()
-        require(transaction !in p.transactions) { "処理済みの取引です。" }
-        require(amount in 1..c.world.tuning.transactionCap) { "数量は1..${c.world.tuning.transactionCap}で指定してください。" }
-        require(c.world.shops[shopId]?.buyback == true) { "この店は買取できません。" }
-        val properties=c.world.itemProperties[item] ?: error("アイテムが見つかりません。")
-        require(!properties.bound && !properties.questItem && properties.price > 0) { "このアイテムは売れません。" }
+        require(transaction !in p.transactions) { "ec.error.transaction_replayed" }
+        require(amount in 1..c.world.tuning.transactionCap) { "ec.error.quantity_range" }
+        require(c.world.shops[shopId]?.buyback == true) { "ec.error.shop_no_buyback" }
+        val properties=c.world.itemProperties[item] ?: error("ec.error.item_missing")
+        require(!properties.bound && !properties.questItem && properties.price > 0) { "ec.error.item_unsellable" }
         val gain=floor(properties.price.toDouble()*c.world.tuning.sellRatio).toLong()*amount
-        require(gain <= c.balance.currencyGainCap && p.currency <= c.world.tuning.maxCurrency-gain) { "所持金の上限を超えます。" }
-        require(inventory.canExchange(mapOf(item to amount),emptyMap())) { "売却する品が足りません。" }
+        require(gain <= c.balance.currencyGainCap && p.currency <= c.world.tuning.maxCurrency-gain) { "ec.error.currency_cap" }
+        require(inventory.canExchange(mapOf(item to amount),emptyMap())) { "ec.error.sell_items_missing" }
         return TradePlan(transaction,p.currency,p.currency+gain,mapOf(item to amount),emptyMap(),null,0)
     }
     /** 事前計算planが古くないことを確認してprofile側の通貨・日次数を確定します。 */
     fun commit(p: PlayerProfile,plan: TradePlan) {
-        require(plan.id !in p.transactions && p.currency == plan.currencyBefore) { "取引の状態が変化しました。" }
+        require(plan.id !in p.transactions && p.currency == plan.currencyBefore) { "ec.error.transaction_changed" }
         p.currency=plan.currencyAfter
         plan.dailyKey?.let { key ->
             val period=key.substringBefore(":ec:")
@@ -165,7 +165,7 @@ fun Map<String,Any?>.tuning() = WorldTuning(number("sell_ratio",0.3),whole("max_
 
 object ResetPeriods {
     fun key(epochMillis: Long,schedule: String,tuning: WorldTuning): String {
-        require(schedule in setOf("DAILY","WEEKLY")) { "リセット周期は DAILY または WEEKLY です。" }
+        require(schedule in setOf("DAILY","WEEKLY")) { "ec.error.reset_schedule" }
         val zone=java.time.ZoneId.of(tuning.resetZone)
         val now=java.time.Instant.ofEpochMilli(epochMillis).atZone(zone)
         val date=now.toLocalDate().minusDays(if(now.hour < tuning.dailyResetHour) 1 else 0)

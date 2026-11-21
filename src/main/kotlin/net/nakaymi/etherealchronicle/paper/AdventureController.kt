@@ -161,7 +161,11 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                     p.accessory=entry; plugin.save(p); player.closeInventory(); player.sendMessage(plugin.message(player,"ec.equipment.accessory_equipped"))
                 }
             }
-        } catch(error: Exception) { message(player,"操作できません: ${error.message}") }
+        } catch(error: Exception) {
+            val key=Regex("ec\\.error\\.[a-z0-9_.]+").find(error.message.orEmpty())?.value
+            val reason=key?.let { plugin.message(player,it) } ?: Component.text(error.message.orEmpty())
+            player.sendMessage(plugin.message(player,"ec.command.failed", "reason" to reason))
+        }
     }
     @EventHandler(priority=EventPriority.LOWEST) fun drag(e: InventoryDragEvent) {
         if(e.view.topInventory.holder is RpgMenu || locked(e.whoClicked.uniqueId)) e.isCancelled=true
