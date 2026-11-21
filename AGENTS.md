@@ -33,3 +33,8 @@ docs/AGENT_STATUS.md must be updated by each agent at task end (what done, what 
 ## Code readability (all agents)
 - Write comments in Japanese so a human can follow the code: a short KDoc/doc comment on every public class and non-trivial function (what it does and why), and inline comments for non-obvious rules (transaction ordering, locks, balance caps, migration steps). Do not narrate trivial code.
 - Keep functions and files human-sized: split long functions, name things by intent, avoid deep nesting and duplicated logic. Refactors must preserve behavior: run the full test suite before and after and compare results; commit per package/area so a regression is easy to bisect.
+
+## Cross-model review loop (all agents, mandatory)
+- After any agent writes or changes code, EVERY model that did not write it must review it (findings only, no edits to the author's files): correctness bugs, readability/refactoring needs, missing or misleading Japanese comments, hardcoded values, TPS/transaction risks, test gaps.
+- Each reviewer writes findings to docs/reviews/<date>_<branch>_<reviewer>.md (file:line, what is wrong, why, suggested fix, severity). The lead consolidates them into one fix list.
+- The fix list goes back to the author (or another implementer) to fix in a new commit; then the reviewers re-check the fixed items. A change is not done until the fix list is empty or each remaining item is recorded as accepted with a reason.
