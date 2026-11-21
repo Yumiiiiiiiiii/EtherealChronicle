@@ -18,3 +18,6 @@
 ## Claude-QA — Task 3 (MockBukkit player-path harness)
 - Bot still blocked (no 26.3 data upstream). MockBukkit 26.3 (4.123.0, paper-api build.200 on test classpath) works; PlayerFlowSmokeTest runs join -> GUI -> starter -> spawn -> swap -> quit -> rejoin. Cast/kill-reward steps BLOCKED(mock: rayTraceEntities / getKiller). Needs `open class RpgPlugin` + test deps in build.gradle.kts (done on qa/harness).
 - Bugs: BUG-1 empty-armor NPE in RpgPlugin.stats; BUG-2 `ec validate` racing async startup. Java client present on PC (26.3), not launched.
+
+## Claude-QA — Task 4
+- e607836 merged; 44 tests pass; live Paper clean-boot smoke PASS; ec_world verified (BUG-3 fixed); chapter-1 chain 24 combos PASS; trade exploit suite PASS; MockBukkit NPC/shop paths PASS except BUG-5; BUG-4 (stale content dir disables plugin) and BUG-2 residual open. Perf only mock-level. See docs/TESTING.md.

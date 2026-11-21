@@ -66,6 +66,8 @@ try {
         foreach ($c in $Commands) {
             Write-Step "> $c"; $p.StandardInput.WriteLine($c); Start-Sleep -Seconds $CommandWaitSec; Flush-Log
         }
+        $mem = Get-Process java -ErrorAction SilentlyContinue | Where-Object { $_.Id -eq $p.Id -or (Get-CimInstance Win32_Process -Filter "ProcessId=$($_.Id)").ParentProcessId -eq $p.Id } | Sort-Object WorkingSet64 -Descending | Select-Object -First 1
+        if ($mem) { Write-Step ('server JVM working set: {0:N0} MB (pid {1})' -f ($mem.WorkingSet64 / 1MB), $mem.Id) }
         if ($HoldSeconds -gt 0) { Write-Step "holding server for $HoldSeconds s"; for ($i = 0; $i -lt $HoldSeconds; $i++) { Start-Sleep -Seconds 1; Flush-Log } }
     }
 } finally {

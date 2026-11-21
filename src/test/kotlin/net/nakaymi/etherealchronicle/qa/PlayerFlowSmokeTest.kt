@@ -64,7 +64,7 @@ class PlayerFlowSmokeTest {
             server.pump { plugin.isEnabled }
             server.addPlayer(player)
             server.pump { plain.serialize(player.openInventory.title()).contains("職業") }
-            val slot = (0..8).first { player.openInventory.topInventory.getItem(it)?.type == Material.BLAZE_ROD }
+            val slot = (0..8).first { player.openInventory.topInventory.getItem(it)?.persistentDataContainer?.get(NamespacedKey(plugin, "item_id"), PersistentDataType.STRING)?.contains("mage") == true }
             player.simulateInventoryClick(player.openInventory, slot)
             server.pump { player.inventory.getItem(8)?.type == Material.NETHER_STAR } // throws the NPE from the scheduler task
             assertEquals(Material.NETHER_STAR, player.inventory.getItem(8)?.type)
@@ -93,23 +93,23 @@ class PlayerFlowSmokeTest {
             }
             step("2 class GUI click (mage) -> starter kit + skill slot") {
                 val top = player.openInventory.topInventory
-                val slot = (0..8).first { top.getItem(it)?.type == Material.BLAZE_ROD }
+                val slot = (0..8).first { top.getItem(it)?.persistentDataContainer?.get(itemKey, PersistentDataType.STRING)?.contains("mage") == true }
                 player.simulateInventoryClick(player.openInventory, slot)
                 assertTrue(server.pump { (0..7).any { player.inventory.getItem(it)?.persistentDataContainer?.has(itemKey, PersistentDataType.STRING) == true } }, "no starter item in hotbar 0..7")
                 assertEquals(Material.NETHER_STAR, player.inventory.getItem(8)?.type, "slot 9 should be the skill slot")
                 "hotbar=" + (0..8).map { player.inventory.getItem(it)?.type }.joinToString()
             }
             step("3 starter weapon in hand, HP scaled") {
-                val hand = (0..7).first { player.inventory.getItem(it)?.type == Material.BLAZE_ROD }
+                val hand = (0..7).first { player.inventory.getItem(it)?.persistentDataContainer?.has(itemKey, PersistentDataType.STRING) == true }
                 player.inventory.heldItemSlot = hand
                 assertTrue(player.isHealthScaled && player.healthScale == 20.0, "health scale not applied")
                 "maxHealth=${player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH)?.value} scale=${player.healthScale}"
             }
             var mob: LivingEntity? = null
-            step("4 /ec spawn ec:forest_slime") {
+            step("4 /ec spawn ec:enemy_aether_slime") {
                 val world = server.addSimpleWorld(net.nakaymi.etherealchronicle.paper.DemoWorld.NAME)
                 player.teleport(org.bukkit.Location(world, 0.0, 64.0, 0.0))
-                server.executeConsole("ec", "spawn", "ec:forest_slime", "QaPlayer")
+                server.executeConsole("ec", "spawn", "ec:enemy_aether_slime", "QaPlayer")
                 server.pump { true }
                 mob = player.world.livingEntities.firstOrNull { it.persistentDataContainer.has(enemyKey, PersistentDataType.STRING) }
                 assertNotNull(mob, "no tagged enemy spawned")
@@ -151,8 +151,8 @@ class PlayerFlowSmokeTest {
                 assertTrue(server.pump { player.inventory.getItem(8)?.type == Material.NETHER_STAR }, "skill slot not restored on rejoin")
                 assertTrue(!plain.serialize(player.openInventory.title()).contains("職業"), "class menu reopened after rejoin")
                 val saved = File(plugin.dataFolder, "playerdata/$uuid.yml")
-                assertTrue(server.pump { saved.exists() && saved.readText().contains("ec:mage") }, "profile file missing/without class: $saved")
-                "profile file has ec:mage; (MockBukkit does not persist vanilla inventory, so hotbar below is not meaningful) inventory after rejoin: " + (0..8).map { player.inventory.getItem(it)?.type }.joinToString()
+                assertTrue(server.pump { saved.exists() && saved.readText().contains("ec:class_mage") }, "profile file missing/without class: $saved")
+                "profile file has ec:class_mage; (MockBukkit does not persist vanilla inventory, so hotbar below is not meaningful) inventory after rejoin: " + (0..8).map { player.inventory.getItem(it)?.type }.joinToString()
             }
         } finally {
             val report = results.joinToString("\n") { (n, ok, d) -> "${if (ok) "PASS" else if (n in blocked) "BLOCKED(mock)" else "FAIL"}  $n  ${d}" }

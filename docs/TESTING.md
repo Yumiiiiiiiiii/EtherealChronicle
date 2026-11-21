@@ -88,3 +88,30 @@ Each item: scope, how to verify, status. Environment for all server items: Paper
 - Live Paper smoke (validate / sim join,class,skill,kill,save / reload) PASS.
 - **BUG-3 (live, found by smoke)**: `[ERROR] 専用ワールドを準備できませんでした: .\ec_world\.etherealchronicle-owned` on every boot. Paper 26.x stores custom worlds under `world/dimensions/minecraft/ec_world`, so `worldContainer/ec_world` never exists and `Files.writeString(marker)` throws. `DemoWorld.ensure` should use `world.worldFolder` (and create parents) for the marker/built flags; as is, the demo world is created every boot but its marker is never written. NOT-RUN on a real client: `ec world`, party/dungeon/NPC/shop.
 - Harness: log analyser now also flags `[hh:mm:ss ERROR]` lines (it previously missed Paper's bracket format).
+
+## Task 4 results (codex/foundation e607836 merged; 2026-11-21)
+Totals: `./gradlew test` = **44 tests, 0 failures** (core 6+17, content validation 7, QA: fixtures 4, `Chapter1ChainTest` 7, `PlayerFlowSmokeTest` 2, `AdventurePathsTest` 1, `PerfTickTest` 1).
+
+**Live Paper 26.3-257 (clean plugin data dir):** boot `Done` 5.0 s; plugin ready ~1-2 s after enable (150 content YAML in `content/` = 150 shipped files, `ec validate` -> `コンテンツ検証成功。`); JVM working set ~855-865 MB (`-Xms512M -Xmx2048M`, vanilla world + ec_world); zero ERROR lines; sim join/class(`ec:class_mage`)/skill/kill(`ec:enemy_aether_slime` drops `ec:item_mat_aether_gel`)/save/dump OK; `sim load` after restart returns identical profile (schema 3: quests, flags, transactions, daily_purchases, accessory persisted).
+**ec_world**: created under `world/dimensions/minecraft/ec_world` with `.etherealchronicle-owned` + `.etherealchronicle-built` markers and 6 region files; main `world` overworld/nether/end folders untouched; second boot does not rebuild (no errors). BUG-3 is **fixed**. Real client view of the build NOT-RUN.
+
+**Core chain over the real shipped content (`Chapter1ChainTest`)**: class -> m01..m08 for 3 classes x 2 x 2 x 2 branch-flag combinations (24 runs): PASS, every run ends with `ec:flag_ch1_completed`, level <= 17 (cap 20), almost no grinding needed (≤ 1 extra kill). Reward replay (`completeQuest` twice) rejected. Every COLLECT item is obtainable (drop/reward/shop), every objective target exists, every branch flag is settable by a dialogue choice. Trade exploits: replayed txn id rejected, stale plan after double-click rejected, no buy->sell arbitrage in any shop, bound/quest items unsellable, negative/oversized amounts rejected, currency cap and daily limit enforced. Party XP split exact for 1..6 members and totals; party size cap honoured. Boss phases monotonic, enrage never lowers damage, co-op HP scaling. Spawn budget with 20 players x 20 requests per point never exceeds point or global cap (100). Finished-chapter profile survives save/load round trip; torn primary file does not return a wrong/blank profile.
+
+**MockBukkit adventure paths (`AdventurePathsTest`, build/qa-adventure-steps.txt):**
+| Step | Result |
+|---|---|
+| A NPC (Villager tagged `ec:npc_pip`) right-click -> dialogue GUI with 2 choices | PASS (`reloadNpcs()` itself BLOCKED(mock): unimplemented entity flag call; NPC placed by hand) |
+| B shop left-click buys exactly 1, currency 1000 -> 972 | PASS |
+| C three rapid clicks (left/double/left) | PASS: 1 potion, one debit |
+| D number-key/middle/drop/ctrl-drop/swap-offhand/drag | PASS: no purchase, drag cancelled |
+| E insufficient funds | PASS: no side effects |
+| F respawn | PASS: skill slot restored, class/level kept |
+| G quit while a purchase is pending | **FAIL = BUG-5** (build only fails with `-Dqa.strict=true`) |
+Still unverified: shift-click *from the player inventory into* the shop (right-click sell path), real death drops, dungeon/party commands, boss fights, live ray-trace, HUD.
+
+**Perf (`PerfTickTest`, mock)**: 20 classed players x 1200 ticks: 5.9 ms total (~0.005 ms/tick) — trivial; real TPS/entity-count over time NOT-RUN (needs clients; spark plugin is present in the server).
+
+### Findings
+- **BUG-4 (high, live)**: after updating the plugin on a server that already has the previous content folder, startup fails: `コンテンツの読み込みに失敗: Failed requirement.` -> plugin disables itself, every `/ec` then throws `Cannot execute command ... plugin is disabled`. Cause: `DefaultContentInstaller` never overwrites/removes, so 7 orphan foundation files (`enemies/forest_slime.yml`, `items/{archer,mage,warrior}_starter.yml`, `items/field_ration.yml`, `droptables/starter.yml`, `quests/tutorial.yml`) coexist with chapter-1 content. The error message names no file/id. Works when `plugins/EtherealChronicle` is removed.
+- **BUG-2 (residual)**: an `/ec` command sent before the async startup finishes gets no reply at all.
+- **BUG-5 (high)**: quitting while a shop/quest transaction is persisting leaves currency debited (and persisted) but the purchased item never delivered (`取引出力の受取前に切断` is only logged). Repro: step G.
