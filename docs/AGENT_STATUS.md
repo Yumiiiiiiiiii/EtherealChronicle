@@ -159,3 +159,11 @@
 
 ## Claude-QA — checkpoint before Task10 client check
 - qa/harness @f3dcf76. Next: merge master 7535d36, build/tests, live: datapack warn, night mobs, offline client: /ec title + advancement tab/toast, `/ec debug fish start`, gather boss bar, anti-macro debug. Restore server.properties/ops.json, stop processes.
+## Codex-Impl — Task10 QA follow-up
+- Merged master `f3dcf76` into `codex/foundation` before implementation.
+- Advancement datapack installation now walks from Paper's per-dimension `World.worldFolder` to the level root containing `level.dat`, then writes into that root's `datapacks/`. Regression test models `<level>/dimensions/minecraft/overworld` and asserts the pack is created beside `level.dat`.
+- Paper 26.3 smoke on the existing dev server (EULA was already accepted; not modified): plugin enabled, the prior datapack warning did not appear, and Paper reloaded advancements from 1866 to 1873 after installation. Pack is at `D:\test\mcmmo\dev\server\world\datapacks\etherealchronicle_advancements`. The test server was stopped after the smoke. This verifies runtime reload; a second boot/client toast was not verified.
+- Class HUD now yields ActionBar updates to active gathering/fishing sessions while continuing normal per-player maintenance. Both channels initialize a visible BossBar segment; fishing status includes both normal and debug sessions. Unit test covers ActionBar ownership policy. Real-client BossBar timing remains unverified in this run.
+- Added owned `ec_world` safe-area spawn suppression for vanilla hostile `NATURAL`, `CHUNK_GEN`, and other known natural/raid reasons. Custom RPG spawns and passive mobs pass unchanged. Unit tests cover safe zones in Lumina/Chapter 2, non-safe areas, custom enemies, and passive mobs.
+- Verification: `./gradlew.bat build` SUCCESS; 152 tests, 0 failures/errors/skips. Focused regression suite also passed. `git diff --check` clean (only Git's CRLF normalization notice).
+- Remaining limits: no real-player session was available to visually confirm gathering/fishing BossBar/actionbar timing, and natural mob suppression was verified by policy tests rather than waiting for a live night cycle. Advancement datapack was observed reloading in live Paper; repeat boot/toast remains for manual QA.

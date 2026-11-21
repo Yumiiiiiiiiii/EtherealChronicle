@@ -17,7 +17,13 @@ internal object AdvancementDatapack {
     data class Installation(val directory:Path,val packName:String,val changed:Boolean)
 
     fun install(worldFolder:Path,titles:Collection<TitleDefinition>):Installation {
-        val datapacks=worldFolder.resolve("datapacks")
+        // Paper 26 exposes a per-dimension folder from World.worldFolder, e.g.
+        // <level>/dimensions/minecraft/overworld. Datapacks are scanned at the
+        // level root, alongside level.dat, not inside that dimension folder.
+        val absolute=worldFolder.toAbsolutePath().normalize()
+        val levelRoot=generateSequence(absolute) { it.parent }
+            .firstOrNull { Files.isRegularFile(it.resolve("level.dat")) } ?: absolute
+        val datapacks=levelRoot.resolve("datapacks")
         Files.createDirectories(datapacks)
         val directory=ownedDirectory(datapacks)
         Files.createDirectories(directory)
