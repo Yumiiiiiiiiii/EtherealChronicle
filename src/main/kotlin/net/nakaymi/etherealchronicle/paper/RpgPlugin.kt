@@ -73,7 +73,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 installation.changed.forEach { name ->
                     logger.info("サーバー編集を優先します: $name（配布版と異なります。更新時は必須項目を比較してください）")
                 }
-                listOf("balance","classes","skills","items","enemies","bosses","npcs","quests","dialogues","chapters","droptables","shops","titles").forEach { java.nio.file.Files.createDirectories(dataFolder.toPath().resolve("content").resolve(it)) }
+                listOf("balance","classes","skills","items","enemies","bosses","npcs","quests","dialogues","chapters","droptables","shops","titles","tackle","fishing_spots","fish_species","gathering_nodes").forEach { java.nio.file.Files.createDirectories(dataFolder.toPath().resolve("content").resolve(it)) }
                 val startup=ContentBootstrap.initialize(dataFolder.toPath(),bundled,::validatePaperContent)
                 content=startup.service
                 if(startup.usedFallback) logger.warning("サーバーのコンテンツに不備があります。配布版で起動し /ec validate と /ec reload を有効にします: ${startup.problem}")
@@ -633,6 +633,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         c.items.all().forEach { item -> validate(item.id) { require(Material.valueOf(item.material).isItem) { "material はアイテムである必要があります。" } } }
         c.classes.all().filter { it.icon != null }.forEach { definition -> validate(definition.id) { require(Material.valueOf(definition.icon!!).isItem) { "icon はアイテム素材である必要があります。" } } }
         c.world.titles.values.filter { it.advancement != null }.forEach { title -> validate(title.id) { require(Material.valueOf(title.advancement!!.icon).isItem) { "進捗 icon はアイテム素材である必要があります。" } } }
+        c.world.gatheringNodes.values.forEach { node -> validate(node.id) { require(Material.valueOf(node.displayMaterial).isBlock && Material.valueOf(node.depletedMaterial).isBlock) { "採取ノードの表示素材はブロックである必要があります。" } } }
         c.documents.values.filter { it["type"] in setOf("enemy","boss") }.forEach { d -> validate(d.string("id")) { require(EntityType.valueOf(d.string("entity")).isAlive) { "entity は生物である必要があります。" } } }
     }
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {

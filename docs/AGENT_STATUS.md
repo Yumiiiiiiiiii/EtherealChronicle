@@ -129,3 +129,10 @@
 - Added `ManualClientFindingsTest` for first join/respawn world and coordinates, starter bound + death preservation, and duplicate-spawn feedback. Updated the advancement test to account for the three optional advancement definitions among the six shipped titles now present after master merge.
 - Verification: focused regressions passed; `./gradlew.bat build test` SUCCESS (125 tests, 0 failures/errors/skips); `git diff --check` clean apart from Git's CRLF normalization notices.
 - Not yet verified on a live server/client. Next: commit these fixes, then continue Task8 from the authored design/content branch.
+
+## Codex-Impl — Task8 fishing/gathering engine (in progress)
+- Branch `codex/foundation`; merged current `master` through `a8abd0f` after the lead added advancement blocks to all six shipped titles. The life-profession YAML/design merge is present at `cd5ef38`.
+- Task8 item 1 in progress: added pure core types and typed parsing/validation for `life_balance`, `tackle`, `fishing_spot`, `fish_species`, and `gathering_node`. Checks cover ranges, enum values, item/area/flag references, in-area coordinates, unique node coordinates, and one default fishing spot per area. Paper layer validates node display block materials.
+- Added `balance/life_skills.yml` and `LifeContentSchemaTest` fixture coverage for all five schemas, valid cross-references, invalid tier bounds, and dangling fish-item references. Focused test passes.
+- Current profile schema is 9; Task8 migration to 10 is not yet implemented. Remaining Task8 items: complete schema commit and shared progress model/migration, gathering engine/events, fishing game/controller, ec_world v2→v3 pools and nodes, codex/title/advancement sync, lifecycle and tests.
+- Lead-owned `docs/CONTENT_SCHEMA.md` should document the five new types and their fields. Full suite has not yet been run after Task8 changes; no live Paper/client verification yet.
