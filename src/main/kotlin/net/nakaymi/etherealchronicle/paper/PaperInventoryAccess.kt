@@ -4,7 +4,7 @@ import net.nakaymi.etherealchronicle.core.InventoryAccess
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 
-/** Main-thread inventory transaction port. Clones are validated before replacing live storage. */
+/** メインスレッド上の所持品取引境界です。変更後cloneを検証してから実inventoryへ反映します。 */
 class PaperInventoryAccess(private val player: Player,private val identify: (ItemStack?) -> String?,private val create: (String,Int) -> ItemStack,
     private val persistRemoval: Boolean = true,private val onConsume: () -> Unit = {}): InventoryAccess {
     override fun count(item: String): Int = player.inventory.storageContents.filterNotNull().filter { identify(it) == item }.sumOf { it.amount }
@@ -40,7 +40,8 @@ class PaperInventoryAccess(private val player: Player,private val identify: (Ite
         if(remove.isNotEmpty()) {
             player.inventory.storageContents=preview(remove,emptyMap()) ?: return false
             if(persistRemoval) {
-                player.saveData() // lead-approved economy/quest consumption boundary before payout
+            // 支払い前に消費状態をプレイヤーデータへ保存し、通常切断時の素材復活を抑えます。
+            player.saveData()
                 onConsume()
             }
         }

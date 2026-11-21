@@ -16,6 +16,7 @@ import org.bukkit.potion.PotionEffectType
 import java.util.UUID
 import kotlin.math.*
 
+/** YAML定義の魔物、virtual HP、脅威、特殊攻撃、出現上限を管理します。 */
 class EnemyController(private val plugin: RpgPlugin,private val adventure: AdventureController): Listener {
     companion object {
         internal fun telegraphColor(element: String): Color = when(element.uppercase()) {
@@ -53,7 +54,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
         entity.persistentDataContainer.set(key,PersistentDataType.STRING,id)
         entity.customName(net.kyori.adventure.text.Component.text(d.name)); entity.isCustomNameVisible=true
         if(entity is Slime) entity.size=d.size
-        // Set size exactly once, then reassert the display attribute it may reset.
+        // Slimeサイズ設定後に表示用最大体力を再設定します。setSizeが属性値を変更するためです。
         entity.getAttribute(Attribute.MAX_HEALTH)?.baseValue=20.0
         entity.health=requireNotNull(entity.getAttribute(Attribute.MAX_HEALTH)).value
         entity.getAttribute(Attribute.MOVEMENT_SPEED)?.baseValue=d.speed
@@ -72,7 +73,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
             val entity=state.entity
             if(entity.isDead) { remove(entity.uniqueId,false); return@forEach }
             if(!entity.isValid) return@forEach
-            if(state.pinned) return@forEach // Console targets retain HP without players or AI/leash resets.
+            if(state.pinned) return@forEach // console検証対象はプレイヤー不在でもvirtual HPを保ちます。
             val d=state.boss.definition
             val eligible=entity.world.players.filter { p -> p.isOnline && !p.isDead && p.gameMode !in setOf(GameMode.CREATIVE,GameMode.SPECTATOR) && !isSafe(p) && plugin.profiles[p.uniqueId]?.classId != null &&
                 (state.participants.isEmpty() || p.uniqueId in state.participants) && p.location.distanceSquared(entity.location) <= d.aggro*d.aggro }
@@ -113,7 +114,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
                 val element=special.element ?: d.element
                 val cue=if(element == "ICE") "青白い" else if(element == "VOID") "紫の" else "色付きの"
                 target.sendMessage(net.kyori.adventure.text.Component.text("予兆: ${special.name}！${cue}範囲から離れてください。"))
-                break // one telegraph per scheduler step
+                    break // 1 scheduler stepにつきtelegraphを1つだけ開始します。
             }
         }
         warnings.toList().forEach { warning ->
@@ -177,7 +178,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
             }
         }
     }
-    /** Apply a time-bounded taunt to nearby, active RPG enemies; no world entity scan is performed. */
+    /** 近距離の管理対象魔物へ期限付き挑発を付けます。全ワールドentity走査は行いません。 */
     fun taunt(player: Player,radius: Double,ticks: Int,threatMultiplier: Double): Int {
         require(radius in 0.1..64.0 && ticks in 1..72000 && threatMultiplier in 1.0..100.0)
         var affected=0
@@ -207,7 +208,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
         applyVirtualDamage(state.entity.uniqueId,attacker.uniqueId,e.finalDamage)
         if(!state.entity.isDead) plugin.procEffects(attacker,state.entity)
     }
-    /** Shared virtual-HP/death seam for console simulations and the real damage event. */
+    /** console simulationと実ダメージイベントが共有するvirtual HP・討伐経路です。 */
     fun applyVirtualDamage(entity: UUID,attacker: UUID,amount: Double): Boolean {
         val state=states[entity] ?: return false
         require(amount.isFinite() && amount > 0)

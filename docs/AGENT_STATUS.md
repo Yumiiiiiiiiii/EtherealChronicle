@@ -267,3 +267,6 @@
 
 - Commit `f5c3b8f` documents core adventure, life-skill and cooperation services; post-commit full build/test passed (180 tests, 0 failures/errors/skips).
 
+- Commit `2068b10` documents content snapshots, install policy, migrations and profile IO; post-commit full build/test passed (180 tests, 0 failures/errors/skips).
+- Paper documentation/source cleanup is ready: Japanese KDocs/comments for core controllers, Japanese explanations of lock/transaction/data-pack/world-safety ordering, and `MenuHolders.kt` extraction. Existing controller and plugin method entry points are unchanged.
+

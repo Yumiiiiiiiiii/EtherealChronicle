@@ -30,7 +30,7 @@ import java.util.UUID
 import kotlin.math.abs
 import kotlin.random.Random
 
-/** Completely custom, bounded fishing sessions. Vanilla bobbers and rewards are suppressed. */
+/** 有界の独自釣りセッションを管理し、バニラの浮きと釣果報酬を抑止します。 */
 class FishingController(private val plugin:RpgPlugin,private val random:Random=Random.Default):Listener {
     private data class Session(
         val state:FishingState,val spot:FishingSpotDefinition,val rod:TackleDefinition,val castOrigin:Location,
@@ -56,11 +56,15 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         plugin.server.pluginManager.registerEvents(this,plugin)
         task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },2,2)
     }
+    /** プレイヤーが釣りセッションを保持しているかを返します。 */
     fun active(id:UUID)=id in sessions
+    /** 進行状態とBossBar接続を管理用に読み取れる形式で返します。 */
     fun debugStatus(id:UUID):String = sessions[id]?.let { s ->
         "釣りセッション phase=${s.state.phase} 行動=${s.state.behavior} 経過=${"%.1f".format(s.state.elapsedSeconds)}/${plugin.snapshot.world.lifeBalance.reelingTimeoutSeconds}秒 魚=${s.state.fish.id} 進捗=${s.state.progress.toInt()}% 張力=${s.state.tension.toInt()}% BossBar=${s.bar.players.any { it.uniqueId==id }}"
     } ?: "釣りセッションなし"
+    /** 管理者用の仮想釣りを終了し、通常のcleanup経路を通します。 */
     fun debugCancel(player:org.bukkit.entity.Player):Boolean = cancel(player,"デバッグ釣りを終了しました。")
+    /** 通常ミニゲームと同じセッション・表示を指定魚種で開始します。 */
     fun debugStart(player:org.bukkit.entity.Player,speciesId:String?):String {
         require(player.world.name==DemoWorld.NAME && DemoWorld.isOwned(player.world)) { "管理対象ワールドで実行してください。" }
         val profile=plugin.profiles[player.uniqueId] ?: error("プレイヤーデータを読み込み中です。")
@@ -84,12 +88,14 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         sessions[player.uniqueId]=Session(state,spot,rod,player.location.clone(),bobberAt,bobber.uniqueId,bar)
         return "デバッグ釣りを開始しました: ${fish.id} (左クリックでいなし、右クリックで引く)。"
     }
+    /** 次回の釣りで使う餌の設定を検証して保存します。 */
     fun selectBait(profile:PlayerProfile,value:String):String {
         val normalized=when(value.lowercase()) { "auto" -> "AUTO"; "none" -> "NONE"; else -> value }
         require(normalized in setOf("AUTO","NONE") || plugin.snapshot.world.tackle.values.any { it.item==normalized && it.kind==TackleKind.BAIT }) { "餌が見つかりません。" }
         profile.fishingBait=normalized
         return when(normalized) { "AUTO" -> "餌を自動選択にしました。"; "NONE" -> "餌を使わない設定にしました。"; else -> "使用する餌を設定しました: ${plugin.snapshot.items[normalized].name}" }
     }
+    /** 釣りタスク、表示、セッション履歴を終了時に解放します。 */
     fun close() {
         task?.cancel(); task=null
         sessions.toMap().forEach { (id,session) ->
@@ -98,6 +104,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         }
         sessions.clear(); catchHistory.clear(); disabledUntil.clear(); macroDetectors.clear()
     }
+    /** コンテンツ変更に合わせて釣りタスクを再生成します。 */
     fun reload() { close(); task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },2,2) }
     private fun cleanup(session:Session) { session.bar.removeAll(); Bukkit.getEntity(session.bobber)?.remove() }
     private fun cancel(player:org.bukkit.entity.Player,message:String?=null,reason:FishingEndReason=FishingEndReason.CANCELLED):Boolean {
@@ -108,11 +115,13 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         return true
     }
 
+    /** バニラ釣果を止め、独自釣り状態機械だけを有効にします。 */
     @EventHandler(priority=EventPriority.LOWEST)
     fun suppressVanilla(e:PlayerFishEvent) {
         val customRod=plugin.identify(e.player.inventory.itemInMainHand)?.let { id -> plugin.snapshot.world.tackle.values.any { it.item==id && it.kind==TackleKind.ROD } }==true
         if(e.player.world.name==DemoWorld.NAME && DemoWorld.isOwned(e.player.world) || customRod) e.isCancelled=true
     }
+    /** 竿の右・左クリックを釣り開始またはミニゲーム入力へ変換します。 */
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=false)
     fun interact(e:PlayerInteractEvent) {
         if(e.hand!=EquipmentSlot.HAND) return
@@ -264,8 +273,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
             if(plugin.adventure.locked(id)) return@forEach
             val phaseBefore=s.state.phase
             if(s.bitePending) {
-                // The durable transaction owns the item. Its success callback advances the session;
-                // if it rolls back and releases the lock, no bait was consumed and retry stays safe.
+        // 餌の消費と釣果は同じ永続取引で確定します。失敗時は消費されず、セッションを再試行できます。
                 if(!plugin.adventure.locked(id) && plugin.inventory(player).count(s.bait ?: "")>=s.baitCountBefore) {
                     s.bitePending=false; s.state.phase=FishingPhase.BITE_ALERT; showBite(player)
                 } else return@forEach
@@ -293,7 +301,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
                             FishingEscapeCause.BITE_MISSED -> FishingEndReason.ESCAPED_BITE
                             null -> FishingEndReason.CANCELLED
                         })
-                        // Keep the terminal result visible even if another event replaces chat/actionbar feedback.
+        // 他イベントがチャットやActionBarを更新しても、終了理由が必ず一度は見えるようにします。
                         player.sendTitle(title,subtitle,0,24,8)
                     }
                     else -> Unit

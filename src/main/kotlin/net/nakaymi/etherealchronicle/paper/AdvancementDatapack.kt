@@ -6,7 +6,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 
-/** Writes only into a marked, plugin-owned data pack directory in the primary world's datapacks folder. */
+/** 主ワールドのdatapacks内に、所有マーカー付きのプラグイン進捗packだけを書き込みます。 */
 internal object AdvancementDatapack {
     const val ROOT_ID="ec:chronicle/root"
     private const val PACK_FOLDER="etherealchronicle_advancements"
@@ -17,9 +17,8 @@ internal object AdvancementDatapack {
     data class Installation(val directory:Path,val packName:String,val changed:Boolean)
 
     fun install(worldFolder:Path,titles:Collection<TitleDefinition>):Installation {
-        // Paper 26 exposes a per-dimension folder from World.worldFolder, e.g.
-        // <level>/dimensions/minecraft/overworld. Datapacks are scanned at the
-        // level root, alongside level.dat, not inside that dimension folder.
+        // Paper 26のWorld.worldFolderはdimensionごとの場所です。
+        // datapackはlevel.datと同じlevel rootから読むため、その親フォルダーを求めます。
         val absolute=worldFolder.toAbsolutePath().normalize()
         val levelRoot=generateSequence(absolute) { it.parent }
             .firstOrNull { Files.isRegularFile(it.resolve("level.dat")) } ?: absolute

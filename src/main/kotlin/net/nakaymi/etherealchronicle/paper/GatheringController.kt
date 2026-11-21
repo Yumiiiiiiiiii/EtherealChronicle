@@ -34,16 +34,16 @@ import org.joml.Vector3f
 import java.util.UUID
 import kotlin.math.floor
 
+/** 表示の原点をクリック可能な採取タイルの中心に合わせます。 */
 internal fun gatheringBlockDisplayTranslation()=Vector3f(-0.5f,0f,-0.5f)
 
-/** Bounded, per-player harvesting channels. Vanilla terrain and drops remain untouched. */
+/** ノード別の採取チャネル・再出現・仮想表示を管理し、バニラ地形を変更しません。 */
 class GatheringController(private val plugin: RpgPlugin): Listener {
     private data class Site(val node: GatheringNodeDefinition,val location: GatheringLocation)
     private data class Channel(val site: Site,val started: Long,val duration: Long,val origin: Location,val bar: BossBar)
     private val engine=GatheringEngine()
     private val sites=plugin.snapshot.world.gatheringNodes.values.flatMap { node -> node.locations.map { Site(node,it) } }
-        // Players may click either the ground tile or the visual's block coordinate.
-        // Both resolve through this bounded coordinate index (two keys per configured node).
+        // 地面または表示ブロックのどちらを押しても、設定済み座標だけを引ける有界indexを使います。
         .flatMap { site -> listOf(
             key(site.location.world,site.location.x,site.location.y-1,site.location.z) to site,
             key(site.location.world,site.location.x,site.location.y,site.location.z) to site
@@ -63,11 +63,14 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         renderAll()
     }
 
+    /** 対象プレイヤーが採取チャネル中かを返します。 */
     fun active(player: UUID)=player in channels
+    /** 状態、進捗、BossBarの接続先を管理ログ用に返します。 */
     fun debugStatus(player:UUID):String=channels[player]?.let { c ->
         val progress=((System.currentTimeMillis()-c.started).toDouble()/c.duration).coerceIn(0.0,1.0)
         "採取中 node=${c.site.node.id}/${c.site.location.id} progress=${(progress*100).toInt()}% BossBar=${c.bar.players.any { it.uniqueId==player }} visible=${c.bar.isVisible} duration=${c.duration}ms"
     } ?: "採取チャンネルなし last=${lastAttempt[player] ?: "まだ採取操作がありません"}"
+    /** プレイヤー周辺の装備・条件・距離・ロックを併記した採取診断を返します。 */
     fun debugStatus(player:org.bukkit.entity.Player):String {
         val active=debugStatus(player.uniqueId)
         val profile=plugin.profiles[player.uniqueId]
@@ -83,7 +86,9 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         val owned=runCatching { player.world.name==DemoWorld.NAME && DemoWorld.isOwned(player.world) }.getOrDefault(false)
         return "$active world=${player.world.name} owned=$owned pos=${player.location.blockX},${player.location.blockY},${player.location.blockZ} profile=${profile!=null} gatheringLv=${profile?.lifeSkills?.get(LifeSkillKind.GATHERING)?.level ?: "?"} held=$held tackle=${tackle?.kind ?: "なし"}/T${tackle?.tier ?: 0} nearest=$nearestText lock=${profile?.let { plugin.adventure.locked(it.uuid) } ?: false}"
     }
+    /** 戦闘ダメージを受けた採取者だけを中断します。 */
     fun interrupt(player: UUID) { Bukkit.getPlayer(player)?.let { cancel(it,"戦闘により採取を中断しました。") } }
+    /** タスク、チャネルBossBar、管理表示を解除します。 */
     fun close() {
         task?.cancel(); task=null
         channels.values.forEach { it.bar.removeAll() }
@@ -91,6 +96,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         displays.values.flatten().forEach { Bukkit.getEntity(it)?.remove() }
         displays.clear()
     }
+    /** コンテンツ再読込後に表示と短周期タスクを作り直します。 */
     fun reload() { close(); renderAll(); task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },2,2) }
 
     private fun key(world:String,x:Int,y:Int,z:Int)="$world:$x,$y,$z"
@@ -98,8 +104,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
     private fun location(site: Site)=Bukkit.getWorld(site.location.world)?.let { Location(it,site.location.x+0.5,site.location.y.toDouble(),site.location.z+0.5) }
 
     private fun renderAll() {
-        // A single unavailable or failing world/display must not abort plugin startup or
-        // prevent player profiles and the rest of the adventure systems from loading.
+        // 一地点のワールド・表示失敗を局所化し、起動やプロフィール読込を巻き込みません。
         sites.values.forEach { site ->
             runCatching { renderSite(site) }.onFailure { error ->
                 plugin.logger.warning("採取ノード表示を配置できません (${site.node.id}/${site.location.id}): ${error.message}")
@@ -134,19 +139,25 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         if(!block.type.isAir && block.type!=Material.WATER) plugin.logger.fine("採取ノード表示位置が空気ではありません: $k")
     }
 
+    /** 採取地点のバニラブロック破壊を抑止します。 */
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true)
     fun breakBlock(e: BlockBreakEvent) {
         val pos=e.block.location
         if(isProtected(pos)) { e.isCancelled=true; e.player.sendMessage(Component.text("採取地点の地形は変更できません。道具で採取してください。")) }
     }
+    /** コンテンツで管理する採取地点へのブロック設置を禁止します。 */
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true)
     fun place(e: BlockPlaceEvent) { if(isProtected(e.block.location)) e.isCancelled=true }
+    /** 爆発による管理地点のブロック破壊だけを対象から除外します。 */
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true)
     fun explode(e: EntityExplodeEvent) { e.blockList().removeIf { isProtected(it.location) } }
+    /** 採取地点のブロックを押すピストンを抑止します。 */
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true)
     fun pistonExtend(e: BlockPistonExtendEvent) { if(e.blocks.any { isProtected(it.location) }) e.isCancelled=true }
+    /** 採取地点へ引き戻すピストンを抑止します。 */
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true)
     fun pistonRetract(e: BlockPistonRetractEvent) { if(e.blocks.any { isProtected(it.location) }) e.isCancelled=true }
+    /** チャンク単位で管理表示を除去・復元します。ワールド全体は走査しません。 */
     @EventHandler fun chunk(e: ChunkLoadEvent) {
         e.chunk.entities.filter { it.persistentDataContainer.has(displayKey,PersistentDataType.STRING) }.forEach { entity ->
             if(displays.values.flatten().none { it == entity.uniqueId }) entity.remove()
@@ -160,6 +171,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
     }
 
     @EventHandler(priority=EventPriority.HIGHEST)
+    /** 事前生成した座標indexだけを参照し、採取チャネル開始条件を確認します。 */
     fun interact(e: PlayerInteractEvent) {
         if(e.hand != EquipmentSlot.HAND || e.action != org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK) return
         val block=e.clickedBlock ?: return
@@ -176,6 +188,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         begin(e.player,site)
     }
     @EventHandler(priority=EventPriority.HIGHEST)
+    /** 可視ノードに重ねたInteraction entityからのクリックを同じ座標経路へ送ります。 */
     fun interactDisplay(e: PlayerInteractEntityEvent) {
         val k=e.rightClicked.persistentDataContainer.get(hitboxKey,PersistentDataType.STRING) ?: return
         val site=sitesById[k] ?: run { reject(e.player,"この採取地点の設定を読み込めませんでした。管理者にお知らせください。"); return }

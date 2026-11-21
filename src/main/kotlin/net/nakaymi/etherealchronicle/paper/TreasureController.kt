@@ -15,13 +15,14 @@ import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerInteractEntityEvent
 import org.bukkit.persistence.PersistentDataType
 
-/** Bounded, data-driven display chests. Claims are persisted through AdventureController's transaction mailbox. */
+/** 宣言座標に宝箱表示を置き、once flagと報酬をAdventureControllerの取引mailboxで確定します。 */
 class TreasureController(private val plugin:RpgPlugin):Listener {
     private val key=NamespacedKey(plugin,"treasure_id")
     private val entities=mutableMapOf<String,MutableList<java.util.UUID>>()
     private val spawning=mutableSetOf<String>()
     init { plugin.server.pluginManager.registerEvents(this,plugin) }
 
+    /** 定義済み宝箱表示だけを再配置します。 */
     fun reload() {
         entities.values.flatten().forEach { Bukkit.getEntity(it)?.remove() }; entities.clear()
         plugin.snapshot.world.treasureChests.values.forEach(::spawn)
@@ -33,7 +34,7 @@ class TreasureController(private val plugin:RpgPlugin):Listener {
         val world=Bukkit.getWorld(chest.position.world) ?: return
         if(world.name!=DemoWorld.NAME || !DemoWorld.isOwned(world)) return
         val loc=Location(world,chest.position.x,chest.position.y,chest.position.z)
-        // Only inspect the single chunk this configured chest occupies; no world-wide entity scan.
+        // 対象の設定済みchunkだけ調べ、ワールド全体のentity走査を避けます。
         world.getChunkAt(loc).entities.filter { it.persistentDataContainer.get(key,PersistentDataType.STRING)==chest.id }.forEach { it.remove() }
         val display=world.spawn(loc,BlockDisplay::class.java) { it.block=Material.CHEST.createBlockData(); it.isPersistent=false; it.isInvulnerable=true; it.persistentDataContainer.set(key,PersistentDataType.STRING,chest.id) }
         val hitbox=world.spawn(loc.clone().add(0.5,0.0,0.5),Interaction::class.java) { it.interactionWidth=0.9f; it.interactionHeight=0.9f; it.isResponsive=true; it.isPersistent=false; it.isInvulnerable=true; it.persistentDataContainer.set(key,PersistentDataType.STRING,chest.id) }

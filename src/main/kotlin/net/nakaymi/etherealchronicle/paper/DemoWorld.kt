@@ -9,6 +9,7 @@ import org.bukkit.generator.WorldInfo
 import java.nio.file.Files
 import java.util.Random
 
+/** 管理ワールドの浮島・橋を計算だけで生成し、既存のユーザーワールドに触れません。 */
 class DemoGenerator: ChunkGenerator() {
     companion object {
         fun surfaceAt(wx: Int,wz: Int): Material? {
@@ -45,10 +46,12 @@ class DemoGenerator: ChunkGenerator() {
     override fun shouldGenerateStructures() = false
     override fun getFixedSpawnLocation(world: World,random: Random) = Location(world,0.5,65.0,0.5)
 }
+/** 所有マーカー付きec_worldの生成・安全な追補移行・スポーン制御を担当します。 */
 object DemoWorld {
     const val NAME="ec_world"
     fun luminaSpawn(world: World) = Location(world,0.5,65.0,0.5)
     fun isOwned(world:World):Boolean = Files.exists(world.worldFolder.toPath().resolve(".etherealchronicle-owned"))
+    /** 未所有ワールドを変更せず、管理ワールドのみ必要な地形versionへ進めます。 */
     fun ensure(plugin: RpgPlugin): World? {
         val existing=Bukkit.getWorld(NAME)
         if(existing != null) {
@@ -73,7 +76,7 @@ object DemoWorld {
             return null
         }
         val world=WorldCreator(NAME).generator(DemoGenerator()).generateStructures(false).createWorld() ?: return null
-        // Paper 26 stores dimensions below the primary world. Its actual folder is authoritative.
+        // Paper 26ではdimension worldFolderがlevel内にあるため、実際のworldFolderを所有確認の基準にします。
         val folder=world.worldFolder.toPath()
         Files.createDirectories(folder)
         val marker=folder.resolve(".etherealchronicle-owned")
@@ -91,8 +94,7 @@ object DemoWorld {
         return world
     }
     private fun enforceHubSpawnSafety(plugin:RpgPlugin,world:World) {
-        // Hostile spawn flags are world-wide in Bukkit. Keep passive animal spawning
-        // at its current setting; RPG enemies use explicit CUSTOM spawns and remain enabled.
+        // Bukkitの自然spawn抑止はワールド全体へ適用します。動物設定は変えず、RPG敵のCUSTOM spawnは維持します。
         disableVanillaHostileSpawns(world)
         plugin.logger.info("ec_world のバニラ敵対モブ自然湧きを停止しました (allowMonsters=${world.allowMonsters})。")
         val safeAreas=plugin.snapshot.world.areas.values.filter { it.safe && it.world==world.name }
@@ -172,8 +174,7 @@ object DemoWorld {
         val cx=124; val cz=-24
         for(dx in -3..3) for(dz in -3..3) {
             val edge=kotlin.math.abs(dx)==3 || kotlin.math.abs(dz)==3
-            // Build one block above the old generated surface. Air-only placement protects
-            // any player construction in a world that was already in use.
+        // 既存地形の一段上へ建て、空気ブロックに限ることで稼働中ワールドの建築を保護します。
             val block=world.getBlockAt(cx+dx,65,cz+dz)
             if(block.type.isAir) block.setType(if(edge) Material.PACKED_ICE else Material.WATER,false)
         }
@@ -191,7 +192,7 @@ object DemoWorld {
         }
     }
     private fun build(world: World) {
-        // Bounded, one-time structures on freshly generated islands, never user terrain.
+        // 新規生成島に限定した小規模構造物です。プレイヤーが編集した既存地形は置換しません。
         for(center in listOf(0,96,192,288,384)) {
             for(x in center-12..center+12) for(z in -12..12) if((kotlin.math.abs(x-center) == 12 || kotlin.math.abs(z) == 12) && kotlin.math.abs(x-center) > 2 && kotlin.math.abs(z) > 2) {
                 world.getBlockAt(x,65,z).type=if(center == 96) Material.OAK_LEAVES else Material.STONE_BRICK_WALL
@@ -214,7 +215,7 @@ object DemoWorld {
         world.getBlockAt(384,65,0).type=Material.CRYING_OBSIDIAN
     }
     private fun buildChapter2(world: World) {
-        // Fill only missing bridge blocks in the new span; never replace existing player blocks.
+        // 追加範囲の空きだけを橋で埋め、既存ブロックやプレイヤー建築は置き換えません。
         for(x in 421..804) for(z in -3..3) {
             val floor=world.getBlockAt(x,64,z)
             if(floor.type.isAir) floor.type=if(z==0 && x%48==0) Material.BLUE_ICE else Material.PACKED_ICE
@@ -225,7 +226,7 @@ object DemoWorld {
             val block=world.getBlockAt(x,y,z)
             if(block.type.isAir) block.type=material
         }
-        // Four small, additive landmarks. All edits are above the island surface and air-only.
+        // 小規模な4つの目印を追加します。島の地表より上の空気箇所だけを変更します。
         for(x in 472..488) for(z in -8..8) if(kotlin.math.abs(x-480)==8 || kotlin.math.abs(z)==8) placeIfAir(x,65,z,Material.PRISMARINE_BRICKS)
         for(y in 65..72) placeIfAir(576,y,0,Material.BLUE_ICE)
         for(y in 65..68) { placeIfAir(667,y,0,Material.PACKED_ICE); placeIfAir(677,y,0,Material.PACKED_ICE) }

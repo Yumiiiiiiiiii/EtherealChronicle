@@ -9,6 +9,7 @@ import org.bukkit.event.*
 import org.bukkit.event.player.*
 import java.util.UUID
 
+/** 制限数付きの複数ダンジョンinstance、wave、帰還地点を管理します。 */
 class DungeonController(private val plugin: RpgPlugin,private val adventure: AdventureController,private val enemies: EnemyController): Listener {
     data class Instance(val slot: Int,val definition: net.nakaymi.etherealchronicle.core.DungeonDefinition,val members: MutableSet<UUID>,val returns: Map<UUID,Location>,val started: Long,var boss: UUID?=null,var completed: Boolean=false,var waveIndex: Int=0,val entities: MutableSet<UUID> = mutableSetOf(),val startedAtMillis: Long=System.currentTimeMillis())
     private val instances=mutableMapOf<Int,Instance>()
@@ -18,6 +19,7 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
     fun activeCount() = instances.size
     internal fun currentWave(slot:Int) = instances[slot]?.waveIndex
     internal fun currentBoss(slot:Int) = instances[slot]?.boss
+    /** 参加者・解放条件・instance枠を検証してダンジョンへ入場させます。 */
     fun enter(player: Player,dungeonId: String = "ec:dungeon_void_sanctum") {
         val definition=plugin.snapshot.world.dungeons[dungeonId] ?: error("ダンジョンが見つかりません: $dungeonId")
         require(instances.values.none { player.uniqueId in it.members }) { "既にダンジョン内です。" }
@@ -91,8 +93,7 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
                 if(firstRewards.isNotEmpty()) {
                     val itemRewards=firstRewards.flatMap { it.firstClearItems.entries }.groupBy({ it.key },{ it.value }).mapValues { (_,amounts) -> amounts.sum() }
                     val flags=firstRewards.mapNotNull { it.firstClearFlag }.toSet()
-                    // The flag and reward mailbox share one atomic profile write. Delivery waits
-                    // for any active transaction lock and then uses the existing durable claim path.
+            // 初回報酬flagとmailboxを同じプロフィール書込みへ含め、既存取引lock解放後のclaim経路を使います。
                     itemRewards.forEach { (item,amount) -> profile.pendingRewards.merge(item,amount,Int::plus) }
                     profile.flags.addAll(flags)
                     plugin.save(profile)

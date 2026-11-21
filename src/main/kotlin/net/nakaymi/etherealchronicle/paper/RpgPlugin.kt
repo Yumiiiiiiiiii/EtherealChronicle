@@ -17,11 +17,7 @@ import org.bukkit.plugin.java.JavaPlugin
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 
-class ClassMenu: InventoryHolder {
-    private val menu = Bukkit.createInventory(this,9,Component.text("職業を選んでください"))
-    override fun getInventory() = menu
-}
-
+/** Paper APIとpure core/dataサービスを初期化し、プレイヤーイベントを接続するプラグイン入口です。 */
 open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private var ready = false
     private val codexController by lazy { CodexController(this) }
@@ -58,9 +54,11 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal fun identify(stack: ItemStack?) = stack?.itemMeta?.persistentDataContainer?.get(itemKey,PersistentDataType.STRING)
     internal fun inventory(player: Player,persistRemoval: Boolean = true): PaperInventoryAccess = PaperInventoryAccess(player,::identify,::createItem,persistRemoval) { logger.fine("取引の消費アイテムを保存しました: ${player.uniqueId}") }
     internal fun markDirty(player: UUID) { dirty.add(player) }
+    /** YAMLを非同期検証した後、メインスレッドで各ゲームControllerを登録します。 */
     override fun onEnable() {
         itemKey = NamespacedKey(this,"item_id"); enhancementKey=NamespacedKey(this,"enhancement_level"); enhancementTransactionKey=NamespacedKey(this,"enhancement_transaction"); enemyKey = NamespacedKey(this,"enemy_id"); slotKey = NamespacedKey(this,"skill_slot")
-        getCommand("ec")!!.setExecutor(this) // commands must reply while asynchronous content startup runs
+        // 非同期初期化中でも管理コマンドが「起動中」と返せるよう、先にexecutorを登録します。
+        getCommand("ec")!!.setExecutor(this)
         server.scheduler.runTaskAsynchronously(this,Runnable {
             try {
                 val bundled = getResource("content-index.txt")!!.bufferedReader().use { reader ->
@@ -110,6 +108,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             }
         })
     }
+    /** Controllerを停止してから保留状態を直列保存し、タスクとプロフィールを閉じます。 */
     override fun onDisable() {
         ready = false
         enhancementFlights.keys.toList().forEach { id ->
@@ -133,12 +132,15 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         }
         profiles.clear(); sessions.clear()
     }
+    /** async callbackのPaper操作を有効なプラグイン期間中だけメインスレッドへ戻します。 */
     internal fun sync(action: () -> Unit) {
         if(!isEnabled) return
         try { server.scheduler.runTask(this,Runnable { if(isEnabled) action() }) }
         catch(_: org.bukkit.plugin.IllegalPluginAccessException) { /* disabled between the check and scheduling */ }
     }
+    /** 保存失敗時にdirty状態を戻し、次回autosaveで再試行します。 */
     internal fun save(p: PlayerProfile) { store.save(p).exceptionally { logger.severe("保存失敗 ${p.uuid}: ${it.message}"); sync { if(p.uuid in profiles) dirty.add(p.uuid) }; null } }
+    /** 接続世代tokenで古い非同期loadを捨て、完了したプロフィールだけを反映します。 */
     private fun join(player: Player) {
         val token = UUID.randomUUID(); sessions[player.uniqueId] = token
         player.sendMessage(Component.text("冒険データを読み込んでいます…"))
@@ -214,7 +216,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         }
         if(profile.classId == null) game.chooseClass(profile,id)
         profile.starterGranted = true
-        // Persist entitlement consumption before inventory mutation to prevent repeat grants after crashes.
+        // アイテムを配る前に権利消費を保存し、切断・再起動時の二重配布を防ぎます。
         store.save(profile).whenComplete { _,error -> sync {
             choosing.remove(p.uniqueId)
             if(error != null) { profile.starterGranted = false; p.sendMessage(Component.text("保存できませんでした。もう一度お試しください。")); return@sync }
@@ -269,9 +271,9 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private fun hasEnhancementToken(player:Player,token:String):Boolean = player.inventory.contents.filterNotNull().any { stack ->
         stack.itemMeta.persistentDataContainer.get(enhancementTransactionKey,PersistentDataType.STRING) == token
     }
-    /** Removes the in-flight reconciliation record when the surrounding transaction rolls back. */
+    /** 周辺取引がロールバックした場合に、強化保留記録を解除します。 */
     internal fun rollbackEnhancement(id:UUID) { enhancementFlights.remove(id) }
-    /** If the output left inventory before completion, refund its costs exactly once. */
+    /** 保留強化の対象装備を見失った場合に、消費素材・通貨を一度だけ返却します。 */
     private fun settleEnhancement(player:Player,profile:PlayerProfile):Boolean {
         val flight=enhancementFlights.remove(profile.uuid) ?: return true
         if(hasEnhancementToken(player,flight.token)) return true
@@ -289,7 +291,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         advancementWarningLogged=true
         logger.warning("称号進捗データパックを登録できませんでした。称号は冒険プロフィールの解放フラグで利用できます: ${error.message}")
     }
-    /** Data-pack files are generated only inside an owned directory; Paper's supported DatapackManager reloads them. */
+    /** 所有するデータパックだけを生成し、PaperのDatapackManagerで進捗定義を再読込します。 */
     private fun reloadAdvancementPack() {
         val world=server.worlds.firstOrNull { it.environment==World.Environment.NORMAL && it.name!=DemoWorld.NAME }
             ?: server.worlds.firstOrNull() ?: error("進捗データパックを置くワールドがありません。")
@@ -302,7 +304,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         server.updateResources()
         server.onlinePlayers.forEach { player -> profiles[player.uniqueId]?.let { syncTitleAdvancements(player,it) } }
     }
-    /** Profile flags remain authoritative; data-pack progress is awarded or revoked to match them. */
+    /** 永続プロフィールflagを正本とし、Minecraft進捗の付与・取消を同期します。 */
     internal fun syncTitleAdvancements(player:Player,profile:PlayerProfile) {
         val newlyUnlocked=profile.syncTitleUnlockFlags(snapshot.world.titles)
         if(newlyUnlocked.isNotEmpty()) save(profile)
@@ -455,7 +457,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val result=castSkill(p,target)
         if(result != CastResult.SUCCESS) p.sendMessage(Component.text(when(result) { CastResult.RESOURCE -> "リソースが足りません。"; CastResult.INVALID_TARGET -> "射程内に魔物がいません。"; else -> "まだ使用できません。" }))
     }
-    /** Shared actual/MockBukkit cast path; targeting can be supplied without world ray tracing. */
+    /** 実イベントとテストが共有するスキル経路です。照準対象を渡しray traceを分離できます。 */
     fun castSkill(player: Player,target: LivingEntity?): CastResult {
         val profile=profiles[player.uniqueId] ?: return CastResult.INVALID_TARGET
         if(adventure.locked(profile.uuid)) return CastResult.COOLDOWN
@@ -531,7 +533,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             setRpgDamage(e,content.snapshot().balance.damage(Stats(attack=d.num("attack")),effectiveStats(target,profile).defense,if(::enemies.isInitialized) enemies.multiplier(e.damager.uniqueId) else 1.0,0.0,false))
         }
     }
-    /** Same gate/damage path as the actual player event, callable without a client attack packet. */
+    /** 実プレイヤー攻撃と同じゲート・ダメージ計算を、攻撃packetなしで呼び出せます。 */
     fun basicAttack(player: Player,target: LivingEntity): Boolean {
         val profile=profiles[player.uniqueId] ?: return false
         if(profile.classId == null || adventure.locked(profile.uuid) || !target.persistentDataContainer.has(enemyKey)) return false
@@ -592,7 +594,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         if(killer != null) rewardKill(killer,e.entity)
         if(::dungeons.isInitialized) dungeons.defeated(e.entity.uniqueId)
     }
-    /** QA seam shared with the actual death handler; avoids relying on mock getKiller(). */
+    /** 実死亡イベントと共有する報酬経路で、MockBukkitのkiller取得に依存しません。 */
     fun rewardKill(killer: Player,entity: LivingEntity) {
         val id=entity.persistentDataContainer.get(enemyKey,PersistentDataType.STRING) ?: return
         val definition=snapshot.documents[id] ?: return

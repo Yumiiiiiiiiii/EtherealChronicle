@@ -13,10 +13,7 @@ import org.bukkit.inventory.*
 import org.bukkit.persistence.PersistentDataType
 import java.util.UUID
 
-class RpgMenu(val kind: String,val contentId: String,val nodeId: String = ""): InventoryHolder {
-    private val menu=Bukkit.createInventory(this,54,Component.text(when(kind) { "dialogue" -> "会話"; "shop" -> "お店"; "codex-areas" -> "冒険者の図鑑 — エリア"; "codex-area" -> "冒険者の図鑑 — 魔物"; "codex-items" -> "冒険者の図鑑 — アイテム"; "codex-fish" -> "生活図鑑 — 魚類"; "codex-gathering" -> "生活図鑑 — 採取"; else -> "装備" }))
-    override fun getInventory() = menu
-}
+/** NPC会話、依頼、ショップ、パーティ、保留報酬、装備GUIをPaperへ接続します。 */
 class AdventureController(private val plugin: RpgPlugin): Listener {
     val parties=PartyService({ plugin.snapshot.world.tuning.partyCap },Clock { System.currentTimeMillis() })
     private val dialogues=DialogueEngine { plugin.snapshot }
@@ -29,7 +26,9 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     private val dialogueSessions=mutableMapOf<UUID,Pair<String,String>>()
     var enterDungeon: (Player,String) -> Unit = { p,id -> p.sendMessage(Component.text("ダンジョンを準備しています: $id")) }
     init { plugin.server.pluginManager.registerEvents(this,plugin) }
+    /** 非同期保存を含むプロフィール取引中かを返します。 */
     fun locked(id: UUID) = id in locks
+    /** 管理NPCを現在のコンテンツ・ワールド状態に合わせて再配置します。 */
     fun reloadNpcs() {
         npcEntities.values.forEach { Bukkit.getEntity(it)?.remove() }; npcEntities.clear()
         reconcileNpcs()
@@ -54,7 +53,9 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     @EventHandler fun load(e: org.bukkit.event.world.ChunkLoadEvent) {
         e.chunk.entities.forEach { entity -> entity.persistentDataContainer.get(npcKey,PersistentDataType.STRING)?.let { id -> if(npcEntities[id] != entity.uniqueId) entity.remove() } }
     }
+    /** 管理対象NPCを解放します。 */
     fun close() { npcEntities.values.forEach { Bukkit.getEntity(it)?.remove() }; npcEntities.clear() }
+    /** NPCの時間・天候条件とオンライン依頼進行を更新します。 */
     fun tick() {
         reconcileNpcs()
         val now=System.nanoTime()/1_000_000
@@ -93,6 +94,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         val npc=plugin.snapshot.world.npcs[id] ?: return
         showDialogue(e.player,npc.dialogue)
     }
+    /** 条件付き会話選択肢をGUIとして表示します。 */
     fun showDialogue(player: Player,id: String,node: String? = null) {
         val p=plugin.profiles[player.uniqueId] ?: return
         val (at,definition)=dialogues.node(p,id,node)
@@ -107,6 +109,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         player.sendMessage(mm.deserialize(definition.text))
         player.openInventory(menu)
     }
+    /** 条件を満たす商品だけをショップ画面に表示します。 */
     fun showShop(player: Player,id: String) {
         val p=plugin.profiles[player.uniqueId] ?: return
         val shop=plugin.snapshot.world.shops[id] ?: error("店が見つかりません。")
@@ -119,6 +122,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         }
         player.openInventory(menu); message(player,"所持金: ${p.currency}G")
     }
+    /** 装備可能なアクセサリー一覧を表示します。 */
     fun equipment(player: Player) {
         val p=plugin.profiles[player.uniqueId] ?: return
         val menu=RpgMenu("equipment","").inventory
@@ -215,6 +219,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         if(plugin.snapshot.world.areas.values.any { it.safe && it.contains(Position(p.world.name,p.x,p.y,p.z)) }) e.isCancelled=true
     }
     private val consumableReady=mutableMapOf<Pair<UUID,String>,Long>()
+    /** 消耗品を既存取引規則に沿って消費し、定義済み効果を適用します。 */
     fun consume(player: Player,stack: ItemStack): Boolean {
         val id=plugin.identify(stack) ?: return false
         val properties=plugin.snapshot.world.itemProperties[id] ?: return false
@@ -243,9 +248,11 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     }
     private val scheduled=mutableSetOf<UUID>()
     private val waiting=mutableMapOf<UUID,ArrayDeque<() -> Unit>>()
+    /** 同じUUIDの保存ロックが解放された後に実行する処理をFIFOへ追加します。 */
     fun whenAvailable(id: UUID,action: () -> Unit) {
         waiting.getOrPut(id) { ArrayDeque() }.addLast(action); resume(id)
     }
+    /** ロック・接続状態を確認し、待機中の処理をメインスレッドで一つ実行します。 */
     fun resume(id: UUID) {
         if(id in scheduled || locked(id) || Bukkit.getPlayer(id)?.isOnline != true || id !in plugin.profiles) return
         val queue=waiting[id] ?: return
@@ -260,26 +267,32 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         }
     }
     private fun unlock(id: UUID) { locks.remove(id); resume(id) }
+    /** shutdown前に残っているロックまたは保留callbackを検出します。 */
     fun hasTransactions() = locks.isNotEmpty() || scheduled.isNotEmpty() || waiting.values.any { it.isNotEmpty() } || delivering.isNotEmpty()
+    /** ID付きアイテムのbound / quest_item状態を調べます。 */
     fun bound(stack: ItemStack?): Boolean = plugin.identify(stack)?.let { plugin.snapshot.world.itemProperties[it]?.let { p -> p.bound || p.questItem } } == true
     private val delivering=mutableSetOf<UUID>()
     private data class Delivery(val profile: PlayerProfile,val output: Map<String,Int>)
     private val deliveries=mutableMapOf<UUID,Delivery>()
+    /** 切断前に受取途中の出力をメールボックスへ戻します。 */
     fun beforeQuit(player: Player) {
         deliveries.remove(player.uniqueId)?.let { claim ->
             claim.profile.pendingRewards.putAll(claim.output)
-            plugin.persist(claim.profile) // follows the clearing write on the same serial IO queue
+            // 同一IOキュー上のクリア保存より後へ戻し保存を積み、切断時の二重配布を防ぎます。
+            plugin.persist(claim.profile)
         }
         delivering.remove(player.uniqueId)
     }
+    /** disable時に受取途中の報酬をprofiles上へ戻してから保存させます。 */
     fun prepareShutdown() {
         deliveries.values.forEach { claim -> claim.profile.pendingRewards.putAll(claim.output) }
         deliveries.clear(); delivering.clear()
     }
+    /** 永続メールボックスをロック付きで一度だけ受け取ります。 */
     fun claimPending(player: Player) {
         val p=plugin.profiles[player.uniqueId] ?: return
         if(p.pendingRewards.isEmpty()) return
-        // Reconnect may complete while the previous session's persistence callback still owns the lock.
+        // 前回接続の保存callbackがロック保持中でも、再接続側のclaimを待ち行列へ回します。
         if(p.uuid in locks) {
             whenAvailable(p.uuid) { if(player.isOnline && plugin.profiles[p.uuid] === p) claimPending(player) }
             return
@@ -294,12 +307,13 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             message(player,"報酬を保管しています。持ち物に空きを作り /ec claim で受け取ってください。")
             plugin.syncTitleAdvancements(player,p); unlock(p.uuid); success(); return
         }
-        // Consume the durable mailbox entitlement before issuing Paper items: loss-biased claim window.
+        // Paperアイテムを配る前に永続メールボックス権利を消費し、クラッシュ窓を損失側へ寄せます。
         val claim=Delivery(p,output); deliveries[p.uuid]=claim
         delivering.add(p.uuid); p.pendingRewards.clear()
         plugin.persist(p).whenComplete { _,error -> plugin.sync {
             try {
-                if(deliveries[p.uuid] !== claim) return@sync // quit restored the mailbox; never issue output twice
+                // quitでメールボックスへ戻されたclaimは配布しません。二重発行を防ぐ判定です。
+                if(deliveries[p.uuid] !== claim) return@sync
                 if(error != null) {
                     if(plugin.profiles[p.uuid] === p) { p.pendingRewards.putAll(output); plugin.save(p) }
                     if(player.isOnline) message(player,"受取内容を保存できませんでした。/ec claim で再試行してください。")
@@ -313,7 +327,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             } finally { deliveries.remove(p.uuid); delivering.remove(p.uuid); unlock(p.uuid) }
         } }
     }
-    /** Removes consumables first, saves their Paper inventory, persists currency/state, then grants output. */
+    /** 消費物を先に保存し、プロフィール状態を永続化してから出力報酬を配布します。 */
     fun transaction(player: Player,mutate: (InventoryAccess) -> Unit,persistConsumption: Boolean = true,beforePersist: () -> Unit = {},success: () -> Unit = {}) {
         val p=plugin.profiles[player.uniqueId] ?: return
         require(locks.add(p.uuid)) { "取引の処理中です。" }
