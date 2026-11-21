@@ -25,3 +25,6 @@ specials:
 spawn_points:
   - {id: ashwood_clearing_1, world: ec_world, x: 86, y: 65, z: -18, cap: 2, respawn_ticks: 200}
   - {id: ashwood_clearing_2, world: ec_world, x: 92, y: 65, z: 16, cap: 2, respawn_ticks: 200}
+
+visual:
+  variant: ec:thorn_wolf

@@ -14,3 +14,4 @@ lore: '尽きぬ星露を湛えた黄金の聖杯。【星泉の恵み】戦闘�
 effects:
   - {kind: RESOURCE, amount: 26, cooldown_ms: 14000, chance: 0.55}
   - {kind: HEAL, amount: 55, cooldown_ms: 16000, chance: 0.5}
+item_model: ec:off_sanctified_chalice

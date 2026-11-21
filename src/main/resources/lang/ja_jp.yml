@@ -2,6 +2,13 @@ ec:
   startup:
     loading: "冒険データを読み込んでいます…"
     starting: "冒険システムは起動中です。しばらくお待ちください。"
+  resource_pack:
+    prompt: "<gold>EtherealChronicle 専用リソースパックを適用しますか？<newline><gray>未適用でもプレイ可能です。"
+    preference_set: "リソースパック表示設定を <preference> にしました。"
+    preference_auto: "自動"
+    preference_on: "オン"
+    preference_off: "オフ"
+    usage: "使用方法: /ec ui pack <auto|on|off>"
   profile:
     read_failed: "冒険データを読み込めませんでした。管理者にご連絡ください。"
     class_data_missing: "職業データが見つかりません。管理者にご連絡ください。"
@@ -79,6 +86,7 @@ ec:
     record: "<id>: <seconds>秒 / ランク<rank>"
   dialogue:
     talk: "お話"
+    close: "閉じる"
   shop:
     price_buy: "価格 <price>G / 左クリックで購入"
     tokens: "素材: <items>"
@@ -231,6 +239,10 @@ ec:
     teleported: "<name>へ転送しました。"
   class:
     choose: "職業を選んでください"
+    confirm_title: "<class> で冒険を始めますか？"
+    confirm_body: "この職業の初期装備とスキルを受け取ります。選択後も管理者に変更を依頼できます。"
+    confirm_start: "この職業で始める"
+    confirm_cancel: "戻る"
     weapon_queued: "新しい職業の初期武器は持ち物に送られました。<gold>/ec claim</gold> で受け取れます。"
   menu:
     dialogue: "会話"

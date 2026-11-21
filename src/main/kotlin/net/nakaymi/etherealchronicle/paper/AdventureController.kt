@@ -3,6 +3,13 @@ package net.nakaymi.etherealchronicle.paper
 import net.nakaymi.etherealchronicle.core.*
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.minimessage.MiniMessage
+import io.papermc.paper.dialog.Dialog
+import io.papermc.paper.registry.data.dialog.ActionButton
+import io.papermc.paper.registry.data.dialog.DialogBase
+import io.papermc.paper.registry.data.dialog.action.DialogAction
+import io.papermc.paper.registry.data.dialog.body.DialogBody
+import io.papermc.paper.registry.data.dialog.type.DialogType
+import net.kyori.adventure.text.event.ClickCallback
 import org.bukkit.*
 import org.bukkit.entity.*
 import org.bukkit.event.*
@@ -12,6 +19,7 @@ import org.bukkit.event.player.*
 import org.bukkit.inventory.*
 import org.bukkit.persistence.PersistentDataType
 import java.util.UUID
+import java.time.Duration
 
 /** NPC会話、依頼、ショップ、パーティ、保留報酬、装備GUIをPaperへ接続します。 */
 class AdventureController(private val plugin: RpgPlugin): Listener {
@@ -23,6 +31,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     private val mm=MiniMessage.miniMessage()
     private val npcs=NpcController(plugin)
     private val dialogueSessions=mutableMapOf<UUID,Pair<String,String>>()
+    private val invUiShops=mutableMapOf<UUID,String>()
     var enterDungeon: (Player,String) -> Unit = { p,id -> p.sendMessage(plugin.message(p,"ec.dungeon.preparing", "id" to id)) }
     init { plugin.server.pluginManager.registerEvents(this,plugin) }
     /** 非同期保存を含むプロフィール取引中かを返します。 */
@@ -84,7 +93,31 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             displayName(mm.deserialize(c.label)); persistentDataContainer.set(entryKey,PersistentDataType.STRING,c.id)
         } }) }
         player.sendMessage(mm.deserialize(definition.text))
-        player.openInventory(menu)
+        if (plugin.paperUiEnabled) showDialogueDialog(player,id,at,definition)
+        else player.openInventory(menu)
+    }
+    /** Paper Dialogを主表示にし、選択アクションは既存の取引処理へ戻します。 */
+    private fun showDialogueDialog(player: Player,id: String,node: String,definition: DialogueNode) {
+        val buttons = definition.choices.map { choice ->
+            ActionButton.builder(mm.deserialize(choice.label)).width(200)
+                .action(DialogAction.customClick({ _, audience ->
+                    (audience as? Player)?.let { selected ->
+                        runCatching { selectDialogueChoice(selected,id,node,choice.id) }
+                            .onFailure { selected.sendMessage(plugin.message(selected,"ec.command.failed", "reason" to plugin.diagnostic(selected,it.message.orEmpty()))) }
+                    }
+                }, ClickCallback.Options.builder().uses(1).lifetime(Duration.ofMinutes(2)).build()))
+                .build()
+        }
+        val close = ActionButton.builder(plugin.message(player,"ec.dialogue.close")).width(200).build()
+        val dialog = Dialog.create { builder ->
+            builder.empty()
+                .base(DialogBase.builder(plugin.message(player,"ec.menu.dialogue"))
+                    .body(listOf(DialogBody.plainMessage(mm.deserialize(definition.text))))
+                    .canCloseWithEscape(true)
+                    .build())
+                .type(DialogType.multiAction(buttons, close, 2))
+        }
+        player.showDialog(dialog)
     }
     /** 条件を満たす商品だけをショップ画面に表示します。 */
     fun showShop(player: Player,id: String) {
@@ -97,7 +130,9 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                 lore((lore() ?: emptyList())+extra); persistentDataContainer.set(entryKey,PersistentDataType.STRING,e.id)
             } })
         }
-        player.openInventory(menu); player.sendMessage(plugin.message(player,"ec.shop.currency", "currency" to p.currency))
+        val migrated = plugin.openRpgMenu(player, menu) { slot, click -> if (click.isLeftClick) buyShopSlot(player,id,slot) }
+        if (migrated) invUiShops[player.uniqueId] = id else invUiShops.remove(player.uniqueId)
+        player.sendMessage(plugin.message(player,"ec.shop.currency", "currency" to p.currency))
     }
     /** 装備可能なアクセサリー一覧を表示します。 */
     fun equipment(player: Player) {
@@ -106,12 +141,22 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         player.inventory.storageContents.filterNotNull().mapNotNull { plugin.item(it) }.filter { it.slot == GearSlot.ACCESSORY && it.canEquip(p) }.distinctBy { it.id }.take(54).forEachIndexed { i,item ->
             menu.setItem(i,plugin.createItem(item.id).apply { itemMeta=itemMeta.apply { persistentDataContainer.set(entryKey,PersistentDataType.STRING,item.id) } })
         }
-        player.openInventory(menu)
+        plugin.openRpgMenu(player, menu) { slot, _ ->
+            menu.getItem(slot)?.itemMeta?.persistentDataContainer?.get(entryKey,PersistentDataType.STRING)?.let { equipAccessory(player,it) }
+        }
     }
     @EventHandler(priority=EventPriority.LOWEST) fun click(e: InventoryClickEvent) {
         val player=e.whoClicked as? Player ?: return
         if(locked(player.uniqueId)) { e.isCancelled=true; return }
-        val menu=e.view.topInventory.holder as? RpgMenu ?: return
+        val menu=e.view.topInventory.holder as? RpgMenu
+        val invUiShopId = invUiShops[player.uniqueId]
+        if (invUiShopId != null && e.clickedInventory == player.inventory && e.isRightClick) {
+            e.isCancelled = true
+            runCatching { sellFromInventory(player, invUiShopId, e.currentItem) }
+                .onFailure { player.sendMessage(plugin.message(player,"ec.command.failed", "reason" to plugin.diagnostic(player,it.message.orEmpty()))) }
+            return
+        }
+        if (menu == null) return
         e.isCancelled=true
         val p=plugin.profiles[player.uniqueId] ?: return
         try {
@@ -119,52 +164,84 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             when(menu.kind) {
                 "dialogue" -> {
                     if(e.rawSlot !in 9..53 || entry == null || dialogueSessions[p.uuid] != menu.contentId to menu.nodeId) return
-                    val choice=dialogues.choice(p,menu.contentId,menu.nodeId,entry)
-                    val after=mutableListOf<() -> Unit>()
-                    transaction(player,{ inventory ->
-                        p.flags.removeAll(choice.clearFlags); p.flags.addAll(choice.flags)
-                        choice.actions.forEach { a -> when(a.kind) {
-                            "START_QUEST" -> plugin.game.startQuest(p,a.target)
-                            "COMPLETE_QUEST" -> plugin.game.completeQuest(p,a.target,inventory)
-                            "SELECT_CLASS" -> plugin.game.chooseClass(p,a.target)
-                            "OPEN_SHOP" -> after.add { showShop(player,a.target) }
-                            "ENTER_DUNGEON" -> after.add { enterDungeon(player,a.target) }
-                            "TELEPORT_AREA" -> {
-                                require(a.requiredFlag == null || a.requiredFlag in p.flags) { "ec.error.teleport_condition" }
-                                after.add { teleportArea(player,a.target,a.destination) }
-                            }
-                            "GIVE_ITEM" -> if(a.onceFlag == null || a.onceFlag !in p.flags) {
-                                require(a.onceFlag != null) { "ec.error.reward_once_flag" }
-                                require(inventory.exchange(emptyMap(),mapOf(a.target to a.amount)))
-                                p.flags.add(a.onceFlag)
-                            }
-                        } }
-                    }) {
-                        if(after.isNotEmpty()) after.forEach { it() }
-                        else if(!choice.next.isNullOrEmpty()) showDialogue(player,menu.contentId,choice.next)
-                        else player.closeInventory()
-                        plugin.ensureStarter(player)
-                    }
+                    selectDialogueChoice(player,menu.contentId,menu.nodeId,entry)
                 }
                 "shop" -> {
                     if(e.rawSlot in 0..53 && entry != null && e.isLeftClick) {
-                        val plan=trades.buy(p,menu.contentId,entry,plugin.inventory(player),UUID.randomUUID().toString(),System.currentTimeMillis())
-                        transaction(player,{ inv -> require(inv.exchange(plan.remove,plan.add)); trades.commit(p,plan) }) { showShop(player,menu.contentId) }
+                        val shopEntry = plugin.snapshot.world.shops[menu.contentId]?.entries?.indexOfFirst { it.id == entry } ?: -1
+                        if (shopEntry >= 0) buyShopSlot(player,menu.contentId,shopEntry)
                     } else if(e.clickedInventory == player.inventory && e.isRightClick) {
-                        val id=plugin.identify(e.currentItem) ?: return
-                        val plan=trades.sell(p,menu.contentId,id,1,plugin.inventory(player),UUID.randomUUID().toString())
-                        transaction(player,{ inv -> require(inv.exchange(plan.remove,plan.add)); trades.commit(p,plan) }) { showShop(player,menu.contentId) }
+                        sellFromInventory(player,menu.contentId,e.currentItem)
                     }
                 }
                 "equipment" -> if(entry != null && e.rawSlot in 0..53) {
-                    require(plugin.inventory(player).count(entry) > 0 && plugin.snapshot.items[entry].canEquip(p))
-                    p.accessory=entry; plugin.save(p); player.closeInventory(); player.sendMessage(plugin.message(player,"ec.equipment.accessory_equipped"))
+                    equipAccessory(player,entry)
                 }
             }
         } catch(error: Exception) {
             val reason=plugin.diagnostic(player,error.message.orEmpty())
             player.sendMessage(plugin.message(player,"ec.command.failed", "reason" to reason))
         }
+    }
+    @EventHandler fun closeInvUiShop(event: InventoryCloseEvent) {
+        invUiShops.remove(event.player.uniqueId)
+    }
+    @EventHandler fun quitInvUiShop(event: PlayerQuitEvent) {
+        invUiShops.remove(event.player.uniqueId)
+    }
+    private fun buyShopSlot(player: Player, shopId: String, slot: Int) {
+        val profile = plugin.profiles[player.uniqueId] ?: return
+        val shop = plugin.snapshot.world.shops[shopId] ?: return
+        val entry = shop.entries.getOrNull(slot)?.takeIf { it.condition.matches(profile) } ?: return
+        val plan = trades.buy(profile,shopId,entry.id,plugin.inventory(player),UUID.randomUUID().toString(),System.currentTimeMillis())
+        transaction(player,{ inventory -> require(inventory.exchange(plan.remove,plan.add)); trades.commit(profile,plan) }) { showShop(player,shopId) }
+    }
+    private fun selectDialogueChoice(player: Player,dialogueId: String,nodeId: String,choiceId: String) {
+        val profile = plugin.profiles[player.uniqueId] ?: return
+        if (dialogueSessions[profile.uuid] != dialogueId to nodeId) return
+        val choice = dialogues.choice(profile,dialogueId,nodeId,choiceId)
+        val after = mutableListOf<() -> Unit>()
+        transaction(player,{ inventory ->
+            profile.flags.removeAll(choice.clearFlags)
+            profile.flags.addAll(choice.flags)
+            choice.actions.forEach { action ->
+                when(action.kind) {
+                    "START_QUEST" -> plugin.game.startQuest(profile,action.target)
+                    "COMPLETE_QUEST" -> plugin.game.completeQuest(profile,action.target,inventory)
+                    "SELECT_CLASS" -> plugin.game.chooseClass(profile,action.target)
+                    "OPEN_SHOP" -> after.add { showShop(player,action.target) }
+                    "ENTER_DUNGEON" -> after.add { enterDungeon(player,action.target) }
+                    "TELEPORT_AREA" -> {
+                        require(action.requiredFlag == null || action.requiredFlag in profile.flags) { "ec.error.teleport_condition" }
+                        after.add { teleportArea(player,action.target,action.destination) }
+                    }
+                    "GIVE_ITEM" -> if(action.onceFlag == null || action.onceFlag !in profile.flags) {
+                        require(action.onceFlag != null) { "ec.error.reward_once_flag" }
+                        require(inventory.exchange(emptyMap(),mapOf(action.target to action.amount)))
+                        profile.flags.add(action.onceFlag)
+                    }
+                }
+            }
+        }) {
+            if(after.isNotEmpty()) after.forEach { it() }
+            else if(!choice.next.isNullOrEmpty()) showDialogue(player,dialogueId,choice.next)
+            else player.closeInventory()
+            plugin.ensureStarter(player)
+        }
+    }
+    private fun sellFromInventory(player: Player, shopId: String, stack: ItemStack?) {
+        val profile = plugin.profiles[player.uniqueId] ?: return
+        val id = plugin.identify(stack) ?: return
+        val plan = trades.sell(profile,shopId,id,1,plugin.inventory(player),UUID.randomUUID().toString())
+        transaction(player,{ inventory -> require(inventory.exchange(plan.remove,plan.add)); trades.commit(profile,plan) }) { showShop(player,shopId) }
+    }
+    private fun equipAccessory(player: Player, id: String) {
+        val profile = plugin.profiles[player.uniqueId] ?: return
+        require(plugin.inventory(player).count(id) > 0 && plugin.snapshot.items[id].canEquip(profile))
+        profile.accessory = id
+        plugin.save(profile)
+        player.closeInventory()
+        player.sendMessage(plugin.message(player,"ec.equipment.accessory_equipped"))
     }
     @EventHandler(priority=EventPriority.LOWEST) fun drag(e: InventoryDragEvent) {
         if(e.view.topInventory.holder is RpgMenu || locked(e.whoClicked.uniqueId)) e.isCancelled=true

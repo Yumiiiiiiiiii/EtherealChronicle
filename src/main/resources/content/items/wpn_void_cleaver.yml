@@ -15,3 +15,4 @@ lore: '虚無の守護者を打ち倒した証として再鋳造された聖剣�
 effects:
   - {kind: ATTACK_PROC, amount: 95, cooldown_ms: 10000, chance: 0.35, element: AETHER}
   - {kind: HEAL, amount: 55, cooldown_ms: 10000, chance: 0.35}
+item_model: ec:wpn_void_cleaver

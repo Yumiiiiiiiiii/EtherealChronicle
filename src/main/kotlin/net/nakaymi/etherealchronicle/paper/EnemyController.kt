@@ -37,6 +37,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
     private val nextSpawn=mutableMapOf<String,Long>()
     private val warnings=mutableListOf<Warning>()
     private val dealing=mutableMapOf<UUID,Double>()
+    private val missingVariantWarnings=mutableSetOf<String>()
     private var tick=0L
     init { plugin.server.pluginManager.registerEvents(this,plugin) }
     fun state(id: UUID) = states[id]
@@ -52,6 +53,14 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
         val entity=world.spawnEntity(location,EntityType.valueOf(d.entity)) as LivingEntity
         if(!budget.reserve(entity.uniqueId,point,cap)) { entity.remove(); return null }
         entity.persistentDataContainer.set(key,PersistentDataType.STRING,id)
+        d.visualVariant?.let { variantId ->
+            if (entity is Wolf) {
+                val variantKey = NamespacedKey.fromString(variantId)
+                val variant = variantKey?.let { Registry.WOLF_VARIANT.get(it) }
+                if (variant != null) entity.variant = variant
+                else if (missingVariantWarnings.add(variantId)) plugin.logger.warning("Configured wolf variant is unavailable: $variantId")
+            }
+        }
         entity.customName(net.kyori.adventure.text.Component.text(d.name)); entity.isCustomNameVisible=true
         if(entity is Slime) entity.size=d.size
         // Slimeサイズ設定後に表示用最大体力を再設定します。setSizeが属性値を変更するためです。

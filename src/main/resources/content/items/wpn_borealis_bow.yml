@@ -14,3 +14,4 @@ price: 9600
 lore: '北天の極光を弦に紡いだ伝説の霊弓。【極光の氷星】鋭い一射に呼応して蒼氷の追尾矢が宙を貫く。'
 effects:
   - {kind: ATTACK_PROC, amount: 130, cooldown_ms: 7000, chance: 0.42, element: ICE}
+item_model: ec:wpn_borealis_bow

@@ -33,7 +33,9 @@ $header = @(
     '設定 `language: auto` はプレイヤーのクライアント言語に追従し、未対応言語は日本語を選びます。`ja_jp` / `en_us` を指定するとサーバー全体で固定します。存在しないキーは日本語、それも無い場合はキー名を表示し、警告はキーごとに一度だけ記録します。', '',
     '| キー | 日本語 | English | 使用箇所 | プレースホルダ |', '| --- | --- | --- | --- | --- |'
 )
-$rows = foreach ($key in @($ja.Keys | Sort-Object)) {
+$orderedKeys = [string[]]@($ja.Keys)
+[Array]::Sort($orderedKeys, [StringComparer]::Ordinal)
+$rows = foreach ($key in $orderedKeys) {
     $j = $ja[$key].Replace('|','\|').Replace("`n",'<br>')
     if (!$en.Contains($key)) { throw "Missing English translation for $key" }
     $e = $en[$key].Replace('|','\|').Replace("`n",'<br>')

@@ -13,7 +13,7 @@ class ClassMenu(title: Component) : InventoryHolder {
 }
 
 /** GUI種別と対象IDをクリックイベント側へ渡すInventory holderです。 */
-class RpgMenu(val kind: String, val contentId: String, val nodeId: String = "", title: Component) : InventoryHolder {
+class RpgMenu(val kind: String, val contentId: String, val nodeId: String = "", val title: Component) : InventoryHolder {
     private val menu = Bukkit.createInventory(this, 54, title)
 
     override fun getInventory(): Inventory = menu

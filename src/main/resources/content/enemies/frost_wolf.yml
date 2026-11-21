@@ -25,3 +25,6 @@ specials:
 spawn_points:
   - {id: ridge_west_trail, world: ec_world, x: 558, y: 65, z: 10, cap: 3, respawn_ticks: 240}
   - {id: ridge_north_slope, world: ec_world, x: 586, y: 65, z: -14, cap: 3, respawn_ticks: 240}
+
+visual:
+  variant: ec:frost_wolf

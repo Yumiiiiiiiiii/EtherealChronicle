@@ -14,3 +14,4 @@ lore: '虚核の聖堂を制した証。【虚無への抗い】虚無の浸蝕�
 effects:
   - {kind: DEFENSE_BUFF, amount: 25, cooldown_ms: 60000, duration_ticks: 100, chance: 1.0}
   - {kind: REVIVE, amount: 220, cooldown_ms: 180000, chance: 1.0}
+item_model: ec:acc_void_heart_ring

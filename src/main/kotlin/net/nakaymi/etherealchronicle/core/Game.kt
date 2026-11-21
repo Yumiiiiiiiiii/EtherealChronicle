@@ -47,7 +47,7 @@ data class Balance(val levelCap: Int, val xpBase: Double, val xpExponent: Double
 
 enum class ResourceKind { RAGE, FOCUS, MANA }
 data class ClassDefinition(val id: String, val name: String, val resource: ResourceKind, val stats: Stats,
-    val regeneration: Double, val hitGain: Double, val skills: List<String>, val starterItems: List<String>, val growth: Stats = Stats.ZERO, val icon: String? = null)
+    val regeneration: Double, val hitGain: Double, val skills: List<String>, val starterItems: List<String>, val growth: Stats = Stats.ZERO, val icon: String? = null, val itemModel: String? = null)
 data class SkillDefinition(val id: String, val name: String, val cost: Double, val cooldownMillis: Long,
     val multiplier: Double, val range: Double, val element: String = "PHYSICAL", val radius: Double = 0.0, val heal: Double = 0.0, val defenseBuff: Double = 0.0, val buffTicks: Int = 0,
     val partyHeal: Boolean = false, val partyDefenseBuff: Boolean = false, val allyRadius: Double = 0.0, val tauntTicks: Int = 0, val threatMultiplier: Double = 1.0)
@@ -95,7 +95,7 @@ enum class Rarity(val displayKey: String) { COMMON("ec.rarity.common"), UNCOMMON
 enum class GearSlot { HAND, OFFHAND, HEAD, CHEST, LEGS, FEET, ACCESSORY, NONE }
 /** YAMLの装備定義と、装備条件・stat budgetの検証規則です。 */
 data class ItemDefinition(val id: String, val name: String, val material: String, val rarity: Rarity,
-    val minLevel: Int, val classes: List<String>, val stats: Stats, val budget: Double, val budgetMultiplier: Double = 1.0, val affixes: Int = 0, val slot: GearSlot = GearSlot.HAND) {
+    val minLevel: Int, val classes: List<String>, val stats: Stats, val budget: Double, val budgetMultiplier: Double = 1.0, val affixes: Int = 0, val slot: GearSlot = GearSlot.HAND, val itemModel: String? = null) {
     /** 装備レベルとクラス条件を満たすかを返します。 */
     fun canEquip(player: PlayerProfile) = player.level >= minLevel && (classes.isEmpty() || player.classId in classes)
     /** 強化倍率を含む能力値が定義済みbudget内かを判定します。 */
@@ -147,7 +147,7 @@ data class PlayerProfile(val uuid: UUID, var classId: String? = null, var level:
     val skillLevels: MutableMap<String, Int> = mutableMapOf(), val flags: MutableSet<String> = mutableSetOf(),
     val dailyPurchases: MutableMap<String, Int> = mutableMapOf(), val transactions: MutableList<String> = mutableListOf(), var accessory: String? = null, val pendingRewards: MutableMap<String,Int> = mutableMapOf(), val dropPity: MutableMap<String,Int> = mutableMapOf(),val challengeRecords: MutableMap<String,ChallengeRecord> = mutableMapOf(),var selectedTitle:String? = null,val bestiary:MutableMap<String,Int> = mutableMapOf(),val discoveredItems:MutableSet<String> = mutableSetOf(),
     val lifeSkills: MutableMap<LifeSkillKind,LifeSkillProgress> = LifeSkillKind.entries.associateWith { LifeSkillProgress() }.toMutableMap(),
-    val fishRecords: MutableMap<String,FishRecord> = mutableMapOf(), val gatheringRecords: MutableMap<String,Int> = mutableMapOf(), val gatheringReadyAt: MutableMap<String,Long> = mutableMapOf(), var fishingBait: String = "AUTO", var bestEnhancementLevel:Int = 0) {
+    val fishRecords: MutableMap<String,FishRecord> = mutableMapOf(), val gatheringRecords: MutableMap<String,Int> = mutableMapOf(), val gatheringReadyAt: MutableMap<String,Long> = mutableMapOf(), var fishingBait: String = "AUTO", var bestEnhancementLevel:Int = 0, var resourcePackPreference:String = "AUTO") {
     /** 非同期保存が同時進行中の更新を読み取らないよう、mutable値を独立したコピーにします。 */
     fun snapshot() = copy(
         skillLevels = skillLevels.toMutableMap(),

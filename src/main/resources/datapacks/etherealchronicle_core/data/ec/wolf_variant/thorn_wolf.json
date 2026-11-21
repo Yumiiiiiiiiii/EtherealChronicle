@@ -1,0 +1,13 @@
+{
+  "assets": {
+    "wild": "ec:entity/wolf/thorn_wolf",
+    "tame": "ec:entity/wolf/thorn_wolf_tame",
+    "angry": "ec:entity/wolf/thorn_wolf_angry"
+  },
+  "baby_assets": {
+    "wild": "ec:entity/wolf/thorn_wolf_baby",
+    "tame": "ec:entity/wolf/thorn_wolf_tame_baby",
+    "angry": "ec:entity/wolf/thorn_wolf_angry_baby"
+  },
+  "spawn_conditions": []
+}

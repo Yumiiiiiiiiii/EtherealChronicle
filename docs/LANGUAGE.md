@@ -15,6 +15,10 @@
 | `ec.boss.telegraph_ice` | 青白い | icy | src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt |  |
 | `ec.boss.telegraph_void` | 紫の | void | src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt |  |
 | `ec.class.choose` | 職業を選んでください | Choose a class | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.class.confirm_body` | この職業の初期装備とスキルを受け取ります。選択後も管理者に変更を依頼できます。 | You will receive this class's starter gear and skills. An administrator can change your class later. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.class.confirm_cancel` | 戻る | Go back | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.class.confirm_start` | この職業で始める | Start as this class | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.class.confirm_title` | <class> で冒険を始めますか？ | Begin your adventure as <class>? | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<class>` |
 | `ec.class.weapon_queued` | 新しい職業の初期武器は持ち物に送られました。<gold>/ec claim</gold> で受け取れます。 | Your new class starter weapon was sent to your mailbox. Use <gold>/ec claim</gold> to receive it. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.codex.back_areas` | エリア一覧へ戻る | Back to Areas | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.codex.catch_count` | 釣果: <count>匹 | Caught: <count> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<count>` |
@@ -65,6 +69,7 @@
 | `ec.debug.gathering_inactive` | 採取中ではありません。最終試行: <last> | Not gathering. Last attempt: <last> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<last>` |
 | `ec.debug.gathering_nearest` | <site> distance=<distance> expected=<kind>/T<tier>/Lv<level> cooldown=<cooldown>ms | <site> distance=<distance> expected=<kind>/T<tier>/Lv<level> cooldown=<cooldown>ms | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<cooldown>`, `<distance>`, `<kind>`, `<level>`, `<site>`, `<tier>` |
 | `ec.debug.none` | なし | none | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
+| `ec.dialogue.close` | 閉じる | Close | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.dialogue.talk` | お話 | Talk | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.dungeon.clear` | <message> | <message> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<message>` |
 | `ec.dungeon.entry` | <message> | <message> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<message>` |
@@ -328,6 +333,12 @@
 | `ec.resource.focus` | 集中 | Focus | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.resource.mana` | マナ | Mana | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.resource.rage` | 怒り | Rage | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.resource_pack.preference_auto` | 自動 | automatic | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.resource_pack.preference_off` | オフ | off | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.resource_pack.preference_on` | オン | on | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.resource_pack.preference_set` | リソースパック表示設定を <preference> にしました。 | Resource pack display is now <preference>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<preference>` |
+| `ec.resource_pack.prompt` | <gold>EtherealChronicle 専用リソースパックを適用しますか？<newline><gray>未適用でもプレイ可能です。 | <gold>Apply the EtherealChronicle resource pack?<newline><gray>You can play without it. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/ResourcePackController.kt | `<newline>` |
+| `ec.resource_pack.usage` | 使用方法: /ec ui pack <auto\|on\|off> | Usage: /ec ui pack <auto\|on\|off> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.shop.currency` | 所持金: <currency>G | Currency: <currency>G | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt | `<currency>` |
 | `ec.shop.price_buy` | 価格 <price>G / 左クリックで購入 | Price: <price>G / Left-click to buy | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt | `<price>` |
 | `ec.shop.sell_hint` | 売却: 持ち物の品を右クリック | Sell: right-click an item in your inventory | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |

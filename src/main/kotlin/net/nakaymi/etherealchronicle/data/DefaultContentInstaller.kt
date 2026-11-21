@@ -17,13 +17,18 @@ object DefaultContentInstaller {
         require(target.startsWith(base) && target != base) { "Invalid bundled content path: $name" }
         return target
     }
+    private fun manifestPath(root: Path, name: String): Path {
+        val base = root.toAbsolutePath().normalize()
+        val path = base.resolve(name).normalize()
+        require(path.startsWith(base) && path != base) { "Invalid bundled file manifest path: $name" }
+        return path
+    }
     fun manifest(bytes: ByteArray): Map<String,String> {
         val properties=Properties().apply { bytes.toString(Charsets.UTF_8).removePrefix("\uFEFF").reader().use(::load) }
         return properties.stringPropertyNames().filter { it != "format" }.associateWith(properties::getProperty)
     }
     private fun installed(root: Path, manifestFile: String): Map<String,String> {
-        val path=root.resolve(manifestFile).normalize()
-        require(path.startsWith(root.toAbsolutePath().normalize())) { "Invalid bundled file manifest path: $manifestFile" }
+        val path = manifestPath(root, manifestFile)
         return if(Files.exists(path)) manifest(Files.readAllBytes(path)) else emptyMap()
     }
     fun retire(root: Path,active: Set<String>,legacy: Map<String,String> = emptyMap()): Retirement {
@@ -52,8 +57,7 @@ object DefaultContentInstaller {
         manifestFile: String = "content-manifest.properties"
     ): Installation {
         val changed=mutableListOf<String>(); val updated=mutableListOf<String>()
-        val manifestPath=root.resolve(manifestFile).normalize()
-        require(manifestPath.startsWith(root.toAbsolutePath().normalize())) { "Invalid bundled file manifest path: $manifestFile" }
+        val manifestPath = manifestPath(root, manifestFile)
         val previous=legacyDefaults+installed(root,manifestFile)
         bundled.forEach { (name,bytes) ->
             val target=resolve(root,name)

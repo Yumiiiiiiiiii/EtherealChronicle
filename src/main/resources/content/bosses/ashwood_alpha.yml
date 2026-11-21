@@ -33,3 +33,6 @@ enrage_ticks: 7200
 enrage_multiplier: 1.4
 coop_hp_per_player: 0.6
 coop_damage_per_player: 0.04
+
+visual:
+  variant: ec:ashwood_alpha

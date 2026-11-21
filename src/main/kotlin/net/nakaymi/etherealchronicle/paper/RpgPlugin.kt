@@ -20,14 +20,20 @@ import java.util.concurrent.CompletableFuture
 /** Paper APIとpure core/dataサービスを初期化し、プレイヤーイベントを接続するプラグイン入口です。 */
 open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private var ready = false
+    private val paperInventoryUi by lazy { !server.javaClass.name.startsWith("org.mockbukkit.") }
+    internal val paperUiEnabled get() = paperInventoryUi
     private val codexController by lazy { CodexController(this) }
     private val simulationCommands by lazy { SimulationCommandController(this) }
+    private val invUiInventoryAdapter by lazy { InvUiInventoryAdapter(uiTheme) { stack -> item(stack)?.itemModel } }
     internal lateinit var adventure: AdventureController
     internal lateinit var enemies: EnemyController
     internal lateinit var dungeons: DungeonController
     internal lateinit var gathering: GatheringController
     internal lateinit var fishing: FishingController
     internal lateinit var treasures: TreasureController
+    internal lateinit var resourcePacks: ResourcePackController
+    private lateinit var uiTheme: UiThemeProvider
+    private lateinit var classSelectionUi: ClassSelectionUi
     private lateinit var content: ContentService
     private lateinit var language: LangCatalog
     private lateinit var store: PlayerStore
@@ -77,8 +83,20 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     })
     internal fun persist(profile: PlayerProfile) = store.save(profile)
     internal fun identify(stack: ItemStack?) = stack?.itemMeta?.persistentDataContainer?.get(itemKey,PersistentDataType.STRING)
-    internal fun inventory(player: Player,persistRemoval: Boolean = true): PaperInventoryAccess = PaperInventoryAccess(player,::identify,::createItem,persistRemoval) { logger.fine("Persisted consumed transaction items: ${player.uniqueId}") }
+    internal fun inventory(player: Player,persistRemoval: Boolean = true): PaperInventoryAccess = PaperInventoryAccess(player,::identify,{ id,amount -> createItemForPlayer(id,amount,player) },persistRemoval) { logger.fine("Persisted consumed transaction items: ${player.uniqueId}") }
     internal fun markDirty(player: UUID) { dirty.add(player) }
+    /** リソースパック状態に合わせて所持品のモデル指定を付け外しし、未対応クライアントの欠損表示を防ぎます。 */
+    internal fun refreshPackItemModels(player: Player, hasPack: Boolean) {
+        fun refresh(stack: ItemStack?) {
+            val held = stack ?: return
+            val definition = item(held) ?: return
+            val model = UiThemeProvider.modelKey(hasPack, definition.itemModel)
+            held.editMeta { it.setItemModel(model) }
+        }
+        player.inventory.contents.forEach(::refresh)
+        player.inventory.armorContents.forEach(::refresh)
+        refresh(player.inventory.itemInOffHand)
+    }
     /** YAMLを非同期検証した後、メインスレッドで各ゲームControllerを登録します。 */
     override fun onEnable() {
         saveDefaultConfig()
@@ -87,8 +105,9 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             "lang/$name" to getResource("lang/$name")!!.use { it.readBytes() }
         }
         language = LangCatalog.load(dataFolder.toPath(), config.getString("language", "auto") ?: "auto", logger, languageDefaults)
-        // 非同期初期化中でも管理コマンドが「起動中」と返せるよう、先にexecutorを登録します。
-        getCommand("ec")!!.setExecutor(this)
+        // Paperプラグインはライフサイクル登録のみを使い、MockBukkitではテスト用コマンドを登録します。
+        if (paperInventoryUi) registerPaperCommand()
+        else getCommand("ec")?.setExecutor(this) ?: registerMockCommand()
         server.scheduler.runTaskAsynchronously(this,Runnable {
             try {
                 val oldLanguageDefaults = getResource("language-defaults.properties")
@@ -123,6 +142,20 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 simStore = PlayerStore(dataFolder.toPath().resolve("simulation"))
                 sync {
                     game = GameService(content::snapshot,SkillEngine(Clock { System.nanoTime()/1_000_000 },content.snapshot().balance))
+                    resourcePacks = ResourcePackController(this)
+                    uiTheme = UiThemeProvider(this,resourcePacks)
+                    classSelectionUi = ClassSelectionUi(
+                        theme=uiTheme,
+                        title={ p -> message(p,"ec.class.choose") },
+                        confirmationTitle={ p,c -> message(p,"ec.class.confirm_title","class" to c.name) },
+                        confirmationText={ p,c -> message(p,"ec.class.confirm_body","class" to c.name) },
+                        confirmLabel={ p -> message(p,"ec.class.confirm_start") },
+                        cancelLabel={ p -> message(p,"ec.class.confirm_cancel") },
+                        onSelected={ p,id -> profiles[p.uniqueId]?.let { starter(p,it,id) } },
+                        onCancel={},
+                        onClose={ p -> if(profiles[p.uniqueId]?.classId == null && p.uniqueId !in choosing) sync { if(p.isOnline) menu(p) } },
+                    )
+                    if (paperInventoryUi) xyz.xenondevs.invui.InvUI.getInstance().setPlugin(this)
                     adventure=AdventureController(this)
                     enemies=EnemyController(this,adventure)
                     dungeons=DungeonController(this,adventure,enemies)
@@ -135,7 +168,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     server.scheduler.runTaskTimer(this,Runnable { enemies.tick() },10,10)
                     ready = true
                     server.pluginManager.registerEvents(this,this)
-                    getCommand("ec")!!.setExecutor(this)
+                    if (!paperInventoryUi) getCommand("ec")?.setExecutor(this)
                     server.scheduler.runTaskTimer(this,Runnable { tick() },20,20)
                     server.onlinePlayers.forEach { join(it) }
                     logger.info("Adventure systems are ready.")
@@ -162,6 +195,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         if(::enemies.isInitialized) runCatching { enemies.close() }.onFailure { logger.severe("Enemy shutdown failed: ${it.message}") }
         if(::adventure.isInitialized) runCatching { adventure.close() }.onFailure { logger.severe("NPC shutdown failed: ${it.message}") }
         if(::treasures.isInitialized) runCatching { treasures.close() }.onFailure { logger.severe("Treasure shutdown failed: ${it.message}") }
+        if(::resourcePacks.isInitialized) runCatching { resourcePacks.close() }.onFailure { logger.severe("Resource pack shutdown failed: ${it.message}") }
         server.scheduler.cancelTasks(this)
         if (::store.isInitialized) {
             profiles.values.forEach { store.save(it) }
@@ -197,6 +231,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 if(snapshot.items.find(id) == null) ProfileContentMigration.oldItems[id]?.takeIf { snapshot.items.find(it) != null }?.let { player.inventory.setItem(slot,createItem(it,old!!.amount)) }
             }
             profiles[player.uniqueId] = profile
+            resourcePacks.send(player,runCatching { PackPreference.valueOf(profile.resourcePackPreference) }.getOrDefault(PackPreference.AUTO))
             syncTitleAdvancements(player,profile)
             if(::dungeons.isInitialized) dungeons.recover(player)
             if(!player.hasPlayedBefore() || profile.classId == null) Bukkit.getWorld(DemoWorld.NAME)?.let { player.teleport(DemoWorld.luminaSpawn(it)) }
@@ -216,14 +251,26 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
 
     }
     private fun menu(player: Player) {
-        val menu = ClassMenu(message(player,"ec.class.choose")).inventory
-        content.snapshot().classes.all().take(9).forEachIndexed { index,c ->
-            val icon=c.icon?.let(Material::valueOf) ?: when(c.resource) { ResourceKind.RAGE -> Material.IRON_SWORD; ResourceKind.FOCUS -> Material.BOW; ResourceKind.MANA -> Material.BLAZE_ROD }
-            menu.setItem(index,ItemStack(icon).apply {
-                itemMeta = itemMeta.apply { displayName(Component.text(c.name)); persistentDataContainer.set(itemKey,PersistentDataType.STRING,c.id) }
+        if (paperInventoryUi) {
+            classSelectionUi.open(player,content.snapshot().classes.all().toList())
+            return
+        }
+        // MockBukkitはCraftItemStackを提供しないため、イベント回帰テストだけ旧API表示にします。
+        val inventory = ClassMenu(message(player,"ec.class.choose")).inventory
+        content.snapshot().classes.all().take(9).forEachIndexed { index, definition ->
+            val icon = definition.icon?.let(Material::valueOf) ?: when (definition.resource) {
+                ResourceKind.RAGE -> Material.IRON_SWORD
+                ResourceKind.FOCUS -> Material.BOW
+                ResourceKind.MANA -> Material.BLAZE_ROD
+            }
+            inventory.setItem(index, ItemStack(icon).apply {
+                itemMeta = itemMeta.apply {
+                    displayName(Component.text(definition.name))
+                    persistentDataContainer.set(itemKey, PersistentDataType.STRING, definition.id)
+                }
             })
         }
-        player.openInventory(menu)
+        player.openInventory(inventory)
     }
     @EventHandler fun click(e: InventoryClickEvent) {
         val p = e.whoClicked as? Player ?: return
@@ -260,24 +307,32 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             if(error != null) { profile.starterGranted = false; p.sendMessage(message(p,"ec.profile.save_retry")); return@sync }
             if(!p.isOnline || profiles[p.uniqueId] !== profile) return@sync
             if(c.starterItems.size > (0..7).count { p.inventory.getItem(it) == null }) { p.sendMessage(message(p,"ec.profile.starter_space")); return@sync }
-            c.starterItems.forEach { item -> val slot = (0..7).first { p.inventory.getItem(it) == null }; p.inventory.setItem(slot,createStarterItem(item,id)); profile.discoverItem(item) }
+            c.starterItems.forEach { item -> val slot = (0..7).first { p.inventory.getItem(it) == null }; p.inventory.setItem(slot,createStarterItem(item,id,p)); profile.discoverItem(item) }
             save(profile)
             skillSlot(p); applyStats(p,profile); p.health=p.getAttribute(Attribute.MAX_HEALTH)!!.value
             p.closeInventory(); p.sendMessage(message(p,"ec.profile.welcome"))
         } }
     }
-    internal fun createItem(id: String, amount: Int = 1): ItemStack {
+    internal fun createItem(id: String, amount: Int = 1): ItemStack = createItemInternal(id, amount, null)
+
+    /** 適用済みリソースパックに合わせたアイテム表現を生成します。 */
+    internal fun createItemForPlayer(id: String, amount: Int, packRecipient: Player): ItemStack =
+        createItemInternal(id, amount, packRecipient)
+
+    private fun createItemInternal(id: String, amount: Int, packRecipient: Player?): ItemStack {
         val d = content.snapshot().items[id]
         return ItemStack(Material.valueOf(d.material),amount).apply { itemMeta = itemMeta.apply {
             val rarity=language.component(null,d.rarity.displayKey)
             displayName(Component.text(d.name)); lore(listOf(language.component(null,"ec.item.required_level", mapOf("level" to d.minLevel, "rarity" to rarity))))
             snapshot.world.itemProperties[id]?.lore?.takeIf { it.isNotBlank() }?.let { text -> lore((lore() ?: emptyList())+text.chunked(28).map { Component.text(it) }) }
             persistentDataContainer.set(itemKey,PersistentDataType.STRING,id)
+            val hasPack=packRecipient?.let { ::resourcePacks.isInitialized && resourcePacks.hasResourcePack(it.uniqueId) } == true
+            UiThemeProvider.modelKey(hasPack,d.itemModel)?.let(::setItemModel)
             if(d.material == "POTION") addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ADDITIONAL_TOOLTIP)
         } }
     }
     /** 初期支給品の所属クラスをPDCへ記録し、切替時に既存品と重複付与を区別します。 */
-    private fun createStarterItem(id:String,classId:String):ItemStack = createItem(id).also { stack ->
+    private fun createStarterItem(id:String,classId:String,player:Player):ItemStack = createItemForPlayer(id,1,player).also { stack ->
         stack.itemMeta=stack.itemMeta.apply { persistentDataContainer.set(starterClassKey,PersistentDataType.STRING,classId) }
     }
     /** クラス切替時に対象クラスの初期武器を手元へ移し、余剰は保持したまま二重付与を避けます。 */
@@ -316,7 +371,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             if(spare != null) inventory.setItem(spare,held)
             else profile.pendingRewards.merge(heldId,held.amount,Int::plus)
         }
-        inventory.setItem(destination,createStarterItem(newWeapon,newClass.id))
+        inventory.setItem(destination,createStarterItem(newWeapon,newClass.id,player))
         profile.discoverItem(newWeapon)
         return false
     }
@@ -425,6 +480,21 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal fun openCodexItems(player: Player) = codexController.openCodexItems(player)
     internal fun openCodexFish(player: Player) = codexController.openCodexFish(player)
     internal fun openCodexGathering(player: Player) = codexController.openCodexGathering(player)
+    /** MockBukkitでは旧Inventory経路を残し、Paperでは同じ内容をInvUIへ描画します。 */
+    internal fun openRpgMenu(player: Player, inventory: Inventory, onClick: (Int, org.bukkit.event.inventory.ClickType) -> Unit = { _, _ -> }): Boolean {
+        if (!paperInventoryUi) {
+            player.openInventory(inventory)
+            return false
+        }
+        val holder = inventory.holder as? RpgMenu ?: return false
+        invUiInventoryAdapter.open(player, inventory, holder.title, onClick)
+        return true
+    }
+    /** 図鑑の画面移動をInvUI/旧Inventoryのどちらからも同じ処理へ接続します。 */
+    internal fun openCodexMenu(player: Player, inventory: Inventory) {
+        val holder = inventory.holder as? RpgMenu ?: return
+        openRpgMenu(player, inventory) { slot, _ -> codexAction(player, holder.kind, slot) }
+    }
     internal fun openEnhancement(player:Player) {
         val stack=player.inventory.itemInMainHand
         val definition=item(stack) ?: error("ec.error.enhance_hold_gear")
@@ -438,7 +508,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             displayName(message(player,"ec.enhance.button", "level" to (level+1)))
             lore(listOf(message(player,"ec.enhance.material", "item" to tuning.enhancementMaterial),message(player,"ec.enhance.cost", "cost" to tuning.enhancementBaseCurrency*(level+1)),message(player,"ec.enhance.cap", "level" to tuning.enhancementCap)))
         } })
-        player.openInventory(menu)
+        openRpgMenu(player, menu) { slot, _ -> if (slot == 13) runCatching { enhance(player, menu.holder as RpgMenu) }.onFailure { player.sendMessage(message(player,"ec.command.failed", "reason" to diagnostic(player,it.message.orEmpty()))) } }
     }
     internal fun enhance(player:Player,menu:RpgMenu) {
         val p=profiles[player.uniqueId] ?: error("ec.error.profile_loading")
@@ -491,11 +561,14 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         e.isCancelled=true
         if(e.rawSlot !in 0 until e.view.topInventory.size) return
         if(menu.kind == "enhance") { if(e.rawSlot == 13) runCatching { enhance(player,menu) }.onFailure { player.sendMessage(message(player,"ec.command.failed", "reason" to diagnostic(player,it.message.orEmpty()))) }; return }
-        when(menu.kind) {
-            "codex-areas" -> when(e.rawSlot) { 51 -> openCodexFish(player); 52 -> openCodexGathering(player); 53 -> openCodexItems(player); else -> snapshot.world.areas.values.sortedBy { it.name }.getOrNull(e.rawSlot)?.let { openCodexArea(player,it.id) } }
-            "codex-area","codex-items" -> when(e.rawSlot) { 50,53 -> openCodex(player); 51 -> openCodexFish(player); 52 -> openCodexGathering(player) }
-            "codex-fish" -> when(e.rawSlot) { 50,51 -> openCodex(player); 52 -> openCodexGathering(player); 53 -> openCodexItems(player) }
-            "codex-gathering" -> when(e.rawSlot) { 50,52 -> openCodex(player); 51 -> openCodexFish(player); 53 -> openCodexItems(player) }
+        codexAction(player, menu.kind, e.rawSlot)
+    }
+    private fun codexAction(player: Player, kind: String, slot: Int) {
+        when(kind) {
+            "codex-areas" -> when(slot) { 51 -> openCodexFish(player); 52 -> openCodexGathering(player); 53 -> openCodexItems(player); else -> snapshot.world.areas.values.sortedBy { it.name }.getOrNull(slot)?.let { openCodexArea(player,it.id) } }
+            "codex-area","codex-items" -> when(slot) { 50,53 -> openCodex(player); 51 -> openCodexFish(player); 52 -> openCodexGathering(player) }
+            "codex-fish" -> when(slot) { 50,51 -> openCodex(player); 52 -> openCodexGathering(player); 53 -> openCodexItems(player) }
+            "codex-gathering" -> when(slot) { 50,52 -> openCodex(player); 51 -> openCodexFish(player); 53 -> openCodexItems(player) }
         }
     }
     private fun tick() {
@@ -733,11 +806,32 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         c.documents.values.filter { it["type"] in setOf("enemy","boss") }.forEach { d -> validate(d.string("id")) { require(EntityType.valueOf(d.string("entity")).isAlive) { "ec.error.invalid_content: entity" } } }
     }
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
+        return executeCommand(sender,args)
+    }
+    /** Paperのコマンドライフサイクルへ、Bukkitコマンドと同じ処理を登録します。 */
+    private fun registerPaperCommand() {
+        lifecycleManager.registerEventHandler(io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents.COMMANDS) { event ->
+            event.registrar().register("ec", io.papermc.paper.command.brigadier.BasicCommand { source, args ->
+                executeCommand(source.sender, args)
+            })
+        }
+    }
+    /** plugin.ymlを読まないテストサーバー用に同じコマンド処理を接続します。 */
+    private fun registerMockCommand() {
+        val commandMap = server.javaClass.getMethod("getCommandMap").invoke(server) as org.bukkit.command.CommandMap
+        val command = object : Command("ec") {
+            override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean = executeCommand(sender, args)
+            override fun tabComplete(sender: CommandSender, alias: String, args: Array<out String>): List<String> = onTabComplete(sender, this, alias, args).orEmpty()
+        }
+        command.setDescription("EtherealChronicle commands")
+        commandMap.register(name, command)
+    }
+    private fun executeCommand(sender: CommandSender, args: Array<out String>): Boolean {
         if(!ready) {
             sender.sendMessage(message(sender,"ec.startup.starting"))
             return true
         }
-        if(sender is Player && args.firstOrNull() in setOf("quest","party","equipment","dungeon","shop","claim","title","codex","enhance","fish","gather")) {
+        if(sender is Player && args.firstOrNull() in setOf("quest","party","equipment","dungeon","shop","claim","title","codex","enhance","fish","gather","ui")) {
             try { playerCommand(sender,args.toList()) } catch(error: Exception) {
                 val reason=error.message?.let { diagnostic(sender,it) } ?: Component.empty()
                 sender.sendMessage(message(sender,"ec.command.failed", "reason" to reason))
@@ -871,6 +965,24 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         require(!adventure.locked(p.uuid)) { "ec.error.transaction_busy" }
         when(args[0]) {
             "codex" -> openCodex(player)
+            "ui" -> {
+                require(args.getOrNull(1) == "pack") { "ec.resource_pack.usage" }
+                val preference = when (args.getOrNull(2)?.lowercase()) {
+                    "auto" -> PackPreference.AUTO
+                    "on" -> PackPreference.ON
+                    "off" -> PackPreference.OFF
+                    else -> error("ec.resource_pack.usage")
+                }
+                p.resourcePackPreference = preference.name
+                save(p)
+                resourcePacks.send(player, preference)
+                val labelKey = when (preference) {
+                    PackPreference.AUTO -> "ec.resource_pack.preference_auto"
+                    PackPreference.ON -> "ec.resource_pack.preference_on"
+                    PackPreference.OFF -> "ec.resource_pack.preference_off"
+                }
+                player.sendMessage(message(player,"ec.resource_pack.preference_set", "preference" to message(player,labelKey)))
+            }
             "enhance" -> openEnhancement(player)
             "fish" -> {
                 if(args.getOrNull(1)=="bait") {

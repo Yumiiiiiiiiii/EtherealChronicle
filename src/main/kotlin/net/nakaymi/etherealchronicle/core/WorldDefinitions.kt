@@ -243,6 +243,7 @@ data class EnemyDefinition(
     val enrageMultiplier: Double,
     val coopHp: Double,
     val coopDamage: Double,
+    val visualVariant: String? = null,
 )
 data class ItemEffect(val kind: String, val amount: Double, val cooldown: Long, val duration: Int, val chance: Double, val element: String)
 data class ItemProperties(val bound: Boolean, val questItem: Boolean, val price: Long, val weapon: Double, val lore: String, val effects: List<ItemEffect>)

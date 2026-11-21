@@ -14,3 +14,4 @@ lore: '蒼穹の氷城を制した英雄の証。【蒼氷の加護】絶対零�
 effects:
   - {kind: DEFENSE_BUFF, amount: 30, cooldown_ms: 55000, duration_ticks: 120, chance: 1.0}
   - {kind: REVIVE, amount: 260, cooldown_ms: 180000, chance: 1.0}
+item_model: ec:acc_azure_core_signet

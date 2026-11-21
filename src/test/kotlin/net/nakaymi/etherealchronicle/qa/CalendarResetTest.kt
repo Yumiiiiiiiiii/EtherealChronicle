@@ -69,7 +69,7 @@ class CalendarResetTest {
         val legacy=mapOf<String,Any?>("schema_version" to 5,"uuid" to UUID.randomUUID().toString(),"quests" to mapOf("ec:q" to mapOf("completed" to true,"progress" to 2)))
         val store=net.nakaymi.etherealchronicle.data.PlayerStore(Path.of("build/test-calendar-migration"))
         val migrated=store.migrate(legacy)
-        assertEquals(11,migrated["schema_version"])
+        assertEquals(12,migrated["schema_version"])
         @Suppress("UNCHECKED_CAST")
         val quests=migrated["quests"] as Map<String,Map<String,Any?>>
         assertEquals(true,quests.getValue("ec:q")["completed"])

@@ -1,0 +1,11 @@
+name: EtherealChronicle
+version: '${version}'
+main: net.nakaymi.etherealchronicle.paper.RpgPlugin
+api-version: '26.3'
+bootstrapper: net.nakaymi.etherealchronicle.paper.EtherealBootstrap
+description: Original fantasy MMORPG for PaperMC
+dependencies:
+  server:
+    BetterModel:
+      load: BEFORE
+      required: false

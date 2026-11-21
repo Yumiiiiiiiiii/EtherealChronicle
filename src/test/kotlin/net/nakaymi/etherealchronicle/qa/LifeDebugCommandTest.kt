@@ -21,7 +21,9 @@ class LifeDebugCommandTest {
             assertTrue(server.pump { runCatching { plugin.fishing; plugin.gathering; true }.getOrDefault(false) },"controllers were not ready")
             val player=QaPlayerMock(server,"LifeDebug",UUID.nameUUIDFromBytes("life-debug".toByteArray()))
             server.addPlayer(player); assertTrue(server.pump { player.uniqueId in plugin.profiles },"profile was not loaded")
-            val command=plugin.getCommand("ec")!!
+            val command = object : org.bukkit.command.Command("ec") {
+                override fun execute(sender: org.bukkit.command.CommandSender, label: String, args: Array<out String>) = true
+            }
             assertTrue(plugin.onCommand(server.consoleSender,command,"ec",arrayOf("debug","fish","status",player.name)))
             assertTrue(plugin.onCommand(server.consoleSender,command,"ec",arrayOf("debug","gather","status",player.name)))
         } finally { MockBukkit.unmock() }

@@ -21,7 +21,10 @@ class CodexGuiTest {
             val plugin=MockBukkit.load(RpgPlugin::class.java)
             val player=PlayerMock(server,"CodexReader",UUID.randomUUID()); server.addPlayer(player)
             assertTrue(server.pump { player.uniqueId in plugin.profiles })
-            assertTrue(plugin.onCommand(player,plugin.getCommand("ec")!!,"ec",arrayOf("codex")))
+            val command = object : org.bukkit.command.Command("ec") {
+                override fun execute(sender: org.bukkit.command.CommandSender, label: String, args: Array<out String>) = true
+            }
+            assertTrue(plugin.onCommand(player,command,"ec",arrayOf("codex")))
             assertTrue((player.openInventory.topInventory?.holder as? RpgMenu)?.kind == "codex-areas")
             assertTrue(plugin.snapshot.world.areas.isNotEmpty())
             plugin.codexClick(player.simulateInventoryClick(player.openInventory,0))

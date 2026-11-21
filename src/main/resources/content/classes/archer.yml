@@ -11,3 +11,4 @@ starter_items: [ec:item_wpn_hunter_shortbow]
 stats: {hp: 110, resource: 100, attack: 16, defense: 9, crit: 0.12, crit_damage: 1.6, element_resist: 0, skill_power: 1.0}
 growth: {hp: 20, resource: 0, attack: 4.2, defense: 2.5, crit: 0.007, crit_damage: 0, element_resist: 0, skill_power: 0.02}
 icon: BOW
+item_model: ec:ui_class_archer

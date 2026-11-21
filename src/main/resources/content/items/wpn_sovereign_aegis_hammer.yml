@@ -15,3 +15,4 @@ lore: '星片の試練を乗り越えた聖騎士に許される伝説の戦槌�
 effects:
   - {kind: ATTACK_PROC, amount: 95, cooldown_ms: 9000, chance: 0.36, element: AETHER}
   - {kind: HEAL, amount: 85, cooldown_ms: 9000, chance: 0.36}
+item_model: ec:wpn_sovereign_aegis_hammer

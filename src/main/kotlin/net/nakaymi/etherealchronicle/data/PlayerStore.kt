@@ -63,6 +63,7 @@ class PlayerStore(private val directory: Path): AutoCloseable {
             p.challengeRecords[id]=ChallengeRecord(seconds,rank)
         }
         p.selectedTitle=d["selected_title"] as? String
+        p.resourcePackPreference=d.text("resource_pack_preference","AUTO").also { require(it in setOf("AUTO","ON","OFF")) }
         d.mapping("bestiary").forEach { (id,n) -> p.bestiary[id]=(n as Number).toInt().also { require(it in 0..1_000_000) } }
         p.discoveredItems.addAll(d.strings("discovered_items"))
         p.fishingBait=d.text("fishing_bait","AUTO").also { require(it=="AUTO" || it=="NONE" || it.matches(Regex("ec:item_bait_[a-z0-9_]+"))) }
@@ -85,6 +86,15 @@ class PlayerStore(private val directory: Path): AutoCloseable {
     }
     /** 旧schemaを順に現行schemaへ変換し、不足fieldを初期化します。 */
     fun migrate(raw: Map<String,Any?>): Map<String,Any?> {
+        val version=(raw["schema_version"] as? Number)?.toInt() ?: 0
+        if(version !in 0..12) throw FutureSchema("Unsupported player schema $version")
+        if(version == 12) return raw
+        val migrated=migrateToSchema11(raw)
+        return migrated + mapOf("schema_version" to 12,"resource_pack_preference" to (migrated["resource_pack_preference"] ?: "AUTO"))
+    }
+
+    /** schema 11以前の個別移行をそのまま順に適用します。 */
+    private fun migrateToSchema11(raw: Map<String,Any?>): Map<String,Any?> {
         val version = (raw["schema_version"] as? Number)?.toInt() ?: 0
         if(version !in 0..11) throw FutureSchema("Unsupported player schema $version")
         val lifeDefaults=mapOf("life_skills" to mapOf("FISHING" to mapOf("level" to 1,"xp" to 0),"GATHERING" to mapOf("level" to 1,"xp" to 0)),"fish_records" to emptyMap<String,Any?>(),"gathering_records" to emptyMap<String,Int>(),"gathering_ready_at" to emptyMap<String,Long>(),"fishing_bait" to "AUTO")
@@ -108,10 +118,10 @@ class PlayerStore(private val directory: Path): AutoCloseable {
         Files.createDirectories(directory)
         val target = directory.resolve("${p.uuid}.yml")
         val tmp = directory.resolve("${p.uuid}.yml.tmp")
-        val values = linkedMapOf<String,Any?>("schema_version" to 11,"uuid" to p.uuid.toString(),"class" to p.classId,
+        val values = linkedMapOf<String,Any?>("schema_version" to 12,"uuid" to p.uuid.toString(),"class" to p.classId,
             "level" to p.level,"xp" to p.xp,"currency" to p.currency,"resource" to p.resource,"selected_skill" to p.selectedSkill,
             "starter_granted" to p.starterGranted,"quests" to p.quests.mapValues { (_,q) -> mapOf("progress" to q.progress,"completed" to q.completed,"objectives" to q.objectives,"completed_at" to q.completedAt,"repeat_available_at" to q.repeatAvailableAt,"reset_period" to q.resetPeriod) },"skill_levels" to p.skillLevels,"flags" to p.flags.toList(),"transactions" to p.transactions,"daily_purchases" to p.dailyPurchases,"accessory" to p.accessory,"pending_rewards" to p.pendingRewards,"drop_pity" to p.dropPity,"challenge_records" to p.challengeRecords.mapValues { (_,record) -> mapOf("best_seconds" to record.bestSeconds,"best_rank" to record.bestRank) },"selected_title" to p.selectedTitle,"bestiary" to p.bestiary,"discovered_items" to p.discoveredItems.toList(),
-            "life_skills" to p.lifeSkills.mapKeys { it.key.name }.mapValues { (_,progress) -> mapOf("level" to progress.level,"xp" to progress.xp) },"fish_records" to p.fishRecords.mapValues { (_,record) -> mapOf("count" to record.count,"max_cm" to record.maxCm,"crown" to record.crown.name) },"gathering_records" to p.gatheringRecords,"gathering_ready_at" to p.gatheringReadyAt,"fishing_bait" to p.fishingBait,"best_enhancement_level" to p.bestEnhancementLevel)
+            "life_skills" to p.lifeSkills.mapKeys { it.key.name }.mapValues { (_,progress) -> mapOf("level" to progress.level,"xp" to progress.xp) },"fish_records" to p.fishRecords.mapValues { (_,record) -> mapOf("count" to record.count,"max_cm" to record.maxCm,"crown" to record.crown.name) },"gathering_records" to p.gatheringRecords,"gathering_ready_at" to p.gatheringReadyAt,"fishing_bait" to p.fishingBait,"best_enhancement_level" to p.bestEnhancementLevel,"resource_pack_preference" to p.resourcePackPreference)
         Files.newBufferedWriter(tmp,StandardOpenOption.CREATE,StandardOpenOption.TRUNCATE_EXISTING).use { Yaml().dump(values,it) }
         FileChannel.open(tmp,StandardOpenOption.WRITE).use { it.force(true) }
         if (Files.exists(target)) {

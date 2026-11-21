@@ -29,7 +29,7 @@ internal class CodexController(private val plugin: RpgPlugin) {
             } })
         }
         codexTabs(player,menu)
-        player.openInventory(menu)
+        plugin.openCodexMenu(player, menu)
     }
     /** 指定エリアの魔物・討伐数・ドロップを表示します。 */
     fun openCodexArea(player:Player,areaId:String) {
@@ -48,7 +48,7 @@ internal class CodexController(private val plugin: RpgPlugin) {
             } })
         }
         menu.setItem(53,ItemStack(Material.ARROW).apply { itemMeta=itemMeta.apply { displayName(plugin.message(player,"ec.codex.back_areas")) } }); codexTabs(player,menu)
-        player.openInventory(menu)
+        plugin.openCodexMenu(player, menu)
     }
     /** 発見済みアイテムを一覧表示します。 */
     fun openCodexItems(player:Player) {
@@ -59,7 +59,7 @@ internal class CodexController(private val plugin: RpgPlugin) {
             menu.setItem(slot,ItemStack(Material.PAPER).apply { itemMeta=itemMeta.apply { displayName(Component.text(name)); lore(listOf(Component.text(id))) } })
         }
         menu.setItem(53,ItemStack(Material.ARROW).apply { itemMeta=itemMeta.apply { displayName(plugin.message(player,"ec.codex.back_areas")) } }); codexTabs(player,menu)
-        player.openInventory(menu)
+        plugin.openCodexMenu(player, menu)
     }
     private fun codexTabs(player:Player,menu:Inventory) {
         val holder=menu.holder as? RpgMenu
@@ -79,7 +79,7 @@ internal class CodexController(private val plugin: RpgPlugin) {
                 lore(if(record!=null) listOf(plugin.message(player,"ec.codex.catch_count","count" to record.count),plugin.message(player,"ec.codex.maximum_size","size" to record.maxCm,"crown" to record.crown),Component.text(fish.loreHint)) else listOf(plugin.message(player,"ec.codex.seek_fishing_spot")))
             } })
         }
-        codexTabs(player,menu); player.openInventory(menu)
+        codexTabs(player,menu); plugin.openCodexMenu(player, menu)
     }
     /** 採取ノードごとの発見と採取回数を表示します。 */
     fun openCodexGathering(player:Player) {
@@ -92,7 +92,7 @@ internal class CodexController(private val plugin: RpgPlugin) {
                 lore(if(count>0) listOf(plugin.message(player,"ec.codex.gathering_count","count" to count),plugin.message(player,"ec.codex.gathering_kind","kind" to node.kind,"tier" to node.minToolTier)) else listOf(plugin.message(player,"ec.codex.seek_gathering_node")))
             } })
         }
-        codexTabs(player,menu); player.openInventory(menu)
+        codexTabs(player,menu); plugin.openCodexMenu(player, menu)
     }
 
 }

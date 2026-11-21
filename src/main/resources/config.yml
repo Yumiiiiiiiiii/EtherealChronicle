@@ -1,2 +1,13 @@
 # auto follows each player's Minecraft client language. Supported values: auto, ja_jp, en_us.
 language: auto
+resource_pack:
+  enabled: true
+  required: false
+  mode: embedded_http
+  external_url: ""
+  external_sha1: ""
+  embedded_http:
+    bind_host: "0.0.0.0"
+    public_host: ""
+    port: 25580
+    max_concurrent: 32

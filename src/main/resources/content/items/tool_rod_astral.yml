@@ -11,3 +11,4 @@ budget: 0
 stats: {}
 price: 1100
 lore: '蒼穹結晶核をリール軸に据えた至高の釣竿。深淵の主や伝説の龍魚を釣り上げる力を秘める（ランク3）。'
+item_model: ec:tool_rod_astral

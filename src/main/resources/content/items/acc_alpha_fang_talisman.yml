@@ -11,3 +11,4 @@ budget: 18
 stats: {hp: 50, attack: 9, defense: 6, crit: 0.05}
 price: 920
 lore: '見習い試練の闘技場で灰森の獣王アルファを制した証。鋭い星牙が攻撃力と会心率を押し上げる。'
+item_model: ec:acc_alpha_fang_talisman

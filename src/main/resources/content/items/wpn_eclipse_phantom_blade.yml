@@ -15,3 +15,4 @@ lore: '試練の星核から削り出された漆黒の幻影刃。【絶影連�
 effects:
   - {kind: ATTACK_PROC, amount: 120, cooldown_ms: 8500, chance: 0.38, element: VOID}
   - {kind: RESOURCE, amount: 18, cooldown_ms: 9000, chance: 0.4}
+item_model: ec:wpn_eclipse_phantom_blade

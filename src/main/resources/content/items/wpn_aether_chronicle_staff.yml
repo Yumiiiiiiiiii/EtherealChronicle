@@ -15,3 +15,4 @@ lore: '砕け散る前の〈エーテル核〉の波長を再現した至高の�
 effects:
   - {kind: ATTACK_PROC, amount: 105, cooldown_ms: 10000, chance: 0.4, element: AETHER}
   - {kind: DEFENSE_BUFF, amount: 14, cooldown_ms: 10000, duration_ticks: 100, chance: 0.4}
+item_model: ec:wpn_aether_chronicle_staff

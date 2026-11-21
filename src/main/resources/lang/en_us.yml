@@ -2,6 +2,13 @@ ec:
   startup:
     loading: "Loading your adventure data…"
     starting: "The adventure system is starting. Please wait."
+  resource_pack:
+    prompt: "<gold>Apply the EtherealChronicle resource pack?<newline><gray>You can play without it."
+    preference_set: "Resource pack display is now <preference>."
+    preference_auto: "automatic"
+    preference_on: "on"
+    preference_off: "off"
+    usage: "Usage: /ec ui pack <auto|on|off>"
   profile:
     read_failed: "Could not load your adventure data. Please contact an administrator."
     class_data_missing: "Your class data could not be found. Please contact an administrator."
@@ -82,6 +89,7 @@ ec:
     record: "<id>: <seconds>s / Rank <rank>"
   dialogue:
     talk: "Talk"
+    close: "Close"
   shop:
     price_buy: "Price: <price>G / Left-click to buy"
     tokens: "Materials: <items>"
@@ -247,6 +255,10 @@ ec:
     teleported: "Teleported to <name>."
   class:
     choose: "Choose a class"
+    confirm_title: "Begin your adventure as <class>?"
+    confirm_body: "You will receive this class's starter gear and skills. An administrator can change your class later."
+    confirm_start: "Start as this class"
+    confirm_cancel: "Go back"
     weapon_queued: "Your new class starter weapon was sent to your mailbox. Use <gold>/ec claim</gold> to receive it."
   menu:
     dialogue: "Dialogue"

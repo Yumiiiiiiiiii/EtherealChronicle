@@ -14,6 +14,19 @@ class RegressionTest {
         val root=Path.of("src/main/resources")
         return Files.walk(root.resolve("content")).use { paths -> paths.filter { Files.isRegularFile(it) }.toList().associate { "content/"+root.resolve("content").relativize(it).joinToString("/") to Files.readAllBytes(it) } }
     }
+    @Test fun `tracked installer accepts a relative plugin data folder`() {
+        val root = Path.of("build", "relative-installer-${UUID.randomUUID()}")
+        val first = "content/lang/ja_jp.yml" to "message: old\n".toByteArray()
+        val next = "content/lang/ja_jp.yml" to "message: new\n".toByteArray()
+        try {
+            DefaultContentInstaller.installTracked(root, mapOf(first), manifestFile = "lang-manifest.properties")
+            val result = DefaultContentInstaller.installTracked(root, mapOf(next), manifestFile = "lang-manifest.properties")
+            assertEquals(listOf(first.first), result.updated)
+            assertTrue(Files.readString(root.resolve(first.first)).contains("new"))
+        } finally {
+            root.toFile().deleteRecursively()
+        }
+    }
     @Test fun `removed shipped files retire by canonical hash while edited orphans are preserved`() {
         val old=mapOf("content/items/old.yml" to "id: ec:old\n".toByteArray(),"content/items/custom.yml" to "id: ec:custom\n".toByteArray())
         DefaultContentInstaller.install(temp,old)

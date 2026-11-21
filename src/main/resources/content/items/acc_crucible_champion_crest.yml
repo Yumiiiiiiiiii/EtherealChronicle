@@ -14,3 +14,4 @@ lore: '星核の融合体エーテル・キメラを制した覇者の証。【�
 effects:
   - {kind: ATTACK_PROC, amount: 88, cooldown_ms: 8500, chance: 0.35, element: AETHER}
   - {kind: DEFENSE_BUFF, amount: 18, cooldown_ms: 18000, duration_ticks: 100, chance: 1.0}
+item_model: ec:acc_crucible_champion_crest

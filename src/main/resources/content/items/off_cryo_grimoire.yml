@@ -13,3 +13,4 @@ price: 2900
 lore: 'セラフィナが持ち出した古代冷却術式の写本。【氷流循環】詠唱の余波からマナを回収する。'
 effects:
   - {kind: RESOURCE, amount: 24, cooldown_ms: 10000, chance: 0.4}
+item_model: ec:off_cryo_grimoire

@@ -14,3 +14,4 @@ price: 8000
 lore: '天空の鷲座を冠する霊弓。【流星の連射】連続会心により星光の追尾矢が二連で宙を駆ける。'
 effects:
   - {kind: ATTACK_PROC, amount: 115, cooldown_ms: 7000, chance: 0.4, element: AETHER}
+item_model: ec:wpn_astral_piercer
