@@ -194,3 +194,6 @@
 - The 250ms pull buffer is retained. A shorter 150ms buffer was tested and reverted because all simulated sessions slack-failed; no simulation evidence supports reducing it.
 - CALM ActionBar guidance now warns `張力が低い！右クリックで引く` at <=18% and `張力が高い！手を離す` at >=70%; THRASH/DIVE/TELEGRAPH instructions remain higher priority. Tests cover both prompts.
 - Real-client successful reel, reward, size/crown record and persistence remain unverified; client input automation cannot react to the live ActionBar/behavior.
+
+## Claude-QA — checkpoint before Task11 early-content verification
+- qa/harness @e4fd654. Next: merge master (Task11), build/test incl. my chain/reset/arbitrage tests, live schema 10->11 + ec_world v3->v4, client: hidden chest, time NPC, arena, /ec title toast, gather boss bar. Restore server.properties/ops.json, stop processes.
