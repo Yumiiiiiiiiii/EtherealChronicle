@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_fish_silver_sardine
+type: item
+name: 銀鱗イワシ
+material: COD
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 35
+lore: 'ルミナ港の桟橋に群れる小魚。塩串焼きの素材やギルド納品の定番として重宝される（体長目安 15〜38cm）。'

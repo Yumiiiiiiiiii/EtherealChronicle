@@ -1,0 +1,20 @@
+schema_version: 1
+id: ec:quest_life_f03_abyssal_catch
+type: quest
+name: 【釣り】星海と氷窟の主を求めて
+condition: {min_level: 14, completed_quests: ['ec:quest_life_f02_forest_stream'], has_flags: ['ec:flag_ch2_started']}
+objectives:
+  - {id: explore_hill, kind: EXPLORE, target: 'ec:area_stargazer_hill', amount: 1}
+  - {id: explore_cavern, kind: EXPLORE, target: 'ec:area_crystalline_cavern', amount: 1}
+  - {id: collect_dace, kind: COLLECT, target: 'ec:item_fish_milkyway_dace', amount: 2, consume: true}
+  - {id: report_minato, kind: TALK, target: 'ec:npc_minato', amount: 1}
+rewards:
+  xp: 1100
+  currency: 580
+  set_flags: ['ec:flag_title_abyssal_fisher']
+  items:
+    - {item: 'ec:item_fish_abyssal_angler', amount: 1}
+    - {item: 'ec:item_fish_celestial_oarfish', amount: 1}
+    - {item: 'ec:item_con_frost_seafood_pot', amount: 2}
+auto_complete: false
+repeatable: false

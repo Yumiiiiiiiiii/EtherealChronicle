@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_fish_moon_carp
+type: item
+name: 月影コイ
+material: TROPICAL_FISH
+rarity: UNCOMMON
+slot: NONE
+min_level: 5
+classes: []
+budget: 0
+stats: {}
+price: 110
+lore: '夜の森の清流にだけ姿を見せる蒼白の鯉。星光造りに仕立てると魔力と状態異常を澄み渡らせる（体長目安 45〜105cm）。'

@@ -1,0 +1,10 @@
+schema_version: 1
+id: ec:npc_minato
+type: npc
+name: 蒼穹の釣り師ミナト
+entity: VILLAGER
+chapter: ec:chapter_life_professions
+area: ec:area_lumina_port
+location: {world: ec_world, x: 12, y: 65, z: 22, yaw: 180}
+dialogue: ec:dlg_minato_hub
+shop: ec:shop_angler_guild

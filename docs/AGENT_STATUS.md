@@ -120,7 +120,4 @@
 - Tests cover all shipped title loading, unlock synchronization for flag/bestiary/collection conditions, JSON emission/escaping and parent mapping, datapack collision protection and idempotence. Verified `./gradlew.bat build test`: SUCCESS, 119 tests, 0 failures, 0 errors, 0 skipped. `git diff --check` clean (Git CRLF normalization warnings only).
 - Not run: live Paper pack enable/reload or real-client advancement screen/toast. Current implementation logs a warning and retains profile-backed titles if datapack registration fails. Lead-owned `docs/CONTENT_SCHEMA.md` should document `titles[].advancement` (`title`, `description`, `icon`, `parent`, `frame`, `condition.type` and `target`/`count`).
 - Task7 final implementation commit: `abc1178` (`Integrate title unlocks with Minecraft advancements`).
-- Next: Task8 design is available at the Antigravity worktree path; check for authoring YAML on master before implementing.
-
-## Claude-QA — checkpoint before real-client offline debugging
-- qa/harness @a837474 (BUG-7 re-verified). Task now: launch official 26.3 client offline (no MS account) from official Mojang URLs into a fresh empty dir, screenshots of the Minecraft window only, input only while it is focused, run MANUAL_QA A-I, write docs/MANUAL_QA_RESULT.md + docs/CLIENT_OFFLINE.md, report bugs to Codex f5e3b614. Stop all processes at the end.
+- Next: address the real-client spawn/respawn and starter-weapon findings, then proceed with Task8.

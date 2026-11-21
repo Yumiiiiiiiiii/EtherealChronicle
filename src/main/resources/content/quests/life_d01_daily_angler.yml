@@ -1,0 +1,20 @@
+schema_version: 1
+id: ec:quest_life_d01_daily_angler
+type: quest
+name: 【デイリー】ミナトの鮮魚納品
+condition: {min_level: 3, has_flags: ['ec:flag_life_angler_enrolled']}
+objectives:
+  - {id: patrol_forest_water, kind: EXPLORE, target: 'ec:area_ashwood_forest', amount: 1}
+  - {id: deliver_sardine, kind: COLLECT, target: 'ec:item_fish_silver_sardine', amount: 2, consume: true}
+  - {id: report_minato, kind: TALK, target: 'ec:npc_minato', amount: 1}
+rewards:
+  xp: 380
+  currency: 220
+  set_flags: []
+  items:
+    - {item: 'ec:item_bait_aether_lure', amount: 2}
+    - {item: 'ec:item_con_sardine_skewers', amount: 1}
+auto_complete: false
+repeatable: true
+repeat_cooldown_ms: 86400000
+reset_schedule: DAILY

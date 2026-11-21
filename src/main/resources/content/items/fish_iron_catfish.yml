@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_fish_iron_catfish
+type: item
+name: 鉄鱗ナマズ
+material: COD
+rarity: UNCOMMON
+slot: NONE
+min_level: 6
+classes: []
+budget: 0
+stats: {}
+price: 90
+lore: '嘆きの廃坑の地下水脈に潜む硬鱗のナマズ。引きが重く、暴れ時のテンション管理が試される（体長目安 40〜95cm）。'

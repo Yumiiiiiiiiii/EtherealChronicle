@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_tool_pick_astral
+type: item
+name: 蒼穹の星輝ピッケル
+material: DIAMOND_PICKAXE
+rarity: RARE
+slot: NONE
+min_level: 10
+classes: []
+budget: 0
+stats: {}
+price: 480
+lore: '蒼輝石を鍛え込んだ上位採掘具。高難度鉱脈の採取時間を短縮し、レア鉱石や研磨砥石の発見率を高める（ランク2）。'

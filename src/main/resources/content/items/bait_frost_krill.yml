@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_bait_frost_krill
+type: item
+name: 氷海オキアミ
+material: PRISMARINE_CRYSTALS
+rarity: RARE
+slot: NONE
+min_level: 12
+classes: []
+budget: 0
+stats: {}
+price: 80
+lore: '蒼氷の海域で採れる極寒の高級餌。吹雪サメや深淵アングラーなど希少な大型魚を誘い出す。'

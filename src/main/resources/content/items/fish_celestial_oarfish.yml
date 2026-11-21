@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_fish_celestial_oarfish
+type: item
+name: 蒼穹龍魚
+material: NAUTILUS_SHELL
+rarity: LEGENDARY
+slot: NONE
+min_level: 15
+classes: []
+budget: 0
+stats: {}
+price: 750
+lore: '星見の泉の最深に現れると語り継がれる伝説の長魚。星核の大釣竿でしか耐え切れない凄まじい引きを誇る（体長目安 180〜420cm）。'

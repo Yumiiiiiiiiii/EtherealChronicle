@@ -1,0 +1,17 @@
+schema_version: 1
+id: ec:item_con_moondew_draught
+type: item
+name: 月露と樹脂の霊薬
+material: HONEY_BOTTLE
+rarity: RARE
+slot: NONE
+min_level: 10
+classes: []
+budget: 0
+stats: {}
+price: 180
+lore: '月露の霊草と星木の樹脂を調合した霊薬。体力460・リソース45を回復し毒と鈍足を癒す（再使用9秒）。'
+effects:
+  - {kind: HEAL, amount: 460, cooldown_ms: 9000}
+  - {kind: RESOURCE, amount: 45, cooldown_ms: 9000}
+  - {kind: CLEANSE, amount: 1, cooldown_ms: 9000}

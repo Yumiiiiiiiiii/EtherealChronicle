@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_tool_rod_starwood
+type: item
+name: 星木の精密釣竿
+material: FISHING_ROD
+rarity: RARE
+slot: NONE
+min_level: 7
+classes: []
+budget: 0
+stats: {}
+price: 420
+lore: 'しなやかな星木で仕立てた中級釣竿。暴れる魚のテンションを抑え、スイートスポットを広げる（ランク2）。'

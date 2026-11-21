@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_bait_earthworm
+type: item
+name: 蒼穹ミミズ
+material: STRING
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 20
+lore: '港や森の清流でよく食いつく定番の釣り餌。アタリまでの待ち時間を短縮し、淡水魚の食いつきを上げる。'

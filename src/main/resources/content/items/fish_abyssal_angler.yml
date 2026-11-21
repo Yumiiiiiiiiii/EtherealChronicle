@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_fish_abyssal_angler
+type: item
+name: 深淵アングラー
+material: PUFFERFISH
+rarity: EPIC
+slot: NONE
+min_level: 17
+classes: []
+budget: 0
+stats: {}
+price: 420
+lore: '蒼晶の氷窟の深淵池に棲む発光提灯魚。氷海オキアミと上位釣竿で挑む強敵で、高額で取引される（体長目安 65〜150cm）。'

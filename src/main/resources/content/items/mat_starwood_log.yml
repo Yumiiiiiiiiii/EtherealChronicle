@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_starwood_log
+type: item
+name: 星木の原木
+material: OAK_LOG
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 45
+lore: '微かに星光を吸ったしなやかな古材。手斧で伐採でき、星木の精密釣竿の棹材として重宝される。'

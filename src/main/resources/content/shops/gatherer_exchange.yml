@@ -1,0 +1,21 @@
+schema_version: 1
+id: ec:shop_gatherer_exchange
+type: shop
+name: 星片採集交換所
+npc: ec:npc_hana
+buyback: true
+discount: 0
+entries:
+  - {id: buy_pick_iron, item: 'ec:item_tool_pick_iron', amount: 1, price: 120}
+  - {id: craft_pick_astral, item: 'ec:item_tool_pick_astral', amount: 1, price: 480, tokens: [{item: 'ec:item_mat_stariron_ore', amount: 3}], condition: {min_level: 10}}
+  - {id: buy_sickle_silver, item: 'ec:item_tool_sickle_silver', amount: 1, price: 120}
+  - {id: craft_sickle_moon, item: 'ec:item_tool_sickle_moon', amount: 1, price: 480, tokens: [{item: 'ec:item_mat_ash_leaf', amount: 3}], condition: {min_level: 10}}
+  - {id: buy_hatchet_iron, item: 'ec:item_tool_hatchet_iron', amount: 1, price: 120}
+  - {id: buy_extractor_aether, item: 'ec:item_tool_extractor_aether', amount: 1, price: 320, condition: {min_level: 6}}
+  - {id: brew_moondew_draught, item: 'ec:item_con_moondew_draught', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_moondew_herb', amount: 1}, {item: 'ec:item_mat_starwood_resin', amount: 1}]}
+  - {id: refine_artisan_whetstone, item: 'ec:item_mat_artisan_whetstone', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_stariron_ore', amount: 2}, {item: 'ec:item_mat_azure_gem_ore', amount: 1}]}
+  - {id: craft_aether_lure_resin, item: 'ec:item_bait_aether_lure', amount: 2, price: 0, tokens: [{item: 'ec:item_mat_starwood_resin', amount: 1}, {item: 'ec:item_mat_azure_gem_ore', amount: 1}]}
+  - {id: market_ash_leaf, item: 'ec:item_mat_ash_leaf', amount: 1, price: 140, daily_limit: 5}
+  - {id: market_starwood_log, item: 'ec:item_mat_starwood_log', amount: 1, price: 150, daily_limit: 5}
+  - {id: market_stariron_ore, item: 'ec:item_mat_stariron_ore', amount: 1, price: 180, daily_limit: 5, condition: {min_level: 5}}
+  - {id: market_aether_crystal_core, item: 'ec:item_mat_aether_crystal_core', amount: 1, price: 620, daily_limit: 2, condition: {min_level: 12}}

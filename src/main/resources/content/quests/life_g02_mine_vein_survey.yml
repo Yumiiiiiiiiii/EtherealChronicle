@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:quest_life_g02_mine_vein_survey
+type: quest
+name: 【採取】廃坑の星鉄鉱脈調査
+condition: {min_level: 6, completed_quests: ['ec:quest_life_g01_gatherer_intro']}
+objectives:
+  - {id: explore_mine, kind: EXPLORE, target: 'ec:area_weeping_mine', amount: 1}
+  - {id: collect_stariron, kind: COLLECT, target: 'ec:item_mat_stariron_ore', amount: 3, consume: true}
+  - {id: report_hana, kind: TALK, target: 'ec:npc_hana', amount: 1}
+rewards:
+  xp: 520
+  currency: 290
+  set_flags: []
+  items:
+    - {item: 'ec:item_tool_extractor_aether', amount: 1}
+    - {item: 'ec:item_mat_azure_gem_ore', amount: 2}
+    - {item: 'ec:item_mat_starwood_log', amount: 3}
+auto_complete: false
+repeatable: false

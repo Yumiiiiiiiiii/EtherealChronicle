@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_ash_leaf
+type: item
+name: アッシュリーフ
+material: FERN
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 40
+lore: 'アッシュウッドの森に自生する香り高い薬草。銀鎌で採取でき、温スープや上位採薬鎌の素材になる。'

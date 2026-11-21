@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_fish_blizzard_shark
+type: item
+name: 吹雪サメ
+material: PUFFERFISH
+rarity: RARE
+slot: NONE
+min_level: 16
+classes: []
+budget: 0
+stats: {}
+price: 240
+lore: '霧氷の尾根の氷裂湖で悪天候時に現れる獰猛な氷鮫。激しい潜りをいなして釣り上げる熟練者向けの獲物（体長目安 90〜210cm）。'
