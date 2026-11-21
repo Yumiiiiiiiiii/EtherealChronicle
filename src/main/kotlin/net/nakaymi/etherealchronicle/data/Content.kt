@@ -119,7 +119,7 @@ class ContentService(private val root: Path, private val migration: ContentMigra
             skills.values.forEach { s -> parsingId=s.id; require(s.range in 0.1..128.0 && s.multiplier in 0.0..balance.statCap && s.cooldownMillis in 1..3_600_000 && s.radius in 0.0..32.0 && s.heal >= 0 && s.defenseBuff >= 0 && s.buffTicks in 0..72000 && s.allyRadius in 0.0..64.0 && s.tauntTicks in 0..72000 && s.threatMultiplier in 1.0..100.0) { "ec.error.invalid_content" } }
             (typed("enemy")+typed("boss")).forEach { d ->
                 parsingId=d.string("id")
-                require(d.num("hp") in 1.0..balance.statCap) { "hp ec.error.invalid_content: balance.stat_cap" }
+                require(d.num("hp") in 1.0..balance.statCap) { "hp=${d["hp"]} ec.error.invalid_content (balance.stat_cap=${balance.statCap})" }
                 require(d.num("attack") <= balance.statCap && d.num("defense") <= balance.statCap && d.int("level") in 1..balance.levelCap) { "attack/defense/level ec.error.invalid_content" }
                 d.long("xp"); d.long("currency"); d.string("entity")
             }

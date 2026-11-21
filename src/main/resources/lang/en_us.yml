@@ -119,6 +119,7 @@ ec:
     argument_missing: "Missing argument: <detail>"
     sim_operation_unknown: "Unknown simulation operation: <detail>"
     class_missing: "No class has been selected."
+    dungeon_required: "The advancement condition requires a valid dungeon ID."
   area:
     teleported: "Teleported to <name>."
   class:

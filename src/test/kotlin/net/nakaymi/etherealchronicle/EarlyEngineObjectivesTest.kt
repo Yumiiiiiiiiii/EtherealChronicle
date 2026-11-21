@@ -64,7 +64,7 @@ class EarlyEngineObjectivesTest {
         val message=assertFails { base.copy(documents=base.documents+mapOf("ec:quest_bad_fish" to badFish)).world }
         assertContains(message.message.orEmpty(),"CATCH_FISH")
         val rankMessage=assertFails { base.copy(documents=base.documents+mapOf("ec:title_bad_rank" to wrongRank)).world }
-        assertContains(rankMessage.message.orEmpty(),"ダンジョン")
+        assertContains(rankMessage.message.orEmpty(),"ec.error.dungeon_required")
     }
 
     @Test fun `new title conditions unlock from fish species life level enhancement and challenge rank`() {

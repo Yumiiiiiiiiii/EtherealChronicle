@@ -62,6 +62,7 @@
 | `ec.error.dialogue_missing` | 会話が見つかりません。 | Dialogue not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt |  |
 | `ec.error.dialogue_node_missing` | 会話ノードが見つかりません。 | Dialogue node not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.dialogue_too_deep` | 会話の分岐が長すぎます。 | The dialogue branch is too long. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
+| `ec.error.dungeon_required` | 進捗の条件には有効なダンジョンIDが必要です。 | The advancement condition requires a valid dungeon ID. | src/main/kotlin/net/nakaymi/etherealchronicle/core/WorldContent.kt |  |
 | `ec.error.enemy_missing` | 魔物が見つかりません。 | Enemy not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/GameService.kt |  |
 | `ec.error.invalid_content` | コンテンツ定義が不正です。詳細を確認してください。 | Content definition is invalid. Check the diagnostic details. | src/main/kotlin/net/nakaymi/etherealchronicle/core/ContentMapReaders.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/WorldContent.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/WorldDefinitions.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/WorldValidation.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/data/Content.kt |  |
 | `ec.error.inventory_exchange` | 必要品が不足しているか、持ち物に空きがありません。 | Required items are missing or your inventory is full. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |

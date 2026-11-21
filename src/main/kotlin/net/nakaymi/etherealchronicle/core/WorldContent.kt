@@ -194,7 +194,7 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
             if(advancement.condition.type == TitleConditionType.BESTIARY) require(advancement.condition.target in enemies) { "${title.id}: ec.error.invalid_content" }
             if(advancement.condition.type == TitleConditionType.FISH_SPECIES_COUNT) require(advancement.condition.count <= fishSpecies.size) { "${title.id}: ec.error.invalid_content" }
             if(advancement.condition.type == TitleConditionType.ENHANCE_LEVEL) require(advancement.condition.count <= tuning.enhancementCap) { "${title.id}: ec.error.invalid_content" }
-            if(advancement.condition.type == TitleConditionType.CHALLENGE_RANK) require(advancement.condition.target in dungeons) { "${title.id}: ec.error.invalid_content" }
+            if(advancement.condition.type == TitleConditionType.CHALLENGE_RANK) require(advancement.condition.target in dungeons) { "${title.id}: ec.error.dungeon_required" }
         }
         validateWorldReferences(documents)
         validateLifeReferences()

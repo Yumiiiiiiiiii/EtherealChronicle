@@ -119,6 +119,7 @@ ec:
     argument_missing: "引数が不足しています: <detail>"
     sim_operation_unknown: "不明なシミュレーション操作です: <detail>"
     class_missing: "職業が未選択です。"
+    dungeon_required: "進捗の条件には有効なダンジョンIDが必要です。"
   area:
     teleported: "<name>へ転送しました。"
   class:
