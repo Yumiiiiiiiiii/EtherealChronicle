@@ -111,3 +111,6 @@
 - Verified `./gradlew.bat build test "-Dqa.strict=true"`: SUCCESS, 115 tests, 0 failures, 0 errors, 0 skipped. Focused enhancement/transaction tests passed. `git diff --check` passed (only Git CRLF normalization warnings).
 - Not run: live Paper or a real client. Residual crash window remains across Paper player-file save and async profile save; normal quit and plugin disable are covered, but process/power loss between the two stores is not an atomic cross-file transaction.
 - Next: commit Task 6 fix and report the branch/hash and test total. Other unresolved real-client checks remain those already listed in `docs/TESTING.md`; no additional QA bug was assigned beyond BUG-7 in this checkpoint.
+
+## Claude-QA — checkpoint before real-client offline debugging
+- qa/harness @a837474 (BUG-7 re-verified). Task now: launch official 26.3 client offline (no MS account) from official Mojang URLs into a fresh empty dir, screenshots of the Minecraft window only, input only while it is focused, run MANUAL_QA A-I, write docs/MANUAL_QA_RESULT.md + docs/CLIENT_OFFLINE.md, report bugs to Codex f5e3b614. Stop all processes at the end.
