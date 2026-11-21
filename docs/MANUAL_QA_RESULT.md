@@ -125,3 +125,20 @@ Shots: `D:\test\mcmmo-client-qa\shots\h01..h27*.png` (not in repo).
 | `/ec quest` display names, potion tooltip, class-change weapon | NOT-RUN | |
 | Language: client en_us -> English UI (HUD "Focus/Party", dialogs, pack prompt) | PASS (partial) | content names (class/skill/NPC) stay Japanese; auto-selection works. ja_jp/en_us config forcing NOT-RUN |
 Processes stopped, server.properties/ops.json restored, ports closed.
+
+## Task 16 real-client check (master 2aaebcb, offline QaPack, en_us client, 2026-11-22)
+Shots: `D:\test\mcmmo-client-qa\shots\i01..i09*.png, j01..j08*.png, v_*.png` (not in repo).
+| Item | Result | Evidence |
+|---|---|---|
+| InvUI Codex / Enhance / Equipment / Shop open on real Paper | PASS | i06_*, i02_shop (blocker "Illegal width: 6" fixed); codex area click opens enemy page (i07); enhance item click shows tooltip + currency message (i09) |
+| Shop purchase success / enhance success / paging | NOT-RUN | test player had 0G (sim currency does not affect a real player) |
+| Shop insufficient funds | BUG (sent) | message shown, but server logs ERROR + stack (`IllegalArgumentException ec.error.currency_low`, AdventureController.buyShopSlot) on each click |
+| UI with vs without pack | NO DIFFERENCE | InvUI screens look the same (j05/j06 vs i02/i06); asked Codex if intended |
+| game_port mode (config temporarily changed) | PASS | pack served on 25565 (no 25580 listener): GET/HEAD 200, SHA-1 = jar pack; `/`, traversal, `%2e%2e` 404; client prompt, download, reload applied, login and Tp/HUD fine |
+| game_port abuse | PASS | 100 partial-request + 100 random-binary sockets open: valid GET still 200 and a client logged in; 200 parallel GETs: 19 x 200, 181 refused (per-IP limit) |
+| game_port ping latency | NOT-RUN | |
+| Slowloris on embedded_http (separate port) | NOT-RUN | not re-tested after Codex timeouts |
+| DemoWorld v4->v5 | PARTIAL | world marker already `v5` at first boot (no v4 fixture); migration and second-boot idempotence not re-verified; hub/NPCs/pier intact (v_hub) |
+| Wolf variants | PARTIAL | frost_wolf spawned and killed the test player; visual not inspected; ashwood_alpha NOT-RUN |
+| NPC Paper Dialog quest accept, /ec quest names, potion tooltip, class-change weapon, language forcing, en_us advancement title | NOT-RUN | time |
+Processes stopped; server.properties/ops.json/config restored; ports closed.
