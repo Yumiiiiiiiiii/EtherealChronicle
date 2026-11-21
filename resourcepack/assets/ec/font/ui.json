@@ -1,0 +1,80 @@
+{
+  "providers": [
+    {
+      "type": "space",
+      "advances": {
+        "": -1,
+        "": -2,
+        "": -4,
+        "": -8,
+        "": -16,
+        "": -32,
+        "": -64,
+        "": -128,
+        "": -256,
+        "": 1,
+        "": 2,
+        "": 4,
+        "": 8,
+        "": 16,
+        "": 32,
+        "": 64,
+        "": 128
+      }
+    },
+    {
+      "type": "bitmap",
+      "file": "ec:gui/bg_class_select.png",
+      "ascent": 13,
+      "height": 166,
+      "chars": [
+        ""
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "ec:gui/bg_status.png",
+      "ascent": 13,
+      "height": 222,
+      "chars": [
+        ""
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "ec:gui/bg_codex.png",
+      "ascent": 13,
+      "height": 222,
+      "chars": [
+        ""
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "ec:gui/bg_upgrade.png",
+      "ascent": 13,
+      "height": 204,
+      "chars": [
+        ""
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "ec:gui/bg_shop.png",
+      "ascent": 13,
+      "height": 222,
+      "chars": [
+        ""
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "ec:gui/bg_generic.png",
+      "ascent": 13,
+      "height": 222,
+      "chars": [
+        ""
+      ]
+    }
+  ]
+}
