@@ -36,3 +36,6 @@ xp_linear: 45
 xp_quadratic: 18
 xp_rounding: 10
 player_hp_cap: 1024
+basic_attack_cooldown_ms: 550
+element_res_cap: 0.5
+skill_gcd_ms: 800

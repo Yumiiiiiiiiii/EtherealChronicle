@@ -25,7 +25,7 @@ class GameService(private val content: () -> ContentSnapshot, val skills: SkillE
         val base = c?.let { it.stats + it.growth * (p.level-1).toDouble() } ?: Stats()
         val s = equipment.filter { it.canEquip(p) }.fold(base) { acc, item -> acc + item.stats }
         val b = content().balance
-        return Stats(s.hp.coerceIn(1.0,minOf(b.statCap,content().world.tuning.playerHpCap)),s.resource.coerceIn(0.0,b.statCap),s.attack.coerceIn(0.0,b.statCap),s.defense.coerceIn(0.0,b.statCap),s.crit.coerceIn(0.0,b.critCap),s.critDamage.coerceIn(1.0,b.critDamageCap),s.elementResist.coerceIn(0.0,1.0),s.skillPower.coerceIn(0.0,b.statCap))
+        return Stats(s.hp.coerceIn(1.0,minOf(b.statCap,content().world.tuning.playerHpCap)),s.resource.coerceIn(0.0,b.statCap),s.attack.coerceIn(0.0,b.statCap),s.defense.coerceIn(0.0,b.statCap),s.crit.coerceIn(0.0,b.critCap),s.critDamage.coerceIn(1.0,b.critDamageCap),s.elementResist.coerceIn(0.0,content().world.tuning.elementResCap),s.skillPower.coerceIn(0.0,b.statCap))
     }
     fun kill(p: PlayerProfile, enemyId: String, inventory: InventoryAccess = MemoryInventory(), xpAward: Long? = null, currencyAward: Long? = null, rollDrops: Boolean = true): Map<String,Int> {
         val c = content()
@@ -49,9 +49,11 @@ class GameService(private val content: () -> ContentSnapshot, val skills: SkillE
     fun completeQuest(p: PlayerProfile,id: String,inventory: InventoryAccess = MemoryInventory()) = quests.complete(p,id,inventory)
     private fun rewardCurrency(p: PlayerProfile, amount: Long) {
         val gain = amount.coerceIn(0,content().balance.currencyGainCap)
-        p.currency = p.currency.coerceAtMost(Long.MAX_VALUE-gain) + gain
+        p.currency = (p.currency.coerceAtMost(content().world.tuning.maxCurrency)+gain).coerceAtMost(content().world.tuning.maxCurrency)
     }
 }
+
+
 
 
 

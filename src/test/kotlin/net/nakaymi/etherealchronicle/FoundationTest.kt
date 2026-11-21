@@ -81,7 +81,7 @@ class FoundationTest {
             store.save(p).join(); assertEquals(p,store.load(uuid).join())
             Files.writeString(temp.resolve("$uuid.yml"),"corrupt: [")
             assertEquals(3,store.load(uuid).join().level)
-            assertEquals(3,store.migrate(mapOf("uuid" to uuid.toString()))["schema_version"])
+            assertEquals(4,store.migrate(mapOf("uuid" to uuid.toString()))["schema_version"])
             assertFailsWith<IllegalArgumentException> { store.migrate(mapOf("schema_version" to 99)) }
         }
     }
@@ -180,6 +180,7 @@ class FoundationTest {
         }
     }
 }
+
 
 
 

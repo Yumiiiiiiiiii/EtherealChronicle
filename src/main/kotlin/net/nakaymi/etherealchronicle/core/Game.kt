@@ -16,7 +16,7 @@ data class Stats(val hp: Double = 100.0, val resource: Double = 100.0, val attac
 operator fun Stats.times(factor: Double) = Stats(hp*factor,resource*factor,attack*factor,defense*factor,crit*factor,critDamage*factor,elementResist*factor,skillPower*factor)
 data class Balance(val levelCap: Int, val xpBase: Double, val xpExponent: Double, val xpGainCap: Long,
     val currencyGainCap: Long, val damageCap: Double, val statCap: Double, val critCap: Double,
-    val defenseScale: Double, val skillLevelCap: Int, val skillGrowth: Double, val critDamageCap: Double, val elementCap: Double, val xpCurve: String = "POWER", val xpLinear: Double = 45.0, val xpQuadratic: Double = 18.0, val xpRounding: Long = 10) {
+    val defenseScale: Double, val skillLevelCap: Int, val skillGrowth: Double, val critDamageCap: Double, val elementCap: Double, val xpCurve: String = "POWER", val xpLinear: Double = 45.0, val xpQuadratic: Double = 18.0, val xpRounding: Long = 10, val skillGcdMillis: Long = 800) {
     fun requiredXp(level: Int): Long {
         val l=level.coerceIn(1,levelCap)
         return (if(xpCurve == "POLYNOMIAL") (kotlin.math.round((xpBase+xpLinear*(l-1)+xpQuadratic*(l-1.0)*(l-1))/xpRounding)*xpRounding).toLong() else (xpBase*l.toDouble().pow(xpExponent)).toLong()).coerceAtLeast(1)
@@ -49,7 +49,8 @@ enum class CastResult { SUCCESS, COOLDOWN, RESOURCE, INVALID_LEVEL, INVALID_TARG
 class SkillEngine(private val clock: Clock, private var balance: Balance) {
     fun updateBalance(value: Balance) { balance = value }
     private val ready = mutableMapOf<Pair<UUID, String>, Long>()
-    fun remaining(player: UUID, skill: String) = ((ready[player to skill] ?: 0) - clock.millis()).coerceAtLeast(0)
+    private val globalReady = mutableMapOf<UUID,Long>()
+    fun remaining(player: UUID, skill: String) = (maxOf(ready[player to skill] ?: 0,globalReady[player] ?: 0) - clock.millis()).coerceAtLeast(0)
     fun cast(player: PlayerProfile, skill: SkillDefinition): CastResult {
         val level = player.skillLevels.getOrDefault(skill.id, 1)
         if (level !in 1..balance.skillLevelCap) return CastResult.INVALID_LEVEL
@@ -57,11 +58,22 @@ class SkillEngine(private val clock: Clock, private var balance: Balance) {
         if (player.resource < skill.cost) return CastResult.RESOURCE
         player.resource -= skill.cost
         ready[player.uuid to skill.id] = clock.millis() + skill.cooldownMillis
+        globalReady[player.uuid] = clock.millis() + balance.skillGcdMillis
         return CastResult.SUCCESS
     }
     fun multiplier(player: PlayerProfile, skill: SkillDefinition) = skill.multiplier *
         (1 + (player.skillLevels.getOrDefault(skill.id, 1).coerceIn(1, balance.skillLevelCap) - 1) * balance.skillGrowth)
-    fun cleanup() { val now = clock.millis(); ready.entries.removeIf { it.value <= now } }
+    fun cleanup() { val now = clock.millis(); ready.entries.removeIf { it.value <= now }; globalReady.entries.removeIf { it.value <= now } }
+}
+class ActionGate(private val clock: Clock) {
+    private val ready=mutableMapOf<UUID,Long>()
+    fun accept(id: UUID,interval: Long): Boolean {
+        require(interval > 0)
+        val now=clock.millis()
+        if(now < ready.getOrDefault(id,0)) return false
+        ready[id]=now+interval; return true
+    }
+    fun cleanup() { val now=clock.millis(); ready.entries.removeIf { it.value <= now } }
 }
 
 enum class Rarity(val displayName: String) { COMMON("コモン"), UNCOMMON("アンコモン"), RARE("レア"), EPIC("エピック"), LEGENDARY("レジェンダリー") }
@@ -82,10 +94,11 @@ data class PlayerProfile(val uuid: UUID, var classId: String? = null, var level:
     var currency: Long = 0, var resource: Double = 0.0, var selectedSkill: Int = 0,
     var starterGranted: Boolean = false, val quests: MutableMap<String, QuestProgress> = mutableMapOf(),
     val skillLevels: MutableMap<String, Int> = mutableMapOf(), val flags: MutableSet<String> = mutableSetOf(),
-    val dailyPurchases: MutableMap<String, Int> = mutableMapOf(), val transactions: MutableList<String> = mutableListOf(), var accessory: String? = null) {
-    fun snapshot() = copy(skillLevels = skillLevels.toMutableMap(), quests = quests.mapValues { it.value.copy(objectives = it.value.objectives.toMutableMap()) }.toMutableMap(), flags = flags.toMutableSet(), dailyPurchases = dailyPurchases.toMutableMap(), transactions = transactions.toMutableList())
+    val dailyPurchases: MutableMap<String, Int> = mutableMapOf(), val transactions: MutableList<String> = mutableListOf(), var accessory: String? = null, val pendingRewards: MutableMap<String,Int> = mutableMapOf()) {
+    fun snapshot() = copy(skillLevels = skillLevels.toMutableMap(), quests = quests.mapValues { it.value.copy(objectives = it.value.objectives.toMutableMap()) }.toMutableMap(), flags = flags.toMutableSet(), dailyPurchases = dailyPurchases.toMutableMap(), transactions = transactions.toMutableList(), pendingRewards = pendingRewards.toMutableMap())
 }
 data class QuestProgress(var progress: Int = 0, var completed: Boolean = false, val objectives: MutableMap<String,Int> = mutableMapOf(), var completedAt: Long = 0, var repeatAvailableAt: Long = Long.MAX_VALUE)
+
 
 
 

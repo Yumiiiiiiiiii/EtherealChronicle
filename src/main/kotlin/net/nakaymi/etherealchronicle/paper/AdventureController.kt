@@ -60,7 +60,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             } catch(e: Exception) { plugin.logger.warning("依頼更新失敗 ${p.uuid}: ${e.message}") }
         }
     }
-    private fun message(player: Player,text: String) = player.sendMessage(mm.deserialize(text))
+    private fun message(player: Player,text: String) = player.sendMessage(Component.text(text))
     @EventHandler(ignoreCancelled=true) fun interact(e: PlayerInteractEntityEvent) {
         if(e.hand != EquipmentSlot.HAND) return
         val id=e.rightClicked.persistentDataContainer.get(npcKey,PersistentDataType.STRING) ?: return
@@ -82,7 +82,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         definition.choices.take(45).forEachIndexed { index,c -> menu.setItem(9+index,ItemStack(Material.PAPER).apply { itemMeta=itemMeta.apply {
             displayName(mm.deserialize(c.label)); persistentDataContainer.set(entryKey,PersistentDataType.STRING,c.id)
         } }) }
-        message(player,definition.text)
+        player.sendMessage(mm.deserialize(definition.text))
         player.openInventory(menu)
     }
     fun showShop(player: Player,id: String) {
@@ -119,6 +119,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                     val choice=dialogues.choice(p,menu.contentId,menu.nodeId,entry)
                     val after=mutableListOf<() -> Unit>()
                     transaction(player,{ inventory ->
+                        p.flags.removeAll(choice.clearFlags); p.flags.addAll(choice.flags)
                         choice.actions.forEach { a -> when(a.kind) {
                             "START_QUEST" -> plugin.game.startQuest(p,a.target)
                             "COMPLETE_QUEST" -> plugin.game.completeQuest(p,a.target,inventory)
@@ -131,11 +132,11 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                                 p.flags.add(a.onceFlag)
                             }
                         } }
-                        p.flags.removeAll(choice.clearFlags); p.flags.addAll(choice.flags)
                     }) {
                         if(after.isNotEmpty()) after.forEach { it() }
                         else if(!choice.next.isNullOrEmpty()) showDialogue(player,menu.contentId,choice.next)
                         else player.closeInventory()
+                        plugin.ensureStarter(player)
                     }
                 }
                 "shop" -> {
@@ -163,12 +164,21 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     }
     @EventHandler(ignoreCancelled=true) fun tradeBound(e: InventoryClickEvent) {
         if(e.whoClicked !is Player) return
+        if(e.currentItem?.type?.name?.endsWith("BUNDLE") == true && bound(e.cursor) || e.cursor.type.name.endsWith("BUNDLE") && bound(e.currentItem)) { e.isCancelled=true; return }
         val external=e.view.topInventory.type !in setOf(InventoryType.CRAFTING,InventoryType.CREATIVE)
-        if(external && (bound(e.currentItem) || bound(e.cursor) || e.hotbarButton >= 0 && bound((e.whoClicked as Player).inventory.getItem(e.hotbarButton))) || (e.click == ClickType.DROP || e.click == ClickType.CONTROL_DROP) && bound(e.currentItem)) e.isCancelled=true
+        if(external && (bound(e.currentItem) || bound(e.cursor) || e.click == ClickType.SWAP_OFFHAND && bound((e.whoClicked as Player).inventory.itemInOffHand) || e.hotbarButton >= 0 && bound((e.whoClicked as Player).inventory.getItem(e.hotbarButton))) || (e.click == ClickType.DROP || e.click == ClickType.CONTROL_DROP) && bound(e.currentItem)) e.isCancelled=true
     }
+    @EventHandler(ignoreCancelled=true) fun boundEntity(e: PlayerInteractEntityEvent) {
+        if(e.rightClicked is ItemFrame || e.rightClicked is ArmorStand || e.rightClicked is Allay) {
+            val stack=if(e.hand == EquipmentSlot.OFF_HAND) e.player.inventory.itemInOffHand else e.player.inventory.itemInMainHand
+            if(bound(stack) || locked(e.player.uniqueId)) e.isCancelled=true
+        }
+    }
+    @EventHandler(ignoreCancelled=true) fun boundPlace(e: org.bukkit.event.block.BlockPlaceEvent) { if(bound(e.itemInHand)) e.isCancelled=true }
+    @EventHandler fun craft(e: PrepareItemCraftEvent) { if(e.inventory.matrix.any(::bound)) e.inventory.result=null }
     @EventHandler(ignoreCancelled=true) fun dragBound(e: InventoryDragEvent) { if(bound(e.oldCursor) && e.rawSlots.any { it < e.view.topInventory.size }) e.isCancelled=true }
     @EventHandler(ignoreCancelled=true) fun pickup(e: EntityPickupItemEvent) { if(e.entity.uniqueId in locks) e.isCancelled=true }
-    @EventHandler fun quit(e: PlayerQuitEvent) { parties.leave(e.player.uniqueId); dialogueSessions.remove(e.player.uniqueId) }
+    @EventHandler fun quit(e: PlayerQuitEvent) { beforeQuit(e.player); parties.leave(e.player.uniqueId); dialogueSessions.remove(e.player.uniqueId) }
     @EventHandler fun death(e: PlayerDeathEvent) {
         val kept=e.drops.filter(::bound)
         e.drops.removeAll(kept.toSet()); e.itemsToKeep.addAll(kept)
@@ -192,7 +202,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             transaction(player,{ inventory ->
                 require(inventory.exchange(mapOf(id to 1),emptyMap()))
                 effects.filter { it.kind == "RESOURCE" }.forEach { p.resource=(p.resource+it.amount).coerceAtMost(plugin.effectiveStats(player,p).resource) }
-            }) {
+            },persistConsumption=false) {
                 effects.forEach { effect -> when(effect.kind) {
                     "HEAL","REVIVE" -> player.health=(player.health+effect.amount).coerceAtMost(player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH)!!.value)
                     "CLEANSE" -> { player.removePotionEffect(org.bukkit.potion.PotionEffectType.POISON); player.removePotionEffect(org.bukkit.potion.PotionEffectType.SLOWNESS) }
@@ -204,18 +214,78 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         } catch(error: Exception) { message(player,"使用できません: ${error.message}") }
         return true
     }
-    fun hasTransactions() = locks.isNotEmpty()
+    private val scheduled=mutableSetOf<UUID>()
+    private val waiting=mutableMapOf<UUID,ArrayDeque<() -> Unit>>()
+    fun whenAvailable(id: UUID,action: () -> Unit) {
+        waiting.getOrPut(id) { ArrayDeque() }.addLast(action); resume(id)
+    }
+    fun resume(id: UUID) {
+        if(id in scheduled || locked(id) || Bukkit.getPlayer(id)?.isOnline != true || id !in plugin.profiles) return
+        val queue=waiting[id] ?: return
+        val action=queue.removeFirstOrNull() ?: return
+        if(queue.isEmpty()) waiting.remove(id)
+        scheduled.add(id)
+        plugin.sync { scheduled.remove(id); try { action() } catch(error: Exception) { plugin.logger.warning("保留報酬の処理失敗 $id: ${error.message}") }; if(!locked(id)) resume(id) }
+    }
+    private fun unlock(id: UUID) { locks.remove(id); resume(id) }
+    fun hasTransactions() = locks.isNotEmpty() || scheduled.isNotEmpty()
     fun bound(stack: ItemStack?): Boolean = plugin.identify(stack)?.let { plugin.snapshot.world.itemProperties[it]?.let { p -> p.bound || p.questItem } } == true
+    private val delivering=mutableSetOf<UUID>()
+    private data class Delivery(val profile: PlayerProfile,val output: Map<String,Int>)
+    private val deliveries=mutableMapOf<UUID,Delivery>()
+    fun beforeQuit(player: Player) {
+        deliveries.remove(player.uniqueId)?.let { claim ->
+            claim.profile.pendingRewards.putAll(claim.output)
+            plugin.persist(claim.profile) // follows the clearing write on the same serial IO queue
+        }
+        delivering.remove(player.uniqueId)
+    }
+    fun prepareShutdown() {
+        deliveries.values.forEach { claim -> claim.profile.pendingRewards.putAll(claim.output) }
+        deliveries.clear(); delivering.clear()
+    }
+    fun claimPending(player: Player) {
+        val p=plugin.profiles[player.uniqueId] ?: return
+        if(p.pendingRewards.isEmpty()) return
+        require(locks.add(p.uuid)) { "受取処理中です。" }
+        deliverLocked(player,p) {}
+    }
+    private fun deliverLocked(player: Player,p: PlayerProfile,success: () -> Unit) {
+        if(p.pendingRewards.isEmpty()) { unlock(p.uuid); success(); return }
+        val output=p.pendingRewards.toMap(); val inventory=plugin.inventory(player)
+        if(!inventory.canExchange(emptyMap(),output)) {
+            message(player,"報酬を保管しています。持ち物に空きを作り /ec claim で受け取ってください。")
+            unlock(p.uuid); success(); return
+        }
+        // Consume the durable mailbox entitlement before issuing Paper items: loss-biased claim window.
+        val claim=Delivery(p,output); deliveries[p.uuid]=claim
+        delivering.add(p.uuid); p.pendingRewards.clear()
+        plugin.persist(p).whenComplete { _,error -> plugin.sync {
+            try {
+                if(deliveries[p.uuid] !== claim) return@sync // quit restored the mailbox; never issue output twice
+                if(error != null) {
+                    if(plugin.profiles[p.uuid] === p) { p.pendingRewards.putAll(output); plugin.save(p) }
+                    if(player.isOnline) message(player,"受取内容を保存できませんでした。/ec claim で再試行してください。")
+                } else if(player.isOnline && plugin.profiles[p.uuid] === p) {
+                    if(!inventory.exchange(emptyMap(),output)) {
+                        p.pendingRewards.putAll(output); plugin.save(p); message(player,"報酬は保管されています。/ec claim で受け取ってください。")
+                    }
+                    success()
+                } else plugin.logger.warning("報酬の受取確定直後に切断: ${p.uuid} $output。管理者回復が必要です。")
+            } finally { deliveries.remove(p.uuid); delivering.remove(p.uuid); unlock(p.uuid) }
+        } }
+    }
     /** Removes consumables first, saves their Paper inventory, persists currency/state, then grants output. */
-    fun transaction(player: Player,mutate: (InventoryAccess) -> Unit,success: () -> Unit = {}) {
+    fun transaction(player: Player,mutate: (InventoryAccess) -> Unit,persistConsumption: Boolean = true,success: () -> Unit = {}) {
         val p=plugin.profiles[player.uniqueId] ?: return
         require(locks.add(p.uuid)) { "取引の処理中です。" }
-        val before=p.snapshot(); val inventory=plugin.inventory(player); val staged=StagedInventory(inventory)
+        val before=p.snapshot(); val inventory=plugin.inventory(player,persistConsumption); val staged=StagedInventory(inventory)
         val beforeStorage: Array<ItemStack?> = player.inventory.storageContents.map { it?.clone() }.toTypedArray()
         try {
             mutate(staged)
             require(inventory.canExchange(staged.remove,staged.add)) { "持ち物に空きがありません。" }
             require(inventory.exchange(staged.remove,emptyMap()))
+            staged.add.forEach { (id,n) -> p.pendingRewards.merge(id,n,Int::plus) }
             plugin.persist(p).whenComplete { _,error -> plugin.sync {
                 try {
                     if(error != null) {
@@ -225,19 +295,18 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                         }
                         plugin.logger.severe("取引の保存に失敗しました ${p.uuid}: ${error.message}")
                     } else if(player.isOnline && plugin.profiles[p.uuid] === p) {
-                        if(!inventory.exchange(emptyMap(),staged.add)) staged.add.forEach { (id,count) ->
-                            var remaining=count
-                            while(remaining > 0) { val amount=minOf(remaining,plugin.createItem(id).maxStackSize); player.world.dropItemNaturally(player.location,plugin.createItem(id,amount)); remaining-=amount }
-                        }
-                        success()
-                    } else if(staged.add.isNotEmpty()) plugin.logger.warning("取引出力の受取前に切断: ${p.uuid} ${staged.add}。管理者の回復が必要です。")
-                } finally { locks.remove(p.uuid) }
-            } }
+                        deliverLocked(player,p,success)
+                        return@sync
+                    } // Offline output remains in the durable pending reward mailbox.
+                } finally { if(player.uniqueId !in delivering) unlock(p.uuid) }            } }
         } catch(error: Exception) {
-            p.restore(before); player.inventory.storageContents=beforeStorage; locks.remove(p.uuid); throw error
+            p.restore(before); player.inventory.storageContents=beforeStorage; unlock(p.uuid); throw error
         }
     }
 }
+
+
+
 
 
 

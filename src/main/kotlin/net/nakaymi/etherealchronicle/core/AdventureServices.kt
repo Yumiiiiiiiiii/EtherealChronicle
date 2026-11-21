@@ -41,7 +41,7 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
         val consume=q.objectives.filter { it.kind == ObjectiveKind.COLLECT && it.consume }.groupBy { it.target }.mapValues { (_,objectives) -> objectives.sumOf { it.amount.toLong() } }
         return !state.completed && consume.all { (item,n) -> inventory.count(item).toLong() >= n } && q.objectives.all { progress(p,q,it,inventory) >= it.amount }
     }
-    fun event(p: PlayerProfile,kind: ObjectiveKind,target: String,amount: Int,inventory: InventoryAccess) {
+    fun event(p: PlayerProfile,kind: ObjectiveKind,target: String,amount: Int,inventory: InventoryAccess,allowAutoComplete: Boolean = true) {
         require(amount > 0)
         p.quests.filterValues { !it.completed }.keys.toList().forEach { id ->
             val q = content().world.quests[id] ?: return@forEach
@@ -51,7 +51,7 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
                 state.objectives[o.id] = (state.objectives.getOrDefault(o.id,0).toLong()+amount).coerceAtMost(o.amount.toLong()).toInt()
                 state.progress = state.objectives.values.sum()
             }
-            if(q.autoComplete && ready(p,id,inventory)) {
+            if(allowAutoComplete && q.autoComplete && ready(p,id,inventory)) {
                 try { complete(p,id,inventory) } catch(_: IllegalArgumentException) { /* ready quests remain claimable when storage is full */ }
             }
         }
@@ -124,9 +124,9 @@ class TradeEngine(private val content: () -> ContentSnapshot) {
 }
 
 data class WorldTuning(val sellRatio: Double,val maxCurrency: Long,val transactionCap: Int,val partyCap: Int,val partyRadius: Double,
-    val enemyCap: Int,val instanceCap: Int,val instanceTimeout: Long,val weakness: Double,val resistance: Double,val playerHpCap: Double)
-fun Map<String,Any?>.tuning() = WorldTuning(number("sell_ratio",0.3),whole("max_currency",100_000_000),integer("transaction_amount_cap",64),integer("party_size_cap",4),number("party_xp_radius",32.0),integer("global_enemy_cap",100),integer("instance_cap",8),whole("instance_timeout_ticks",36000),number("weakness_multiplier",1.25),number("resistance_multiplier",0.8),number("player_hp_cap",1024.0)).also {
-    require(it.sellRatio in 0.0..0.49 && it.maxCurrency in 1..Long.MAX_VALUE/2 && it.transactionCap in 1..64 && it.partyCap in 1..8 && it.partyRadius in 1.0..128.0 && it.enemyCap in 1..1000 && it.instanceCap in 1..32 && it.instanceTimeout > 0 && it.playerHpCap in 1.0..1024.0)
+    val enemyCap: Int,val instanceCap: Int,val instanceTimeout: Long,val weakness: Double,val resistance: Double,val playerHpCap: Double,val basicAttackCooldown: Long,val elementResCap: Double)
+fun Map<String,Any?>.tuning() = WorldTuning(number("sell_ratio",0.3),whole("max_currency",100_000_000),integer("transaction_amount_cap",64),integer("party_size_cap",4),number("party_xp_radius",32.0),integer("global_enemy_cap",100),integer("instance_cap",8),whole("instance_timeout_ticks",36000),number("weakness_multiplier",1.25),number("resistance_multiplier",0.8),number("player_hp_cap",1024.0),whole("basic_attack_cooldown_ms",550),number("element_res_cap",0.5)).also {
+    require(it.sellRatio in 0.0..0.49 && it.maxCurrency in 1..Long.MAX_VALUE/2 && it.transactionCap in 1..64 && it.partyCap in 1..8 && it.partyRadius in 1.0..128.0 && it.enemyCap in 1..1000 && it.instanceCap in 1..32 && it.instanceTimeout > 0 && it.playerHpCap in 1.0..1024.0 && it.basicAttackCooldown in 100..5000 && it.elementResCap in 0.0..0.9)
 }
 
 /** Stages multiple quest/dialogue inventory effects, allowing one validated commit boundary. */
@@ -153,7 +153,8 @@ class StagedInventory(private val base: InventoryAccess): InventoryAccess {
 fun PlayerProfile.restore(other: PlayerProfile) {
     classId=other.classId; level=other.level; xp=other.xp; currency=other.currency; resource=other.resource; selectedSkill=other.selectedSkill; starterGranted=other.starterGranted; accessory=other.accessory
     skillLevels.clear(); skillLevels.putAll(other.skillLevels); flags.clear(); flags.addAll(other.flags)
-    quests.clear(); quests.putAll(other.snapshot().quests); dailyPurchases.clear(); dailyPurchases.putAll(other.dailyPurchases); transactions.clear(); transactions.addAll(other.transactions)
+    quests.clear(); quests.putAll(other.snapshot().quests); dailyPurchases.clear(); dailyPurchases.putAll(other.dailyPurchases); transactions.clear(); transactions.addAll(other.transactions); pendingRewards.clear(); pendingRewards.putAll(other.pendingRewards)
 }
+
 
 
