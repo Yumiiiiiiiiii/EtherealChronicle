@@ -29,7 +29,10 @@
 | `ec.codex.gathering_kind` | 種別: <kind> / 必要道具 T<tier> | Type: <kind> / Required tool T<tier> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<kind>`, `<tier>` |
 | `ec.codex.maximum_size` | 最大: <size>cm / <crown> | Max: <size> cm / <crown> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<crown>`, `<size>` |
 | `ec.codex.new_discoveries` | 図鑑の発見率が上がりました: <items> | New codex discoveries: <items> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<items>` |
+| `ec.codex.next_page` | 次のページ | Next page | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.codex.no_weakness` | なし | None | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
+| `ec.codex.page` | ページ <page>/<pages> | Page <page>/<pages> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<page>`, `<pages>` |
+| `ec.codex.previous_page` | 前のページ | Previous page | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.codex.search_area` | このエリアで魔物を探しましょう。 | Explore this area to find enemies. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.codex.seek_fishing_spot` | 釣り場で竿を出して探しましょう。 | Cast your rod at a fishing spot to search. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.codex.seek_gathering_node` | 専用道具で採取地を調べましょう。 | Inspect gathering sites with a specialized tool. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
@@ -139,7 +142,7 @@
 | `ec.error.item_missing` | アイテムが見つかりません。 | Item not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt |  |
 | `ec.error.item_unsellable` | このアイテムは売れません。 | This item cannot be sold. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.life_level_range` | 生活スキルレベルは1..<detail>で指定してください。 | Life skill level must be between 1 and <detail>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<detail>` |
-| `ec.error.materials_or_space` | 必要な素材が不足しているか、持ち物に空きがありません。 | Required materials are missing or your inventory is full. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
+| `ec.error.materials_or_space` | 必要な素材が不足しているか、持ち物に空きがありません。 | Required materials are missing or your inventory is full. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.party_gather` | 仲間全員が近くに集まり、職業を選択してください。 | Gather your party nearby and make sure everyone has selected a class. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
 | `ec.error.party_invite_missing` | 招待がありません。 | There is no party invitation. | src/main/kotlin/net/nakaymi/etherealchronicle/core/Cooperation.kt |  |
 | `ec.error.party_leader_required` | パーティーリーダーが入場してください。 | The party leader must enter. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
@@ -158,7 +161,7 @@
 | `ec.error.reset_schedule` | リセット周期は DAILY または WEEKLY です。 | Reset schedule must be DAILY or WEEKLY. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.revive_is_passive` | 不死鳥の星羽は装飾品として装備し、致死ダメージ時に自動発動します。/ec equipment から装備してください。 | Equip the Phoenix Star Feather as an accessory. It activates automatically on lethal damage. Use /ec equipment. | src/main/kotlin/net/nakaymi/etherealchronicle/core/Consumable.kt |  |
 | `ec.error.reward_once_flag` | 一度限りの配布フラグがありません。 | A one-time reward flag is required. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
-| `ec.error.sell_items_missing` | 売却する品が足りません。 | You do not have enough items to sell. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
+| `ec.error.sell_items_missing` | 売却する品が足りません。 | You do not have enough items to sell. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.shop_amount_cap` | 商品の数量が上限を超えています。 | The quantity exceeds the transaction limit. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.shop_condition` | この商品は条件を満たしていません。 | You do not meet this item's requirements. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.shop_entry_missing` | 商品が見つかりません。 | Shop entry not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |

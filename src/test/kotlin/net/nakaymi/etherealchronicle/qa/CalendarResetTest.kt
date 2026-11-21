@@ -65,6 +65,20 @@ class CalendarResetTest {
     }
 
     @Test
+    fun `shop planning returns localized failure keys instead of expected validation exceptions`() {
+        val trades=TradeEngine { snapshot }
+        val profile=PlayerProfile(UUID.randomUUID(),level=20,currency=0)
+        val inventory=MemoryInventory(capacity=100)
+
+        val insufficient=trades.planBuy(profile,"ec:shop_lumina_general","minor_hp_potion_convenience",inventory,"low-currency",1)
+        assertEquals(TradePlanResult.Rejected("ec.error.currency_low"),insufficient)
+
+        profile.currency=100
+        val noRoom=trades.planBuy(profile,"ec:shop_lumina_general","minor_hp_potion_convenience",MemoryInventory(capacity=0),"full-inventory",1)
+        assertEquals(TradePlanResult.Rejected("ec.error.materials_or_space"),noRoom)
+    }
+
+    @Test
     fun `schema six migration preserves existing quest progress and adds period field lazily`() {
         val legacy=mapOf<String,Any?>("schema_version" to 5,"uuid" to UUID.randomUUID().toString(),"quests" to mapOf("ec:q" to mapOf("completed" to true,"progress" to 2)))
         val store=net.nakaymi.etherealchronicle.data.PlayerStore(Path.of("build/test-calendar-migration"))

@@ -131,4 +131,28 @@ class DemoWorldMigrationTest {
             assertTrue(!DemoWorld.migrateToV5(plugin,world,folder))
         } finally { MockBukkit.unmock() }
     }
+
+    @Test
+    fun `v4 fixture places the v5 structure once and records the migrated marker`() {
+        val server=MockBukkit.mock()
+        try {
+            val world=server.addSimpleWorld(DemoWorld.NAME)
+            val plugin=MockBukkit.load(RpgPlugin::class.java)
+            val folder=Files.createTempDirectory("ec-owned-v4-clear")
+            Files.writeString(folder.resolve(".etherealchronicle-owned"),"test-owned\n")
+            Files.writeString(folder.resolve(".etherealchronicle-built"),"v4\n")
+            var placements=0
+
+            assertTrue(DemoWorld.migrateToV5(plugin,world,folder) { _, target, x, y, z ->
+                placements++
+                target.getBlockAt(x,y,z).type=Material.STONE_BRICKS
+                true
+            })
+            assertEquals("v5",Files.readString(folder.resolve(".etherealchronicle-built")).trim())
+            assertEquals(Material.STONE_BRICKS,world.getBlockAt(24,65,28).type)
+            assertTrue(!DemoWorld.migrateToV5(plugin,world,folder))
+            assertEquals(1,placements,"the saved v5 marker must prevent a second placement")
+            assertEquals(Material.STONE_BRICKS,world.getBlockAt(24,65,28).type)
+        } finally { MockBukkit.unmock() }
+    }
 }

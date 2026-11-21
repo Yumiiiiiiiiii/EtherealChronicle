@@ -10,6 +10,9 @@ import org.bukkit.inventory.ItemStack
 
 /** プレイヤーの討伐・収集記録を、ゲーム内図鑑画面へ描画します。 */
 internal class CodexController(private val plugin: RpgPlugin) {
+    private data class PageState(val key: String, val page: Int, val pageCount: Int)
+    private val pageStates = mutableMapOf<java.util.UUID,PageState>()
+
     private fun areaCodexPercent(profile: net.nakaymi.etherealchronicle.core.PlayerProfile, area: Area): Pair<Int, Int> {
         val enemies = plugin.snapshot.world.enemiesInArea(area.id)
         val found = enemies.count { (profile.bestiary[it.id] ?: 0) > 0 }
@@ -22,13 +25,14 @@ internal class CodexController(private val plugin: RpgPlugin) {
     fun openCodex(player:Player) {
         val profile=plugin.profiles[player.uniqueId] ?: return
         val menu=RpgMenu("codex-areas","",title=plugin.message(player,"ec.menu.codex_areas")).inventory
-        plugin.snapshot.world.areas.values.sortedBy { it.name }.take(45).forEachIndexed { slot,area ->
+        val page=page(player,"codex-areas","",plugin.snapshot.world.areas.values.sortedBy { it.name })
+        page.items.forEachIndexed { slot,area ->
             val (found,total)=areaCodexPercent(profile,area)
             menu.setItem(slot,ItemStack(Material.FILLED_MAP).apply { itemMeta=itemMeta.apply {
                 displayName(Component.text(area.name)); lore(listOf(plugin.message(player,"ec.codex.found_ratio","found" to found,"total" to total,"percent" to if(total==0) 0 else found*100/total)))
             } })
         }
-        codexTabs(player,menu)
+        codexFooter(player,menu,page,false)
         plugin.openCodexMenu(player, menu)
     }
     /** 指定エリアの魔物・討伐数・ドロップを表示します。 */
@@ -36,7 +40,8 @@ internal class CodexController(private val plugin: RpgPlugin) {
         val profile=plugin.profiles[player.uniqueId] ?: return
         val area=plugin.snapshot.world.areas[areaId] ?: return openCodex(player)
         val menu=RpgMenu("codex-area",areaId,title=plugin.message(player,"ec.menu.codex_area")).inventory
-        plugin.snapshot.world.enemiesInArea(areaId).take(45).forEachIndexed { slot,enemy ->
+        val page=page(player,"codex-area",areaId,plugin.snapshot.world.enemiesInArea(areaId))
+        page.items.forEachIndexed { slot,enemy ->
             val count=profile.bestiary[enemy.id] ?: 0
             val discovered=count > 0
             val drops=plugin.snapshot.documents[enemy.id]?.get("droptable") as? String
@@ -47,18 +52,19 @@ internal class CodexController(private val plugin: RpgPlugin) {
                 lore(if(discovered) listOf(plugin.message(player,"ec.codex.defeated_count","count" to count),plugin.message(player,"ec.codex.weaknesses","values" to weaknesses),plugin.message(player,"ec.codex.drops","values" to dropIds.joinToString())) else listOf(plugin.message(player,"ec.codex.search_area")))
             } })
         }
-        menu.setItem(53,ItemStack(Material.ARROW).apply { itemMeta=itemMeta.apply { displayName(plugin.message(player,"ec.codex.back_areas")) } }); codexTabs(player,menu)
+        codexFooter(player,menu,page,true)
         plugin.openCodexMenu(player, menu)
     }
     /** 発見済みアイテムを一覧表示します。 */
     fun openCodexItems(player:Player) {
         val profile=plugin.profiles[player.uniqueId] ?: return
         val menu=RpgMenu("codex-items","",title=plugin.message(player,"ec.menu.codex_items")).inventory
-        profile.discoveredItems.sorted().take(45).forEachIndexed { slot,id ->
+        val page=page(player,"codex-items","",profile.discoveredItems.sorted())
+        page.items.forEachIndexed { slot,id ->
             val name=plugin.snapshot.documents[id]?.get("name") as? String ?: id
             menu.setItem(slot,ItemStack(Material.PAPER).apply { itemMeta=itemMeta.apply { displayName(Component.text(name)); lore(listOf(Component.text(id))) } })
         }
-        menu.setItem(53,ItemStack(Material.ARROW).apply { itemMeta=itemMeta.apply { displayName(plugin.message(player,"ec.codex.back_areas")) } }); codexTabs(player,menu)
+        codexFooter(player,menu,page,true)
         plugin.openCodexMenu(player, menu)
     }
     private fun codexTabs(player:Player,menu:Inventory) {
@@ -72,28 +78,70 @@ internal class CodexController(private val plugin: RpgPlugin) {
     fun openCodexFish(player:Player) {
         val profile=plugin.profiles[player.uniqueId] ?: return
         val menu=RpgMenu("codex-fish","",title=plugin.message(player,"ec.menu.codex_fish")).inventory
-        plugin.snapshot.world.fishSpecies.values.sortedBy { it.name }.take(45).forEachIndexed { slot,fish ->
+        val page=page(player,"codex-fish","",plugin.snapshot.world.fishSpecies.values.sortedBy { it.name })
+        page.items.forEachIndexed { slot,fish ->
             val record=profile.fishRecords[fish.id]; val discovered=record?.count?.let { it>0 }==true
             menu.setItem(slot,ItemStack(if(discovered) Material.COD else Material.GRAY_DYE).apply { itemMeta=itemMeta.apply {
                 displayName(if(discovered) Component.text(fish.name) else plugin.message(player,"ec.codex.undiscovered_fish"))
                 lore(if(record!=null) listOf(plugin.message(player,"ec.codex.catch_count","count" to record.count),plugin.message(player,"ec.codex.maximum_size","size" to record.maxCm,"crown" to record.crown),Component.text(fish.loreHint)) else listOf(plugin.message(player,"ec.codex.seek_fishing_spot")))
             } })
         }
-        codexTabs(player,menu); plugin.openCodexMenu(player, menu)
+        codexFooter(player,menu,page,true); plugin.openCodexMenu(player, menu)
     }
     /** 採取ノードごとの発見と採取回数を表示します。 */
     fun openCodexGathering(player:Player) {
         val profile=plugin.profiles[player.uniqueId] ?: return
         val menu=RpgMenu("codex-gathering","",title=plugin.message(player,"ec.menu.codex_gathering")).inventory
-        plugin.snapshot.world.gatheringNodes.values.sortedBy { it.name }.take(45).forEachIndexed { slot,node ->
+        val page=page(player,"codex-gathering","",plugin.snapshot.world.gatheringNodes.values.sortedBy { it.name })
+        page.items.forEachIndexed { slot,node ->
             val count=profile.gatheringRecords[node.id] ?: 0
             menu.setItem(slot,ItemStack(if(count>0) Material.IRON_ORE else Material.GRAY_DYE).apply { itemMeta=itemMeta.apply {
                 displayName(if(count>0) Component.text(node.name) else plugin.message(player,"ec.codex.undiscovered_gathering"))
                 lore(if(count>0) listOf(plugin.message(player,"ec.codex.gathering_count","count" to count),plugin.message(player,"ec.codex.gathering_kind","kind" to node.kind,"tier" to node.minToolTier)) else listOf(plugin.message(player,"ec.codex.seek_gathering_node")))
             } })
         }
-        codexTabs(player,menu); plugin.openCodexMenu(player, menu)
+        codexFooter(player,menu,page,true); plugin.openCodexMenu(player, menu)
     }
+
+    /** 前後ページ・カテゴリ切替・エリア一覧へ戻る操作を下段にまとめます。 */
+    private fun codexFooter(player:Player,menu:Inventory,page:CodexPagination.Slice<*>,showBack:Boolean) {
+        if(page.page>0) menu.setItem(45,button(Material.ARROW,plugin.message(player,"ec.codex.previous_page")))
+        if(showBack) menu.setItem(46,button(Material.ARROW,plugin.message(player,"ec.codex.back_areas")))
+        menu.setItem(47,button(Material.FISHING_ROD,plugin.message(player,"ec.codex.tab_fish")))
+        menu.setItem(48,button(Material.IRON_PICKAXE,plugin.message(player,"ec.codex.tab_gathering")))
+        menu.setItem(49,button(Material.BOOK,plugin.message(player,"ec.codex.tab_items")))
+        menu.setItem(50,button(Material.PAPER,plugin.message(player,"ec.codex.page","page" to (page.page+1),"pages" to page.pageCount)))
+        if(page.page+1<page.pageCount) menu.setItem(53,button(Material.ARROW,plugin.message(player,"ec.codex.next_page")))
+    }
+
+    private fun button(material:Material,label:Component)=ItemStack(material).apply {
+        itemMeta=itemMeta.apply { displayName(label) }
+    }
+
+    private fun <T> page(player:Player,kind:String,contentId:String,items:List<T>):CodexPagination.Slice<T> {
+        val key="$kind:$contentId"
+        val requested=pageStates[player.uniqueId]?.takeIf { it.key==key }?.page ?: 0
+        return CodexPagination.slice(items,requested).also { pageStates[player.uniqueId]=PageState(key,it.page,it.pageCount) }
+    }
+
+    /** 指定図鑑のページ番号を更新し、同じ一覧を再描画します。 */
+    fun turnPage(player:Player,kind:String,contentId:String,direction:Int) {
+        val state=pageStates[player.uniqueId] ?: return
+        if(state.key!="$kind:$contentId") return
+        val next=CodexPagination.move(state.page,direction,state.pageCount)
+        if(next==state.page) return
+        pageStates[player.uniqueId]=state.copy(page=next)
+        when(kind) {
+            "codex-areas" -> openCodex(player)
+            "codex-area" -> openCodexArea(player,contentId)
+            "codex-items" -> openCodexItems(player)
+            "codex-fish" -> openCodexFish(player)
+            "codex-gathering" -> openCodexGathering(player)
+        }
+    }
+
+    /** 切断時に図鑑の一時ページ状態を破棄します。 */
+    fun clear(playerId:java.util.UUID) { pageStates.remove(playerId) }
 
 }
 

@@ -15,12 +15,12 @@ internal class InvUiInventoryAdapter(
     private val itemModel: (org.bukkit.inventory.ItemStack) -> String?,
 ) {
     /** 既存スロットとクリック位置を保って画面を開きます。 */
-    fun open(player: Player, source: Inventory, title: Component, onClick: (Int, ClickType) -> Unit) {
+    fun open(player: Player, source: Inventory, title: Component, menuKind: String, onClick: (Int, ClickType) -> Unit) {
         val grid = InventoryGrid.forInventorySize(source.size)
         val gui = Gui.empty(grid.width, grid.height)
         source.contents.take(grid.slotCount).forEachIndexed { slot, original ->
             val stack = original?.takeUnless { it.type.isAir }?.clone() ?: return@forEachIndexed
-            theme.modelKey(player, itemModel(stack))?.let { key -> stack.editMeta { it.setItemModel(key) } }
+            theme.itemModel(player,menuKind,slot,stack.type,itemModel(stack))?.let { key -> stack.editMeta { it.setItemModel(key) } }
             val item = Item.builder()
                 .setItemProvider(ItemBuilder(stack))
                 .addClickHandler { click -> onClick(slot, click.clickType()) }
@@ -29,7 +29,7 @@ internal class InvUiInventoryAdapter(
         }
         Window.builder()
             .setViewer(player)
-            .setTitle(theme.title(player, title))
+            .setTitle(theme.title(player,title,menuKind))
             .setUpperGui(gui)
             .build()
             .open()

@@ -173,14 +173,19 @@ object DemoWorld {
         }
     }
     /** v4所有ワールドに同梱NBTの小さな道標を安全に追加し、完了versionを記録します。 */
-    internal fun migrateToV5(plugin:RpgPlugin,world:World,folder:java.nio.file.Path):Boolean {
+    internal fun migrateToV5(
+        plugin:RpgPlugin,
+        world:World,
+        folder:java.nio.file.Path,
+        placeStructure: (RpgPlugin,World,Int,Int,Int) -> Boolean = DemoStructureTemplate::placeWhenClear,
+    ):Boolean {
         if(!Files.exists(folder.resolve(".etherealchronicle-owned"))) return false
         val marker=folder.resolve(".etherealchronicle-built")
         if(!Files.exists(marker)) return false
         when(Files.readString(marker).trim()) {
             "v4" -> {
                 try {
-                    val placed=DemoStructureTemplate.placeWhenClear(plugin,world,24,65,28)
+                    val placed=placeStructure(plugin,world,24,65,28)
                     Files.writeString(marker,"v5\n")
                     plugin.logger.info(if(placed) "Added the Lumina waystone structure (v4->v5)." else "Kept the occupied Lumina waystone area unchanged (v4->v5).")
                     return true

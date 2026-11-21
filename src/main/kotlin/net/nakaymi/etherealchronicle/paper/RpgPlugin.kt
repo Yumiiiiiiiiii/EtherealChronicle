@@ -245,6 +245,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     @EventHandler fun onJoin(e: PlayerJoinEvent) = join(e.player)
     @EventHandler fun onQuit(e: PlayerQuitEvent) {
         if(::adventure.isInitialized) adventure.beforeQuit(e.player)
+        if(ready) codexController.clear(e.player.uniqueId)
         sessions.remove(e.player.uniqueId); choosing.remove(e.player.uniqueId)
         profiles.remove(e.player.uniqueId)?.let { profile -> settleEnhancement(e.player,profile); save(profile) }
         lastMoved.remove(e.player.uniqueId); dirty.remove(e.player.uniqueId)
@@ -487,13 +488,24 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             return false
         }
         val holder = inventory.holder as? RpgMenu ?: return false
-        invUiInventoryAdapter.open(player, inventory, holder.title, onClick)
+        invUiInventoryAdapter.open(player, inventory, holder.title, holder.kind) { slot, click ->
+            handleInvUiAction(player) { onClick(slot,click) }
+        }
         return true
+    }
+    /** InvUIのコールバック例外を画面操作の失敗として処理し、PaperのERRORログへ漏らしません。 */
+    internal fun handleInvUiAction(player: Player, action: () -> Unit) {
+        try {
+            action()
+        } catch (error: Exception) {
+            logger.fine("InvUI action rejected for ${player.uniqueId}: ${error.message}")
+            player.sendMessage(message(player,"ec.command.failed", "reason" to diagnostic(player,error.message.orEmpty())))
+        }
     }
     /** 図鑑の画面移動をInvUI/旧Inventoryのどちらからも同じ処理へ接続します。 */
     internal fun openCodexMenu(player: Player, inventory: Inventory) {
         val holder = inventory.holder as? RpgMenu ?: return
-        openRpgMenu(player, inventory) { slot, _ -> codexAction(player, holder.kind, slot) }
+        openRpgMenu(player, inventory) { slot, _ -> codexAction(player,holder.kind,holder.contentId,slot) }
     }
     internal fun openEnhancement(player:Player) {
         val stack=player.inventory.itemInMainHand
@@ -561,14 +573,17 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         e.isCancelled=true
         if(e.rawSlot !in 0 until e.view.topInventory.size) return
         if(menu.kind == "enhance") { if(e.rawSlot == 13) runCatching { enhance(player,menu) }.onFailure { player.sendMessage(message(player,"ec.command.failed", "reason" to diagnostic(player,it.message.orEmpty()))) }; return }
-        codexAction(player, menu.kind, e.rawSlot)
+        codexAction(player,menu.kind,menu.contentId,e.rawSlot)
     }
-    private fun codexAction(player: Player, kind: String, slot: Int) {
-        when(kind) {
-            "codex-areas" -> when(slot) { 51 -> openCodexFish(player); 52 -> openCodexGathering(player); 53 -> openCodexItems(player); else -> snapshot.world.areas.values.sortedBy { it.name }.getOrNull(slot)?.let { openCodexArea(player,it.id) } }
-            "codex-area","codex-items" -> when(slot) { 50,53 -> openCodex(player); 51 -> openCodexFish(player); 52 -> openCodexGathering(player) }
-            "codex-fish" -> when(slot) { 50,51 -> openCodex(player); 52 -> openCodexGathering(player); 53 -> openCodexItems(player) }
-            "codex-gathering" -> when(slot) { 50,52 -> openCodex(player); 51 -> openCodexFish(player); 53 -> openCodexItems(player) }
+    private fun codexAction(player: Player, kind: String, contentId:String, slot: Int) {
+        when(slot) {
+            45 -> codexController.turnPage(player,kind,contentId,-1)
+            46 -> if(kind!="codex-areas") openCodex(player)
+            47 -> openCodexFish(player)
+            48 -> openCodexGathering(player)
+            49 -> openCodexItems(player)
+            53 -> codexController.turnPage(player,kind,contentId,1)
+            else -> if(kind=="codex-areas") snapshot.world.areas.values.sortedBy { it.name }.getOrNull(slot)?.let { openCodexArea(player,it.id) }
         }
     }
     private fun tick() {
@@ -917,10 +932,12 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 "give" -> {
                     require(args.size in 3..4) { "ec.error.usage: /ec give <player> <item> [amount]" }
                     val p = server.getPlayerExact(args[1]) ?: error("ec.error.player_missing")
+                    val profile = profiles[p.uniqueId] ?: error("ec.error.profile_loading")
                     val amount = args.getOrNull(3)?.toInt() ?: 1
                     require(amount in 1..64)
                     require(!adventure.locked(p.uniqueId))
                     require(inventory(p).exchange(emptyMap(),mapOf(args[2] to amount))) { "ec.error.inventory_full" }
+                    profile.discoverItem(args[2]); save(profile)
                     sender.sendMessage(message(sender,"ec.command.item_given"))
                 }
                 "setlevel" -> {

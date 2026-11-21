@@ -2,6 +2,9 @@ package net.nakaymi.etherealchronicle.paper
 
 import net.nakaymi.etherealchronicle.data.ContentService
 import org.bukkit.Material
+import org.bukkit.NamespacedKey
+import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import org.bukkit.inventory.ItemFlag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -16,6 +19,22 @@ import kotlin.test.assertTrue
 
 /** QAで確認された進捗背景、クエスト表示名、薬品ツールチップ、職業武器切替を検証します。 */
 class UiQAFixesTest {
+    @Test
+    fun `invui title and controls use pack art only after confirmed load`() {
+        val fallback=Component.text("Codex")
+        val plain=PlainTextComponentSerializer.plainText()
+        val fallbackTitle=UiThemeProvider.title(false,fallback,"codex-areas")
+        val packedTitle=UiThemeProvider.title(true,fallback,"codex-areas")
+
+        assertEquals(fallback,fallbackTitle)
+        assertTrue(plain.serialize(packedTitle).contains('\uE102'))
+        assertEquals(NamespacedKey.fromString("ec:ui_tab_codex"),UiThemeProvider.itemModel(true,"codex-areas",47,Material.FISHING_ROD,null))
+        assertEquals(NamespacedKey.fromString("ec:ui_btn_next"),UiThemeProvider.itemModel(true,"codex-areas",53,Material.ARROW,null))
+        assertEquals(NamespacedKey.fromString("ec:ui_btn_confirm"),UiThemeProvider.itemModel(true,"enhance",13,Material.ANVIL,null))
+        assertEquals(NamespacedKey.fromString("ec:wpn_astral_piercer"),UiThemeProvider.itemModel(true,"shop",1,Material.DIAMOND_SWORD,"ec:wpn_astral_piercer"))
+        assertEquals(null,UiThemeProvider.itemModel(false,"codex-areas",47,Material.FISHING_ROD,null))
+    }
+
     @Test
     fun `advancement root uses the modern texture identifier`() {
         val root = AdvancementDatapack.rootJson("Chronicle", "Records")

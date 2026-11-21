@@ -193,8 +193,19 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         val profile = plugin.profiles[player.uniqueId] ?: return
         val shop = plugin.snapshot.world.shops[shopId] ?: return
         val entry = shop.entries.getOrNull(slot)?.takeIf { it.condition.matches(profile) } ?: return
-        val plan = trades.buy(profile,shopId,entry.id,plugin.inventory(player),UUID.randomUUID().toString(),System.currentTimeMillis())
-        transaction(player,{ inventory -> require(inventory.exchange(plan.remove,plan.add)); trades.commit(profile,plan) }) { showShop(player,shopId) }
+        val plan = when (val result = trades.planBuy(profile,shopId,entry.id,plugin.inventory(player),UUID.randomUUID().toString(),System.currentTimeMillis())) {
+            is TradePlanResult.Ready -> result.plan
+            is TradePlanResult.Rejected -> {
+                player.sendMessage(plugin.diagnostic(player,result.messageKey))
+                return
+            }
+        }
+        runExpectedTrade(player) {
+            transaction(player,{ inventory ->
+                require(inventory.exchange(plan.remove,plan.add)) { "ec.error.materials_or_space" }
+                trades.commit(profile,plan)
+            }) { showShop(player,shopId) }
+        }
     }
     private fun selectDialogueChoice(player: Player,dialogueId: String,nodeId: String,choiceId: String) {
         val profile = plugin.profiles[player.uniqueId] ?: return
@@ -232,8 +243,30 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     private fun sellFromInventory(player: Player, shopId: String, stack: ItemStack?) {
         val profile = plugin.profiles[player.uniqueId] ?: return
         val id = plugin.identify(stack) ?: return
-        val plan = trades.sell(profile,shopId,id,1,plugin.inventory(player),UUID.randomUUID().toString())
-        transaction(player,{ inventory -> require(inventory.exchange(plan.remove,plan.add)); trades.commit(profile,plan) }) { showShop(player,shopId) }
+        val plan = when (val result = trades.planSell(profile,shopId,id,1,plugin.inventory(player),UUID.randomUUID().toString())) {
+            is TradePlanResult.Ready -> result.plan
+            is TradePlanResult.Rejected -> {
+                player.sendMessage(plugin.diagnostic(player,result.messageKey))
+                return
+            }
+        }
+        runExpectedTrade(player) {
+            transaction(player,{ inventory ->
+                require(inventory.exchange(plan.remove,plan.add)) { "ec.error.sell_items_missing" }
+                trades.commit(profile,plan)
+            }) { showShop(player,shopId) }
+        }
+    }
+    /** 取引中に起きる想定内の状態変化は言語メッセージへ変換し、UIライブラリまで例外を漏らしません。 */
+    private fun runExpectedTrade(player: Player, action: () -> Unit) {
+        try {
+            action()
+        } catch (error: Exception) {
+            val key = error.message?.takeIf { it.startsWith("ec." + "error.") }
+            if (key == null) throw error
+            plugin.logger.fine("Trade rejected for ${player.uniqueId}: $key")
+            player.sendMessage(plugin.diagnostic(player,key))
+        }
     }
     private fun equipAccessory(player: Player, id: String) {
         val profile = plugin.profiles[player.uniqueId] ?: return

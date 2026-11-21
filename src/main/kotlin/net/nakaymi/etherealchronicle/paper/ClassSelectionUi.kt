@@ -45,7 +45,7 @@ class ClassSelectionUi(
         }
         val window = Window.builder()
             .setViewer(player)
-            .setTitle(theme.title(player, title(player)))
+            .setTitle(theme.title(player, title(player), "class"))
             .setUpperGui(builder.build())
             .build()
         window.addCloseHandler { onClose(player) }

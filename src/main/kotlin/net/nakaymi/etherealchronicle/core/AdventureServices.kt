@@ -111,8 +111,21 @@ class DialogueEngine(private val content: () -> ContentSnapshot) {
         node(p,id,node).second.choices.firstOrNull { it.id == choice } ?: error("ec.error.dialogue_choice")
 }
 data class TradePlan(val id: String,val currencyBefore: Long,val currencyAfter: Long,val remove: Map<String,Int>,val add: Map<String,Int>,val dailyKey: String?,val dailyCount: Int)
+/** 取引計画の成功またはプレイヤーに返す想定内の拒否理由です。 */
+sealed interface TradePlanResult {
+    data class Ready(val plan: TradePlan) : TradePlanResult
+    data class Rejected(val messageKey: String) : TradePlanResult
+}
 /** 二重実行IDと上限を確認し、所持品を変更せず取引planを作成します。 */
 class TradeEngine(private val content: () -> ContentSnapshot) {
+    /** 通常の購入条件不成立を例外ではなく言語キーとして返します。 */
+    fun planBuy(p: PlayerProfile,shopId: String,entryId: String,inventory: InventoryAccess,transaction: String,day: Long): TradePlanResult =
+        planResult { buy(p,shopId,entryId,inventory,transaction,day) }
+
+    /** 通常の売却条件不成立を例外ではなく言語キーとして返します。 */
+    fun planSell(p: PlayerProfile,shopId: String,item: String,amount: Int,inventory: InventoryAccess,transaction: String): TradePlanResult =
+        planResult { sell(p,shopId,item,amount,inventory,transaction) }
+
     fun buy(p: PlayerProfile,shopId: String,entryId: String,inventory: InventoryAccess,transaction: String,day: Long): TradePlan {
         require(transaction !in p.transactions) { "ec.error.transaction_replayed" }
         val c=content(); val shop=c.world.shops[shopId] ?: error("ec.error.shop_missing")
@@ -152,6 +165,18 @@ class TradeEngine(private val content: () -> ContentSnapshot) {
         }
         p.transactions += plan.id
         while(p.transactions.size > 128) p.transactions.removeAt(0)
+    }
+
+    private fun planResult(create: () -> TradePlan): TradePlanResult = try {
+        TradePlanResult.Ready(create())
+    } catch (error: Exception) {
+        val key = error.message?.let(TRADE_ERROR_KEY::matchEntire)?.groupValues?.get(1)
+            ?: throw error
+        TradePlanResult.Rejected(key)
+    }
+
+    private companion object {
+        val TRADE_ERROR_KEY = Regex("^(ec\\.error\\.[a-z0-9_]+)(?::.*)?$")
     }
 }
 

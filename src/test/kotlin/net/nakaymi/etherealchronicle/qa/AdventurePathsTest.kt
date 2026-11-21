@@ -154,11 +154,19 @@ class AdventurePathsTest {
             }
             rec("E insufficient funds rejected without side effects") {
                 if ((player.openInventory.topInventory?.holder as? net.nakaymi.etherealchronicle.paper.RpgMenu)?.kind != "shop") openShop()
-                profile.currency = 5; val had = potions()
-                player.simulateInventoryClick(player.openInventory, ClickType.LEFT, entrySlot("minor_hp_potion_convenience"))
+                profile.currency = 5
+                val had = potions()
+                val shopEntry = entrySlot("minor_hp_potion_convenience")
+                while(player.nextMessage()!=null) { }
+                val buySlot = adv.javaClass.getDeclaredMethod("buyShopSlot",Player::class.java,String::class.java,Int::class.javaPrimitiveType!!)
+                    .also { it.isAccessible=true }
+                plugin.handleInvUiAction(player) { buySlot.invoke(adv,player,"ec:shop_lumina_general",shopEntry) }
                 server.pump(1000) { false }
                 assertEquals(had, potions()); assertEquals(5, profile.currency)
-                null
+                val message=player.nextMessage()?.toString().orEmpty()
+                assertTrue(message.contains("所持金が足りません") || message.contains("You do not have enough currency."),"localized low-currency feedback missing: $message")
+                assertFalse(message.contains("ec.error.currency_low"),"internal key leaked to the player")
+                message
             }
             rec("F respawn restores skill slot and keeps profile") {
                 val classBefore = profile.classId; val lvl = profile.level
