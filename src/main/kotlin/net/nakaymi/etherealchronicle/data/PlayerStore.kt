@@ -79,7 +79,7 @@ class PlayerStore(private val directory: Path): AutoCloseable {
             p.fishRecords[id]=FishRecord(count,size,crown)
         }
         d.mapping("gathering_records").forEach { (id,n) -> p.gatheringRecords[id]=(n as Number).toInt().also { require(it in 0..1_000_000) } }
-        d.mapping("gathering_ready_at").forEach { (id,n) -> p.gatheringReadyAt[id]=(n as Number).toString().toLongOrNull()?.also { require(it >= 0) } ?: error("採取時刻が不正です: $id") }
+        d.mapping("gathering_ready_at").forEach { (id,n) -> p.gatheringReadyAt[id]=(n as Number).toString().toLongOrNull()?.also { require(it >= 0) } ?: error("ec.error.invalid_content: gathering_ready_at.$id") }
         require(p.fishRecords.size <= 500 && p.gatheringRecords.size <= 500 && p.gatheringReadyAt.size <= 2000)
         return p
     }

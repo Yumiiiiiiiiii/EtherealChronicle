@@ -91,7 +91,7 @@ class ActionGate(private val clock: Clock) {
     fun cleanup() { val now=clock.millis(); ready.entries.removeIf { it.value <= now } }
 }
 
-enum class Rarity(val displayName: String) { COMMON("コモン"), UNCOMMON("アンコモン"), RARE("レア"), EPIC("エピック"), LEGENDARY("レジェンダリー") }
+enum class Rarity(val displayKey: String) { COMMON("ec.rarity.common"), UNCOMMON("ec.rarity.uncommon"), RARE("ec.rarity.rare"), EPIC("ec.rarity.epic"), LEGENDARY("ec.rarity.legendary") }
 enum class GearSlot { HAND, OFFHAND, HEAD, CHEST, LEGS, FEET, ACCESSORY, NONE }
 /** YAMLの装備定義と、装備条件・stat budgetの検証規則です。 */
 data class ItemDefinition(val id: String, val name: String, val material: String, val rarity: Rarity,
