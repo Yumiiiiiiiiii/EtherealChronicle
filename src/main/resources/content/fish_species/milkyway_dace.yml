@@ -1,0 +1,28 @@
+schema_version: 1
+id: ec:fish_milkyway_dace
+type: fish_species
+name: 銀河オイカワ
+item: ec:item_fish_milkyway_dace
+rarity: RARE
+tags: [AETHER, FANTASY]
+habitats: [ec:area_stargazer_hill]
+time_windows: [DAWN_DUSK, NIGHT]
+weather: [CLEAR, RAIN]
+min_rod_tier: 2
+min_fishing_level: 8
+base_weight: 18
+min_cm: 25
+max_cm: 75
+silver_crown_cm: 64
+gold_crown_cm: 72
+life_xp: 30
+adventurer_xp: 20
+minigame:
+  bite_window_ms: 2100
+  difficulty: 3.0
+  sweet_width: 30
+  progress_per_sec: 17
+  tension_decay_per_sec: 21
+  thrash_chance_per_sec: 0.2
+  dive_chance_per_sec: 0.1
+lore_hint: '銀河オイカワ。釣り場と時間帯を見極めて狙おう。'

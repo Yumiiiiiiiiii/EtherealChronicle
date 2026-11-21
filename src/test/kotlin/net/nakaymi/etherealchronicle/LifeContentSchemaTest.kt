@@ -52,7 +52,7 @@ class LifeContentSchemaTest {
             world: ec_world
             center: {x: 10, y: 64, z: 28}
             radius: 12
-            default_for_area: true
+            default_for_area: false
             tags: [PORT, FRESHWATER]
         """.trimIndent())
         root.resolve("fish_species/test_fish.yml").writeText("""
@@ -109,6 +109,11 @@ class LifeContentSchemaTest {
         assertEquals("ec:area_lumina_port",content.fishingSpots.getValue("ec:spot_test").area)
         assertEquals("ec:item_fish_silver_sardine",content.fishSpecies.getValue("ec:fish_test").item)
         assertEquals(NodeKind.HERB,content.gatheringNodes.getValue("ec:node_test_herb").kind)
+        assertEquals(13,content.tackle.size)
+        assertEquals(9,content.fishingSpots.size)
+        assertEquals(10,content.fishSpecies.size)
+        assertEquals(13,content.gatheringNodes.size)
+        assertEquals(17,content.gatheringNodes.values.sumOf { it.locations.size })
     }
 
     @Test
@@ -137,18 +142,21 @@ class LifeContentSchemaTest {
         PlayerStore(directory).use { store ->
             val migration=store.migrate(mapOf("schema_version" to 9))
             assertEquals(10,migration["schema_version"])
+            assertEquals("AUTO",migration["fishing_bait"])
             assertTrue((migration["life_skills"] as Map<*,*>).containsKey("FISHING"))
             val profile=PlayerProfile(UUID.randomUUID())
             profile.lifeSkills[LifeSkillKind.FISHING]=LifeSkillProgress(7,153)
             profile.fishRecords["ec:fish_silver_sardine"]=FishRecord(12,83.5,Crown.GOLD)
             profile.gatheringRecords["ec:node_hill_crystal_1"]=4
             profile.gatheringReadyAt["ec:node_hill_crystal_1"]=123456789
+            profile.fishingBait="ec:item_bait_aether_lure"
             store.save(profile).join()
             val loaded=store.load(profile.uuid).join()
             assertEquals(profile.lifeSkills,loaded.lifeSkills)
             assertEquals(profile.fishRecords,loaded.fishRecords)
             assertEquals(profile.gatheringRecords,loaded.gatheringRecords)
             assertEquals(profile.gatheringReadyAt,loaded.gatheringReadyAt)
+            assertEquals(profile.fishingBait,loaded.fishingBait)
         }
     }
 }

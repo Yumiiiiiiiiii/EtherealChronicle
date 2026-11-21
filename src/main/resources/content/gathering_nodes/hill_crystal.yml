@@ -1,0 +1,22 @@
+schema_version: 1
+id: ec:node_hill_crystal
+type: gathering_node
+name: 星片結晶柱
+node_kind: CRYSTAL
+display_material: AMETHYST_CLUSTER
+depleted_material: BUDDING_AMETHYST
+required_tool_kind: EXTRACTOR
+min_tool_tier: 1
+min_gathering_level: 1
+channel_ms: 2200
+respawn_seconds: 180
+per_player_respawn: true
+life_xp: 22
+adventurer_xp: 12
+yields:
+  - {item: ec:item_mat_starshard_fragment, min: 1, max: 2, chance: 1.0}
+rare_yields:
+  - {item: ec:item_mat_aether_crystal_core, min: 1, max: 1, chance: 0.12, pity_after: 12}
+locations:
+  - {id: hill_crystal_1, area: ec:area_stargazer_hill, world: ec_world, x: 266, y: 65, z: -22}
+  - {id: hill_crystal_2, area: ec:area_stargazer_hill, world: ec_world, x: 310, y: 65, z: 20}

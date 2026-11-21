@@ -1,0 +1,28 @@
+schema_version: 1
+id: ec:fish_blizzard_shark
+type: fish_species
+name: 吹雪ザメ
+item: ec:item_fish_blizzard_shark
+rarity: EPIC
+tags: [FROST, ABYSSAL]
+habitats: [ec:area_glacier_ridge, ec:area_glacial_citadel]
+time_windows: [NIGHT, DAWN_DUSK]
+weather: [RAIN, THUNDER]
+min_rod_tier: 2
+min_fishing_level: 12
+base_weight: 12
+min_cm: 180
+max_cm: 420
+silver_crown_cm: 360
+gold_crown_cm: 405
+life_xp: 40
+adventurer_xp: 25
+minigame:
+  bite_window_ms: 1600
+  difficulty: 4.0
+  sweet_width: 25
+  progress_per_sec: 12
+  tension_decay_per_sec: 21
+  thrash_chance_per_sec: 0.3
+  dive_chance_per_sec: 0.1
+lore_hint: '吹雪ザメ。釣り場と時間帯を見極めて狙おう。'

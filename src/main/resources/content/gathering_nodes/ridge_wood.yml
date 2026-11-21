@@ -1,0 +1,21 @@
+schema_version: 1
+id: ec:node_ridge_wood
+type: gathering_node
+name: 凍星木の古木
+node_kind: WOOD
+display_material: SPRUCE_LOG
+depleted_material: STRIPPED_OAK_LOG
+required_tool_kind: HATCHET
+min_tool_tier: 2
+min_gathering_level: 10
+channel_ms: 2200
+respawn_seconds: 150
+per_player_respawn: true
+life_xp: 32
+adventurer_xp: 16
+yields:
+  - {item: ec:item_mat_starwood_log, min: 1, max: 2, chance: 1.0}
+rare_yields:
+  - {item: ec:item_mat_starwood_resin, min: 1, max: 1, chance: 0.12, pity_after: 12}
+locations:
+  - {id: ridge_wood_1, area: ec:area_glacier_ridge, world: ec_world, x: 594, y: 65, z: 24}

@@ -1,0 +1,28 @@
+schema_version: 1
+id: ec:fish_sunbeam_trout
+type: fish_species
+name: 陽光マス
+item: ec:item_fish_sunbeam_trout
+rarity: COMMON
+tags: [PORT, FRESHWATER]
+habitats: [ec:area_lumina_port, ec:area_ashwood_forest]
+time_windows: [DAY]
+weather: [ANY]
+min_rod_tier: 1
+min_fishing_level: 1
+base_weight: 38
+min_cm: 20
+max_cm: 52
+silver_crown_cm: 43
+gold_crown_cm: 50
+life_xp: 18
+adventurer_xp: 10
+minigame:
+  bite_window_ms: 2100
+  difficulty: 1.1
+  sweet_width: 36
+  progress_per_sec: 22
+  tension_decay_per_sec: 24
+  thrash_chance_per_sec: 0.12
+  dive_chance_per_sec: 0.04
+lore_hint: '陽光マス。釣り場と時間帯を見極めて狙おう。'

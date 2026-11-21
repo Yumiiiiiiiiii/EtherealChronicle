@@ -79,14 +79,39 @@ class LifeSkillEngine(private val balance: LifeBalance) {
 
 data class GatherResult(val item: String,val amount: Int,val rare: Boolean)
 class GatheringEngine(private val random: kotlin.random.Random = kotlin.random.Random.Default) {
-    fun roll(node: GatheringNodeDefinition,toolTier: Int,lifeLevel: Int,partyNearby: Boolean,partyBonus: Double): List<GatherResult> {
+    fun canHarvest(node: GatheringNodeDefinition,toolKind: TackleKind,toolTier: Int,lifeLevel: Int): Boolean =
+        toolKind == node.toolKind && toolTier >= node.minToolTier && lifeLevel >= node.minGatheringLevel
+
+    /**
+     * Rare pity is stored in the existing profile dropPity map. A failed rare roll
+     * advances its own node/item counter; a success (including pity) resets it.
+     * This is per recipient, so party proximity changes chance but never multiplies
+     * the number of attempts or rewards.
+     */
+    fun roll(node: GatheringNodeDefinition,toolTier: Int,lifeLevel: Int,partyNearby: Boolean,partyBonus: Double,
+             pity: MutableMap<String,Int> = mutableMapOf(),attemptCap: Int = 100): List<GatherResult> {
         require(toolTier in 1..3 && lifeLevel >= 1 && partyBonus in 0.0..0.25)
+        require(attemptCap in 1..10_000)
         val bonus=if(partyNearby) partyBonus else 0.0
         return buildList {
             node.yields.forEach { y -> if(random.nextDouble() < y.chance) add(GatherResult(y.item,random.nextInt(y.min,y.max+1),false)) }
             val rareBoost=((toolTier-node.minToolTier).coerceAtLeast(0)*0.05+(lifeLevel-1)*0.005+bonus).coerceAtMost(0.45)
-            node.rareYields.forEach { y -> if(random.nextDouble() < (y.chance+rareBoost).coerceAtMost(0.45)) add(GatherResult(y.item,random.nextInt(y.min,y.max+1),true)) }
+            node.rareYields.forEach { y ->
+                val key="gathering:${node.id}:${y.item}"
+                val attempts=pity.getOrDefault(key,0).coerceIn(0,attemptCap)
+                val chance=(y.chance+rareBoost).coerceAtMost(0.95)
+                val guaranteed=y.pityAfter != null && attempts >= y.pityAfter-1
+                val success=guaranteed || random.nextDouble() < chance
+                pity[key]=if(success) 0 else (attempts+1).coerceAtMost(attemptCap)
+                if(success) add(GatherResult(y.item,random.nextInt(y.min,y.max+1),true))
+            }
         }
     }
     fun readyAt(profile: PlayerProfile,nodeId: String,nowMillis: Long) = (profile.gatheringReadyAt[nodeId] ?: 0L) <= nowMillis
+    fun reserve(profile: PlayerProfile,locationKey: String,respawnSeconds: Long,nowMillis: Long): Boolean {
+        require(respawnSeconds in 1..86_400 && nowMillis >= 0)
+        if(!readyAt(profile,locationKey,nowMillis)) return false
+        profile.gatheringReadyAt[locationKey]=nowMillis+respawnSeconds*1000
+        return true
+    }
 }

@@ -1,0 +1,10 @@
+schema_version: 1
+id: ec:spot_ashwood_stream
+type: fishing_spot
+name: アッシュウッド清流
+area: ec:area_ashwood_forest
+world: ec_world
+center: {x: 92, y: 64, z: 30}
+radius: 14.0
+default_for_area: true
+tags: [FRESHWATER, FOREST]

@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:tackle_rod_astral
+type: tackle
+item: ec:item_tool_rod_astral
+kind: ROD
+tier: 3
+min_life_level: 14
+wait_reduction: 0.22
+sweet_spot_bonus: 10
+tension_stability: 0.78
+size_bonus: 0.06
+channel_speed_bonus: 0
+rare_chance_bonus: 0

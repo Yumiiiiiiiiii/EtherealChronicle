@@ -1,0 +1,21 @@
+schema_version: 1
+id: ec:node_sanctum_crystal
+type: gathering_node
+name: 虚核結晶脈
+node_kind: CRYSTAL
+display_material: AMETHYST_CLUSTER
+depleted_material: BUDDING_AMETHYST
+required_tool_kind: EXTRACTOR
+min_tool_tier: 2
+min_gathering_level: 12
+channel_ms: 2200
+respawn_seconds: 240
+per_player_respawn: true
+life_xp: 38
+adventurer_xp: 18
+yields:
+  - {item: ec:item_mat_aether_crystal_core, min: 1, max: 2, chance: 1.0}
+rare_yields:
+  - {item: ec:item_mat_void_core_essence, min: 1, max: 1, chance: 0.12, pity_after: 12}
+locations:
+  - {id: sanctum_crystal_1, area: ec:area_void_sanctum, world: ec_world, x: 362, y: 65, z: -24}

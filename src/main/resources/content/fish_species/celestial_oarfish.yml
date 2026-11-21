@@ -1,0 +1,28 @@
+schema_version: 1
+id: ec:fish_celestial_oarfish
+type: fish_species
+name: 星海リュウグウノツカイ
+item: ec:item_fish_celestial_oarfish
+rarity: LEGENDARY
+tags: [ABYSSAL, AETHER]
+habitats: [ec:area_void_sanctum, ec:area_crystalline_cavern]
+time_windows: [ANY]
+weather: [ANY]
+min_rod_tier: 3
+min_fishing_level: 15
+base_weight: 4
+min_cm: 250
+max_cm: 800
+silver_crown_cm: 700
+gold_crown_cm: 780
+life_xp: 55
+adventurer_xp: 35
+minigame:
+  bite_window_ms: 1600
+  difficulty: 5.0
+  sweet_width: 25
+  progress_per_sec: 12
+  tension_decay_per_sec: 21
+  thrash_chance_per_sec: 0.3
+  dive_chance_per_sec: 0.1
+lore_hint: '星海リュウグウノツカイ。釣り場と時間帯を見極めて狙おう。'

@@ -1,0 +1,10 @@
+schema_version: 1
+id: ec:spot_lumina_pier
+type: fishing_spot
+name: ルミナ港・南桟橋
+area: ec:area_lumina_port
+world: ec_world
+center: {x: 10, y: 64, z: 28}
+radius: 14.0
+default_for_area: true
+tags: [PORT, FRESHWATER]

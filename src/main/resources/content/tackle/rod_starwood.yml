@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:tackle_rod_starwood
+type: tackle
+item: ec:item_tool_rod_starwood
+kind: ROD
+tier: 2
+min_life_level: 7
+wait_reduction: 0.12
+sweet_spot_bonus: 5
+tension_stability: 0.88
+size_bonus: 0.03
+channel_speed_bonus: 0
+rare_chance_bonus: 0

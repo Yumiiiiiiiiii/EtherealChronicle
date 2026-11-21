@@ -27,6 +27,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal lateinit var adventure: AdventureController
     internal lateinit var enemies: EnemyController
     internal lateinit var dungeons: DungeonController
+    internal lateinit var gathering: GatheringController
+    internal lateinit var fishing: FishingController
     private lateinit var content: ContentService
     private lateinit var store: PlayerStore
     internal lateinit var game: GameService
@@ -86,6 +88,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     dungeons=DungeonController(this,adventure,enemies)
                     try { if(DemoWorld.ensure(this) != null) adventure.reloadNpcs() }
                     catch(error: Exception) { logger.severe("専用ワールドを準備できませんでした: ${error.message}。基盤機能のみ有効です。") }
+                    gathering=GatheringController(this)
+                    fishing=FishingController(this)
                     runCatching { reloadAdvancementPack() }.onFailure { advancementWarning(it) }
                     server.scheduler.runTaskTimer(this,Runnable { enemies.tick() },10,10)
                     ready = true
@@ -110,6 +114,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             else enhancementFlights.remove(id)
         }
         if(::adventure.isInitialized) adventure.prepareShutdown()
+        if(::fishing.isInitialized) runCatching { fishing.close() }.onFailure { logger.severe("釣り機能の終了処理に失敗: ${it.message}") }
+        if(::gathering.isInitialized) runCatching { gathering.close() }.onFailure { logger.severe("採取機能の終了処理に失敗: ${it.message}") }
         if(::dungeons.isInitialized) runCatching { dungeons.shutdown() }.onFailure { logger.severe("聖堂の終了処理に失敗: ${it.message}") }
         if(::enemies.isInitialized) runCatching { enemies.close() }.onFailure { logger.severe("魔物の終了処理に失敗: ${it.message}") }
         if(::adventure.isInitialized) runCatching { adventure.close() }.onFailure { logger.severe("NPCの終了処理に失敗: ${it.message}") }
@@ -326,7 +332,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 displayName(Component.text(area.name)); lore(listOf(Component.text("発見: $found/$total (${if(total==0) 0 else found*100/total}%)")))
             } })
         }
-        menu.setItem(53,ItemStack(Material.BOOK).apply { itemMeta=itemMeta.apply { displayName(Component.text("発見したアイテム")); lore(listOf(Component.text("${profile.discoveredItems.size} 種"))) } })
+        codexTabs(menu)
         player.openInventory(menu)
     }
     internal fun openCodexArea(player:Player,areaId:String) {
@@ -343,7 +349,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 lore(if(discovered) listOf(Component.text("討伐数: $count"),Component.text("弱点: ${enemy.weaknesses.joinToString().ifEmpty { "なし" }}"),Component.text("ドロップ: ${dropIds.joinToString()}")) else listOf(Component.text("このエリアで魔物を探しましょう。")))
             } })
         }
-        menu.setItem(53,ItemStack(Material.ARROW).apply { itemMeta=itemMeta.apply { displayName(Component.text("エリア一覧へ戻る")) } })
+        menu.setItem(53,ItemStack(Material.ARROW).apply { itemMeta=itemMeta.apply { displayName(Component.text("エリア一覧へ戻る")) } }); codexTabs(menu)
         player.openInventory(menu)
     }
     internal fun openCodexItems(player:Player) {
@@ -353,8 +359,39 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             val name=snapshot.documents[id]?.get("name") as? String ?: id
             menu.setItem(slot,ItemStack(Material.PAPER).apply { itemMeta=itemMeta.apply { displayName(Component.text(name)); lore(listOf(Component.text(id))) } })
         }
-        menu.setItem(53,ItemStack(Material.ARROW).apply { itemMeta=itemMeta.apply { displayName(Component.text("エリア一覧へ戻る")) } })
+        menu.setItem(53,ItemStack(Material.ARROW).apply { itemMeta=itemMeta.apply { displayName(Component.text("エリア一覧へ戻る")) } }); codexTabs(menu)
         player.openInventory(menu)
+    }
+    private fun codexTabs(menu:Inventory) {
+        val holder=menu.holder as? RpgMenu
+        if(holder?.kind in setOf("codex-area","codex-items","codex-fish","codex-gathering")) menu.setItem(50,ItemStack(Material.ARROW).apply { itemMeta=itemMeta.apply { displayName(Component.text("エリア図鑑へ戻る")) } })
+        menu.setItem(51,ItemStack(Material.FISHING_ROD).apply { itemMeta=itemMeta.apply { displayName(Component.text("魚類図鑑")) } })
+        menu.setItem(52,ItemStack(Material.IRON_PICKAXE).apply { itemMeta=itemMeta.apply { displayName(Component.text("採取図鑑")) } })
+        menu.setItem(53,ItemStack(Material.BOOK).apply { itemMeta=itemMeta.apply { displayName(Component.text("発見したアイテム")) } })
+    }
+    internal fun openCodexFish(player:Player) {
+        val profile=profiles[player.uniqueId] ?: return
+        val menu=RpgMenu("codex-fish","").inventory
+        snapshot.world.fishSpecies.values.sortedBy { it.name }.take(45).forEachIndexed { slot,fish ->
+            val record=profile.fishRecords[fish.id]; val discovered=record?.count?.let { it>0 }==true
+            menu.setItem(slot,ItemStack(if(discovered) Material.COD else Material.GRAY_DYE).apply { itemMeta=itemMeta.apply {
+                displayName(Component.text(if(discovered) fish.name else "未発見の魚"))
+                lore(if(record!=null) listOf(Component.text("釣果: ${record.count}匹"),Component.text("最大: ${record.maxCm}cm / ${record.crown}"),Component.text(fish.loreHint)) else listOf(Component.text("釣り場で竿を出して探しましょう。")))
+            } })
+        }
+        codexTabs(menu); player.openInventory(menu)
+    }
+    internal fun openCodexGathering(player:Player) {
+        val profile=profiles[player.uniqueId] ?: return
+        val menu=RpgMenu("codex-gathering","").inventory
+        snapshot.world.gatheringNodes.values.sortedBy { it.name }.take(45).forEachIndexed { slot,node ->
+            val count=profile.gatheringRecords[node.id] ?: 0
+            menu.setItem(slot,ItemStack(if(count>0) Material.IRON_ORE else Material.GRAY_DYE).apply { itemMeta=itemMeta.apply {
+                displayName(Component.text(if(count>0) node.name else "未発見の採取地"))
+                lore(if(count>0) listOf(Component.text("採取回数: $count"),Component.text("種別: ${node.kind} / 必要道具 T${node.minToolTier}")) else listOf(Component.text("専用道具で採取地を調べましょう。")))
+            } })
+        }
+        codexTabs(menu); player.openInventory(menu)
     }
     internal fun openEnhancement(player:Player) {
         val stack=player.inventory.itemInMainHand
@@ -414,9 +451,10 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         if(e.rawSlot !in 0 until e.view.topInventory.size) return
         if(menu.kind == "enhance") { if(e.rawSlot == 13) runCatching { enhance(player,menu) }.onFailure { player.sendMessage(Component.text("強化できません: ${it.message}")) }; return }
         when(menu.kind) {
-            "codex-areas" -> if(e.rawSlot == 53) openCodexItems(player) else snapshot.world.areas.values.sortedBy { it.name }.getOrNull(e.rawSlot)?.let { openCodexArea(player,it.id) }
-            "codex-area" -> if(e.rawSlot == 53) openCodex(player)
-            "codex-items" -> if(e.rawSlot == 53) openCodex(player)
+            "codex-areas" -> when(e.rawSlot) { 51 -> openCodexFish(player); 52 -> openCodexGathering(player); 53 -> openCodexItems(player); else -> snapshot.world.areas.values.sortedBy { it.name }.getOrNull(e.rawSlot)?.let { openCodexArea(player,it.id) } }
+            "codex-area","codex-items" -> when(e.rawSlot) { 50,53 -> openCodex(player); 51 -> openCodexFish(player); 52 -> openCodexGathering(player) }
+            "codex-fish" -> when(e.rawSlot) { 50,51 -> openCodex(player); 52 -> openCodexGathering(player); 53 -> openCodexItems(player) }
+            "codex-gathering" -> when(e.rawSlot) { 50,52 -> openCodex(player); 51 -> openCodexFish(player); 53 -> openCodexItems(player) }
         }
     }
     private fun tick() {
@@ -424,12 +462,14 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val now=System.nanoTime()/1_000_000; procReady.entries.removeIf { it.value <= now }; defenseBuffs.entries.removeIf { it.value.second <= now }; basicAttacks.cleanup()
         if(::adventure.isInitialized) adventure.tick()
         if(::dungeons.isInitialized) dungeons.tick()
+        if(::gathering.isInitialized) { /* its bounded 2-tick controller owns the life-skill HUD */ }
         server.onlinePlayers.forEach { p ->
           try {
             val profile = profiles[p.uniqueId] ?: return@forEach
             syncTitleAdvancements(p,profile)
             val c = profile.classId?.let { content.snapshot().classes.find(it) } ?: return@forEach
             if(adventure.locked(p.uniqueId)) return@forEach
+            if(::gathering.isInitialized && gathering.active(p.uniqueId) || ::fishing.isInitialized && fishing.active(p.uniqueId)) return@forEach
             val s = effectiveStats(p,profile); applyStats(p,profile); applyTitle(p,profile)
             val beforeResource = profile.resource
             game.regenerate(profile,s.resource,Bukkit.getCurrentTick()-(lastMoved[p.uniqueId] ?: Int.MIN_VALUE/2) < 20)
@@ -449,7 +489,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         profile.selectedSkill = (profile.selectedSkill+1)%c.skills.size; dirty.add(p.uniqueId)
         p.sendMessage(Component.text("選択: ${content.snapshot().skills[c.skills[profile.selectedSkill]].name}"))
     }
-    @EventHandler fun swap(e: PlayerSwapHandItemsEvent) { e.isCancelled = true; cycle(e.player) }
+    @EventHandler fun swap(e: PlayerSwapHandItemsEvent) { if(::fishing.isInitialized && fishing.active(e.player.uniqueId)) { e.isCancelled=true; return }; e.isCancelled = true; cycle(e.player) }
     @EventHandler fun drop(e: PlayerDropItemEvent) { if(isSkill(e.itemDrop.itemStack) || e.player.uniqueId !in profiles) e.isCancelled = true }
     @EventHandler fun interact(e: PlayerInteractEvent) {
         if(e.hand != EquipmentSlot.HAND || !e.action.isRightClick) return
@@ -638,7 +678,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     }
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         if(!ready) { sender.sendMessage(Component.text("冒険システムは起動中です。しばらくお待ちください。")); return true }
-        if(sender is Player && args.firstOrNull() in setOf("quest","party","equipment","dungeon","shop","claim","title","codex","enhance")) {
+        if(sender is Player && args.firstOrNull() in setOf("quest","party","equipment","dungeon","shop","claim","title","codex","enhance","fish","gather")) {
             try { playerCommand(sender,args.toList()) } catch(error: Exception) { sender.sendMessage(Component.text("操作できません: ${error.message}")) }
             return true
         }
@@ -661,6 +701,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                                 dirty.addAll(profiles.keys)
                                 runCatching { reloadAdvancementPack() }.onFailure { advancementWarning(it) }
                                 enemies.close(); adventure.reloadNpcs()
+                                if(::gathering.isInitialized) gathering.reload()
+                                if(::fishing.isInitialized) fishing.reload()
                             }
                             sender.sendMessage(Component.text(if(reload) "コンテンツを再読み込みしました。" else "コンテンツ検証成功。"))
                         }
@@ -692,6 +734,16 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     save(profile)
                     logger.info("管理者フラグ操作: ${sender.name} -> ${p.name} $flag $operation")
                     sender.sendMessage(Component.text(if(changed) "フラグを${if(operation == "set") "設定" else "解除"}しました: $flag" else "フラグは既に${if(operation == "set") "設定" else "解除"}済みです: $flag"))
+                }
+                "admin" -> {
+                    require(args.size == 5 && args[1] == "lifeskill") { "/ec admin lifeskill <player> <FISHING|GATHERING> <level>" }
+                    val p=server.getPlayerExact(args[2]) ?: error("プレイヤーが見つかりません。")
+                    val profile=profiles[p.uniqueId] ?: error("プロフィールを読み込み中です。")
+                    require(!adventure.locked(profile.uuid)) { "取引処理中のため変更できません。" }
+                    val kind=LifeSkillKind.valueOf(args[3].uppercase()); val level=args[4].toInt()
+                    require(level in 1..snapshot.world.lifeBalance.levelCap) { "生活スキルレベルは1..${snapshot.world.lifeBalance.levelCap}で指定してください。" }
+                    profile.lifeSkills[kind]=LifeSkillProgress(level,0); save(profile)
+                    sender.sendMessage(Component.text("${kind.name} をレベル $level に設定しました。"))
                 }
                 "spawn" -> {
                     require(args.size == 3) { "/ec spawn <enemy> <player>" }
@@ -744,6 +796,21 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         when(args[0]) {
             "codex" -> openCodex(player)
             "enhance" -> openEnhancement(player)
+            "fish" -> {
+                if(args.getOrNull(1)=="bait") {
+                    val value=args.getOrNull(2) ?: error("/ec fish bait <item_id|auto|none>")
+                    val text=fishing.selectBait(p,value); save(p); player.sendMessage(Component.text(text))
+                } else {
+                    val life=p.lifeSkills.getValue(LifeSkillKind.FISHING); val required=LifeSkillEngine(snapshot.world.lifeBalance).requiredXp(life.level)
+                    val bait=when(p.fishingBait){"AUTO"->"自動";"NONE"->"なし";else->p.fishingBait}
+                    player.sendMessage(Component.text("釣り Lv.${life.level} / 経験値 ${life.xp}/$required / スコア ${FishingEngine(snapshot.world.lifeBalance).score(p)} / 発見 ${p.fishRecords.values.count { it.count>0 }}/${snapshot.world.fishSpecies.size}種 / 餌 $bait"))
+                    player.sendMessage(Component.text("/ec fish bait <item_id|auto|none>"))
+                }
+            }
+            "gather" -> {
+                val life=p.lifeSkills.getValue(LifeSkillKind.GATHERING); val required=LifeSkillEngine(snapshot.world.lifeBalance).requiredXp(life.level)
+                player.sendMessage(Component.text("採取 Lv.${life.level} / 経験値 ${life.xp}/$required / 累計 ${p.gatheringRecords.values.sum()}回 / 発見 ${p.gatheringRecords.count { it.value>0 }}/${snapshot.world.gatheringNodes.size}種"))
+            }
             "title" -> {
                 syncTitleAdvancements(player,p)
                 val id=args.getOrNull(1)

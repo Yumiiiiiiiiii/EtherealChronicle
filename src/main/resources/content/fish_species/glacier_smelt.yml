@@ -1,0 +1,28 @@
+schema_version: 1
+id: ec:fish_glacier_smelt
+type: fish_species
+name: 氷河ワカサギ
+item: ec:item_fish_glacier_smelt
+rarity: UNCOMMON
+tags: [FROST, FRESHWATER]
+habitats: [ec:area_glacier_ridge, ec:area_crystalline_cavern, ec:area_frostpeak_outpost]
+time_windows: [ANY]
+weather: [ANY]
+min_rod_tier: 2
+min_fishing_level: 8
+base_weight: 25
+min_cm: 10
+max_cm: 38
+silver_crown_cm: 31
+gold_crown_cm: 36
+life_xp: 23
+adventurer_xp: 14
+minigame:
+  bite_window_ms: 2100
+  difficulty: 2.0
+  sweet_width: 30
+  progress_per_sec: 17
+  tension_decay_per_sec: 21
+  thrash_chance_per_sec: 0.2
+  dive_chance_per_sec: 0.04
+lore_hint: '氷河ワカサギ。釣り場と時間帯を見極めて狙おう。'

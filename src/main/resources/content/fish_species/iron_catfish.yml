@@ -1,0 +1,28 @@
+schema_version: 1
+id: ec:fish_iron_catfish
+type: fish_species
+name: 鉄ひげナマズ
+item: ec:item_fish_iron_catfish
+rarity: UNCOMMON
+tags: [CAVERN, AETHER]
+habitats: [ec:area_weeping_mine]
+time_windows: [ANY]
+weather: [ANY]
+min_rod_tier: 1
+min_fishing_level: 4
+base_weight: 24
+min_cm: 45
+max_cm: 110
+silver_crown_cm: 92
+gold_crown_cm: 106
+life_xp: 24
+adventurer_xp: 14
+minigame:
+  bite_window_ms: 2100
+  difficulty: 2.2
+  sweet_width: 30
+  progress_per_sec: 17
+  tension_decay_per_sec: 21
+  thrash_chance_per_sec: 0.2
+  dive_chance_per_sec: 0.04
+lore_hint: '鉄ひげナマズ。釣り場と時間帯を見極めて狙おう。'
