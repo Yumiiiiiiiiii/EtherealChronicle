@@ -15,6 +15,8 @@ repositories {
 dependencies {
     compileOnly("io.papermc.paper:paper-api:$paperVersion")
     implementation(kotlin("stdlib"))
+    compileOnly("org.yaml:snakeyaml:2.4")
+    testImplementation("org.yaml:snakeyaml:2.4")
     testImplementation(kotlin("test"))
     testImplementation(platform("org.junit:junit-bom:5.13.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
