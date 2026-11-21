@@ -31,14 +31,15 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
         require(q.condition.matches(p)) { "依頼の受注条件を満たしていません。" }
         val old = p.quests[id]
         if(old != null) require(old.completed && q.repeatable && clock.millis()-old.completedAt >= q.repeatCooldown) { "この依頼は受注済みです。" }
-        p.quests[id] = QuestProgress()
+        p.quests[id] = QuestProgress(completedAt=old?.completedAt ?: 0)
     }
     private fun progress(p: PlayerProfile,q: QuestDefinition,o: Objective,inventory: InventoryAccess): Int =
         if(o.kind == ObjectiveKind.COLLECT) inventory.count(o.target).coerceAtMost(o.amount) else p.quests[q.id]?.objectives?.get(o.id) ?: 0
     fun ready(p: PlayerProfile,id: String,inventory: InventoryAccess): Boolean {
         val q = content().world.quests[id] ?: return false
         val state = p.quests[id] ?: return false
-        return !state.completed && q.objectives.all { progress(p,q,it,inventory) >= it.amount }
+        val consume=q.objectives.filter { it.kind == ObjectiveKind.COLLECT && it.consume }.groupBy { it.target }.mapValues { (_,objectives) -> objectives.sumOf { it.amount.toLong() } }
+        return !state.completed && consume.all { (item,n) -> inventory.count(item).toLong() >= n } && q.objectives.all { progress(p,q,it,inventory) >= it.amount }
     }
     fun event(p: PlayerProfile,kind: ObjectiveKind,target: String,amount: Int,inventory: InventoryAccess) {
         require(amount > 0)
@@ -63,6 +64,7 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
         q.rewards.items.filter { it.condition.matches(p) }.forEach { add.merge(it.item,it.amount,Int::plus) }
         require(inventory.exchange(remove,add)) { "必要品が不足しているか、持ち物に空きがありません。" }
         val state=p.quests.getValue(id); state.completed=true; state.completedAt=clock.millis()
+        state.repeatAvailableAt=if(q.repeatable) clock.millis()+q.repeatCooldown else Long.MAX_VALUE
         content().balance.grantXp(p,q.rewards.xp)
         val cap=content().world.tuning.maxCurrency
         p.currency=(p.currency.coerceAtMost(cap)+q.rewards.currency.coerceAtMost(content().balance.currencyGainCap)).coerceAtMost(cap)
@@ -122,9 +124,9 @@ class TradeEngine(private val content: () -> ContentSnapshot) {
 }
 
 data class WorldTuning(val sellRatio: Double,val maxCurrency: Long,val transactionCap: Int,val partyCap: Int,val partyRadius: Double,
-    val enemyCap: Int,val instanceCap: Int,val instanceTimeout: Long,val weakness: Double,val resistance: Double)
-fun Map<String,Any?>.tuning() = WorldTuning(number("sell_ratio",0.3),whole("max_currency",100_000_000),integer("transaction_amount_cap",64),integer("party_size_cap",4),number("party_xp_radius",32.0),integer("global_enemy_cap",100),integer("instance_cap",8),whole("instance_timeout_ticks",36000),number("weakness_multiplier",1.25),number("resistance_multiplier",0.8)).also {
-    require(it.sellRatio in 0.0..0.49 && it.maxCurrency in 1..Long.MAX_VALUE/2 && it.transactionCap in 1..64 && it.partyCap in 1..8 && it.partyRadius in 1.0..128.0 && it.enemyCap in 1..1000 && it.instanceCap in 1..32 && it.instanceTimeout > 0)
+    val enemyCap: Int,val instanceCap: Int,val instanceTimeout: Long,val weakness: Double,val resistance: Double,val playerHpCap: Double)
+fun Map<String,Any?>.tuning() = WorldTuning(number("sell_ratio",0.3),whole("max_currency",100_000_000),integer("transaction_amount_cap",64),integer("party_size_cap",4),number("party_xp_radius",32.0),integer("global_enemy_cap",100),integer("instance_cap",8),whole("instance_timeout_ticks",36000),number("weakness_multiplier",1.25),number("resistance_multiplier",0.8),number("player_hp_cap",1024.0)).also {
+    require(it.sellRatio in 0.0..0.49 && it.maxCurrency in 1..Long.MAX_VALUE/2 && it.transactionCap in 1..64 && it.partyCap in 1..8 && it.partyRadius in 1.0..128.0 && it.enemyCap in 1..1000 && it.instanceCap in 1..32 && it.instanceTimeout > 0 && it.playerHpCap in 1.0..1024.0)
 }
 
 /** Stages multiple quest/dialogue inventory effects, allowing one validated commit boundary. */
@@ -153,4 +155,5 @@ fun PlayerProfile.restore(other: PlayerProfile) {
     skillLevels.clear(); skillLevels.putAll(other.skillLevels); flags.clear(); flags.addAll(other.flags)
     quests.clear(); quests.putAll(other.snapshot().quests); dailyPurchases.clear(); dailyPurchases.putAll(other.dailyPurchases); transactions.clear(); transactions.addAll(other.transactions)
 }
+
 

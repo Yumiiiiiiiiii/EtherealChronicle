@@ -46,7 +46,7 @@ class PlayerStore(private val directory: Path): AutoCloseable {
         d.mapping("quests").forEach { (id,value) ->
             @Suppress("UNCHECKED_CAST") val q = value as Map<String,Any?>
             p.quests[id] = QuestProgress(q.int("progress").also { require(it >= 0) },q["completed"] as Boolean,
-                (q["objectives"] ?: emptyMap<String,Any?>()).asMapping().mapValues { (_,n) -> (n as Number).toInt().also { require(it >= 0) } }.toMutableMap(),q.whole("completed_at",0))
+                (q["objectives"] ?: emptyMap<String,Any?>()).asMapping().mapValues { (_,n) -> (n as Number).toInt().also { require(it >= 0) } }.toMutableMap(),q.whole("completed_at",0),q.whole("repeat_available_at",Long.MAX_VALUE))
         }
         p.flags.addAll(d.strings("flags")); p.transactions.addAll(d.strings("transactions").takeLast(128))
         (d["daily_purchases"] ?: emptyMap<String,Any?>()).asMapping().forEach { (id,n) -> p.dailyPurchases[id]=(n as Number).toInt().also { require(it >= 0) } }
@@ -70,7 +70,7 @@ class PlayerStore(private val directory: Path): AutoCloseable {
         val tmp = directory.resolve("${p.uuid}.yml.tmp")
         val values = linkedMapOf<String,Any?>("schema_version" to 3,"uuid" to p.uuid.toString(),"class" to p.classId,
             "level" to p.level,"xp" to p.xp,"currency" to p.currency,"resource" to p.resource,"selected_skill" to p.selectedSkill,
-            "starter_granted" to p.starterGranted,"quests" to p.quests.mapValues { (_,q) -> mapOf("progress" to q.progress,"completed" to q.completed,"objectives" to q.objectives,"completed_at" to q.completedAt) },"skill_levels" to p.skillLevels,"flags" to p.flags.toList(),"transactions" to p.transactions,"daily_purchases" to p.dailyPurchases,"accessory" to p.accessory)
+            "starter_granted" to p.starterGranted,"quests" to p.quests.mapValues { (_,q) -> mapOf("progress" to q.progress,"completed" to q.completed,"objectives" to q.objectives,"completed_at" to q.completedAt,"repeat_available_at" to q.repeatAvailableAt) },"skill_levels" to p.skillLevels,"flags" to p.flags.toList(),"transactions" to p.transactions,"daily_purchases" to p.dailyPurchases,"accessory" to p.accessory)
         Files.newBufferedWriter(tmp,StandardOpenOption.CREATE,StandardOpenOption.TRUNCATE_EXISTING).use { Yaml().dump(values,it) }
         FileChannel.open(tmp,StandardOpenOption.WRITE).use { it.force(true) }
         if (Files.exists(target)) {
@@ -86,6 +86,7 @@ class PlayerStore(private val directory: Path): AutoCloseable {
         check(executor.awaitTermination(30,TimeUnit.SECONDS)) { "Player IO did not finish within 30 seconds" }
     }
 }
+
 
 
 

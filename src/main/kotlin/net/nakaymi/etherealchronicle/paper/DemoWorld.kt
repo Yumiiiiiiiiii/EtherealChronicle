@@ -28,16 +28,28 @@ class DemoGenerator: ChunkGenerator() {
 object DemoWorld {
     const val NAME="ec_world"
     fun ensure(plugin: RpgPlugin): World? {
-        val folder=plugin.server.worldContainer.toPath().resolve(NAME)
-        val marker=folder.resolve(".etherealchronicle-owned")
-        // Never load or alter an existing user world merely because its name matches.
-        if(Files.exists(folder) && !Files.exists(marker)) {
-            plugin.logger.severe("ec_world は既存の未管理ワールドです。地形を変更しません。別名に移動して再起動してください。")
+        val existing=Bukkit.getWorld(NAME)
+        if(existing != null) {
+            val marker=existing.worldFolder.toPath().resolve(".etherealchronicle-owned")
+            if(!Files.exists(marker)) {
+                plugin.logger.severe("ec_world は所有マーカーのない既存ワールドです。地形を変更しません: ${existing.worldFolder}")
+                return null
+            }
+            return existing
+        }
+        val candidates=mutableListOf(plugin.server.worldContainer.toPath().resolve(NAME))
+        plugin.server.worlds.filter { it.environment == World.Environment.NORMAL && it.name != NAME }.forEach { base ->
+            candidates.add(base.worldFolder.toPath().resolve("dimensions/minecraft/$NAME"))
+        }
+        if(candidates.any { Files.exists(it) && !Files.exists(it.resolve(".etherealchronicle-owned")) }) {
+            plugin.logger.severe("ec_world は既存の未管理ワールドです。地形を変更しません。既存ワールドの名前または保存先を確認してください。")
             return null
         }
-        val existing=Bukkit.getWorld(NAME)
-        if(existing != null) return existing.takeIf { Files.exists(marker) }
         val world=WorldCreator(NAME).generator(DemoGenerator()).generateStructures(false).createWorld() ?: return null
+        // Paper 26 stores dimensions below the primary world. Its actual folder is authoritative.
+        val folder=world.worldFolder.toPath()
+        Files.createDirectories(folder)
+        val marker=folder.resolve(".etherealchronicle-owned")
         Files.writeString(marker,"EtherealChronicle demo world; never delete this marker while the world is in use.\n")
         world.setSpawnLocation(0,65,0)
         if(!Files.exists(folder.resolve(".etherealchronicle-built"))) {
@@ -70,4 +82,5 @@ object DemoWorld {
         world.getBlockAt(384,65,0).type=Material.CRYING_OBSIDIAN
     }
 }
+
 

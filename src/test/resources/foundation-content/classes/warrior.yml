@@ -1,0 +1,10 @@
+schema_version: 1
+id: ec:warrior
+type: class
+name: 戦士
+resource: RAGE
+regeneration: 0
+hit_gain: 10
+skills: [ec:warrior_strike, ec:warrior_burst, ec:warrior_wave, ec:warrior_ultimate]
+starter_items: [ec:warrior_starter]
+stats: {hp: 100, resource: 100, attack: 10, defense: 5, crit: 0.05, crit_damage: 1.5, element_resist: 0, skill_power: 1}
