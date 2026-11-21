@@ -13,6 +13,8 @@ class FishingUiFeedbackTest {
         assertContains(fishingReelAdvice(FishBehavior.DIVE),"左クリック")
         assertContains(fishingReelAdvice(FishBehavior.THRASH),"手を離して")
         assertContains(fishingReelAdvice(FishBehavior.CALM),"右クリック")
+        assertContains(fishingReelAdvice(FishBehavior.CALM,10.0),"張力が低い")
+        assertContains(fishingReelAdvice(FishBehavior.CALM,80.0),"張力が高い")
         assertContains(fishingReelAdvice(FishBehavior.TELEGRAPH),"予兆")
     }
     @Test fun `reeling timeout has a visible timeout title`() {

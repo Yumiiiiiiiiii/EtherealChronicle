@@ -10,8 +10,12 @@ internal enum class FishingEndReason { CAUGHT, ESCAPED_BITE, LINE_SNAP, LINE_SLA
 internal fun fishingEndLogLine(subject:String,reason:FishingEndReason,fishId:String,progress:Int,tension:Int):String =
     "FISH $subject: 終了 reason=${reason.name} fish=$fishId progress=${progress}% tension=${tension}%"
 
-internal fun fishingReelAdvice(behavior:FishBehavior):String = when(behavior) {
-    FishBehavior.CALM -> "右クリックで引く"
+internal fun fishingReelAdvice(behavior:FishBehavior,tension:Double=50.0):String = when(behavior) {
+    FishBehavior.CALM -> when {
+        tension<=18.0 -> "張力が低い！右クリックで引く"
+        tension>=70.0 -> "張力が高い！手を離す"
+        else -> "右クリックで引く"
+    }
     FishBehavior.TELEGRAPH -> "予兆中：次の動きを見る"
     FishBehavior.THRASH -> "暴れ中：手を離して張力を逃がす"
     FishBehavior.DIVE -> "潜り！左クリックでいなす"
