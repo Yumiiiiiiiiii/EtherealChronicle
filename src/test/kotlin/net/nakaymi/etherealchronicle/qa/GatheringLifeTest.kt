@@ -92,6 +92,7 @@ class GatheringLifeTest {
                 a.inventory.setItemInMainHand(plugin.createItem("ec:item_tool_sickle_silver")); interactAt(a,world.getBlockAt(nodeLoc.x,nodeLoc.y,nodeLoc.z))
                 assertTrue(plugin.gathering.active(a.uniqueId),"clicking visual block coordinate did not start a channel")
                 assertTrue(plugin.gathering.debugStatus(a).contains("BossBar=true"),plugin.gathering.debugStatus(a))
+                assertTrue((a.nextMessage() ?: "").contains("採取を開始しました"),"channel start did not give chat feedback")
                 plugin.gathering.interrupt(a.uniqueId)
                 "visible block and ground coordinates resolve; missing tool explained"
             }
@@ -103,11 +104,17 @@ class GatheringLifeTest {
                 assertTrue(e1.isCancelled && e2.isCancelled, "node block / ground below not protected"); assertTrue(!e3.isCancelled, "protection leaked to a distant block"); "node and ground protected, far block free"
             }
             rec("G2 wrong tool / missing tool starts no channel") {
+                generateSequence { a.nextMessage() }.toList()
                 a.inventory.setItemInMainHand(plugin.createItem("ec:item_tool_pick_iron")); interact(a); server.pump(300) { false }
-                assertTrue(!plugin.gathering.active(a.uniqueId), "pickaxe started a HERB channel"); a.inventory.setItemInMainHand(ItemStack(Material.AIR)); interact(a); server.pump(300) { false }
-                assertTrue(!plugin.gathering.active(a.uniqueId), "bare hand started a channel"); null
+                assertTrue(!plugin.gathering.active(a.uniqueId), "pickaxe started a HERB channel")
+                assertTrue((a.nextMessage() ?: "").contains("SICKLE"),"wrong tool reason missing")
+                generateSequence { a.nextMessage() }.toList()
+                a.inventory.setItemInMainHand(ItemStack(Material.AIR)); interact(a); server.pump(300) { false }
+                assertTrue(!plugin.gathering.active(a.uniqueId), "bare hand started a channel")
+                assertTrue((a.nextMessage() ?: "").contains("専用道具"),"missing tool reason missing"); null
             }
             rec("G3 correct tool: channel completes once, 1-2 leaves granted, node on cooldown for that player") {
+                generateSequence { a.nextMessage() }.toList()
                 a.inventory.setItemInMainHand(plugin.createItem("ec:item_tool_sickle_silver")); interact(a)
                 assertTrue(plugin.gathering.active(a.uniqueId), "channel did not start")
                 assertTrue(plugin.gathering.debugStatus(a.uniqueId).contains("BossBar=true"),"BossBar was not attached")
@@ -121,7 +128,9 @@ class GatheringLifeTest {
                 assertTrue(!plugin.gathering.active(a.uniqueId), "channel never finished; tick error: ${tickErr?.let { it::class.simpleName + ": " + it.message + " @ " + it.stackTrace.take(3).joinToString(" <- ") }}")
                 server.pump(1500) { count(a, "ec:item_mat_ash_leaf") > 0 }
                 val got = count(a, "ec:item_mat_ash_leaf"); assertTrue(got in 1..2, "leaf amount $got")
-                interact(a); server.pump(300) { false }; assertTrue(!plugin.gathering.active(a.uniqueId), "no cooldown: re-gathered immediately"); "leaves=$got, second attempt refused"
+                generateSequence { a.nextMessage() }.toList()
+                interact(a); server.pump(300) { false }; assertTrue(!plugin.gathering.active(a.uniqueId), "no cooldown: re-gathered immediately")
+                assertTrue((a.nextMessage() ?: "").contains("再生中"),"cooldown refusal had no Japanese explanation"); "leaves=$got, second attempt refused"
             }
             rec("G4 respawn is per player: B can gather the node A just depleted") {
                 b.inventory.setItemInMainHand(plugin.createItem("ec:item_tool_sickle_silver")); interact(b)
