@@ -296,3 +296,10 @@
 - Targeted verification: `./gradlew.bat test --no-daemon --tests '*LangCatalogTest' --tests '*Chapter1ContentValidationTest'` passed (10 tests); `./gradlew.bat test --no-daemon --tests '*Content*Test' --tests '*LangCatalogTest'` passed (tests selected by Gradle; all passed).
 - Current scan: approximately 228 Kotlin lines still contain CJK inside string literals. The remaining bulk is RpgPlugin command/event feedback and debug/simulation output, then world/encounter/fishing controllers and some core data helpers.
 - Task14 remains incomplete: do not report full i18n completion or enable the final zero-CJK regression test until the remaining literal strings are migrated. Full suite has not been rerun after these commits.
+
+### Task14 checkpoint update 2 (2026-11-22)
+- Latest implementation commit: `1f87932`; verification after it: `./gradlew.bat build test --no-daemon --rerun-tasks` succeeded with 183 tests, 0 failures/errors, 0 skipped.
+- Additional focused commits after previous checkpoint: `3975433`, `9283ddf`, `35fec0c`, `c51be32`, `fc028af`, `0853f47`, `fb6f6b5`, `975dde4`, `5afcbe2`, `1f87932`.
+- Content loader and world validators now emit language diagnostic keys (Paper command boundary resolves them); shop condition and virtual session tests assert translation keys where core has no locale context. `docs/LANGUAGE.md` regenerated after key changes.
+- Current source scan: 180 lines still contain CJK string literals. Largest remaining groups: `RpgPlugin.kt` (104), `SimulationCommandController.kt` (18), `DemoWorld.kt` (12), `DungeonController.kt` (11), `SimulationSession.kt` (9), `GatheringController.kt` (8), plus smaller controller/data cases.
+- Task14 remains incomplete. The requested strict CJK-string regression test is not yet enabled, because it would fail on the remaining source literals. Remaining user-visible command/event/debug messages must be moved into catalogs before final completion.
