@@ -1,0 +1,76 @@
+schema_version: 1
+id: ec:dlg_soren_hub
+type: dialogue
+name: 試練場番人ソーレン
+speaker: ec:npc_soren
+start: root
+nodes:
+  root:
+    text: 星見の丘の奥に眠る『星片の試練場』へようこそ。俺は番人のソーレンだ。虚無と蒼氷が交錯する極限の戦場で、己の腕を試す気はあるか？
+    branches:
+      - {condition: {has_flags: ['ec:flag_side_crucible_unlocked']}, next: unlocked_root}
+    choices:
+      - id: unlock_crucible
+        label: 星片の試練場の封印を解く（要：第1章クリア・Lv18〜）
+        condition: {min_level: 18, has_flags: ['ec:flag_ch1_completed'], not_flags: ['ec:flag_side_crucible_unlocked']}
+        next: crucible_unlocked
+        set_flags: ['ec:flag_side_crucible_unlocked']
+      - id: explain_crucible
+        label: 星片の試練場について聞く
+        next: crucible_info
+      - id: bye
+        label: 準備が整ったらまた来るよ
+  crucible_info:
+    text: 星片の試練場は、第1章の虚核と第2章の蒼氷の残滓が融合して生まれた高難度チャレンジダンジョンだ。第1章を乗り越え、レベル18に達した強者のみに入場鍵を託している。
+    choices:
+      - id: back_from_info
+        label: わかった、腕を磨いてくる
+        next: root
+  crucible_unlocked:
+    text: 申し分ない実力だ！今、お前に『星片の試練場』の入場資格を授けた。中では虚核の衛兵と蒼氷の重騎士が立ち塞がり、奥で『星核の融合体エーテル・キメラ』が待ち受けているぞ。
+    choices:
+      - id: accept_c01_now
+        label: 【試練】融合体討伐依頼を受ける
+        condition: {not_started_quests: ['ec:quest_side_c01_crucible_gauntlet']}
+        next: c01_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_c01_crucible_gauntlet'}
+      - id: go_unlocked_root
+        label: 試練場メニューを開く
+        next: unlocked_root
+  unlocked_root:
+    text: 星片の試練場の門は開かれている。エーテル・キメラは雷と虚空を弱点とするが、氷結と虚毒、そして終盤の星核崩壊ノヴァは並の装備では耐えきれんぞ。
+    choices:
+      - id: enter_crucible
+        label: チャレンジダンジョン『星片の試練場』へ入場する
+        actions:
+          - {kind: ENTER_DUNGEON, target: 'ec:dungeon_aether_crucible'}
+      - id: start_c01
+        label: 【試練】星片の試練場・融合体討伐を受ける（24時間反復）
+        condition: {min_level: 18, not_started_quests: ['ec:quest_side_c01_crucible_gauntlet']}
+        next: c01_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_c01_crucible_gauntlet'}
+      - id: complete_c01
+        label: 【試練】エーテル・キメラ討伐を報告する
+        condition: {active_quests: ['ec:quest_side_c01_crucible_gauntlet']}
+        next: c01_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_c01_crucible_gauntlet'}
+      - id: chimera_tips
+        label: エーテル・キメラ攻略の助言を聞く
+        next: tips_node
+      - id: bye_unlocked
+        label: 装備を整えてから挑むよ
+  c01_started:
+    text: よし、依頼を受理した！試練場へ踏み込み、エーテル・キメラを撃破して戻ってこい。初回制覇なら『星片試練の覇者』の称号も授けよう！
+    choices: []
+  c01_done:
+    text: 見事だ……あの融合体を制するとは！約束の『星片試練の勲章』と『星片試練の覇者』の称号を受け取れ。勲章は港のカエデ工房で伝説武具や紋章へ鍛え上げられるぞ！
+    choices: []
+  tips_node:
+    text: 入口では虚核の衛兵と蒼氷の重騎士の混成護衛が迎撃してくる。キメラ本体はHP65%で『虚毒胞子雲』と『蒼氷の楔（氷結）』を解禁し、HP30%で広範囲の『星核崩壊ノヴァ』を放つ。予兆を見逃さず回避し、聖騎士の盾や星導士の癒やし、影刃の虚空連撃を噛み合わせろ！
+    choices:
+      - id: back_from_tips
+        label: 肝に銘じておく
+        next: unlocked_root

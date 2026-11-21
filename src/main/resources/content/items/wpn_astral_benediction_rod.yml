@@ -1,0 +1,17 @@
+schema_version: 1
+id: ec:item_wpn_astral_benediction_rod
+type: item
+name: 蒼穹祝福の神杖「セレスティア」
+material: NETHERITE_HOE
+rarity: LEGENDARY
+slot: HAND
+min_level: 20
+classes: [ec:class_cleric]
+budget: 55
+stats: {attack: 44, resource: 180, hp: 150, defense: 16, crit: 0.08, crit_damage: 0.2, element_resist: 0.08, skill_power: 0.42}
+weapon: 202
+price: 9600
+lore: '試練場の星核と響き合う祝福の神杖。【天光の恩寵】星光の裁きと豊かな癒やしを絶え間なくもたらす。'
+effects:
+  - {kind: ATTACK_PROC, amount: 105, cooldown_ms: 9000, chance: 0.36, element: AETHER}
+  - {kind: HEAL, amount: 95, cooldown_ms: 9000, chance: 0.36}

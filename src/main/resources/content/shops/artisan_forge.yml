@@ -1,0 +1,21 @@
+schema_version: 1
+id: ec:shop_artisan_forge
+type: shop
+name: 名匠カエデの鍛造・調合工房
+npc: ec:npc_kaede
+buyback: true
+discount: 0
+entries:
+  - {id: craft_whetstone, item: 'ec:item_mat_artisan_whetstone', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_iron_scrap', amount: 3}, {item: 'ec:item_mat_spark_crystal', amount: 2}]}
+  - {id: cook_salmon_grill, item: 'ec:item_con_sky_salmon_grill', amount: 2, price: 0, tokens: [{item: 'ec:item_mat_sky_salmon', amount: 2}]}
+  - {id: brew_starlight_elixir, item: 'ec:item_con_starlight_elixir', amount: 2, price: 0, tokens: [{item: 'ec:item_mat_starlight_lotus', amount: 2}, {item: 'ec:item_mat_aether_gel', amount: 2}]}
+  - {id: brew_whetstone_tonic, item: 'ec:item_con_whetstone_tonic', amount: 2, price: 0, tokens: [{item: 'ec:item_mat_artisan_whetstone', amount: 1}, {item: 'ec:item_mat_starlight_lotus', amount: 1}]}
+  - {id: forge_astral_tower_shield, item: 'ec:item_off_astral_tower_shield', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_artisan_whetstone', amount: 3}, {item: 'ec:item_mat_glacial_shard', amount: 12}, {item: 'ec:item_mat_crucible_medal', amount: 2}], condition: {min_level: 17}}
+  - {id: forge_sanctified_chalice, item: 'ec:item_off_sanctified_chalice', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_artisan_whetstone', amount: 3}, {item: 'ec:item_mat_glacial_shard', amount: 12}, {item: 'ec:item_mat_crucible_medal', amount: 2}], condition: {min_level: 17}}
+  - {id: forge_shadow_smoke_vial, item: 'ec:item_off_shadow_smoke_vial', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_artisan_whetstone', amount: 3}, {item: 'ec:item_mat_glacial_shard', amount: 12}, {item: 'ec:item_mat_crucible_medal', amount: 2}], condition: {min_level: 17}}
+  - {id: forge_artisan_greaves, item: 'ec:item_arm_artisan_greaves', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_artisan_whetstone', amount: 4}, {item: 'ec:item_mat_glacial_shard', amount: 14}], condition: {min_level: 18}}
+  - {id: forge_veteran_emblem, item: 'ec:item_acc_veteran_emblem', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_chronicle_seal', amount: 12}, {item: 'ec:item_mat_artisan_whetstone', amount: 3}], condition: {min_level: 18}}
+  - {id: forge_sovereign_aegis_hammer, item: 'ec:item_wpn_sovereign_aegis_hammer', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_artisan_whetstone', amount: 5}, {item: 'ec:item_mat_crucible_medal', amount: 6}, {item: 'ec:item_mat_starshard_fragment', amount: 20}], condition: {has_flags: ['ec:flag_side_chimera_defeated']}}
+  - {id: forge_astral_benediction_rod, item: 'ec:item_wpn_astral_benediction_rod', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_artisan_whetstone', amount: 5}, {item: 'ec:item_mat_crucible_medal', amount: 6}, {item: 'ec:item_mat_starshard_fragment', amount: 20}], condition: {has_flags: ['ec:flag_side_chimera_defeated']}}
+  - {id: forge_eclipse_phantom_blade, item: 'ec:item_wpn_eclipse_phantom_blade', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_artisan_whetstone', amount: 5}, {item: 'ec:item_mat_crucible_medal', amount: 6}, {item: 'ec:item_mat_starshard_fragment', amount: 20}], condition: {has_flags: ['ec:flag_side_chimera_defeated']}}
+  - {id: forge_crucible_champion_crest, item: 'ec:item_acc_crucible_champion_crest', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_crucible_medal', amount: 8}, {item: 'ec:item_mat_artisan_whetstone', amount: 4}], condition: {has_flags: ['ec:flag_side_chimera_defeated']}}

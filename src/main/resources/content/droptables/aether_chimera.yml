@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:drop_aether_chimera
+type: droptable
+entries:
+  - {item: 'ec:item_mat_crucible_medal', chance: 1.0, min: 2, max: 3}
+  - {item: 'ec:item_mat_artisan_whetstone', chance: 1.0, min: 2, max: 3}
+  - {item: 'ec:item_mat_starlight_lotus', chance: 0.8, min: 1, max: 2}
+  - {item: 'ec:item_mat_sky_salmon', chance: 0.6, min: 1, max: 2}
+  - {item: 'ec:item_con_starlight_elixir', chance: 1.0, min: 1, max: 2}
+  - {item: 'ec:item_wpn_aether_bastion_mace', chance: 0.09, min: 1, max: 1, pity_after: 12}
+  - {item: 'ec:item_wpn_celestial_prayer_staff', chance: 0.09, min: 1, max: 1, pity_after: 12}
+  - {item: 'ec:item_wpn_void_fang_dagger', chance: 0.09, min: 1, max: 1, pity_after: 12}
+  - {item: 'ec:item_off_astral_tower_shield', chance: 0.07, min: 1, max: 1, pity_after: 15}
+  - {item: 'ec:item_off_sanctified_chalice', chance: 0.07, min: 1, max: 1, pity_after: 15}
+  - {item: 'ec:item_off_shadow_smoke_vial', chance: 0.07, min: 1, max: 1, pity_after: 15}
+  - {item: 'ec:item_wpn_sovereign_aegis_hammer', chance: 0.03, min: 1, max: 1, pity_after: 20}
+  - {item: 'ec:item_wpn_astral_benediction_rod', chance: 0.03, min: 1, max: 1, pity_after: 20}
+  - {item: 'ec:item_wpn_eclipse_phantom_blade', chance: 0.03, min: 1, max: 1, pity_after: 20}
+  - {item: 'ec:item_acc_crucible_champion_crest', chance: 0.03, min: 1, max: 1, pity_after: 20}

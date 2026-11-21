@@ -1,0 +1,21 @@
+schema_version: 1
+id: ec:quest_side_h02_frozen_shrine
+type: quest
+name: 【隠し】蒼氷四島の秘境踏破
+condition: {min_level: 19, has_flags: ['ec:flag_ch2_colossus_defeated']}
+objectives:
+  - {id: visit_outpost, kind: EXPLORE, target: 'ec:area_frostpeak_outpost', amount: 1}
+  - {id: visit_ridge, kind: EXPLORE, target: 'ec:area_glacier_ridge', amount: 1}
+  - {id: visit_cavern, kind: EXPLORE, target: 'ec:area_crystalline_cavern', amount: 1}
+  - {id: visit_citadel, kind: EXPLORE, target: 'ec:area_glacial_citadel', amount: 1}
+  - {id: report_nora, kind: TALK, target: 'ec:npc_nora', amount: 1}
+rewards:
+  xp: 4200
+  currency: 950
+  set_flags: ['ec:flag_title_frost_walker']
+  items:
+    - {item: 'ec:item_acc_veteran_emblem', amount: 1}
+    - {item: 'ec:item_mat_chronicle_seal', amount: 5}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 0

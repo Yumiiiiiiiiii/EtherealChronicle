@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_arm_assassin_shroud
+type: item
+name: 影刃衆の黒夜装束
+material: NETHERITE_CHESTPLATE
+rarity: EPIC
+slot: CHEST
+min_level: 16
+classes: [ec:class_assassin]
+budget: 40
+stats: {hp: 130, defense: 26, attack: 12, crit: 0.07, crit_damage: 0.14, element_resist: 0.05}
+price: 2900
+lore: '光を吸い込む特殊繊維で仕立てた隠密装束。【影纏い】危機を察知すると薄影が身を守る。'
+effects:
+  - {kind: DEFENSE_BUFF, amount: 16, cooldown_ms: 30000, duration_ticks: 100, chance: 1.0}

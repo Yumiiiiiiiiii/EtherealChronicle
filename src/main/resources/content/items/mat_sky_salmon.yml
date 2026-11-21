@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_sky_salmon
+type: item
+name: 蒼穹サケ
+material: SALMON
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 45
+lore: 'ルミナ港の清流で水揚げされる銀鱗の回遊魚。名匠の料理素材として人気が高い。'

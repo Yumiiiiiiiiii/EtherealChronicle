@@ -1,0 +1,9 @@
+schema_version: 1
+id: ec:assassin_slash
+type: skill
+name: 影縫いの双閃
+cost: 12
+cooldown_ms: 2400
+multiplier: 1.35
+range: 4.5
+element: PHYSICAL

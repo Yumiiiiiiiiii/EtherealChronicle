@@ -1,0 +1,18 @@
+schema_version: 1
+id: ec:quest_side_h01_forgotten_diary
+type: quest
+name: 【隠し】封じられた先代調査日誌
+condition: {min_level: 13, has_flags: ['ec:flag_iron_grinder_defeated']}
+objectives:
+  - {id: collect_sealed_diary, kind: COLLECT, target: 'ec:item_q_sealed_diary', amount: 1}
+  - {id: deliver_ren, kind: TALK, target: 'ec:npc_ren', amount: 1}
+rewards:
+  xp: 2200
+  currency: 600
+  set_flags: ['ec:flag_title_truth_seeker']
+  items:
+    - {item: 'ec:item_mat_chronicle_seal', amount: 4}
+    - {item: 'ec:item_mat_artisan_whetstone', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 0

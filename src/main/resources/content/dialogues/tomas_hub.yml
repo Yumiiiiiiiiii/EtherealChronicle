@@ -62,6 +62,18 @@ nodes:
         next: s09_started
         actions:
           - {kind: START_QUEST, target: 'ec:quest_s09_tomas_audit'}
+      - id: complete_side_03
+        label: エレナ隊長からの負傷斥候護衛完了を報告する（負傷斥候の帰還護衛・報告）
+        condition: {active_quests: ['ec:quest_side_03_elena_escort']}
+        next: side_03_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_03_elena_escort'}
+      - id: start_side_06
+        label: 星見の丘への補給馬車護衛を引き受ける（丘への補給馬車護衛路・受注）
+        condition: {min_level: 12, has_flags: ['ec:flag_stargazer_unlocked'], not_started_quests: ['ec:quest_side_06_tomas_supply_escort']}
+        next: side_06_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_06_tomas_supply_escort'}
       - id: bye
         label: また後で来るよ
   extract_supply:
@@ -95,4 +107,10 @@ nodes:
     choices: []
   s09_started:
     text: ダレンの告発により横流しされていたギルド物資の帳簿が発覚しました。護衛の信徒を排除し証拠の虚空の塵を回収のうえ、ヴァルカンギルド長へ報告してください。
+    choices: []
+  side_03_done:
+    text: 負傷斥候の引き継ぎ完了を確認しました。おかげで医療班へ迅速に搬送できます。規定の功績印と回復薬を受領してください。
+    choices: []
+  side_06_started:
+    text: 星見の丘への補給馬車を出発させたいのですが、経路上にクリスタルバットと教団信徒が待ち伏せています。進路を掃討して丘へ到着後、賢者リラ殿へ到着報告をお願いします。
     choices: []

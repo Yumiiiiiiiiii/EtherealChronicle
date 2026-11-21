@@ -1,0 +1,11 @@
+schema_version: 1
+id: ec:cleric_radiance
+type: skill
+name: 天光の聖環
+cost: 30
+cooldown_ms: 6500
+multiplier: 2.25
+range: 14
+radius: 4.0
+element: LIGHTNING
+heal: 0.14

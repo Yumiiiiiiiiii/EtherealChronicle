@@ -1,0 +1,20 @@
+schema_version: 1
+id: ec:quest_side_08_nora_glacier_ecology
+type: quest
+name: 霧氷尾根の生態博物誌
+condition: {min_level: 17, has_flags: ['ec:flag_ch2_started']}
+objectives:
+  - {id: observe_wolves, kind: KILL, target: 'ec:enemy_frost_wolf', amount: 6}
+  - {id: observe_wraiths, kind: KILL, target: 'ec:enemy_glacier_wraith', amount: 5}
+  - {id: gather_cryo, kind: COLLECT, target: 'ec:item_mat_cryo_crystal', amount: 4}
+  - {id: report_nora, kind: TALK, target: 'ec:npc_nora', amount: 1}
+rewards:
+  xp: 2800
+  currency: 680
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_chronicle_seal', amount: 3}
+    - {item: 'ec:item_mat_starlight_lotus', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 0

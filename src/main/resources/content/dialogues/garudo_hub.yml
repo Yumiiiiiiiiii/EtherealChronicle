@@ -26,6 +26,18 @@ nodes:
         next: s06_done
         actions:
           - {kind: COMPLETE_QUEST, target: 'ec:quest_s06_garudo_forge'}
+      - id: start_side_04
+        label: 極上砥石の試作を手伝う（鍛冶師の極上砥石試作・受注）
+        condition: {min_level: 9, has_flags: ['ec:flag_mine_unlocked'], not_started_quests: ['ec:quest_side_04_garudo_whetstone']}
+        next: side_04_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_04_garudo_whetstone'}
+      - id: complete_side_04
+        label: 鉄くずと雷晶石を集めてきたよ（鍛冶師の極上砥石試作・報告）
+        condition: {active_quests: ['ec:quest_side_04_garudo_whetstone']}
+        next: side_04_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_04_garudo_whetstone'}
       - id: bye
         label: また来るよ
   extract_discount:
@@ -47,6 +59,18 @@ nodes:
         next: s06_done
         actions:
           - {kind: COMPLETE_QUEST, target: 'ec:quest_s06_garudo_forge'}
+      - id: start_side_04_disc
+        label: 極上砥石の試作を手伝う（鍛冶師の極上砥石試作・受注）
+        condition: {min_level: 9, has_flags: ['ec:flag_mine_unlocked'], not_started_quests: ['ec:quest_side_04_garudo_whetstone']}
+        next: side_04_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_04_garudo_whetstone'}
+      - id: complete_side_04_disc
+        label: 鉄くずと雷晶石を集めてきたよ（鍛冶師の極上砥石試作・報告）
+        condition: {active_quests: ['ec:quest_side_04_garudo_whetstone']}
+        next: side_04_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_side_04_garudo_whetstone'}
       - id: bye_disc
         label: また来るよ
   s06_started:
@@ -54,4 +78,10 @@ nodes:
     choices: []
   s06_done:
     text: ふん、思ったより筋がいいじゃねぇか。よし、これで俺の炉も本気が出せる。これからは廃坑向けのレア業物も店頭に並べておくから、しっかり稼いで買いに来い！
+    choices: []
+  side_04_started:
+    text: カエデの奴と共同で『名匠の研磨砥石』ってのを試作してるんだ。廃坑の鉄くず4つと雷晶石3つを持ってきな。仕上がったら試作品を分けてやるぜ！
+    choices: []
+  side_04_done:
+    text: おう、上玉だ！ほら、焼き上がったばかりの『名匠の研磨砥石』と研磨霊薬だ。カエデの工房に持ち込めば、そいつで極上の武具を鍛えられるぞ！
     choices: []

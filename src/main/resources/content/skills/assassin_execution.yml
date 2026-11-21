@@ -1,0 +1,9 @@
+schema_version: 1
+id: ec:assassin_execution
+type: skill
+name: 絶影の断罪
+cost: 46
+cooldown_ms: 11000
+multiplier: 2.65
+range: 5.0
+element: VOID

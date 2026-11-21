@@ -1,0 +1,20 @@
+schema_version: 1
+id: ec:quest_side_03_elena_escort
+type: quest
+name: 負傷斥候の帰還護衛
+condition: {min_level: 7, has_flags: ['ec:flag_ashwood_cleared']}
+objectives:
+  - {id: clear_wolves, kind: KILL, target: 'ec:enemy_thorn_wolf', amount: 5}
+  - {id: clear_treant, kind: KILL, target: 'ec:enemy_corrupted_treant', amount: 2}
+  - {id: reach_mine, kind: EXPLORE, target: 'ec:area_weeping_mine', amount: 1}
+  - {id: deliver_tomas, kind: TALK, target: 'ec:npc_tomas', amount: 1}
+rewards:
+  xp: 620
+  currency: 240
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_chronicle_seal', amount: 2}
+    - {item: 'ec:item_con_medium_hp_potion', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 0

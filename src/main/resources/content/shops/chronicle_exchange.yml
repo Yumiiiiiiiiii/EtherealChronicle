@@ -1,0 +1,30 @@
+schema_version: 1
+id: ec:shop_chronicle_exchange
+type: shop
+name: 冒険者録の功績交換所
+npc: ec:npc_ren
+buyback: true
+discount: 0
+entries:
+  - {id: recruit_mace, item: 'ec:item_wpn_recruit_mace', amount: 1, price: 35}
+  - {id: novice_censer, item: 'ec:item_wpn_novice_censer', amount: 1, price: 35}
+  - {id: iron_dirk, item: 'ec:item_wpn_iron_dirk', amount: 1, price: 35}
+  - {id: iron_kite_shield, item: 'ec:item_off_iron_kite_shield', amount: 1, price: 180}
+  - {id: prayer_rosary, item: 'ec:item_off_prayer_rosary', amount: 1, price: 180}
+  - {id: parrying_dagger, item: 'ec:item_off_parrying_dagger', amount: 1, price: 180}
+  - {id: ashwood_warhammer, item: 'ec:item_wpn_ashwood_warhammer', amount: 1, price: 280, condition: {min_level: 5}}
+  - {id: starblossom_crozier, item: 'ec:item_wpn_starblossom_crozier', amount: 1, price: 280, condition: {min_level: 5}}
+  - {id: thorn_twinblade, item: 'ec:item_wpn_thorn_twinblade', amount: 1, price: 280, condition: {min_level: 5}}
+  - {id: mineguard_halberd, item: 'ec:item_wpn_mineguard_halberd', amount: 1, price: 1200, condition: {min_level: 10}}
+  - {id: prism_scepter, item: 'ec:item_wpn_prism_scepter', amount: 1, price: 1200, condition: {min_level: 10}}
+  - {id: obsidian_stiletto, item: 'ec:item_wpn_obsidian_stiletto', amount: 1, price: 1200, condition: {min_level: 10}}
+  - {id: aether_bastion_mace, item: 'ec:item_wpn_aether_bastion_mace', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_chronicle_seal', amount: 8}], condition: {min_level: 15}}
+  - {id: celestial_prayer_staff, item: 'ec:item_wpn_celestial_prayer_staff', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_chronicle_seal', amount: 8}], condition: {min_level: 15}}
+  - {id: void_fang_dagger, item: 'ec:item_wpn_void_fang_dagger', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_chronicle_seal', amount: 8}], condition: {min_level: 15}}
+  - {id: paladin_plate, item: 'ec:item_arm_paladin_plate', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_chronicle_seal', amount: 7}], condition: {min_level: 15}}
+  - {id: cleric_vestment, item: 'ec:item_arm_cleric_vestment', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_chronicle_seal', amount: 7}], condition: {min_level: 15}}
+  - {id: assassin_shroud, item: 'ec:item_arm_assassin_shroud', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_chronicle_seal', amount: 7}], condition: {min_level: 15}}
+  - {id: artisan_whetstone_seal, item: 'ec:item_mat_artisan_whetstone', amount: 1, price: 0, tokens: [{item: 'ec:item_mat_chronicle_seal', amount: 2}]}
+  - {id: sky_salmon_grill, item: 'ec:item_con_sky_salmon_grill', amount: 1, price: 160}
+  - {id: starlight_elixir, item: 'ec:item_con_starlight_elixir', amount: 1, price: 320}
+  - {id: whetstone_tonic, item: 'ec:item_con_whetstone_tonic', amount: 1, price: 240}

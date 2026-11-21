@@ -80,6 +80,15 @@ nodes:
       - id: preview_mage
         label: 魔法使い（Mage）— 属性魔法と支援で戦況を制す
         next: confirm_mage
+      - id: preview_paladin
+        label: 聖騎士（Paladin）— 圧倒的な防御と星盾回復で前線を支える盾役
+        next: confirm_paladin
+      - id: preview_cleric
+        label: 星導士（Cleric）— 高回復と防御支援、星光・雷魔法を操る支援ヒーラー
+        next: confirm_cleric
+      - id: preview_assassin
+        label: 影刃（Assassin）— 最高会心と虚空・氷の連撃で急所を断つ暗殺近接
+        next: confirm_assassin
   confirm_warrior:
     text: 戦士だな！高いHPと防御力、溜めた『怒り』を叩き込む近接の要だ。協力戦じゃ仲間の盾にもなれる。こいつで決まりか？
     choices:
@@ -114,6 +123,42 @@ nodes:
         actions:
           - {kind: SELECT_CLASS, target: 'ec:class_mage'}
       - id: back_from_mage
+        label: 他の職業も見たい
+        next: class_select
+  confirm_paladin:
+    text: 聖騎士だな！全職随一の体力・防御・属性耐性に加え、星盾の防御バフと自己回復で強敵の猛攻を真正面から受け止める不落の要塞だ。こいつで決まりか？
+    choices:
+      - id: choose_paladin
+        label: 聖騎士になる！
+        next: class_done
+        set_flags: ['ec:flag_class_selected']
+        actions:
+          - {kind: SELECT_CLASS, target: 'ec:class_paladin'}
+      - id: back_from_paladin
+        label: 他の職業も見たい
+        next: class_select
+  confirm_cleric:
+    text: 星導士か！豊かなマナで癒やしと防御加護を絶やさず、星光と雷鳴で戦線を支える頼もしい支援ヒーラーだ。長期戦じゃ誰にも負けねぇぜ。こいつで決まりか？
+    choices:
+      - id: choose_cleric
+        label: 星導士になる！
+        next: class_done
+        set_flags: ['ec:flag_class_selected']
+        actions:
+          - {kind: SELECT_CLASS, target: 'ec:class_cleric'}
+      - id: back_from_cleric
+        label: 他の職業も見たい
+        next: class_select
+  confirm_assassin:
+    text: 影刃だな！『集中』を溜めて虚空と氷の刃を高速で畳み掛ける、最高峰の会心アタッカーだ。紙一重の見切りで敵を切り刻め。こいつで決まりか？
+    choices:
+      - id: choose_assassin
+        label: 影刃になる！
+        next: class_done
+        set_flags: ['ec:flag_class_selected']
+        actions:
+          - {kind: SELECT_CLASS, target: 'ec:class_assassin'}
+      - id: back_from_assassin
         label: 他の職業も見たい
         next: class_select
   class_done:

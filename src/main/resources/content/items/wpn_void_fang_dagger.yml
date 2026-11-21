@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_wpn_void_fang_dagger
+type: item
+name: 虚影牙の暗殺双刃
+material: DIAMOND_SWORD
+rarity: EPIC
+slot: HAND
+min_level: 16
+classes: [ec:class_assassin]
+budget: 44
+stats: {attack: 32, hp: 90, defense: 10, crit: 0.1, crit_damage: 0.16, skill_power: 0.22}
+weapon: 138
+price: 3400
+lore: '虚空の裂け目を模した黒刃。【虚影追撃】斬撃の残像が遅れて虚空ダメージを刻み込む。'
+effects:
+  - {kind: ATTACK_PROC, amount: 58, cooldown_ms: 8000, chance: 0.32, element: VOID}

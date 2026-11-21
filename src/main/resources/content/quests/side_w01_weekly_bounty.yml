@@ -1,0 +1,21 @@
+schema_version: 1
+id: ec:quest_side_w01_weekly_bounty
+type: quest
+name: 【ウィークリー】強敵三柱の大討伐
+condition: {min_level: 14, has_flags: ['ec:flag_stargazer_unlocked']}
+objectives:
+  - {id: weekly_golems, kind: KILL, target: 'ec:enemy_obsidian_golem', amount: 5}
+  - {id: weekly_sentinels, kind: KILL, target: 'ec:enemy_void_sentinel', amount: 5}
+  - {id: weekly_knights, kind: KILL, target: 'ec:enemy_glacial_knight', amount: 5}
+  - {id: report_ren, kind: TALK, target: 'ec:npc_ren', amount: 1}
+rewards:
+  xp: 5200
+  currency: 1600
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_chronicle_seal', amount: 8}
+    - {item: 'ec:item_mat_crucible_medal', amount: 2}
+    - {item: 'ec:item_mat_artisan_whetstone', amount: 3}
+auto_complete: false
+repeatable: true
+repeat_cooldown_ms: 604800000

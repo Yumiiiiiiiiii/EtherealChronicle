@@ -1,0 +1,17 @@
+schema_version: 1
+id: ec:item_wpn_celestial_prayer_staff
+type: item
+name: 天球祈祷の大聖杖
+material: DIAMOND_HOE
+rarity: EPIC
+slot: HAND
+min_level: 16
+classes: [ec:class_cleric]
+budget: 44
+stats: {attack: 30, resource: 140, hp: 100, defense: 10, crit: 0.05, element_resist: 0.05, skill_power: 0.3}
+weapon: 144
+price: 3400
+lore: '星見の丘の儀式杖を戦場仕様に鍛え上げた聖杖。【星祈の共鳴】攻撃時に星光を迸らせ魔力を循環させる。'
+effects:
+  - {kind: ATTACK_PROC, amount: 52, cooldown_ms: 8000, chance: 0.3, element: AETHER}
+  - {kind: RESOURCE, amount: 22, cooldown_ms: 12000, chance: 0.5}

@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:quest_side_04_garudo_whetstone
+type: quest
+name: 鍛冶師の極上砥石試作
+condition: {min_level: 9, has_flags: ['ec:flag_mine_unlocked']}
+objectives:
+  - {id: gather_scrap, kind: COLLECT, target: 'ec:item_mat_iron_scrap', amount: 4}
+  - {id: gather_spark, kind: COLLECT, target: 'ec:item_mat_spark_crystal', amount: 3}
+  - {id: report_garudo, kind: TALK, target: 'ec:npc_garudo', amount: 1}
+rewards:
+  xp: 840
+  currency: 310
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_artisan_whetstone', amount: 2}
+    - {item: 'ec:item_con_whetstone_tonic', amount: 1}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 0

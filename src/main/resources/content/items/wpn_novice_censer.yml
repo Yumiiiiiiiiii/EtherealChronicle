@@ -1,0 +1,14 @@
+schema_version: 1
+id: ec:item_wpn_novice_censer
+type: item
+name: 星祈の香炉杖
+material: WOODEN_HOE
+rarity: COMMON
+slot: HAND
+min_level: 1
+classes: [ec:class_cleric]
+budget: 10
+stats: {attack: 4, resource: 30, skill_power: 0.1}
+weapon: 17
+price: 30
+lore: '星導士見習いが祈りと光の導きを学ぶための木製香炉杖。'

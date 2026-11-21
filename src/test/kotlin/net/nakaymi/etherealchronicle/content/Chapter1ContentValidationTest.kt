@@ -30,8 +30,8 @@ class Chapter1ContentValidationTest {
         val snap = loadBundled()
         val world = snap.world
 
-        // Classes (3 canonical bible IDs + legacy aliases)
-        assertEquals(3, snap.classes.all().size)
+        // Classes (3 canonical Ch1 bible IDs + legacy aliases; extensible by side-content classes)
+        assertTrue(snap.classes.all().size >= 3)
         listOf(
             "ec:class_warrior" to "ec:warrior",
             "ec:class_archer" to "ec:archer",

@@ -36,6 +36,12 @@ nodes:
         next: s05_done
         actions:
           - {kind: COMPLETE_QUEST, target: 'ec:quest_s05_lost_scout'}
+      - id: start_side_03
+        label: 負傷斥候の廃坑移送を護衛する（負傷斥候の帰還護衛・受注）
+        condition: {min_level: 7, has_flags: ['ec:flag_ashwood_cleared'], not_started_quests: ['ec:quest_side_03_elena_escort']}
+        next: side_03_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_03_elena_escort'}
       - id: bye
         label: また報告に来る
   m02_done:
@@ -86,6 +92,12 @@ nodes:
         next: s05_done
         actions:
           - {kind: COMPLETE_QUEST, target: 'ec:quest_s05_lost_scout'}
+      - id: start_side_03_p
+        label: 負傷斥候の廃坑移送を護衛する（負傷斥候の帰還護衛・受注）
+        condition: {min_level: 7, has_flags: ['ec:flag_ashwood_cleared'], not_started_quests: ['ec:quest_side_03_elena_escort']}
+        next: side_03_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_03_elena_escort'}
       - id: bye_p
         label: 異変がないか見回ってくるよ
   after_extract_hub:
@@ -103,6 +115,12 @@ nodes:
         next: s05_done
         actions:
           - {kind: COMPLETE_QUEST, target: 'ec:quest_s05_lost_scout'}
+      - id: start_side_03_e
+        label: 負傷斥候の廃坑移送を護衛する（負傷斥候の帰還護衛・受注）
+        condition: {min_level: 7, has_flags: ['ec:flag_ashwood_cleared'], not_started_quests: ['ec:quest_side_03_elena_escort']}
+        next: side_03_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_side_03_elena_escort'}
       - id: bye_e
         label: 任せろ
   s05_started:
@@ -110,4 +128,7 @@ nodes:
     choices: []
   s05_done:
     text: ……斥候は無事に撤退していたか、安堵した。日誌にある『黒いローブの人影』はギルド長へも共有しよう。この軽足具を受け取れ、森を駆ける助けになる。
+    choices: []
+  side_03_started:
+    text: 負傷した斥候を嘆きの廃坑の兵站所まで送り届けたいが、街道にイバラオオカミと星蝕トレントが居座っている。奴らを掃討して安全路を切り開き、トマス補給官へ引き継いでくれ。
     choices: []

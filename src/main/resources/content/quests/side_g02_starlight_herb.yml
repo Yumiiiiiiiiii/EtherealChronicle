@@ -1,0 +1,20 @@
+schema_version: 1
+id: ec:quest_side_g02_starlight_herb
+type: quest
+name: 【採集】星露の蓮花と霊樹採取
+condition: {min_level: 12, has_flags: ['ec:flag_stargazer_unlocked']}
+objectives:
+  - {id: explore_hill, kind: EXPLORE, target: 'ec:area_stargazer_hill', amount: 1}
+  - {id: clear_wisps, kind: KILL, target: 'ec:enemy_star_wisp', amount: 5}
+  - {id: collect_bark, kind: COLLECT, target: 'ec:item_mat_star_bark', amount: 3}
+  - {id: report_kaede, kind: TALK, target: 'ec:npc_kaede', amount: 1}
+rewards:
+  xp: 1400
+  currency: 420
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_starlight_lotus', amount: 3}
+    - {item: 'ec:item_mat_artisan_whetstone', amount: 1}
+auto_complete: false
+repeatable: true
+repeat_cooldown_ms: 43200000

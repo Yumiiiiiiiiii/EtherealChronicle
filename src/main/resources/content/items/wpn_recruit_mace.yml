@@ -1,0 +1,14 @@
+schema_version: 1
+id: ec:item_wpn_recruit_mace
+type: item
+name: 誓約の見習い戦槌
+material: STONE_AXE
+rarity: COMMON
+slot: HAND
+min_level: 1
+classes: [ec:class_paladin]
+budget: 10
+stats: {attack: 4, defense: 3, hp: 20}
+weapon: 18
+price: 30
+lore: '聖騎士見習いに授けられる無骨な石槌。派手さはないが受け止めと一撃の安定感に優れる。'

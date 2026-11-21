@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:quest_side_d01_daily_hunt
+type: quest
+name: 【デイリー】ギルド日替わり討伐手配
+condition: {min_level: 6, has_flags: ['ec:flag_ch1_started']}
+objectives:
+  - {id: daily_wolves, kind: KILL, target: 'ec:enemy_thorn_wolf', amount: 6}
+  - {id: daily_miners, kind: KILL, target: 'ec:enemy_void_miner', amount: 6}
+  - {id: report_ren, kind: TALK, target: 'ec:npc_ren', amount: 1}
+rewards:
+  xp: 900
+  currency: 320
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_chronicle_seal', amount: 2}
+    - {item: 'ec:item_mat_artisan_whetstone', amount: 1}
+auto_complete: false
+repeatable: true
+repeat_cooldown_ms: 86400000

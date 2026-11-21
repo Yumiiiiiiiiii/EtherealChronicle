@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_off_iron_kite_shield
+type: item
+name: 鉄縁の騎士大盾
+material: SHIELD
+rarity: COMMON
+slot: OFFHAND
+min_level: 3
+classes: [ec:class_paladin]
+budget: 12
+stats: {hp: 30, defense: 7, element_resist: 0.02}
+price: 160
+lore: '港の鍛冶場で量産される縦長の騎士盾。聖騎士の立ち回りの要。'

@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_off_parrying_dagger
+type: item
+name: 受け流しの影小刀
+material: FLINT
+rarity: COMMON
+slot: OFFHAND
+min_level: 3
+classes: [ec:class_assassin]
+budget: 12
+stats: {attack: 5, defense: 3, crit: 0.04}
+price: 160
+lore: '左手に逆手で構える受け流し用の小刀。反撃の隙を生み出す。'

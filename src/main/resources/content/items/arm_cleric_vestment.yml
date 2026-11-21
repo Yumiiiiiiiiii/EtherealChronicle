@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_arm_cleric_vestment
+type: item
+name: 星導聖歌隊の法衣
+material: GOLDEN_CHESTPLATE
+rarity: EPIC
+slot: CHEST
+min_level: 16
+classes: [ec:class_cleric]
+budget: 40
+stats: {hp: 130, resource: 130, defense: 26, element_resist: 0.12, skill_power: 0.28}
+price: 2900
+lore: '蒼穹の聖紋を織り込んだ礼装法衣。【星詠みの加護】窮地に陥った際、柔らかな治癒光が身を包む。'
+effects:
+  - {kind: HEAL, amount: 60, cooldown_ms: 28000, chance: 1.0}

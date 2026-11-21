@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_arm_artisan_greaves
+type: item
+name: 名匠鍛造の星鋼脚甲
+material: NETHERITE_LEGGINGS
+rarity: EPIC
+slot: LEGS
+min_level: 19
+classes: []
+budget: 36
+stats: {hp: 150, defense: 30, attack: 10, element_resist: 0.08}
+price: 3400
+lore: 'ボルカとカエデの技術が結晶した特注脚甲。【剛脚の構え】強敵の衝撃を受け流す防御障壁を生む。'
+effects:
+  - {kind: DEFENSE_BUFF, amount: 16, cooldown_ms: 25000, duration_ticks: 100, chance: 1.0}

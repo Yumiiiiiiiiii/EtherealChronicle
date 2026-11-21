@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:quest_side_10_borka_masterwork
+type: quest
+name: 氷嶺鍛冶の名匠脚甲
+condition: {min_level: 19, has_flags: ['ec:flag_ch2_colossus_defeated']}
+objectives:
+  - {id: gather_whetstone, kind: COLLECT, target: 'ec:item_mat_artisan_whetstone', amount: 2}
+  - {id: gather_glacial_shard, kind: COLLECT, target: 'ec:item_mat_glacial_shard', amount: 8}
+  - {id: report_borka, kind: TALK, target: 'ec:npc_borka', amount: 1}
+rewards:
+  xp: 3600
+  currency: 820
+  set_flags: []
+  items:
+    - {item: 'ec:item_arm_artisan_greaves', amount: 1}
+    - {item: 'ec:item_mat_chronicle_seal', amount: 3}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 0
