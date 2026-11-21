@@ -4,7 +4,7 @@ type: enemy
 name: 〈虚ろの手〉狂信者
 entity: VINDICATOR
 level: 14
-hp: 960
+hp: 2350
 attack: 82
 defense: 58
 xp: 325

@@ -4,7 +4,7 @@ type: enemy
 name: 星蝕トレント
 entity: IRON_GOLEM
 level: 8
-hp: 1150
+hp: 2500
 attack: 48
 defense: 36
 xp: 320

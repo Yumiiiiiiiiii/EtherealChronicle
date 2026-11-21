@@ -4,7 +4,7 @@ type: enemy
 name: コケゴブリン
 entity: HUSK
 level: 4
-hp: 186
+hp: 420
 attack: 22
 defense: 15
 xp: 53

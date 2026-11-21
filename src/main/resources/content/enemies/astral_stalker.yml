@@ -4,7 +4,7 @@ type: enemy
 name: アストラル・ストーカー
 entity: ENDERMAN
 level: 15
-hp: 1060
+hp: 2600
 attack: 90
 defense: 62
 xp: 365

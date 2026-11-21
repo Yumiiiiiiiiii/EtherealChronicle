@@ -4,7 +4,7 @@ type: enemy
 name: 〈虚ろの手〉見習い信徒
 entity: EVOKER
 level: 13
-hp: 740
+hp: 1750
 attack: 76
 defense: 44
 xp: 287

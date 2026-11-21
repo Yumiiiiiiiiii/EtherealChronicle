@@ -9,3 +9,21 @@ All tunable progression, damage caps, rarity budgets and class/skill/item number
 - Rarity multipliers: common 1.0/0 affixes, uncommon 1.2/1, rare 1.5/2, epic 1.8/3, legendary 2.2/4. Values live in balance YAML. Budget consumption uses absolute stat values: HP/10 + resource/10 + ATK + DEF + crit*100 + critDamage*10 + elemental resistance*100 + skillPower*10. An item must fit its base budget times its rarity multiplier. Affix counts are definition metadata; random affix generation is not part of Task 1.
 
 Foundation content is deliberately small: three classes, four damage skills per class, three starter weapons, a field ration drop, one explicit-spawn enemy and the tutorial kill quest. Chapter 1's full content and engines follow in Task 2. Normal slimes, spawners, spawn eggs and slime splits never receive RPG rewards. Admin `/ec spawn ec:forest_slime <player>` creates an explicitly tagged RPG mob; tagged slime splitting is cancelled.
+
+---
+
+## Chapter 1 Tuned Balance Summary
+
+Tuned against the real core/content engine via `BalanceSimulationTest` (550 ms basic attack cadence without `skill_power`, 1 s skill GCD, 70% telegraph dodge, 8 s potion cooldown). Full breakdown lives in `docs/content/balance_report.md`.
+
+| Metric / Parameter | Tuned Value / Simulation Result | Target Band |
+|---|---|---|
+| XP Curve (`balance/default.yml`) | `xp_base: 100`, `xp_exponent: 1.575` (Lv15 = 37,958 / Lv16 = 45,075 / Lv18 = 61,622 / Lv20 = 81,435) | Typical Lv15–16 pre-boss; completionist < Lv20 pre-boss |
+| Chapter 1 Pre-Boss Level | Typical (Main + 7 sides): **Lv15** (Lv16 w/ +10 kills/zone); All 19 quests: **Lv18** (Lv20 post-M08) | Lv15–16 typical / < Lv20 completionist |
+| Class Growth (`classes/*.yml`) | WAR `sp: 0.02`; ARC `hp: 20, def: 2.5, sp: 0.02`; MAG `hp: 19, def: 2.4, sp: 0.025` | All 3 solo-viable; reduced Mage SP runaway |
+| Regular Mob TTK (Lv4–15) | **2.0 s – 6.2 s** (WAR 3.1–6.2 s, ARC 2.0–3.8 s, MAG 1.4–3.2 s; Lv1 slime 0.8–1.3 s) | ~2–6 s at target level |
+| Elite Mob TTK (`treant` / `sentinel`) | `corrupted_treant` (2,500 HP): **8.6–12.2 s**; `void_sentinel` (6,800 HP, 95 G): **7.1–13.2 s** | 6–15 s |
+| Mid-Boss (`iron_grinder`, 15,000 HP) | Lv12 Solo: **33.8–45.8 s** (3–5 pots) / 4P: **24.1–34.2 s** | 35–60 s solo |
+| Final Boss (`void_warden`, 55,000 HP, 108 ATK, `coop_hp_per_player: 0.9`) | Lv16 Solo: **87.2–119.0 s** (8–13 pots); Lv18 Solo: **82.4–113.6 s** (7–13 pots); 4P: **75.8–110.0 s** | 60–120 s solo; Mage survivable non-trivially (10 pots @ Lv16) |
+| Economy (Ch1 Sinks vs Income) | Full Warrior shop + consumables `11,190 G` vs `Typical+10` `11,876 G` (All 20 quests `19,920 G`) | Balanced w/ side quests |
+| Key Drop Pacing (`N = 1,000`) | `starshard_fragment` (`0.35–0.40`): **79.8–88.2 kills** for 32; Void Warden Legendary pity: **5.0 clears** | ~80–90 kills / 5-clear pity |

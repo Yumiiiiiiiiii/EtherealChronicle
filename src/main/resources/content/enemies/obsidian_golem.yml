@@ -4,7 +4,7 @@ type: enemy
 name: 黒曜ゴーレム
 entity: IRON_GOLEM
 level: 11
-hp: 780
+hp: 1800
 attack: 60
 defense: 58
 xp: 235

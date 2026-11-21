@@ -4,7 +4,7 @@ type: enemy
 name: 坑道コボルド
 entity: PIGLIN
 level: 9
-hp: 500
+hp: 1150
 attack: 48
 defense: 36
 xp: 159

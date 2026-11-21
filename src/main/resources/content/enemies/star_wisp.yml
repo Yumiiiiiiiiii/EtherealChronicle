@@ -4,7 +4,7 @@ type: enemy
 name: 星屑のウィスプ
 entity: BLAZE
 level: 13
-hp: 820
+hp: 2000
 attack: 74
 defense: 50
 xp: 287
