@@ -54,3 +54,11 @@ Processes stopped; `server.properties` / `ops.json` restored.
 | Gather boss bar / HUD coexistence | NOT-RUN | |
 | No vanilla hostile mobs at Lumina (night) | FAIL | 5 zombies + 2 skeletons within 24 blocks of the hub after 60 s; zombie + spider on the pier even under Peaceful |
 | Anti-macro debug | NOT-RUN | |
+
+## Task 10 follow-up (codex d94ca75)
+| Item | Result | Evidence |
+|---|---|---|
+| Vanilla hostile mobs near Lumina at night | PASS | `allowMonsters=false` logged; no zombie/skeleton/spider after 75 s at night |
+| `ec spawn` still works | PASS | wolf summoned; duplicate message shown |
+| Debug fishing UI (boss bar, action bar, failure title) | PASS | `逃げられた…` / `糸が切れてしまった` after line snap |
+| Debug fishing success + record | NOT-RUN | scripted timing failed twice; `fish_records` empty |
