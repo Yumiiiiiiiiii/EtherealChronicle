@@ -25,3 +25,4 @@ specials:
 spawn_points:
   - {id: ashwood_roadside_1, world: ec_world, x: 98, y: 65, z: -22, cap: 2, respawn_ticks: 200}
   - {id: ashwood_roadside_2, world: ec_world, x: 104, y: 65, z: 14, cap: 2, respawn_ticks: 200}
+  - {id: moonshower_rare_1, world: ec_world, x: 132, y: 65, z: 32, cap: 1, respawn_ticks: 6000, time_windows: [NIGHT], weather: [RAIN, THUNDER]}

@@ -20,6 +20,7 @@ import net.nakaymi.etherealchronicle.core.SkillEngine
 import net.nakaymi.etherealchronicle.core.Stats
 import net.nakaymi.etherealchronicle.core.TitleConditionType
 import net.nakaymi.etherealchronicle.core.TradeEngine
+import net.nakaymi.etherealchronicle.core.WorldSchedule
 import net.nakaymi.etherealchronicle.core.challengeRank
 import net.nakaymi.etherealchronicle.core.enhancedStats
 import net.nakaymi.etherealchronicle.core.equipTitle
@@ -62,6 +63,29 @@ class EarlyGameContentValidationTest {
 
     private val contentRoot = Path.of("src/main/resources/content")
     private fun loadBundled(): ContentSnapshot = ContentService(contentRoot).load()
+
+    @Test
+    fun `early hidden caches and scheduled appearances are shipped and schema-valid`() {
+        val world=loadBundled().world
+        val declaredFlags=world.chapters.values.flatMap { it.strings("flags") }.toSet()
+        assertEquals(3,world.treasureChests.size)
+        assertTrue(world.treasureChests.values.all { it.onceFlag in declaredFlags && it.items.isNotEmpty() })
+        assertEquals(3,world.treasureChests.values.map { it.onceFlag }.distinct().size)
+
+        val nightNpc=world.npcs.getValue("ec:npc_luna")
+        assertEquals(setOf("NIGHT"),nightNpc.timeWindows)
+        assertTrue(WorldSchedule.matches(nightNpc.timeWindows,nightNpc.weather,18000,false,false))
+        assertFalse(WorldSchedule.matches(nightNpc.timeWindows,nightNpc.weather,6000,false,false))
+        val rainNpc=world.npcs.getValue("ec:npc_moonshower_herbalist")
+        assertTrue(WorldSchedule.matches(rainNpc.timeWindows,rainNpc.weather,0,true,false))
+        assertFalse(WorldSchedule.matches(rainNpc.timeWindows,rainNpc.weather,0,false,false))
+
+        val rareSpawn=world.enemies.getValue("ec:enemy_moss_goblin").spawns.single { it.id=="moonshower_rare_1" }
+        assertEquals(1,rareSpawn.cap)
+        assertEquals(setOf("NIGHT"),rareSpawn.timeWindows)
+        assertEquals(setOf("RAIN","THUNDER"),rareSpawn.weather)
+        assertTrue(world.areas.getValue("ec:area_ashwood_forest").contains(rareSpawn.position))
+    }
 
     private val earlyNoneItems = listOf(
         "ec:item_mat_rookie_crest",
@@ -207,9 +231,9 @@ class EarlyGameContentValidationTest {
         val chapter = world.chapters["ec:chapter_early_adventures"] ?: fail("Missing ec:chapter_early_adventures")
 
         assertEquals(earlyQuests.toSet(), chapter.strings("quests").toSet())
-        assertEquals(earlyNpcs.toSet(), chapter.strings("npcs").toSet())
+        assertEquals((earlyNpcs+"ec:npc_moonshower_herbalist").toSet(), chapter.strings("npcs").toSet())
         assertEquals(listOf("ec:dungeon_novice_arena"), chapter.strings("dungeons"))
-        assertEquals(16, chapter.strings("flags").size)
+        assertEquals(19, chapter.strings("flags").size)
 
         // All NPCs across the entire game occupy unique (world, x, z) coordinates
         val npcCoords = mutableSetOf<Triple<String, Int, Int>>()

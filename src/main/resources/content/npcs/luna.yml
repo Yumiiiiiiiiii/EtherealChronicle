@@ -7,3 +7,5 @@ chapter: ec:chapter_early_adventures
 area: ec:area_lumina_port
 location: {world: ec_world, x: -28, y: 65, z: -28, yaw: -45}
 dialogue: ec:dlg_luna_hidden
+time_windows: [NIGHT]
+weather: [ANY]

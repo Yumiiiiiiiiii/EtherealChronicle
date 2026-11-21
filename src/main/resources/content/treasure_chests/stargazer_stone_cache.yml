@@ -1,0 +1,10 @@
+schema_version: 1
+id: ec:chest_early_stargazer_stone
+type: treasure_chest
+location: {world: ec_world, x: 252, y: 65, z: 34}
+once_flag: ec:flag_early_cache_stargazer
+items:
+  ec:item_mat_starshard_fragment: 2
+  ec:item_con_minor_hp_potion: 2
+currency: 80
+hint_particle: ENCHANT

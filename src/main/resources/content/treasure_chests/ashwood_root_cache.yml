@@ -1,0 +1,10 @@
+schema_version: 1
+id: ec:chest_early_ashwood_root
+type: treasure_chest
+location: {world: ec_world, x: 60, y: 65, z: 34}
+once_flag: ec:flag_early_cache_ashwood
+items:
+  ec:item_mat_ash_leaf: 4
+  ec:item_con_minor_hp_potion: 1
+currency: 55
+hint_particle: HAPPY_VILLAGER

@@ -1,0 +1,9 @@
+schema_version: 1
+id: ec:chest_early_lumina_jetty
+type: treasure_chest
+location: {world: ec_world, x: -28, y: 65, z: 18}
+once_flag: ec:flag_early_cache_lumina
+items:
+  ec:item_bait_dew_grub: 3
+currency: 35
+hint_particle: END_ROD

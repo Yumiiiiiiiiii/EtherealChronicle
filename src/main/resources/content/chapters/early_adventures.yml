@@ -22,6 +22,7 @@ npcs:
   - ec:npc_rook
   - ec:npc_luna
   - ec:npc_baldo
+  - ec:npc_moonshower_herbalist
 dungeons:
   - ec:dungeon_novice_arena
 dungeon_configs:
@@ -70,4 +71,7 @@ flags:
   - ec:flag_title_lumina_curator
   - ec:flag_title_novice_gladiator
   - ec:flag_title_grove_secret_finder
+  - ec:flag_early_cache_lumina
+  - ec:flag_early_cache_ashwood
+  - ec:flag_early_cache_stargazer
 areas: []
