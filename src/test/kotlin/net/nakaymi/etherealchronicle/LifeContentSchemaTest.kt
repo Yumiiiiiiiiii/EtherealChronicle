@@ -114,6 +114,10 @@ class LifeContentSchemaTest {
         assertEquals(10,content.fishSpecies.size)
         assertEquals(13,content.gatheringNodes.size)
         assertEquals(17,content.gatheringNodes.values.sumOf { it.locations.size })
+        assertEquals(8,content.lifeBalance.macroMinSamples)
+        assertEquals(18.0,content.lifeBalance.macroResponseDeviationMillis)
+        assertEquals(120.0,content.lifeBalance.macroCastIntervalDeviationMillis)
+        assertEquals(0.1,content.lifeBalance.macroRareWeightMultiplier)
     }
 
     @Test

@@ -29,15 +29,29 @@ data class FishCatch(val species: FishSpeciesDefinition,val sizeCm: Double,val c
 class FishingMacroDetector(private val capacity:Int=12) {
     private val responses=ArrayDeque<Long>()
     private val intervals=ArrayDeque<Long>()
+    private val castIntervals=ArrayDeque<Long>()
     private var biteStarted:Long?=null
     private var lastPull:Long?=null
+    private var lastCast:Long?=null
     init { require(capacity in 8..64) }
-    fun bite(nowMillis:Long) { biteStarted=nowMillis; lastPull=null }
+    fun cast(nowMillis:Long) {
+        lastCast?.let { add(castIntervals,nowMillis-it) }
+        lastCast=nowMillis
+    }
+    fun bite(nowMillis:Long) { biteStarted=nowMillis }
     fun pull(nowMillis:Long) {
         biteStarted?.let { add(responses,nowMillis-it) }; biteStarted=null
         lastPull?.let { add(intervals,nowMillis-it) }; lastPull=nowMillis
     }
-    fun suspicious():Boolean = responses.size>=8 && intervals.size>=8 && deviation(responses)<12.0 && deviation(intervals)<10.0
+    fun suspicious(minSamples:Int=8,responseDeviationMillis:Double=18.0,castIntervalDeviationMillis:Double=120.0):Boolean {
+        require(minSamples in 6..capacity && responseDeviationMillis in 1.0..100.0 && castIntervalDeviationMillis in 10.0..1000.0)
+        val fixedReaction=responses.size>=minSamples && deviation(responses)<=responseDeviationMillis
+        val fixedPullCadence=responses.size>=minSamples && intervals.size>=minSamples &&
+            deviation(intervals)<=responseDeviationMillis && deviation(responses)<=responseDeviationMillis*2
+        val fixedCastCadence=responses.size>=minSamples && castIntervals.size>=minSamples-1 &&
+            deviation(castIntervals)<=castIntervalDeviationMillis && deviation(responses)<=responseDeviationMillis*2
+        return fixedReaction || fixedPullCadence || fixedCastCadence
+    }
     private fun add(values:ArrayDeque<Long>,value:Long) { if(value<0) return; values.addLast(value); while(values.size>capacity) values.removeFirst() }
     private fun deviation(values:Collection<Long>):Double {
         val mean=values.average()

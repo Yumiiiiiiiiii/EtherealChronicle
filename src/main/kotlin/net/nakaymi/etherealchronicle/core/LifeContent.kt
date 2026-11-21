@@ -25,7 +25,11 @@ data class LifeBalance(
     val slackFailSeconds: Double = 2.5,
     val partyGatherRareBonus: Double = 0.08,
     val fishingMilestones: List<LifeMilestone> = emptyList(),
-    val gatheringMilestones: List<LifeMilestone> = emptyList()
+    val gatheringMilestones: List<LifeMilestone> = emptyList(),
+    val macroMinSamples: Int = 8,
+    val macroResponseDeviationMillis: Double = 18.0,
+    val macroCastIntervalDeviationMillis: Double = 120.0,
+    val macroRareWeightMultiplier: Double = 0.1
 )
 data class TackleDefinition(
     val id: String,

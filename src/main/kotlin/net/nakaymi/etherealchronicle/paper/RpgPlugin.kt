@@ -864,6 +864,24 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         }
     }
     private fun debug(sender: CommandSender, args: List<String>) {
+        if(args.firstOrNull()=="fish") {
+            val action=args.getOrNull(1) ?: error("/ec debug fish <start|status|cancel> <player> [魚種ID]")
+            val playerName=args.getOrNull(2) ?: error("/ec debug fish $action <player> [魚種ID]")
+            val player=server.getPlayerExact(playerName) ?: error("プレイヤーが見つかりません: $playerName")
+            val message=when(action) {
+                "start" -> fishing.debugStart(player,args.getOrNull(3))
+                "status" -> fishing.debugStatus(player.uniqueId)
+                "cancel" -> if(fishing.debugCancel(player)) "釣りセッションを終了しました。" else "釣りセッションはありません。"
+                else -> error("/ec debug fish <start|status|cancel> <player> [魚種ID]")
+            }
+            sender.sendMessage(Component.text("FISH ${player.name}: $message")); return
+        }
+        if(args.firstOrNull()=="gather") {
+            require(args.getOrNull(1)=="status") { "/ec debug gather status <player>" }
+            val playerName=args.getOrNull(2) ?: error("/ec debug gather status <player>")
+            val player=server.getPlayerExact(playerName) ?: error("プレイヤーが見つかりません: $playerName")
+            sender.sendMessage(Component.text("GATHER ${player.name}: ${gathering.debugStatus(player.uniqueId)}")); return
+        }
         require(args.size >= 3 && args[0] == "sim") { "/ec debug sim <操作> <name> [引数] — join/class/kill/skill/accept/event/complete/dialogue/choice/give/inventory/currency/level/flag/buy/sell/party/spawn/hit/dump/save/load" }
         val operation = args[1]; val name = args[2]
         val uuid = UUID.nameUUIDFromBytes("ec:simulation:$name".toByteArray())

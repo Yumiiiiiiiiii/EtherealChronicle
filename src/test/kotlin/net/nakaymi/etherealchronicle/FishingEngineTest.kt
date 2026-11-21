@@ -43,6 +43,15 @@ class FishingEngineTest {
         repeat(10) { i -> val base=i*1000L; human.bite(base); human.pull(base+200+i*70L); human.pull(base+350+i*40L) }
         assertFalse(human.suspicious())
     }
+    @Test fun `macro detector retains reaction timing across bites and records cast cadence`() {
+        val detector=FishingMacroDetector(); var at=0L
+        repeat(10) { detector.cast(at); detector.bite(at+1000); detector.pull(at+1300); at+=5000 }
+        assertTrue(detector.suspicious())
+        val human=FishingMacroDetector(); var time=0L
+        val reactions=listOf(110L,420L,230L,870L,330L,690L,150L,520L,980L,280L)
+        reactions.forEachIndexed { i,reaction -> human.cast(time); human.bite(time+400); human.pull(time+400+reaction); time+=3500+i*211L }
+        assertFalse(human.suspicious())
+    }
     @Test fun `transaction rollback restores persisted life profession mutations`() {
         val before=PlayerProfile(UUID.randomUUID())
         val changed=before.snapshot()

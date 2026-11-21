@@ -10,6 +10,7 @@ import org.bukkit.boss.BarColor
 import org.bukkit.boss.BarStyle
 import org.bukkit.boss.BossBar
 import org.bukkit.entity.BlockDisplay
+import org.bukkit.entity.Interaction
 import org.bukkit.entity.TextDisplay
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
@@ -22,6 +23,7 @@ import org.bukkit.event.entity.EntityExplodeEvent
 import org.bukkit.event.entity.EntityDamageEvent
 import org.bukkit.event.entity.PlayerDeathEvent
 import org.bukkit.event.player.PlayerInteractEvent
+import org.bukkit.event.player.PlayerInteractEntityEvent
 import org.bukkit.event.player.PlayerItemHeldEvent
 import org.bukkit.event.player.PlayerMoveEvent
 import org.bukkit.event.player.PlayerQuitEvent
@@ -31,6 +33,8 @@ import org.bukkit.persistence.PersistentDataType
 import org.joml.Vector3f
 import java.util.UUID
 import kotlin.math.floor
+
+internal fun gatheringBlockDisplayTranslation()=Vector3f(-0.5f,0f,-0.5f)
 
 /** Bounded, per-player harvesting channels. Vanilla terrain and drops remain untouched. */
 class GatheringController(private val plugin: RpgPlugin): Listener {
@@ -42,6 +46,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
     private val channels=mutableMapOf<UUID,Channel>()
     private val displays=mutableMapOf<String,List<UUID>>()
     private val displayKey=NamespacedKey(plugin,"gather_node")
+    private val hitboxKey=NamespacedKey(plugin,"gather_node_hitbox")
     private val limit=100
     private var task: org.bukkit.scheduler.BukkitTask?=null
 
@@ -52,6 +57,10 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
     }
 
     fun active(player: UUID)=player in channels
+    fun debugStatus(player:UUID):String=channels[player]?.let { c ->
+        val progress=((System.currentTimeMillis()-c.started).toDouble()/c.duration).coerceIn(0.0,1.0)
+        "採取中 node=${c.site.node.id} progress=${(progress*100).toInt()}% BossBar=${c.bar.players.any { it.uniqueId==player }}"
+    } ?: "採取チャンネルなし"
     fun interrupt(player: UUID) { Bukkit.getPlayer(player)?.let { cancel(it,"戦闘により採取を中断しました。") } }
     fun close() {
         task?.cancel(); task=null
@@ -85,6 +94,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         val block=world.getBlockAt(site.location.x,site.location.y,site.location.z)
         val display=world.spawn(at,BlockDisplay::class.java) { entity ->
             entity.block=Material.valueOf(site.node.displayMaterial).createBlockData()
+            entity.transformation=org.bukkit.util.Transformation(gatheringBlockDisplayTranslation(),org.joml.Quaternionf(),Vector3f(1f,1f,1f),org.joml.Quaternionf())
             entity.isPersistent=false; entity.isInvulnerable=true
             entity.persistentDataContainer.set(displayKey,PersistentDataType.STRING,k)
         }
@@ -93,7 +103,12 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
             entity.isPersistent=false; entity.isInvulnerable=true
             entity.persistentDataContainer.set(displayKey,PersistentDataType.STRING,k)
         }
-        displays[k]=listOf(display.uniqueId,label.uniqueId)
+        val hitbox=world.spawn(at,Interaction::class.java) { entity ->
+            entity.interactionWidth=1.1f; entity.interactionHeight=1.1f
+            entity.isPersistent=false; entity.isInvulnerable=true
+            entity.persistentDataContainer.set(hitboxKey,PersistentDataType.STRING,k)
+        }
+        displays[k]=listOf(display.uniqueId,label.uniqueId,hitbox.uniqueId)
         if(!block.type.isAir && block.type!=Material.WATER) plugin.logger.fine("採取ノード表示位置が空気ではありません: $k")
     }
 
@@ -130,6 +145,13 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         e.isCancelled=true
         begin(e.player,site)
     }
+    @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true)
+    fun interactDisplay(e: PlayerInteractEntityEvent) {
+        val k=e.rightClicked.persistentDataContainer.get(hitboxKey,PersistentDataType.STRING) ?: return
+        val site=sites.values.firstOrNull { siteKey(it)==k } ?: return
+        e.isCancelled=true
+        begin(e.player,site)
+    }
     private fun begin(player: org.bukkit.entity.Player,site: Site) {
         if(player.world.name!=DemoWorld.NAME || !DemoWorld.isOwned(player.world)) return
         val profile=plugin.profiles[player.uniqueId] ?: return
@@ -156,11 +178,13 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
     }
     @EventHandler fun quit(e: PlayerQuitEvent) { cancel(e.player,null) }
     @EventHandler fun death(e: PlayerDeathEvent) { cancel(e.entity,"倒れたため採取を中断しました。") }
-    @EventHandler fun damage(e: EntityDamageEvent) { (e.entity as? org.bukkit.entity.Player)?.let { interrupt(it.uniqueId) } }
+    @EventHandler(ignoreCancelled=true) fun damage(e: EntityDamageEvent) { (e.entity as? org.bukkit.entity.Player)?.let { interrupt(it.uniqueId) } }
     @EventHandler fun held(e: PlayerItemHeldEvent) { if(active(e.player.uniqueId)) cancel(e.player,"道具を持ち替えたため採取を中断しました。") }
-    private fun cancel(player: org.bukkit.entity.Player,message:String?) {
-        channels.remove(player.uniqueId)?.let { it.bar.removeAll() }
+    private fun cancel(player: org.bukkit.entity.Player,message:String?):Boolean {
+        val channel=channels.remove(player.uniqueId) ?: return false
+        channel.bar.removeAll()
         if(message!=null && player.isOnline) player.sendMessage(Component.text(message))
+        return true
     }
     private fun tick() {
         val now=System.currentTimeMillis()

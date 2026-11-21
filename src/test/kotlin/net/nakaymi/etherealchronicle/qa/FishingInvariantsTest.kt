@@ -29,7 +29,7 @@ class FishingInvariantsTest {
     }
 
     @Test
-    fun macroDetectorFlagsMetronomicReelingButNotHumansAndMissesSinglePullBots() {
+    fun macroDetectorFlagsMetronomicAndSinglePullBotsButNotHumans() {
         // pulls per bite: the detector measures reaction time (bite->first pull) and the spacing between consecutive pulls
         fun run(reaction: (Int) -> Long, spacing: (Int, Int) -> Long, pulls: Int): Boolean {
             val d = FishingMacroDetector(); var t = 0L
@@ -39,9 +39,13 @@ class FishingInvariantsTest {
         assertTrue(run({ 300 }, { _, _ -> 400 }, 4), "identical reaction time and pull spacing must be suspicious")
         val rnd = Random(3)
         assertTrue(!run({ 250L + rnd.nextInt(0, 700) }, { _, _ -> 200L + rnd.nextInt(0, 500) }, 4), "a varied human rhythm was flagged")
-        // known gap (documented in TESTING.md): bite() clears the previous pull, so a bot that pulls once per bite with a constant reaction time is never flagged
         val singlePullBot = run({ 300 }, { _, _ -> 0 }, 1)
-        File("build").mkdirs(); File("build/qa-macro.txt").writeText("single-pull constant-reaction bot flagged=$singlePullBot")
+        assertTrue(singlePullBot,"constant reaction across one pull per bite must be suspicious")
+
+        val periodicCastBot=FishingMacroDetector(); var t=0L
+        repeat(12) { i -> periodicCastBot.cast(t); periodicCastBot.bite(t+1000); periodicCastBot.pull(t+1300+(i%2)*35); t+=5000+(i%2) }
+        assertTrue(periodicCastBot.suspicious(8,15.0,10.0),"stable cast cadence plus unusually fixed reactions must be suspicious")
+        File("build").mkdirs(); File("build/qa-macro.txt").writeText("single-pull constant-reaction bot flagged=$singlePullBot; periodic-cast bot flagged=${periodicCastBot.suspicious(8,15.0,10.0)}")
     }
 
     @Test

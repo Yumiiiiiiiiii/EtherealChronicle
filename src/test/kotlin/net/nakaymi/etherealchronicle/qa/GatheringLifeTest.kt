@@ -9,6 +9,10 @@ import org.bukkit.NamespacedKey
 import org.bukkit.block.BlockFace
 import org.bukkit.event.block.Action
 import org.bukkit.event.block.BlockBreakEvent
+import org.bukkit.event.entity.EntityDamageEvent
+import org.bukkit.event.entity.PlayerDeathEvent
+import org.bukkit.damage.DamageSource
+import org.bukkit.damage.DamageType
 import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.inventory.EquipmentSlot
 import org.bukkit.inventory.ItemStack
@@ -59,6 +63,25 @@ class GatheringLifeTest {
             fun count(p: QaPlayerMock, id: String) = (0..35).sumOf { i -> p.inventory.getItem(i)?.takeIf { it.persistentDataContainer.get(itemKey, PersistentDataType.STRING) == id }?.amount ?: 0 }
             fun interact(p: QaPlayerMock) { server.pluginManager.callEvent(PlayerInteractEvent(p, Action.RIGHT_CLICK_BLOCK, p.inventory.itemInMainHand, ground, BlockFace.UP, EquipmentSlot.HAND)) }
 
+            rec("G0 inactive cancelled damage and death produce no harvest interruption chat; active channel notifies once and shows its BossBar") {
+                generateSequence { a.nextMessage() }.toList()
+                val cancelled=EntityDamageEvent(a,EntityDamageEvent.DamageCause.CUSTOM,1.0).apply { isCancelled=true }
+                server.pluginManager.callEvent(cancelled)
+                server.pluginManager.callEvent(PlayerDeathEvent(a,DamageSource.builder(DamageType.GENERIC).build(),mutableListOf(),0,"QA"))
+                val idleMessages=generateSequence { a.nextMessage() }.toList()
+                assertTrue(idleMessages.none { it.contains("採取") || it.contains("倒れた") },"inactive player was messaged: $idleMessages")
+                a.inventory.setItemInMainHand(plugin.createItem("ec:item_tool_sickle_silver")); interact(a)
+                assertTrue(plugin.gathering.active(a.uniqueId),"channel was not started")
+                assertTrue(plugin.gathering.debugStatus(a.uniqueId).contains("BossBar=true"),"BossBar was not attached: ${plugin.gathering.debugStatus(a.uniqueId)}")
+                generateSequence { a.nextMessage() }.toList()
+                server.pluginManager.callEvent(EntityDamageEvent(a,EntityDamageEvent.DamageCause.CUSTOM,1.0))
+                server.pluginManager.callEvent(EntityDamageEvent(a,EntityDamageEvent.DamageCause.CUSTOM,1.0))
+                server.pluginManager.callEvent(PlayerDeathEvent(a,DamageSource.builder(DamageType.GENERIC).build(),mutableListOf(),0,"QA"))
+                val activeMessages=generateSequence { a.nextMessage() }.toList().filter { it.contains("採取を中断") || it.contains("倒れたため採取") }
+                assertEquals(1,activeMessages.size,"transition should notify exactly once: $activeMessages")
+                "inactive silence, one active interruption"
+            }
+
             rec("G1 vanilla block breaking is cancelled on and around a node, not elsewhere") {
                 val near = world.getBlockAt(nodeLoc.x, nodeLoc.y, nodeLoc.z); val below = ground; val far = world.getBlockAt(nodeLoc.x + 40, nodeLoc.y, nodeLoc.z + 40).also { it.type = Material.DIRT }
                 val e1 = BlockBreakEvent(near, a); val e2 = BlockBreakEvent(below, a); val e3 = BlockBreakEvent(far, a)
@@ -73,6 +96,7 @@ class GatheringLifeTest {
             rec("G3 correct tool: channel completes once, 1-2 leaves granted, node on cooldown for that player") {
                 a.inventory.setItemInMainHand(plugin.createItem("ec:item_tool_sickle_silver")); interact(a)
                 assertTrue(plugin.gathering.active(a.uniqueId), "channel did not start")
+                assertTrue(plugin.gathering.debugStatus(a.uniqueId).contains("BossBar=true"),"BossBar was not attached")
                 var tickErr: Throwable? = null
                 val end = System.currentTimeMillis() + 6000
                 while (plugin.gathering.active(a.uniqueId) && System.currentTimeMillis() < end) { try { server.scheduler.waitAsyncTasksFinished(); server.scheduler.performOneTick() } catch (t: Throwable) { tickErr = tickErr ?: t }; Thread.sleep(20) }

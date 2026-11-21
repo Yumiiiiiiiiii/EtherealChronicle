@@ -19,3 +19,8 @@ fishing_score_milestones:
   - {score: 1800, flag: 'ec:flag_title_abyssal_fisher'}
 gathering_milestones:
   - {total_harvests: 60, unique_nodes: 8, flag: 'ec:flag_title_master_gatherer'}
+
+macro_min_samples: 8
+macro_response_deviation_ms: 18.0
+macro_cast_interval_deviation_ms: 120.0
+macro_rare_weight_multiplier: 0.1
