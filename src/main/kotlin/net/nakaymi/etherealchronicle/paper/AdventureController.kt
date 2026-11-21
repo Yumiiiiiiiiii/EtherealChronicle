@@ -303,7 +303,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         } }
     }
     /** Removes consumables first, saves their Paper inventory, persists currency/state, then grants output. */
-    fun transaction(player: Player,mutate: (InventoryAccess) -> Unit,persistConsumption: Boolean = true,success: () -> Unit = {}) {
+    fun transaction(player: Player,mutate: (InventoryAccess) -> Unit,persistConsumption: Boolean = true,beforePersist: () -> Unit = {},success: () -> Unit = {}) {
         val p=plugin.profiles[player.uniqueId] ?: return
         require(locks.add(p.uuid)) { "取引の処理中です。" }
         val before=p.snapshot(); val inventory=plugin.inventory(player,persistConsumption); val staged=StagedInventory(inventory)
@@ -314,12 +314,18 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             require(inventory.canExchange(staged.remove,staged.add)) { "持ち物に空きがありません。" }
             require(inventory.exchange(staged.remove,emptyMap()))
             staged.add.forEach { (id,n) -> p.pendingRewards.merge(id,n,Int::plus) }
+            beforePersist()
             plugin.persist(p).whenComplete { _,error -> plugin.sync {
                 try {
                     if(error != null) {
-                        if(plugin.profiles[p.uuid] === p && player.isOnline) {
-                            p.restore(before); inventory.exchange(emptyMap(),staged.remove); player.saveData(); plugin.save(p)
-                            message(player,"保存に失敗したため取引を戻しました。")
+                        val sameSession=plugin.profiles[p.uuid] === p
+                        val offlineWithoutReconnect=!player.isOnline && Bukkit.getPlayer(p.uuid)?.isOnline != true
+                        if(sameSession || offlineWithoutReconnect) {
+                            plugin.rollbackEnhancement(p.uuid)
+                            p.restore(before); player.inventory.storageContents=beforeStorage
+                            runCatching { player.saveData() }.onFailure { plugin.logger.warning("切断後の持ち物復旧保存に失敗: ${p.uuid}: ${it.message}") }
+                            plugin.save(p)
+                            if(player.isOnline) message(player,"保存に失敗したため取引を戻しました。")
                         }
                         plugin.logger.severe("取引の保存に失敗しました ${p.uuid}: ${error.message}")
                     } else if(player.isOnline && plugin.profiles[p.uuid] === p) {
@@ -328,7 +334,10 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                     } // Offline output remains in the durable pending reward mailbox.
                 } finally { if(player.uniqueId !in delivering) unlock(p.uuid) }            } }
         } catch(error: Exception) {
-            p.restore(before); player.inventory.storageContents=beforeStorage; unlock(p.uuid); throw error
+            plugin.rollbackEnhancement(p.uuid)
+            p.restore(before); player.inventory.storageContents=beforeStorage
+            runCatching { player.saveData() }
+            unlock(p.uuid); throw error
         }
     }
 }

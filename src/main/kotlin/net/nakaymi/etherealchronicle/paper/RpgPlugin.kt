@@ -39,8 +39,11 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private lateinit var simStore: PlayerStore
     private val simulated = mutableMapOf<String,PlayerProfile>()
     private val simSessions = mutableMapOf<String,SimulationSession>()
+    private data class EnhancementFlight(val token:String,val material:String,val currency:Long)
+    private val enhancementFlights=mutableMapOf<UUID,EnhancementFlight>()
     private lateinit var itemKey: NamespacedKey
     private lateinit var enhancementKey: NamespacedKey
+    private lateinit var enhancementTransactionKey: NamespacedKey
     private lateinit var enemyKey: NamespacedKey
     private lateinit var slotKey: NamespacedKey
     internal val snapshot get() = content.snapshot()
@@ -49,7 +52,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal fun inventory(player: Player,persistRemoval: Boolean = true): PaperInventoryAccess = PaperInventoryAccess(player,::identify,::createItem,persistRemoval) { logger.fine("取引の消費アイテムを保存しました: ${player.uniqueId}") }
     internal fun markDirty(player: UUID) { dirty.add(player) }
     override fun onEnable() {
-        itemKey = NamespacedKey(this,"item_id"); enhancementKey=NamespacedKey(this,"enhancement_level"); enemyKey = NamespacedKey(this,"enemy_id"); slotKey = NamespacedKey(this,"skill_slot")
+        itemKey = NamespacedKey(this,"item_id"); enhancementKey=NamespacedKey(this,"enhancement_level"); enhancementTransactionKey=NamespacedKey(this,"enhancement_transaction"); enemyKey = NamespacedKey(this,"enemy_id"); slotKey = NamespacedKey(this,"skill_slot")
         getCommand("ec")!!.setExecutor(this) // commands must reply while asynchronous content startup runs
         server.scheduler.runTaskAsynchronously(this,Runnable {
             try {
@@ -98,6 +101,12 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     }
     override fun onDisable() {
         ready = false
+        enhancementFlights.keys.toList().forEach { id ->
+            val player=server.getPlayer(id)
+            val profile=profiles[id]
+            if(player != null && profile != null) settleEnhancement(player,profile)
+            else enhancementFlights.remove(id)
+        }
         if(::adventure.isInitialized) adventure.prepareShutdown()
         if(::dungeons.isInitialized) runCatching { dungeons.shutdown() }.onFailure { logger.severe("聖堂の終了処理に失敗: ${it.message}") }
         if(::enemies.isInitialized) runCatching { enemies.close() }.onFailure { logger.severe("魔物の終了処理に失敗: ${it.message}") }
@@ -146,7 +155,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     @EventHandler fun onQuit(e: PlayerQuitEvent) {
         if(::adventure.isInitialized) adventure.beforeQuit(e.player)
         sessions.remove(e.player.uniqueId); choosing.remove(e.player.uniqueId)
-        profiles.remove(e.player.uniqueId)?.let(::save)
+        profiles.remove(e.player.uniqueId)?.let { profile -> settleEnhancement(e.player,profile); save(profile) }
         lastMoved.remove(e.player.uniqueId); dirty.remove(e.player.uniqueId)
 
     }
@@ -241,6 +250,24 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         p.isHealthScaled = true; p.healthScale = 20.0
         if(p.health > max) p.health = max
     }
+    private fun hasEnhancementToken(player:Player,token:String):Boolean = player.inventory.contents.filterNotNull().any { stack ->
+        stack.itemMeta.persistentDataContainer.get(enhancementTransactionKey,PersistentDataType.STRING) == token
+    }
+    /** Removes the in-flight reconciliation record when the surrounding transaction rolls back. */
+    internal fun rollbackEnhancement(id:UUID) { enhancementFlights.remove(id) }
+    /** If the output left inventory before completion, refund its costs exactly once. */
+    private fun settleEnhancement(player:Player,profile:PlayerProfile):Boolean {
+        val flight=enhancementFlights.remove(profile.uuid) ?: return true
+        if(hasEnhancementToken(player,flight.token)) return true
+        profile.currency=(profile.currency+flight.currency).coerceAtMost(snapshot.world.tuning.maxCurrency)
+        val restored=runCatching { inventory(player).exchange(emptyMap(),mapOf(flight.material to 1)) }.getOrDefault(false)
+        if(restored) {
+            profile.discoverItem(flight.material)
+            runCatching { player.saveData() }.onFailure { logger.warning("強化素材返却の保存に失敗: ${profile.uuid}: ${it.message}") }
+        } else profile.pendingRewards.merge(flight.material,1,Int::plus)
+        save(profile)
+        return false
+    }
     private fun applyTitle(player:Player,profile:PlayerProfile) {
         val title=profile.selectedTitle?.let(snapshot.world.titles::get)?.takeIf { it.unlockFlag in profile.flags }?.name
         val display=if(title == null) Component.text(player.name) else Component.text("[$title] ${player.name}")
@@ -318,20 +345,27 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val next=definition.enhancedStats(current+1,snapshot.balance,tuning.enhancementRate)
         val now=definition.enhancedStats(current,snapshot.balance,tuning.enhancementRate)
         require(next != now) { "装備のステータス予算上限に達しています。" }
+        val flight=EnhancementFlight(UUID.randomUUID().toString(),tuning.enhancementMaterial,cost)
         adventure.transaction(player,{ inventory ->
             require(p.currency >= cost) { "所持金が足りません。" }
             require(inventory.exchange(mapOf(tuning.enhancementMaterial to 1),emptyMap())) { "強化素材が足りません。" }
             p.currency -= cost
-        }) {
+        },beforePersist={
             val held=player.inventory.itemInMainHand
-            if(identify(held) == definition.id && (held.itemMeta.persistentDataContainer.get(enhancementKey,PersistentDataType.INTEGER) ?: 0) == current) {
-                val meta=held.itemMeta
-                meta.persistentDataContainer.set(enhancementKey,PersistentDataType.INTEGER,current+1)
-                meta.lore((meta.lore() ?: emptyList()).filterNot { it.toString().contains("強化段階") }+Component.text("強化段階 +${current+1}"))
-                held.itemMeta=meta; player.inventory.setItemInMainHand(held); player.saveData(); save(p); applyStats(player,p)
+            require(identify(held) == definition.id && (held.itemMeta.persistentDataContainer.get(enhancementKey,PersistentDataType.INTEGER) ?: 0) == current) { "強化対象の装備が変わりました。費用は発生しません。" }
+            val meta=held.itemMeta
+            meta.persistentDataContainer.set(enhancementKey,PersistentDataType.INTEGER,current+1)
+            meta.persistentDataContainer.set(enhancementTransactionKey,PersistentDataType.STRING,flight.token)
+            meta.lore((meta.lore() ?: emptyList()).filterNot { it.toString().contains("強化段階") }+Component.text("強化段階 +${current+1}"))
+            held.itemMeta=meta; player.inventory.setItemInMainHand(held)
+            player.saveData()
+            enhancementFlights[player.uniqueId]=flight
+        },success={
+            if(settleEnhancement(player,p)) {
+                applyStats(player,p)
                 player.sendMessage(Component.text("装備を +${current+1} に強化しました。"))
-            } else player.sendMessage(Component.text("消費は確定しましたが装備が切り替わっています。強化は保留されました。"))
-        }
+            } else player.sendMessage(Component.text("強化対象が持ち物から見つからず、費用を返却しました。"))
+        })
     }
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=false) fun codexClick(e:InventoryClickEvent) {
         val player=e.whoClicked as? Player ?: return

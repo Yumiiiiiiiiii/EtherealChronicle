@@ -51,7 +51,7 @@ class EnhanceStressTest {
                 for (n in 1..5) {
                     val c0 = p.currency; val m0 = mats()
                     open(); plugin.enhance(player, menu())
-                    assertTrue(server.pump { level() == n }, "level did not reach +$n (is ${level()})")
+                    assertTrue(server.pump { level() == n && !plugin.adventure.locked(uuid) }, "level +$n was not persisted/unlocked (is ${level()})")
                     assertEquals(c0 - 100L * n, p.currency, "currency at +$n"); assertEquals(m0 - 1, mats(), "material at +$n")
                     val atk = plugin.effectiveStats(player, p).attack; assertTrue(atk >= lastAtk, "attack dropped at +$n"); lastAtk = atk
                     log += "+$n atk=${"%.2f".format(atk)}"
@@ -81,10 +81,10 @@ class EnhanceStressTest {
                 open(); plugin.enhance(player, menu())
                 val other = plugin.createItem("ec:item_wpn_rusty_broadsword"); player.inventory.setItemInMainHand(other)   // swap before the async persist completes
                 server.pump(2500) { false }
-                val consumed = (c0 != p.currency) || (m0 != mats()); val applied = level() >= 1 || true
-                assertTrue(!consumed || level() == 1 || player.inventory.storageContents.any { it != null && (it.itemMeta.persistentDataContainer.get(lvKey, PersistentDataType.INTEGER) ?: 0) == 1 },
-                    "LOSS: currency ${c0}->${p.currency}, material ${m0}->${mats()} consumed but no item received +1 after the held item was swapped (the plugin only says 強化は保留されました)")
-                "consistent"
+                assertEquals(c0,p.currency,"currency refunded when the result item was replaced")
+                assertEquals(m0,mats(),"whetstone refunded when the result item was replaced")
+                assertEquals(0,level(),"replacement item must not receive an upgrade for free")
+                "costs refunded"
             }
             rec("E6 quit right after enhance (before the persist completes): consumption and result stay consistent") {
                 player.inventory.setItemInMainHand(plugin.createItem("ec:item_wpn_rusty_broadsword")); player.inventory.addItem(plugin.createItem(mat, 5))
@@ -94,16 +94,35 @@ class EnhanceStressTest {
                 val saved = File(plugin.dataFolder, "playerdata/$uuid.yml").readText()
                 val gold = Regex("currency: (\\d+)").find(saved)!!.groupValues[1].toLong()
                 val applied = level() == 1
-                assertTrue(gold == 5000L || applied, "LOSS: saved currency $gold (debited) but the item never became +1 after quitting mid-enhance (material kept=${mats()} of $m0)")
-                "gold=$gold applied=$applied"
+                assertTrue(gold == 4900L && applied && mats() == m0-1, "quit must save both the 100 G/one whetstone debit and +1 item; got gold=$gold applied=$applied material=${mats()}/$m0")
+                "gold=$gold applied=$applied material=${mats()}"
+            }
+            rec("E7 plugin disable during enhancement flushes the upgraded item and matching debit") {
+                val shutdownId=UUID.nameUUIDFromBytes("enh-shutdown".toByteArray())
+                val shutdownPlayer=QaPlayerMock(server,"ShutdownSmith",shutdownId); server.addPlayer(shutdownPlayer)
+                server.pump { shutdownId in plugin.profiles }
+                val shutdownProfile=plugin.profiles.getValue(shutdownId)
+                shutdownProfile.classId="ec:class_warrior"; shutdownProfile.level=20; shutdownProfile.currency=5000
+                shutdownPlayer.inventory.setItemInMainHand(plugin.createItem("ec:item_wpn_rusty_broadsword"))
+                shutdownPlayer.inventory.addItem(plugin.createItem(mat,1))
+                openEnhancementForShutdown(plugin,shutdownPlayer)
+                val shutdownMenu=shutdownPlayer.openInventory.topInventory.holder as RpgMenu
+                plugin.enhance(shutdownPlayer,shutdownMenu)
+                server.pluginManager.disablePlugin(plugin)
+                val saved=File(plugin.dataFolder,"playerdata/$shutdownId.yml").readText()
+                val gold=Regex("currency: (\\d+)").find(saved)!!.groupValues[1].toLong()
+                val upgraded=shutdownPlayer.inventory.itemInMainHand.itemMeta.persistentDataContainer.get(lvKey,PersistentDataType.INTEGER) == 1
+                assertTrue(gold==4900L && upgraded,"disable must flush matching debit and +1 result; gold=$gold upgraded=$upgraded")
+                "gold=$gold upgraded=$upgraded"
             }
         } finally {
             File("build").mkdirs(); File("build/qa-enhance-steps.txt").writeText(out.joinToString(System.lineSeparator())); println(out.joinToString(System.lineSeparator()))
             MockBukkit.unmock()
         }
-        // E6 documents known BUG-7 (quit mid-enhance loses the upgrade); it only fails the build with -Dqa.strict=true (pass via jvmArgs).
-        val strict = System.getProperty("qa.strict") != null
-        val blocking = out.filter { it.startsWith("FAIL") && (strict || !it.startsWith("FAIL  E6")) }
-        assertTrue(blocking.isEmpty(), blocking.joinToString(System.lineSeparator()))
+        assertTrue(out.none { it.startsWith("FAIL") },out.filter { it.startsWith("FAIL") }.joinToString(System.lineSeparator()))
     }
+}
+
+private fun openEnhancementForShutdown(plugin:RpgPlugin,player:QaPlayerMock) {
+    plugin.openEnhancement(player)
 }
