@@ -11,6 +11,8 @@ import xyz.xenondevs.invui.gui.Gui
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.net.ServerSocket
+import java.net.Socket
+import java.net.InetSocketAddress
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -44,6 +46,13 @@ class WorldUiFoundationTest {
                 assertNotNull(zip.getEntry("pack.mcmeta"))
                 assertNotNull(zip.getEntry("pack.png"))
                 assertNotNull(zip.getEntry("assets/ec/textures/entity/wolf/thorn_wolf.png"))
+                assertNotNull(zip.getEntry("assets/ec/textures/item/transparent_slot.png"))
+                assertNotNull(zip.getEntry("assets/ec/lang/en_us.json"))
+                assertNotNull(zip.getEntry("assets/ec/lang/ja_jp.json"))
+                val transparent = zip.getInputStream(zip.getEntry("assets/ec/textures/item/transparent_slot.png")).use { it.readBytes() }
+                assertTrue(transparent.size > 32)
+                assertEquals(16, java.nio.ByteBuffer.wrap(transparent, 16, 4).int)
+                assertEquals(16, java.nio.ByteBuffer.wrap(transparent, 20, 4).int)
                 assertNull(zip.getEntry("README.md"))
             }
         } finally {
@@ -77,6 +86,37 @@ class WorldUiFoundationTest {
         }
         assertThrows(Exception::class.java) {
             HttpClient.newHttpClient().send(HttpRequest.newBuilder(endpoint.url(artifact.sha1)).GET().build(), HttpResponse.BodyHandlers.discarding())
+        }
+    }
+
+    @Test
+    fun `partial header flood is timed out and does not block a valid download`() {
+        val port = ServerSocket(0).use { it.localPort }
+        val artifact = ResourcePackArtifact.from("flood-test-pack".toByteArray())
+        val endpoint = ResourcePackEndpoint("127.0.0.1", "127.0.0.1", port, "embedded_http", "")
+        val server = EmbeddedPackServer(endpoint, artifact, maxConcurrent = 32, maxPerIp = 4,
+            idleReadTimeoutMillis = 250, headerDeadlineMillis = 700)
+        val stalledClients = mutableListOf<Socket>()
+        try {
+            repeat(100) {
+                runCatching {
+                    Socket().apply {
+                        connect(InetSocketAddress("127.0.0.1", port), 500)
+                        getOutputStream().write("GET /pack/${artifact.sha1}.zip HTTP/1.1\r\nHost:".toByteArray())
+                        stalledClients += this
+                    }
+                }
+            }
+            Thread.sleep(400)
+            val response = HttpClient.newHttpClient().send(
+                HttpRequest.newBuilder(endpoint.url(artifact.sha1)).GET().build(),
+                HttpResponse.BodyHandlers.ofByteArray(),
+            )
+            assertEquals(200, response.statusCode())
+            assertArrayEquals(artifact.bytes, response.body())
+        } finally {
+            stalledClients.forEach { runCatching { it.close() } }
+            server.close()
         }
     }
 

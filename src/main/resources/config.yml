@@ -7,7 +7,11 @@ resource_pack:
   external_url: ""
   external_sha1: ""
   embedded_http:
+    # 自宅・検証用の初期値です。公開サーバーではHTTPS対応の external_url を推奨し、内蔵HTTPを使う場合はこのポートを開放してください。
     bind_host: "0.0.0.0"
     public_host: ""
     port: 25580
     max_concurrent: 32
+    max_per_ip: 4
+    idle_read_timeout_ms: 500
+    header_deadline_ms: 1500

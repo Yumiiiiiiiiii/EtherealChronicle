@@ -18,6 +18,9 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
     private val configuredHost = settings.getString("resource_pack.embedded_http.public_host", "") ?: ""
     private val port = settings.getInt("resource_pack.embedded_http.port", 25580)
     private val maxConcurrent = settings.getInt("resource_pack.embedded_http.max_concurrent", 32)
+    private val maxPerIp = settings.getInt("resource_pack.embedded_http.max_per_ip", 4)
+    private val idleReadTimeoutMillis = settings.getInt("resource_pack.embedded_http.idle_read_timeout_ms", 500)
+    private val headerDeadlineMillis = settings.getInt("resource_pack.embedded_http.header_deadline_ms", 1_500)
     private val externalUrl = settings.getString("resource_pack.external_url", "") ?: ""
     private val externalSha1 = settings.getString("resource_pack.external_sha1", "") ?: ""
     private val preferences = mutableMapOf<UUID, PackPreference>()
@@ -31,7 +34,8 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
         }.onFailure { plugin.logger.warning("Resource pack distribution is disabled by invalid configuration: ${it.message}") }.getOrNull()
     }
     private val httpServer = if (configuredEndpoint?.mode == "embedded_http") runCatching {
-        EmbeddedPackServer(requireNotNull(configuredEndpoint), requireNotNull(artifact), maxConcurrent)
+        EmbeddedPackServer(requireNotNull(configuredEndpoint), requireNotNull(artifact), maxConcurrent, maxPerIp,
+            idleReadTimeoutMillis, headerDeadlineMillis)
     }.onFailure { plugin.logger.warning("Resource pack HTTP service failed to start: ${it.message}") }.getOrNull() else null
     private val endpoint = configuredEndpoint?.takeIf { it.mode != "embedded_http" || httpServer != null }
 

@@ -46,6 +46,10 @@ Get-FileHash build\etherealchronicle-resourcepack.zip -Algorithm SHA1
 sha1sum build/etherealchronicle-resourcepack.zip
 ```
 
+## サーバー配布設定
+
+`plugins/EtherealChronicle/config.yml` の初期値は検証用です。公開サーバーではHTTPSに対応した `resource_pack.mode: external_url` を推奨します。内蔵HTTPを使う場合は `embedded_http.public_host` に外部から到達できるホスト名/IPを設定し、`embedded_http.port`（初期値25580）をファイアウォールとルーターで開放してください。`bind_host` は待受インターフェース、`public_host` はクライアントへ通知する接続先です。
+
 ## フォント PUA コードポイント一覧
 
 | Font ID | 範囲 | 用途 |

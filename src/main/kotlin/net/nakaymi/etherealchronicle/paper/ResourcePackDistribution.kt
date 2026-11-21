@@ -1,14 +1,19 @@
 package net.nakaymi.etherealchronicle.paper
 
-import com.sun.net.httpserver.HttpExchange
-import com.sun.net.httpserver.HttpServer
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
+import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.net.InetSocketAddress
+import java.net.ServerSocket
+import java.net.Socket
 import java.net.URI
 import java.security.MessageDigest
 import java.util.concurrent.ArrayBlockingQueue
-import java.util.concurrent.Semaphore
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 /** HTTP配信へ渡す同梱リソースパックをハッシュと共に保持します。 */
 data class ResourcePackArtifact(val bytes: ByteArray, val sha1: String) {
@@ -43,52 +48,154 @@ data class ResourcePackEndpoint(val bindHost: String, val publicHost: String, va
     }
 }
 
-/** 固定URLのみをGET/HEADで返す有界HTTPサーバーです。 */
+/** 固定URLだけを返し、部分HTTPリクエストにも有限時間で応答を打ち切るHTTPサーバーです。 */
 class EmbeddedPackServer(
     private val endpoint: ResourcePackEndpoint,
     private val artifact: ResourcePackArtifact,
     private val maxConcurrent: Int,
+    private val maxPerIp: Int = maxConcurrent.coerceAtMost(4),
+    private val idleReadTimeoutMillis: Int = 500,
+    private val headerDeadlineMillis: Int = 1_500,
 ) : AutoCloseable {
-    init { require(maxConcurrent in 1..128) }
-    private val permits = Semaphore(maxConcurrent)
-    private val executor = ThreadPoolExecutor(maxConcurrent, maxConcurrent, 0, TimeUnit.MILLISECONDS,
-        ArrayBlockingQueue(maxConcurrent * 4), { task -> Thread(task, "ec-resource-pack-http").apply { isDaemon = true } },
-        ThreadPoolExecutor.AbortPolicy())
-    private val server = HttpServer.create(InetSocketAddress(endpoint.bindHost, endpoint.port), 0).apply {
-        setExecutor(this@EmbeddedPackServer.executor)
-        createContext("/") { exchange -> respond(exchange) }
+    init {
+        require(maxConcurrent in 1..128)
+        require(maxPerIp in 1..maxConcurrent)
+        require(idleReadTimeoutMillis in 100..10_000)
+        require(headerDeadlineMillis in idleReadTimeoutMillis..30_000)
+    }
+
+    private val running = AtomicInteger(1)
+    private val activeConnections = AtomicInteger()
+    private val perIpConnections = ConcurrentHashMap<String, AtomicInteger>()
+    private val sockets = ConcurrentHashMap.newKeySet<Socket>()
+    private val executor = ThreadPoolExecutor(
+        maxConcurrent,
+        maxConcurrent,
+        0,
+        TimeUnit.MILLISECONDS,
+        ArrayBlockingQueue(maxConcurrent),
+        { task -> Thread(task, "ec-resource-pack-http").apply { isDaemon = true } },
+        ThreadPoolExecutor.AbortPolicy(),
+    )
+    private val serverSocket = ServerSocket().apply {
+        reuseAddress = true
+        bind(InetSocketAddress(endpoint.bindHost, endpoint.port), maxConcurrent)
+    }
+    private val acceptThread = Thread(::acceptConnections, "ec-resource-pack-accept").apply {
+        isDaemon = true
         start()
     }
 
-    private fun respond(exchange: HttpExchange) {
-        if (!permits.tryAcquire()) {
-            exchange.close()
-            return
-        }
-        try {
-            if (exchange.requestMethod !in setOf("GET", "HEAD") || exchange.requestURI.rawPath != "/pack/${artifact.sha1}.zip" ||
-                exchange.requestURI.rawQuery != null || exchange.requestURI.rawFragment != null) {
-                exchange.sendResponseHeaders(404, -1)
-                return
+    /** 接続数を制限してから、各ソケットをタイムアウト付きワーカーへ渡します。 */
+    private fun acceptConnections() {
+        while (running.get() == 1) {
+            val socket = try {
+                serverSocket.accept()
+            } catch (_: IOException) {
+                if (running.get() == 1) continue else return
             }
-            exchange.responseHeaders.set("Content-Type", "application/zip")
-            exchange.responseHeaders.set("Cache-Control", "public, max-age=3600, immutable")
-            exchange.responseHeaders.set("X-Content-Type-Options", "nosniff")
-            exchange.responseHeaders.set("Content-Length", artifact.bytes.size.toString())
-            if (exchange.requestMethod == "HEAD") {
-                exchange.sendResponseHeaders(200, -1)
-            } else {
-                exchange.sendResponseHeaders(200, artifact.bytes.size.toLong())
-                exchange.responseBody.use { it.write(artifact.bytes) }
+            val ip = socket.inetAddress.hostAddress ?: "unknown"
+            val ipCounter = perIpConnections.computeIfAbsent(ip) { AtomicInteger() }
+            val total = activeConnections.incrementAndGet()
+            val forIp = ipCounter.incrementAndGet()
+            if (total > maxConcurrent || forIp > maxPerIp) {
+                releaseConnection(socket, ip, ipCounter)
+                continue
             }
-        } finally {
-            exchange.close()
-            permits.release()
+            sockets += socket
+            try {
+                executor.execute { handle(socket, ip, ipCounter) }
+            } catch (_: java.util.concurrent.RejectedExecutionException) {
+                releaseConnection(socket, ip, ipCounter)
+            }
         }
     }
 
+    /** ヘッダー合計期限と無通信期限の両方を守り、固定パックだけを返します。 */
+    private fun handle(socket: Socket, ip: String, ipCounter: AtomicInteger) {
+        try {
+            socket.tcpNoDelay = true
+            val request = readRequest(socket)
+            val (method, target) = request
+            val isPack = target == "/pack/${artifact.sha1}.zip"
+            if (method !in setOf("GET", "HEAD") || !isPack) {
+                writeResponse(socket, 404, "Not Found", null, headOnly = true)
+            } else {
+                writeResponse(socket, 200, "OK", artifact.bytes, headOnly = method == "HEAD")
+            }
+        } catch (_: IOException) {
+            // 無効な入力・遅いヘッダーは応答を待たず接続を閉じます。
+        } finally {
+            releaseConnection(socket, ip, ipCounter)
+        }
+    }
+
+    /** HTTP/1.xリクエスト行とヘッダーを、サイズ・総時間を制限して読みます。 */
+    private fun readRequest(socket: Socket): Pair<String, String> {
+        val input = BufferedInputStream(socket.getInputStream())
+        val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(headerDeadlineMillis.toLong())
+        var totalBytes = 0
+        fun readLine(): String {
+            val line = ByteArrayOutputStream()
+            var previous = -1
+            while (true) {
+                val remaining = TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime()).toInt()
+                if (remaining <= 0) throw java.net.SocketTimeoutException("HTTP header deadline exceeded")
+                socket.soTimeout = minOf(idleReadTimeoutMillis, remaining.coerceAtLeast(1))
+                val current = input.read()
+                if (current < 0) throw IOException("Request ended before headers")
+                totalBytes++
+                if (totalBytes > MAX_HEADER_BYTES) throw IOException("HTTP headers exceeded limit")
+                if (previous == '\r'.code && current == '\n'.code) {
+                    val bytes = line.toByteArray()
+                    if (bytes.isNotEmpty()) return bytes.copyOf(bytes.size - 1).toString(Charsets.ISO_8859_1)
+                    return ""
+                }
+                line.write(current)
+                previous = current
+            }
+        }
+
+        val requestLine = readLine().split(' ', limit = 3)
+        if (requestLine.size != 3 || !requestLine[2].startsWith("HTTP/1.")) throw IOException("Invalid HTTP request line")
+        var headerCount = 0
+        while (readLine().isNotEmpty()) {
+            headerCount++
+            if (headerCount > MAX_HEADERS) throw IOException("Too many HTTP headers")
+        }
+        return requestLine[0] to requestLine[1]
+    }
+
+    /** HTTP応答に必要な最小ヘッダーだけを書き、本文はGETにだけ付けます。 */
+    private fun writeResponse(socket: Socket, status: Int, reason: String, body: ByteArray?, headOnly: Boolean) {
+        val bytes = body ?: ByteArray(0)
+        val output = BufferedOutputStream(socket.getOutputStream())
+        val contentType = if (status == 200) "Content-Type: application/zip\r\n" else ""
+        output.write("HTTP/1.1 $status $reason\r\n$contentType".toByteArray(Charsets.ISO_8859_1))
+        output.write("Cache-Control: public, max-age=3600, immutable\r\n".toByteArray(Charsets.ISO_8859_1))
+        output.write("X-Content-Type-Options: nosniff\r\n".toByteArray(Charsets.ISO_8859_1))
+        output.write("Content-Length: ${bytes.size}\r\nConnection: close\r\n\r\n".toByteArray(Charsets.ISO_8859_1))
+        if (!headOnly && bytes.isNotEmpty()) output.write(bytes)
+        output.flush()
+    }
+
+    /** ソケット・グローバル枠・送信元IP枠を必ず同時に解放します。 */
+    private fun releaseConnection(socket: Socket, ip: String, ipCounter: AtomicInteger) {
+        if (!sockets.remove(socket) && socket.isClosed) return
+        runCatching { socket.close() }
+        activeConnections.updateAndGet { (it - 1).coerceAtLeast(0) }
+        if (ipCounter.decrementAndGet() <= 0) perIpConnections.remove(ip, ipCounter)
+    }
+
     override fun close() {
-        server.stop(0)
+        if (running.getAndSet(0) == 0) return
+        runCatching { serverSocket.close() }
+        sockets.toList().forEach { runCatching { it.close() } }
         executor.shutdownNow()
+    }
+
+    private companion object {
+        const val MAX_HEADER_BYTES = 4_096
+        const val MAX_HEADERS = 64
     }
 }
