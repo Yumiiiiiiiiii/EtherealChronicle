@@ -53,6 +53,17 @@ class UiQAFixesTest {
     }
 
     @Test
+    fun `theme mode setting updates live provider state on reload`() {
+        val setting = ThemeModeSetting(ThemeMode.ICONS_ONLY)
+        assertEquals(ThemeMode.ICONS_ONLY, setting.current)
+
+        setting.update(UiThemeProvider.mode("full"))
+        assertEquals(ThemeMode.FULL, setting.current)
+        setting.update(UiThemeProvider.mode("off"))
+        assertEquals(ThemeMode.OFF, setting.current)
+    }
+
+    @Test
     fun `advancement root uses the modern texture identifier`() {
         val root = AdvancementDatapack.rootJson("Chronicle", "Records")
         assertTrue(root.contains("\"background\":\"minecraft:gui/advancements/backgrounds/adventure\""))

@@ -13,14 +13,19 @@ import org.bukkit.plugin.java.JavaPlugin
 class UiThemeProvider(
     private val plugin: JavaPlugin,
     private val packs: ResourcePackController,
-    private val mode: ThemeMode = ThemeMode.ICONS_ONLY,
+    mode: ThemeMode = ThemeMode.ICONS_ONLY,
 ) {
+    private val modeSetting = ThemeModeSetting(mode)
+
+    /** `/ec reload` が読み直した表示設定を、既存UIプロバイダーへ反映します。 */
+    fun updateMode(mode: ThemeMode) = modeSetting.update(mode)
+
     /** 接続中のプレイヤーがパックを適用済みか返します。 */
     fun hasPack(player: Player): Boolean = packs.hasResourcePack(player.uniqueId)
 
     /** パック適用済みなら画面種別に合う背景グリフをタイトルへ重ねます。 */
     fun title(player: Player, localizedTitle: Component, menuKind: String = "generic"): Component =
-        title(hasPack(player),localizedTitle,menuKind,mode)
+        title(hasPack(player),localizedTitle,menuKind,modeSetting.current)
 
     /** パック適用済みならカスタムアイコンを使い、未適用ならバニラ素材のまま返します。 */
     fun icon(player: Player, fallback: Material, model: String?): ItemStack = ItemStack(fallback).also { stack ->
@@ -29,10 +34,11 @@ class UiThemeProvider(
 
     /** 内容アイテムのモデル、またはGUI操作用の同梱モデルを返します。 */
     fun itemModel(player: Player, menuKind: String, slot: Int, material: Material, contentModel: String?): NamespacedKey? =
-        itemModel(hasPack(player),menuKind,slot,material,contentModel,mode)
+        itemModel(hasPack(player),menuKind,slot,material,contentModel,modeSetting.current)
 
     /** 表示時点で確認済みのクライアントだけにカスタムモデルキーを付けます。 */
-    fun modelKey(player: Player, model: String?): NamespacedKey? = modelKey(hasPack(player),model)
+    fun modelKey(player: Player, model: String?): NamespacedKey? =
+        if (modeSetting.current == ThemeMode.OFF) null else modelKey(hasPack(player),model)
 
     companion object {
         private val uiFont = Key.key("ec","ui")
@@ -130,3 +136,14 @@ class UiThemeProvider(
 
 /** GUIテーマの安全度を選びます。通常運用ではアイコンだけの安定表示を使います。 */
 enum class ThemeMode { FULL, ICONS_ONLY, OFF }
+
+/** GUIのテーマ設定を保持し、管理者の設定再読込を既存画面へ反映します。 */
+internal class ThemeModeSetting(initial: ThemeMode) {
+    @Volatile
+    var current: ThemeMode = initial
+        private set
+
+    fun update(mode: ThemeMode) {
+        current = mode
+    }
+}

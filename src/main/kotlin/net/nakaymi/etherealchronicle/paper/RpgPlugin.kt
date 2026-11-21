@@ -218,6 +218,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal fun save(p: PlayerProfile) { store.save(p).exceptionally { logger.severe("Save failed ${p.uuid}: ${it.message}"); sync { if(p.uuid in profiles) dirty.add(p.uuid) }; null } }
     /** 接続世代tokenで古い非同期loadを捨て、完了したプロフィールだけを反映します。 */
     private fun join(player: Player) {
+        // 初参加者はプロフィールを読む前に職業GUIが開くため、接続直後に必須要求を出します。
+        if (::resourcePacks.isInitialized) resourcePacks.sendRequiredBeforeProfileLoad(player)
         val token = UUID.randomUUID(); sessions[player.uniqueId] = token
         player.sendMessage(message(player,"ec.startup.loading"))
         store.load(player.uniqueId).whenComplete { profile,error -> sync {
@@ -877,6 +879,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                                     sender.sendMessage(message(sender,"ec.command.reload_content_in_use")); return@sync
                                 }
                                 content.install(snapshot); game.skills.updateBalance(snapshot.balance)
+                                reloadConfig()
+                                uiTheme.updateMode(UiThemeProvider.mode(config.getString("ui.theme.mode", "icons_only")))
                                 all.forEach { p -> p.level=p.level.coerceAtMost(snapshot.balance.levelCap); if(p.level == snapshot.balance.levelCap) p.xp=0; p.skillLevels.replaceAll { _,level -> level.coerceIn(1,snapshot.balance.skillLevelCap) } }
                                 dirty.addAll(profiles.keys)
                                 runCatching { reloadAdvancementPack() }.onFailure { advancementWarning(it) }

@@ -25,6 +25,14 @@ class ExternalManagedPackTest {
     }
 
     @Test
+    fun `first join sends required pack before profile loading except for bypass and external manager`() {
+        assertTrue(ManagedPackPolicy.sendBeforeProfileLoad("external_url", required = true, bypass = false))
+        assertFalse(ManagedPackPolicy.sendBeforeProfileLoad("external_url", required = false, bypass = false))
+        assertFalse(ManagedPackPolicy.sendBeforeProfileLoad("external_url", required = true, bypass = true))
+        assertFalse(ManagedPackPolicy.sendBeforeProfileLoad("external_managed", required = true, bypass = false))
+    }
+
+    @Test
     fun `optional pack id filters status events`() {
         val expected = UUID.randomUUID()
         assertTrue(ManagedPackPolicy.matches(null, UUID.randomUUID()))

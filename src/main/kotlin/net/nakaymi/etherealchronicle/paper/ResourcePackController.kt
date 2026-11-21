@@ -97,6 +97,8 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
         // 外部管理モードでは別プラグインやserver.propertiesが唯一の送信元です。
         if (!ManagedPackPolicy.sendsPack(mode)) return
         preferences[player.uniqueId] = preference
+        // 初参加者のプロフィール読込中に必須要求を送った場合は、重複要求しません。
+        if (pendingRequests[player.uniqueId]?.required == true || player.uniqueId in loadedPlayers) return
         val deliveryEndpoint = if (gamePortFailed.get()) endpointFallback else endpoint
         val bypass = player.hasPermission("etherealchronicle.pack.bypass")
         val deliveryAvailable=isDeliveryAvailable()
@@ -115,6 +117,12 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
         pendingRequests[player.uniqueId] = PendingRequest(requestId,decision.required)
         // 再接続時は毎回要求し、同一IDに対して変わったSHA-1を送ってキャッシュの更新判定を促します。
         player.sendResourcePacks(ResourcePackRequest.resourcePackRequest().packs(info).required(decision.required).prompt(prompt).replace(false).build())
+    }
+
+    /** プロフィールの非同期読込より先に、必須配信を接続直後に要求します。 */
+    fun sendRequiredBeforeProfileLoad(player: org.bukkit.entity.Player) {
+        val bypass = player.hasPermission("etherealchronicle.pack.bypass")
+        if (ManagedPackPolicy.sendBeforeProfileLoad(mode, required, bypass)) send(player, PackPreference.AUTO)
     }
 
     /** 状態が成功適用で、かつ利用者設定がOFFでない場合だけリソパ表現を許可します。 */
@@ -249,6 +257,8 @@ internal data class ResourcePackBuildInfo(val sha1: String, val sizeBytes: Long)
 /** 外部配信のイベント監視で、送信・ID照合・適用状態の規則を集約します。 */
 internal object ManagedPackPolicy {
     fun sendsPack(mode: String): Boolean = mode != "external_managed"
+    fun sendBeforeProfileLoad(mode: String, required: Boolean, bypass: Boolean): Boolean =
+        sendsPack(mode) && required && !bypass
     fun matches(expectedId: UUID?, eventId: UUID): Boolean = expectedId == null || expectedId == eventId
     fun isLoaded(status: String): Boolean = status == "SUCCESSFULLY_LOADED"
     fun disconnectsOnFailure(mode: String, requestRequired: Boolean, terminalFailure: Boolean): Boolean =
