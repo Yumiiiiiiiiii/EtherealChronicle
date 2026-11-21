@@ -47,7 +47,7 @@ class EnhanceFlightTest {
             fun mats(pl: QaPlayerMock) = pl.inventory.storageContents.filterNotNull().sumOf { if (plugin.identify(it) == mat) it.amount else 0 }
             fun lvl(pl: QaPlayerMock) = pl.inventory.itemInMainHand.itemMeta?.persistentDataContainer?.get(lvKey, PersistentDataType.INTEGER) ?: 0
             fun anyEnhanced(pl: QaPlayerMock) = pl.inventory.storageContents.filterNotNull().any { (it.itemMeta?.persistentDataContainer?.get(lvKey, PersistentDataType.INTEGER) ?: 0) > 0 }
-            fun menu(pl: QaPlayerMock) = pl.openInventory.topInventory.holder as RpgMenu
+            fun menu(pl: QaPlayerMock) = pl.openInventory.topInventory?.holder as RpgMenu
 
             rec("F1 no whetstone: rejected, currency untouched, weapon not upgraded") {
                 val (pl, pr) = newPlayer("NoMat")

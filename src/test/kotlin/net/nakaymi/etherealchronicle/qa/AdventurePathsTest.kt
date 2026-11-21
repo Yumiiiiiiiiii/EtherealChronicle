@@ -64,7 +64,7 @@ class AdventurePathsTest {
             equipFillers(player); server.addPlayer(player)
             val itemKey = NamespacedKey(plugin, "item_id"); val entryKey = NamespacedKey(plugin, "entry_id"); val npcKey = NamespacedKey(plugin, "npc_id")
             fun titleOf() = plain.serialize(player.openInventory.title())
-            server.pump { titleOf().contains("職業") }
+            server.pump { player.openInventory.topInventory?.holder is net.nakaymi.etherealchronicle.paper.ClassMenu }
             val slot = (0..8).first { player.openInventory.topInventory.getItem(it)?.persistentDataContainer?.get(itemKey, PersistentDataType.STRING)?.contains("mage") == true }
             player.simulateInventoryClick(player.openInventory, slot)
             server.pump { player.inventory.getItem(8)?.type == Material.NETHER_STAR }
@@ -117,7 +117,7 @@ class AdventurePathsTest {
                 val ev = PlayerInteractEntityEvent(player, npc, EquipmentSlot.HAND)
                 server.pluginManager.callEvent(ev)
                 assertTrue(ev.isCancelled, "NPC interact not cancelled")
-                assertTrue(server.pump { titleOf() == "会話" }, "dialogue GUI not open; title=${titleOf()}")
+                assertTrue(server.pump { (player.openInventory.topInventory?.holder as? net.nakaymi.etherealchronicle.paper.RpgMenu)?.kind == "dialogue" }, "dialogue GUI not open; title=${titleOf()}")
                 "npcs=${npcs.size} dialogue choices=" + (9..30).count { player.openInventory.topInventory.getItem(it) != null }
             }
             rec("B shop: left-click buys exactly one, currency debited once") {
@@ -129,7 +129,7 @@ class AdventurePathsTest {
                 "currency $before -> ${profile.currency}, potions $had -> ${potions()}"
             }
             rec("C rapid clicks (left, double, left) while transaction pending buy only once") {
-                if (titleOf() != "お店") openShop()
+                if ((player.openInventory.topInventory?.holder as? net.nakaymi.etherealchronicle.paper.RpgMenu)?.kind != "shop") openShop()
                 val idx = entrySlot("minor_hp_potion_convenience")
                 val before = profile.currency; val had = potions()
                 player.simulateInventoryClick(player.openInventory, ClickType.LEFT, idx)
@@ -141,7 +141,7 @@ class AdventurePathsTest {
                 "3 rapid clicks -> ${potions() - had} potion(s), currency $before -> ${profile.currency}"
             }
             rec("D number-key / middle / drop / swap-offhand / drag in shop never buy or move items") {
-                if (titleOf() != "お店") openShop()
+                if ((player.openInventory.topInventory?.holder as? net.nakaymi.etherealchronicle.paper.RpgMenu)?.kind != "shop") openShop()
                 val top = player.openInventory.topInventory; val idx = entrySlot("minor_hp_potion_convenience")
                 val before = profile.currency; val had = potions()
                 listOf(ClickType.NUMBER_KEY, ClickType.MIDDLE, ClickType.DROP, ClickType.CONTROL_DROP, ClickType.SWAP_OFFHAND).forEach { ct -> runCatching { player.simulateInventoryClick(player.openInventory, ct, idx) } }
@@ -153,7 +153,7 @@ class AdventurePathsTest {
                 "inventory/currency unchanged"
             }
             rec("E insufficient funds rejected without side effects") {
-                if (titleOf() != "お店") openShop()
+                if ((player.openInventory.topInventory?.holder as? net.nakaymi.etherealchronicle.paper.RpgMenu)?.kind != "shop") openShop()
                 profile.currency = 5; val had = potions()
                 player.simulateInventoryClick(player.openInventory, ClickType.LEFT, entrySlot("minor_hp_potion_convenience"))
                 server.pump(1000) { false }
@@ -170,7 +170,7 @@ class AdventurePathsTest {
             }
             rec("G quit during pending transaction: currency consistent with file, no item loss") {
                 profile.currency = 1000; plugin.persist(profile).get()
-                if (titleOf() != "お店") openShop()
+                if ((player.openInventory.topInventory?.holder as? net.nakaymi.etherealchronicle.paper.RpgMenu)?.kind != "shop") openShop()
                 val idx = entrySlot("minor_hp_potion_convenience"); val had = potions()
                 player.simulateInventoryClick(player.openInventory, ClickType.LEFT, idx)
                 player.disconnect()

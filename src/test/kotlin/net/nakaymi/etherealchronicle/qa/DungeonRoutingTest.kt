@@ -1,6 +1,7 @@
 package net.nakaymi.etherealchronicle.qa
 
 import net.nakaymi.etherealchronicle.paper.DemoWorld
+import net.nakaymi.etherealchronicle.paper.ClassMenu
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
 import org.bukkit.Material
 import org.bukkit.NamespacedKey
@@ -35,7 +36,7 @@ class DungeonRoutingTest {
             val player=PlayerMock(server,"DungeonRoute",UUID.nameUUIDFromBytes("dungeon-route".toByteArray()))
             server.addPlayer(player)
             val itemKey=NamespacedKey(plugin,"item_id")
-            assertTrue(server.pump { player.openInventory.title().toString().contains("職業") })
+            assertTrue(server.pump { player.openInventory.topInventory?.holder is ClassMenu })
             val classSlot=(0..8).first { player.openInventory.topInventory.getItem(it)?.persistentDataContainer?.get(itemKey,PersistentDataType.STRING)?.contains("warrior")==true }
             player.simulateInventoryClick(player.openInventory,classSlot)
             assertTrue(server.pump { player.inventory.getItem(8)?.type==Material.NETHER_STAR })

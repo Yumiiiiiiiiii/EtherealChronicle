@@ -88,7 +88,7 @@ class PlayerFlowSmokeTest {
             step("1 join -> profile loads, class menu opens") {
                 equipFillers(player)
                 server.addPlayer(player)
-                assertTrue(server.pump { plain.serialize(player.openInventory.title()).contains("職業") }, "class menu never opened; view=${player.openInventory.type} title=${plain.serialize(player.openInventory.title())}")
+                assertTrue(server.pump { player.openInventory.topInventory?.holder is net.nakaymi.etherealchronicle.paper.ClassMenu }, "class menu never opened; view=${player.openInventory.type} title=${plain.serialize(player.openInventory.title())}")
                 "menu items=" + (0..8).mapNotNull { player.openInventory.topInventory.getItem(it)?.type }.joinToString()
             }
             step("2 class GUI click (mage) -> starter kit + skill slot") {
@@ -149,7 +149,7 @@ class PlayerFlowSmokeTest {
                 equipFillers(player)
                 server.addPlayer(player)
                 assertTrue(server.pump { player.inventory.getItem(8)?.type == Material.NETHER_STAR }, "skill slot not restored on rejoin")
-                assertTrue(!plain.serialize(player.openInventory.title()).contains("職業"), "class menu reopened after rejoin")
+                assertTrue(player.openInventory.topInventory?.holder !is net.nakaymi.etherealchronicle.paper.ClassMenu, "class menu reopened after rejoin")
                 val saved = File(plugin.dataFolder, "playerdata/$uuid.yml")
                 assertTrue(server.pump { saved.exists() && saved.readText().contains("ec:class_mage") }, "profile file missing/without class: $saved")
                 "profile file has ec:class_mage; (MockBukkit does not persist vanilla inventory, so hotbar below is not meaningful) inventory after rejoin: " + (0..8).map { player.inventory.getItem(it)?.type }.joinToString()

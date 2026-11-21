@@ -22,14 +22,14 @@ class CodexGuiTest {
             val player=PlayerMock(server,"CodexReader",UUID.randomUUID()); server.addPlayer(player)
             assertTrue(server.pump { player.uniqueId in plugin.profiles })
             assertTrue(plugin.onCommand(player,plugin.getCommand("ec")!!,"ec",arrayOf("codex")))
-            assertTrue((player.openInventory.topInventory.holder as? RpgMenu)?.kind == "codex-areas")
+            assertTrue((player.openInventory.topInventory?.holder as? RpgMenu)?.kind == "codex-areas")
             assertTrue(plugin.snapshot.world.areas.isNotEmpty())
             plugin.codexClick(player.simulateInventoryClick(player.openInventory,0))
-            assertTrue((player.openInventory.topInventory.holder as? RpgMenu)?.kind == "codex-area")
+            assertTrue((player.openInventory.topInventory?.holder as? RpgMenu)?.kind == "codex-area")
             plugin.codexClick(player.simulateInventoryClick(player.openInventory,53))
-            assertTrue((player.openInventory.topInventory.holder as? RpgMenu)?.kind == "codex-areas")
+            assertTrue((player.openInventory.topInventory?.holder as? RpgMenu)?.kind == "codex-areas")
             plugin.codexClick(player.simulateInventoryClick(player.openInventory,53))
-            assertTrue((player.openInventory.topInventory.holder as? RpgMenu)?.kind == "codex-items")
+            assertTrue((player.openInventory.topInventory?.holder as? RpgMenu)?.kind == "codex-items")
         } finally { MockBukkit.unmock() }
     }
 }

@@ -31,7 +31,7 @@ class EnhancementGuiTest {
             player.inventory.setItemInMainHand(plugin.createItem("ec:item_wpn_rusty_broadsword"))
             player.inventory.addItem(plugin.createItem("ec:item_mat_artisan_whetstone"))
             plugin.openEnhancement(player)
-            val menu=player.openInventory.topInventory.holder as RpgMenu
+            val menu=player.openInventory.topInventory?.holder as RpgMenu
             assertEquals("enhance",menu.kind)
             val before=plugin.effectiveStats(player,profile).attack
             plugin.enhance(player,menu)

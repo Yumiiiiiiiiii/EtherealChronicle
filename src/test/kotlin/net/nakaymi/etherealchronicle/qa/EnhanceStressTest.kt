@@ -43,7 +43,7 @@ class EnhanceStressTest {
             fun level() = player.inventory.itemInMainHand.itemMeta.persistentDataContainer.get(lvKey, PersistentDataType.INTEGER) ?: 0
             fun mats() = player.inventory.storageContents.filterNotNull().sumOf { if (plugin.identify(it) == mat) it.amount else 0 }
             fun open() { plugin.openEnhancement(player) }
-            fun menu() = player.openInventory.topInventory.holder as RpgMenu
+            fun menu() = player.openInventory.topInventory?.holder as RpgMenu
             player.inventory.setItemInMainHand(plugin.createItem("ec:item_wpn_rusty_broadsword"))
             player.inventory.addItem(plugin.createItem(mat, 10))
 
@@ -107,7 +107,7 @@ class EnhanceStressTest {
                 shutdownPlayer.inventory.setItemInMainHand(plugin.createItem("ec:item_wpn_rusty_broadsword"))
                 shutdownPlayer.inventory.addItem(plugin.createItem(mat,1))
                 openEnhancementForShutdown(plugin,shutdownPlayer)
-                val shutdownMenu=shutdownPlayer.openInventory.topInventory.holder as RpgMenu
+                val shutdownMenu=shutdownPlayer.openInventory.topInventory?.holder as RpgMenu
                 plugin.enhance(shutdownPlayer,shutdownMenu)
                 server.pluginManager.disablePlugin(plugin)
                 val saved=File(plugin.dataFolder,"playerdata/$shutdownId.yml").readText()
