@@ -17,7 +17,7 @@ function Build-Plugin {
     Write-Step 'gradlew build (tests included)'
     Push-Location $script:RepoRoot
     try {
-        & "$script:RepoRoot\gradlew.bat" build --console=plain
+        & "$script:RepoRoot\gradlew.bat" build --console=plain | Out-Host
         if ($LASTEXITCODE -ne 0) { Fail 'gradle build failed' 10 }
     } finally { Pop-Location }
     return Get-BuiltJar
