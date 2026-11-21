@@ -47,7 +47,10 @@ data class TackleDefinition(
     val preferredTags: Set<String> = emptySet(),
     val preferredTagMultiplier: Double = 1.0
 )
-data class FishingSpotDefinition(val id: String, val name: String, val area: String, val world: String, val center: Position, val radius: Double, val defaultForArea: Boolean, val tags: Set<String>)
+data class FishingSpotDefinition(val id: String, val name: String, val area: String, val world: String, val center: Position, val radius: Double, val defaultForArea: Boolean, val tags: Set<String>, val priority: Int = 0, val unlockFlag: String? = null)
+fun selectFishingSpot(spots:Collection<FishingSpotDefinition>,world:String,x:Double,z:Double,flags:Set<String>):FishingSpotDefinition? =
+    spots.asSequence().filter { s -> s.world==world && (s.unlockFlag==null || s.unlockFlag in flags) && s.center.let { center -> val dx=x-center.x; val dz=z-center.z; dx*dx+dz*dz<=s.radius*s.radius } }
+        .sortedWith(compareByDescending<FishingSpotDefinition> { it.priority }.thenBy { it.radius }.thenBy { it.id }).firstOrNull()
 data class FishMinigame(val biteWindowMillis: Long, val difficulty: Double, val sweetWidth: Double, val progressPerSecond: Double, val tensionDecayPerSecond: Double, val thrashChancePerSecond: Double, val diveChancePerSecond: Double)
 data class FishSpeciesDefinition(
     val id: String, val name: String, val item: String, val rarity: Rarity, val tags: Set<String>, val habitats: Set<String>,

@@ -32,8 +32,17 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     fun locked(id: UUID) = id in locks
     fun reloadNpcs() {
         npcEntities.values.forEach { Bukkit.getEntity(it)?.remove() }; npcEntities.clear()
+        reconcileNpcs()
+    }
+    private fun reconcileNpcs() {
         plugin.snapshot.world.npcs.values.forEach { d ->
-            val world=Bukkit.getWorld(d.position.world) ?: return@forEach
+            val world=Bukkit.getWorld(d.position.world)
+            val shouldExist=world != null && WorldSchedule.matches(d.timeWindows,d.weather,world.time,world.hasStorm(),world.isThundering)
+            val existing=npcEntities[d.id]?.let(Bukkit::getEntity)
+            if(!shouldExist) { existing?.remove(); npcEntities.remove(d.id); return@forEach }
+            if(existing?.isValid == true) return@forEach
+            npcEntities.remove(d.id)
+            world ?: return@forEach
             require(world.name == "ec_world") { "NPCは管理対象ワールドにのみ配置できます。" }
             val entity=world.spawn(Location(world,d.position.x,d.position.y,d.position.z,d.position.yaw,0f),Villager::class.java)
             entity.persistentDataContainer.set(npcKey,PersistentDataType.STRING,d.id)
@@ -47,6 +56,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     }
     fun close() { npcEntities.values.forEach { Bukkit.getEntity(it)?.remove() }; npcEntities.clear() }
     fun tick() {
+        reconcileNpcs()
         val now=System.nanoTime()/1_000_000
         consumableReady.entries.removeIf { it.value <= now }
         plugin.server.onlinePlayers.forEach { player ->

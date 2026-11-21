@@ -92,4 +92,24 @@ class DemoWorldMigrationTest {
             assertEquals(Material.WATER,world.getBlockAt(11,65,28).type)
         } finally { MockBukkit.unmock() }
     }
+
+    @Test
+    fun `v3 secret spring migration is idempotent and only fills air`() {
+        val server=MockBukkit.mock()
+        try {
+            val world=server.addSimpleWorld(DemoWorld.NAME)
+            val plugin=MockBukkit.load(RpgPlugin::class.java)
+            val folder=Files.createTempDirectory("ec-owned-v3")
+            Files.writeString(folder.resolve(".etherealchronicle-owned"),"test-owned\n")
+            Files.writeString(folder.resolve(".etherealchronicle-built"),"v3\n")
+            world.getBlockAt(127,65,-24).type=Material.DIAMOND_BLOCK
+            assertTrue(DemoWorld.migrateToV4(plugin,world,folder))
+            assertEquals("v4",Files.readString(folder.resolve(".etherealchronicle-built")).trim())
+            assertEquals(Material.WATER,world.getBlockAt(124,65,-24).type)
+            assertEquals(Material.PACKED_ICE,world.getBlockAt(121,65,-24).type)
+            assertEquals(Material.DIAMOND_BLOCK,world.getBlockAt(127,65,-24).type)
+            assertTrue(!DemoWorld.migrateToV4(plugin,world,folder))
+            assertEquals(Material.WATER,world.getBlockAt(124,65,-24).type)
+        } finally { MockBukkit.unmock() }
+    }
 }

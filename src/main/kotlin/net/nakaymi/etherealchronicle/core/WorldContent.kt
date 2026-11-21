@@ -24,7 +24,7 @@ data class Area(val id: String, val name: String, val world: String, val minX: D
     fun contains(p: Position) = p.world == world && p.x in minX..maxX && p.y in minY..maxY && p.z in minZ..maxZ
 }
 data class DungeonWave(val boss: String, val guards: List<String>, val guardOffsets: List<Pair<Int,Int>>, val bossOffset: Pair<Int,Int>)
-data class ScoreRank(val rank: String,val maxSeconds: Long)
+data class ScoreRank(val rank: String,val maxSeconds: Long,val firstClearFlag:String?=null,val firstClearItems:Map<String,Int> = emptyMap())
 enum class TitleConditionType { FLAG, BESTIARY, COLLECTION, FISH_SPECIES_COUNT, LIFE_LEVEL, ENHANCE_LEVEL, CHALLENGE_RANK }
 data class TitleProgressCondition(val type:TitleConditionType,val target:String?,val count:Int,val rank:String="S") {
     fun met(profile:PlayerProfile,unlockFlag:String):Boolean = when(type) {
@@ -38,16 +38,40 @@ data class TitleProgressCondition(val type:TitleConditionType,val target:String?
     }
 }
 internal fun challengeRankValue(rank:String)=when(rank.uppercase()) { "S" -> 4; "A" -> 3; "B" -> 2; "C" -> 1; else -> 0 }
+fun firstClearRanks(profile:PlayerProfile,ranks:List<ScoreRank>,seconds:Long):List<ScoreRank> = ranks.filter { entry ->
+    entry.firstClearFlag != null && seconds <= entry.maxSeconds && entry.firstClearFlag !in profile.flags
+}
 data class TitleAdvancement(val title:String,val description:String,val icon:String,val parent:String?,val frame:String,val condition:TitleProgressCondition)
 data class TitleDefinition(val id: String,val name: String,val description: String,val unlockFlag: String,val advancement:TitleAdvancement? = null) {
     fun unlocked(profile:PlayerProfile) = unlockFlag in profile.flags || advancement?.condition?.met(profile,unlockFlag) == true
 }
 data class DungeonDefinition(val id: String, val unlockFlag: String, val boss: String, val guards: List<String>, val guardOffsets: List<Pair<Int,Int>>, val area: String, val palette: List<String>, val bossOffset: Pair<Int,Int>, val entryMessage: String, val clearMessage: String,val waves: List<DungeonWave> = emptyList(),val scoreRanks: List<ScoreRank> = emptyList())
-data class NpcDefinition(val id: String, val name: String, val position: Position, val dialogue: String, val shop: String?)
+data class NpcDefinition(val id: String, val name: String, val position: Position, val dialogue: String, val shop: String?, val timeWindows:Set<String> = setOf("ANY"), val weather:Set<String> = setOf("ANY"))
 data class TokenCost(val item: String, val amount: Int)
 data class ShopEntry(val id: String, val item: String, val amount: Int, val price: Long, val tokens: List<TokenCost>, val condition: Condition, val dailyLimit: Int, val tokenDiscountFlag: String?, val tokenDiscount: List<TokenCost>)
 data class ShopDefinition(val id: String, val name: String, val buyback: Boolean, val discountFlag: String?, val discount: Double, val entries: List<ShopEntry>)
-data class SpawnPoint(val id: String, val position: Position, val cap: Int, val respawnTicks: Long)
+data class SpawnPoint(val id: String, val position: Position, val cap: Int, val respawnTicks: Long, val timeWindows:Set<String> = setOf("ANY"), val weather:Set<String> = setOf("ANY"))
+data class TreasureChestDefinition(val id:String,val position:Position,val onceFlag:String,val items:Map<String,Int>,val currency:Long,val hintParticle:String)
+fun claimTreasure(profile:PlayerProfile,chest:TreasureChestDefinition,currencyCap:Long):Boolean {
+    if(chest.onceFlag in profile.flags) return false
+    require(chest.currency >= 0 && currencyCap >= 0 && profile.currency <= Long.MAX_VALUE-chest.currency && profile.currency+chest.currency <= currencyCap) { "所持金の上限に達しています。" }
+    require(chest.items.values.all { it in 1..64 }) { "宝箱の報酬数が不正です。" }
+    chest.items.forEach { (item,amount) -> profile.pendingRewards.merge(item,amount,Int::plus) }
+    profile.currency+=chest.currency
+    profile.flags.add(chest.onceFlag)
+    return true
+}
+object WorldSchedule {
+    private val validTime=setOf("ANY","DAY","NIGHT","DAWN_DUSK")
+    private val validWeather=setOf("ANY","CLEAR","RAIN","THUNDER")
+    fun valid(timeWindows:Set<String>,weather:Set<String>) = timeWindows.isNotEmpty() && timeWindows.all { it in validTime } && weather.isNotEmpty() && weather.all { it in validWeather }
+    fun matches(timeWindows:Set<String>,weather:Set<String>,time:Long,hasStorm:Boolean,thundering:Boolean):Boolean {
+        val dayTime=Math.floorMod(time,24000L)
+        val timeMatch="ANY" in timeWindows || timeWindows.any { when(it) { "DAY" -> dayTime in 1000L..11999L; "NIGHT" -> dayTime in 13000L..22999L; "DAWN_DUSK" -> dayTime < 1000L || dayTime in 12000L..12999L || dayTime >= 23000L; else -> false } }
+        val current=if(thundering) "THUNDER" else if(hasStorm) "RAIN" else "CLEAR"
+        return timeMatch && ("ANY" in weather || current in weather)
+    }
+}
 data class SpecialAttack(val id: String, val name: String, val shape: String, val cooldown: Long, val telegraph: Long, val radius: Double,
     val range: Double, val multiplier: Double, val minHp: Double, val maxHp: Double, val effect: String, val element: String? = null, val effectDuration: Int = 30)
 data class BossPhase(val id: String, val below: Double, val damage: Double, val interval: Double)
@@ -74,6 +98,7 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
     val fishingSpots = linkedMapOf<String,FishingSpotDefinition>()
     val fishSpecies = linkedMapOf<String,FishSpeciesDefinition>()
     val gatheringNodes = linkedMapOf<String,GatheringNodeDefinition>()
+    val treasureChests = linkedMapOf<String,TreasureChestDefinition>()
     val chapters = documents.filterValues { it["type"] == "chapter" }
     init {
         val lifeBalances=documents.values.filter { it["type"] == "life_balance" }
@@ -118,7 +143,24 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
                     }
                     dialogues[id] = DialogueDefinition(id,start,nodes,globalChoices)
                 }
-                "npc" -> npcs[id] = NpcDefinition(id,d.string("name"),d.mapping("location").position(),d.string("dialogue"),d["shop"] as? String)
+                "npc" -> {
+                    val definition=NpcDefinition(id,d.string("name"),d.mapping("location").position(),d.string("dialogue"),d["shop"] as? String,d.strings("time_windows").toSet().ifEmpty { setOf("ANY") },d.strings("weather").toSet().ifEmpty { setOf("ANY") })
+                    require(WorldSchedule.valid(definition.timeWindows,definition.weather)) { "NPCの出現時間・天候条件が不正です。" }
+                    npcs[id]=definition
+                }
+                "treasure_chest" -> {
+                    val rawItems=d["items"] ?: error("宝箱のitemsが必要です。")
+                    val items=when(rawItems) {
+                        is Map<*,*> -> rawItems.entries.associate { (item,amount) -> item.toString() to ((amount as? Number)?.toInt() ?: error("宝箱アイテム数は整数で指定してください。")) }
+                        is List<*> -> rawItems.map { it.asMapping() }.also { entries -> require(entries.map { it.string("item") }.distinct().size==entries.size) { "宝箱に重複アイテムがあります。" } }.associate { it.string("item") to it.int("amount") }
+                        else -> error("宝箱のitemsはマップまたはリストで指定してください。")
+                    }
+                    val position=if("location" in d) d.mapping("location").position() else Position(d.string("world"),d.num("x"),d.num("y"),d.num("z"))
+                    val definition=TreasureChestDefinition(id,position,d.string("once_flag"),items,d.whole("currency",0),d.text("hint_particle","END_ROD"))
+                    val currencyCap=documents.values.single { it["type"]=="balance" }.whole("currency_gain_cap",1_000_000)
+                    require(definition.onceFlag.matches(Regex("ec:flag_[a-z0-9_]+")) && definition.items.isNotEmpty() && definition.items.values.all { it in 1..64 } && definition.currency in 0..currencyCap && definition.hintParticle.matches(Regex("[A-Z_]+"))) { "宝箱の報酬または設定が不正です。" }
+                    treasureChests[id]=definition
+                }
                 "title" -> {
                     val unlockFlag=d.string("unlock_flag")
                     val advancement=d["advancement"]?.asMapping()?.let { a ->
@@ -167,17 +209,19 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
                             val guards=wave.strings("guards"); val offsets=wave.maps("guard_offsets").map { it.int("x") to it.int("z") }
                             DungeonWave(wave.string("boss"),guards,offsets,bossOffset)
                         }
-                        val ranks=config.maps("score_ranks").map { ScoreRank(it.string("rank"),it.whole("max_seconds",0)) }
+                        val ranks=config.maps("score_ranks").map { rank -> ScoreRank(rank.string("rank"),rank.whole("max_seconds",0),rank["first_clear_flag"] as? String,rank.maps("first_clear_items").associate { it.string("item") to it.int("amount") }) }
+                        require(ranks.flatMap { it.firstClearItems.keys }.all { documents[it]?.get("type")=="item" }) { "$id: 初回ランク報酬のアイテム参照が不正です。" }
+                        require(ranks.mapNotNull { it.firstClearFlag }.all { it in d.strings("flags") } && ranks.mapNotNull { it.firstClearFlag }.distinct().size==ranks.mapNotNull { it.firstClearFlag }.size) { "$id: 初回ランク報酬フラグが未宣言または重複しています。" }
                         val definition=DungeonDefinition(id,config.string("unlock_flag"),config.string("boss"),guards,offsets,config.string("area"),config.strings("palette"),bossOffset,config.string("entry_message"),config.string("clear_message"),waves,ranks)
                         require(id in d.strings("dungeons") && id !in dungeons && definition.unlockFlag in d.strings("flags") && definition.guards.size == definition.guardOffsets.size && definition.palette.size == 3)
-                        require(definition.waves.all { it.guardOffsets.size == it.guards.size } && definition.scoreRanks.all { it.rank in setOf("S","A","B","C") && it.maxSeconds > 0 } && definition.scoreRanks.zipWithNext().all { (a,b) -> a.maxSeconds <= b.maxSeconds })
+                        require(definition.waves.all { it.guardOffsets.size == it.guards.size } && definition.scoreRanks.all { it.rank in setOf("S","A","B","C") && it.maxSeconds > 0 && (it.firstClearFlag == null || it.firstClearFlag.matches(Regex("ec:flag_[a-z0-9_]+"))) && (it.firstClearItems.isEmpty() || it.firstClearFlag != null) && it.firstClearItems.values.all { amount -> amount in 1..64 } } && definition.scoreRanks.zipWithNext().all { (a,b) -> a.maxSeconds <= b.maxSeconds })
                         dungeons[id]=definition
                     }
                 }
                 "enemy","boss" -> {
                     val specials = d.maps("specials").map { a -> SpecialAttack(a.string("id"),a.string("name"),a.text("shape","CIRCLE"),a.whole("cooldown_ticks",200),a.whole("telegraph_ticks",26),a.number("radius",3.0),a.number("range",12.0),a.number("multiplier",1.5),a.number("min_hp_ratio",0.0),a.number("max_hp_ratio",1.0),a.text("effect","NONE"),a["element"] as? String,a.integer("effect_duration_ticks",when(a.text("effect","NONE")) { "SLOW" -> 60; "POISON" -> 100; else -> 30 })) }
                     require(specials.all { it.shape in setOf("CIRCLE","LINE","CONE","TARGET") && it.cooldown > 0 && it.telegraph > 0 && it.radius in 0.1..32.0 && it.range in 0.1..128.0 && it.minHp in 0.0..it.maxHp && it.maxHp <= 1.0 && it.effect in setOf("NONE","SLOW","POISON","KNOCKUP","FREEZE") && (it.element == null || it.element in setOf("PHYSICAL","FIRE","ICE","LIGHTNING","AETHER","VOID")) && it.effectDuration in 1..200 })
-                    val spawns = d.maps("spawn_points").map { p -> SpawnPoint(p.string("id"),p.position(),p.integer("cap",1),p.whole("respawn_ticks",200)) }
+                        val spawns = d.maps("spawn_points").map { p -> SpawnPoint(p.string("id"),p.position(),p.integer("cap",1),p.whole("respawn_ticks",200),p.strings("time_windows").toSet().ifEmpty { setOf("ANY") },p.strings("weather").toSet().ifEmpty { setOf("ANY") }).also { require(WorldSchedule.valid(it.timeWindows,it.weather)) { "スポーン地点の時間・天候条件が不正です。" } } }
                     require(spawns.all { it.cap in 1..100 && it.respawnTicks > 0 } && spawns.map { it.id }.distinct().size == spawns.size)
                     val phases = d.maps("phases").map { p -> BossPhase(p.string("id"),p.num("below_hp_ratio"),p.number("damage_multiplier",1.0),p.number("interval_multiplier",1.0)) }
                     require(phases.all { it.below in 0.0..1.0 && it.damage > 0 && it.interval > 0 } && phases.zipWithNext().all { it.first.below > it.second.below })
@@ -194,8 +238,8 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
                 "fishing_spot" -> {
                     val center=d.mapping("center")
                     val spotWorld=d.string("world")
-                    val definition=FishingSpotDefinition(id,d.string("name"),d.string("area"),spotWorld,Position(spotWorld,center.num("x"),center.num("y"),center.num("z"),center.number("yaw",0.0).toFloat()),d.num("radius"),d.bool("default_for_area",false),d.strings("tags").toSet())
-                    require(definition.name.isNotBlank() && definition.world == "ec_world" && definition.radius in 1.0..128.0 && definition.tags.isNotEmpty()) { "釣り場のワールド・半径・タグが不正です。" }
+                    val definition=FishingSpotDefinition(id,d.string("name"),d.string("area"),spotWorld,Position(spotWorld,center.num("x"),center.num("y"),center.num("z"),center.number("yaw",0.0).toFloat()),d.num("radius"),d.bool("default_for_area",false),d.strings("tags").toSet(),d.integer("priority",0),d["unlock_flag"] as? String)
+                    require(definition.name.isNotBlank() && definition.world == "ec_world" && definition.radius in 1.0..128.0 && definition.tags.isNotEmpty() && definition.priority in -1000..1000 && (definition.unlockFlag == null || definition.unlockFlag.matches(Regex("ec:flag_[a-z0-9_]+"))) ) { "釣り場のワールド・半径・タグ・優先度・解放条件が不正です。" }
                     fishingSpots[id]=definition
                 }
                 "fish_species" -> {
@@ -239,6 +283,7 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
         tackle.values.forEach { ref(it.item,"item","${it.id}.item") }
         fishingSpots.values.forEach { spot ->
             require(spot.area in areas && areas.getValue(spot.area).world == spot.world && areas.getValue(spot.area).contains(spot.center)) { "${spot.id}: 釣り場が宣言エリア内にありません。" }
+            require(spot.unlockFlag == null || chapters.values.any { spot.unlockFlag in it.strings("flags") }) { "${spot.id}: unlock_flag が章にありません: ${spot.unlockFlag}" }
         }
         fishSpecies.values.forEach { fish ->
             ref(fish.item,"item","${fish.id}.item")
@@ -247,6 +292,11 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
         gatheringNodes.values.forEach { node ->
             (node.yields+node.rareYields).forEach { ref(it.item,"item","${node.id}.yields") }
             node.locations.forEach { location -> require(location.world == "ec_world" && location.area in areas && areas.getValue(location.area).contains(Position(location.world,location.x.toDouble(),location.y.toDouble(),location.z.toDouble()))) { "${node.id}/${location.id}: 採取地点が管理エリア外です。" } }
+        }
+        treasureChests.values.forEach { chest ->
+            require(chest.position.world == "ec_world" && areas.values.any { it.contains(chest.position) }) { "${chest.id}: 宝箱は管理エリア内に配置してください。" }
+            require(chest.items.keys.all { documents[it]?.get("type") == "item" }) { "${chest.id}: 宝箱の報酬アイテム参照が不正です。" }
+            require(chapters.values.any { chest.onceFlag in it.strings("flags") }) { "${chest.id}: once_flag が章にありません: ${chest.onceFlag}" }
         }
         val nodeCoordinates=gatheringNodes.values.flatMap { node -> node.locations.map { "${it.world}:${it.x},${it.y},${it.z}" } }
         require(nodeCoordinates.distinct().size == nodeCoordinates.size) { "採取ノード座標が重複しています。" }

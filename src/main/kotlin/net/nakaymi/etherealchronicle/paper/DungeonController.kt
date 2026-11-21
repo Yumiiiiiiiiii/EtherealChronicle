@@ -2,6 +2,7 @@ package net.nakaymi.etherealchronicle.paper
 
 import net.kyori.adventure.text.Component
 import net.nakaymi.etherealchronicle.core.recordChallenge
+import net.nakaymi.etherealchronicle.core.firstClearRanks
 import org.bukkit.*
 import org.bukkit.entity.Player
 import org.bukkit.event.*
@@ -85,8 +86,25 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
             val rank=net.nakaymi.etherealchronicle.core.challengeRank(seconds,ranks)
             instance.members.forEach { member -> plugin.profiles[member]?.let { profile ->
                 val (best,updated)=profile.recordChallenge(instance.definition.id,seconds,rank)
-                if(updated) plugin.save(profile)
-                Bukkit.getPlayer(member)?.sendMessage(Component.text("${instance.definition.clearMessage} 記録 ${seconds}秒 / ランク$rank（自己ベスト ${best.bestSeconds}秒 / ${best.bestRank}）"))
+                val firstRewards=firstClearRanks(profile,ranks,seconds)
+                val player=Bukkit.getPlayer(member)
+                if(firstRewards.isNotEmpty()) {
+                    val itemRewards=firstRewards.flatMap { it.firstClearItems.entries }.groupBy({ it.key },{ it.value }).mapValues { (_,amounts) -> amounts.sum() }
+                    val flags=firstRewards.mapNotNull { it.firstClearFlag }.toSet()
+                    // The flag and reward mailbox share one atomic profile write. Delivery waits
+                    // for any active transaction lock and then uses the existing durable claim path.
+                    itemRewards.forEach { (item,amount) -> profile.pendingRewards.merge(item,amount,Int::plus) }
+                    profile.flags.addAll(flags)
+                    plugin.save(profile)
+                    if(player?.isOnline==true) adventure.whenAvailable(member) {
+                        val current=Bukkit.getPlayer(member)
+                        if(current?.isOnline==true) {
+                            adventure.claimPending(current)
+                            current.sendMessage(Component.text("初回ランク報酬を受け取りました。"))
+                        }
+                    }
+                } else if(updated) plugin.save(profile)
+                player?.sendMessage(Component.text("${instance.definition.clearMessage} 記録 ${seconds}秒 / ランク$rank（自己ベスト ${best.bestSeconds}秒 / ${best.bestRank}）"))
             } }
         } else instance.members.forEach { member -> Bukkit.getPlayer(member)?.sendMessage(Component.text(instance.definition.clearMessage)) }
     }

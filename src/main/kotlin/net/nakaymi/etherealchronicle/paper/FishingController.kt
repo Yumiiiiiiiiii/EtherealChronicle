@@ -153,9 +153,8 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         val target=hit.location.clone().add(0.5,0.85,0.5)
         val distance=player.location.distance(target)
         if(distance !in 2.0..balance.castRange) { player.sendMessage(Component.text("水面が近すぎるか、遠すぎます。")); return }
-        val spot=plugin.snapshot.world.fishingSpots.values.firstOrNull { s ->
-            s.world==player.world.name && s.center.let { center -> val x=target.x-center.x; val z=target.z-center.z; x*x+z*z<=s.radius*s.radius }
-        } ?: run { player.sendMessage(Component.text("この水辺には魚影が見当たりません。")); return }
+        val spot=selectFishingSpot(plugin.snapshot.world.fishingSpots.values,player.world.name,target.x,target.z,profile.flags)
+            ?: run { player.sendMessage(Component.text("この水辺には魚影が見当たりません。")); return }
         val p=profile.lifeSkills.getValue(LifeSkillKind.FISHING)
         val bait=chooseBait(player,profile)
         val weather=when { player.world.isThundering -> "THUNDER"; player.world.hasStorm() -> "RAIN"; else -> "CLEAR" }
