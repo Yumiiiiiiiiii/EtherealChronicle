@@ -44,6 +44,7 @@ class DemoGenerator: ChunkGenerator() {
 }
 object DemoWorld {
     const val NAME="ec_world"
+    fun luminaSpawn(world: World) = Location(world,0.5,65.0,0.5)
     fun ensure(plugin: RpgPlugin): World? {
         val existing=Bukkit.getWorld(NAME)
         if(existing != null) {
@@ -52,6 +53,7 @@ object DemoWorld {
                 plugin.logger.severe("ec_world は所有マーカーのない既存ワールドです。地形を変更しません: ${existing.worldFolder}")
                 return null
             }
+            existing.setSpawnLocation(0,65,0)
             migrateToV2(plugin,existing,existing.worldFolder.toPath())
             return existing
         }

@@ -10,5 +10,6 @@ classes: [ec:class_mage]
 budget: 7
 stats: {attack: 4, skill_power: 0.1, resource: 15}
 weapon: 10
-price: 60
+price: 0
+bound: true
 lore: '先端に小さなエーテル石をはめ込んだ入門用の杖。魔力の暴発を抑える安全構造になっている。'

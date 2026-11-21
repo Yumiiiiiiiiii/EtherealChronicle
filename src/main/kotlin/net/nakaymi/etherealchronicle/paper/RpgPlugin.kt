@@ -147,7 +147,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             profiles[player.uniqueId] = profile
             syncTitleAdvancements(player,profile)
             if(::dungeons.isInitialized) dungeons.recover(player)
-            if(profile.classId == null) Bukkit.getWorld(DemoWorld.NAME)?.let { player.teleport(it.spawnLocation) }
+            if(!player.hasPlayedBefore() || profile.classId == null) Bukkit.getWorld(DemoWorld.NAME)?.let { player.teleport(DemoWorld.luminaSpawn(it)) }
             if(profile.classId == null || !profile.starterGranted) menu(player) else {
                 skillSlot(player); applyStats(player,profile)
                 adventure.whenAvailable(player.uniqueId) { if(player.isOnline && profiles[player.uniqueId] === profile) adventure.claimPending(player) }
@@ -583,7 +583,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         if(e.from.world != e.to.world || e.from.distanceSquared(e.to) > 0.0) lastMoved[e.player.uniqueId] = Bukkit.getCurrentTick()
     }
     @EventHandler fun split(e: SlimeSplitEvent) { if(e.entity.persistentDataContainer.has(enemyKey)) e.isCancelled = true }
-    private fun spawnEnemy(player: Player,id: String) { require(enemies.spawn(id,player.location) != null) { "出現上限です。" } }
+    private fun spawnEnemy(player: Player,id: String) { require(enemies.spawn(id,player.location) != null) { "同じ魔物が既に存在するか、出現上限に達しています。" } }
     @EventHandler fun death(e: EntityDeathEvent) {
         if(!e.entity.persistentDataContainer.has(enemyKey)) return
         e.drops.clear(); e.droppedExp=0
@@ -624,7 +624,10 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val profile=profiles[player.uniqueId] ?: return
         identify(e.item.itemStack)?.let { if(profile.discoverItem(it)) save(profile) }
     }
-    @EventHandler fun respawn(e: PlayerRespawnEvent) { sync { skillSlot(e.player); profiles[e.player.uniqueId]?.let { applyStats(e.player,it); e.player.health=e.player.getAttribute(Attribute.MAX_HEALTH)!!.value } } }
+    @EventHandler(priority=EventPriority.LOWEST) fun respawn(e: PlayerRespawnEvent) {
+        Bukkit.getWorld(DemoWorld.NAME)?.let { e.respawnLocation=DemoWorld.luminaSpawn(it) }
+        sync { skillSlot(e.player); profiles[e.player.uniqueId]?.let { applyStats(e.player,it); e.player.health=e.player.getAttribute(Attribute.MAX_HEALTH)!!.value } }
+    }
     private fun validatePaperContent(c: ContentSnapshot) {
         fun validate(id: String, action: () -> Unit) { try { action() } catch(e: Exception) { throw IllegalArgumentException("${c.sources[id]} [$id]: ${e.message}",e) } }
         c.items.all().forEach { item -> validate(item.id) { require(Material.valueOf(item.material).isItem) { "material はアイテムである必要があります。" } } }
@@ -825,7 +828,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     val id=args[3]; val definition=snapshot.world.enemies[id] ?: error("魔物が見つかりません。")
                     val pos=definition.spawns.firstOrNull()?.position
                     val location=pos?.let { Location(world,it.x,it.y,it.z) } ?: world.spawnLocation
-                    val mob=enemies.spawn(id,location,"sim:$name:$id",1,setOf(p.uuid),pinForSimulation=true) ?: error("出現上限です。")
+                    val mob=enemies.spawn(id,location,"sim:$name:$id",1,setOf(p.uuid),pinForSimulation=true) ?: error("同じ魔物が既に存在するか、出現上限に達しています。")
                     sender.sendMessage(Component.text("SIM spawn=${mob.uniqueId} hp=${enemies.state(mob.uniqueId)?.boss?.hp}"))
                 }
                 "hit" -> {

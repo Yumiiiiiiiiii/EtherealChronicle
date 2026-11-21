@@ -121,3 +121,11 @@
 - Not run: live Paper pack enable/reload or real-client advancement screen/toast. Current implementation logs a warning and retains profile-backed titles if datapack registration fails. Lead-owned `docs/CONTENT_SCHEMA.md` should document `titles[].advancement` (`title`, `description`, `icon`, `parent`, `frame`, `condition.type` and `target`/`count`).
 - Task7 final implementation commit: `abc1178` (`Integrate title unlocks with Minecraft advancements`).
 - Next: address the real-client spawn/respawn and starter-weapon findings, then proceed with Task8.
+
+## Codex-Impl — real-client QA follow-up before Task8
+- Branch `codex/foundation`; merged latest `master` (`295e2a6`) at `6329367` before fixing the client findings.
+- Fixed first-arrival routing to Lumina for a new Minecraft account, established the Lumina coordinates as the managed world's spawn on boot, and set `PlayerRespawnEvent.respawnLocation` synchronously at LOWEST priority. DungeonController's normal-priority handler can still override this for dungeon instance returns.
+- Marked all six class starter weapons as bound and non-sellable (zero price); bound death handling preserves them in `itemsToKeep`. Duplicate capped `/ec spawn` and simulation spawn now return a Japanese cap explanation.
+- Added `ManualClientFindingsTest` for first join/respawn world and coordinates, starter bound + death preservation, and duplicate-spawn feedback. Updated the advancement test to account for the three optional advancement definitions among the six shipped titles now present after master merge.
+- Verification: focused regressions passed; `./gradlew.bat build test` SUCCESS (125 tests, 0 failures/errors/skips); `git diff --check` clean apart from Git's CRLF normalization notices.
+- Not yet verified on a live server/client. Next: commit these fixes, then continue Task8 from the authored design/content branch.
