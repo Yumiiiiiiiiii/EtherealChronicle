@@ -117,3 +117,7 @@ Core skill fields optionally include `element`, `radius`, `heal`, `defense_buff`
 - **Codex:** profile persists enemy kill counts and discovered item IDs; `/ec codex` shows area completion, enemy detail (weaknesses/drops) and item pages. Area milestones at 25/50/75/100% set flag `ec:flag_codex_<area>_<percent>` once.
 - **Enhancement (balance):** `enhancement_cap` (5), `enhancement_rate` (0.03 per level), `enhancement_base_currency` (cost = base x next level), `enhancement_material` (item ID, one per level). `/ec enhance` stores the level in item PDC; stats are clamped to the rarity budget and global caps. Costs persist before the PDC write (loss-biased, no duplication).
 - Profile schema is now 9 (migrations from 1..8).
+
+### Title advancements (Task 7)
+
+`titles/*.yml` may add an optional `advancement` block: `title`, `description`, `icon` (Material), `parent`, `frame` (TASK/GOAL/CHALLENGE) and `condition: {type: FLAG|BESTIARY|COLLECTION, target, count}`. `unlock_flag` stays the authoritative persisted unlock; a met advancement condition promotes that flag into the profile, and advancement progress is re-synced on join, transaction completion, once per second and content reload. The plugin generates an owned datapack with an `EtherealChronicle` advancement tab (supported Paper `DatapackManager` API, no `UnsafeValues.loadAdvancement`); if registration fails, profile-backed titles still work. Not yet verified on a live server or client.
