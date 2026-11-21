@@ -41,6 +41,24 @@ dungeon_configs:
     boss_offset: {x: 0, z: 10}
     entry_message: 星片の試練場へ入場しました。/ec dungeon leave で帰還できます。
     clear_message: 星核の融合体エーテル・キメラを撃破しました！ソーレンへ報告しましょう。
+    waves:
+      - boss: ec:enemy_void_sentinel
+        guards: [ec:enemy_cryo_cultist, ec:enemy_cryo_cultist]
+        guard_offsets: [{x: -8, z: -3}, {x: 8, z: -3}]
+        boss_offset: {x: 0, z: 6}
+      - boss: ec:enemy_glacial_knight
+        guards: [ec:enemy_obsidian_golem]
+        guard_offsets: [{x: 0, z: -4}]
+        boss_offset: {x: 0, z: 7}
+      - boss: ec:boss_aether_chimera
+        guards: [ec:enemy_void_sentinel, ec:enemy_glacial_knight]
+        guard_offsets: [{x: -8, z: -3}, {x: 8, z: -3}]
+        boss_offset: {x: 0, z: 10}
+    score_ranks:
+      - {rank: S, max_seconds: 180}
+      - {rank: A, max_seconds: 300}
+      - {rank: B, max_seconds: 480}
+      - {rank: C, max_seconds: 900}
 flags:
   - ec:flag_side_pip_return
   - ec:flag_side_pip_donate

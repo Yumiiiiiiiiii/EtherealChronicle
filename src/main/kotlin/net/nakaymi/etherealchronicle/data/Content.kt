@@ -64,17 +64,19 @@ class ContentService(private val root: Path, private val migration: ContentMigra
         val knownIds = docs.keys + aliases.keys + declarations
         val refTypes = mapOf("skills" to "skill","starter_items" to "item","classes" to "class","item" to "item","class" to "class","enemy" to "enemy","boss" to "boss","guards" to "enemy","quest" to "quest","dialogue" to "dialogue","chapter" to "chapter","droptable" to "droptable","shop" to "shop","npc" to "npc","kill_target" to "enemy")
         val listRefs = setOf("skills","starter_items","classes","requires","guards")
-        fun refs(v: Any?, key: String = "") { when(v) {
+        fun refs(v: Any?, key: String = "", inWave: Boolean = false) { when(v) {
             is Map<*,*> -> v.forEach { (k,x) ->
                 val name = k.toString()
                 if(name in listRefs && x !is List<*>) errors += "参照リストが必要です: $name"
                 if(name in refTypes && name !in listRefs && x !is String) errors += "参照IDが必要です: $name"
-                refs(x,name)
+                refs(x,name,inWave || name == "waves")
             }
-            is List<*> -> v.forEach { refs(it,key) }
+            is List<*> -> v.forEach { refs(it,key,inWave) }
             is String -> {
-                val expected = refTypes[key]
-                if(expected != null && (docs[aliases[v] ?: v]?.get("type") != expected || !v.startsWith("ec:"))) errors += "参照先の種類が不正です: $key -> $v ($expected)"
+                val expected = refTypes[key]?.takeUnless { key == "boss" }
+                val actualType = docs[aliases[v] ?: v]?.get("type")
+                if(key == "boss" && (actualType !in setOf("enemy", "boss") || !v.startsWith("ec:"))) errors += "参照先の種類が不正です: $key -> $v (enemy/boss)"
+                else if(expected != null && (actualType != expected || !v.startsWith("ec:"))) errors += "参照先の種類が不正です: $key -> $v ($expected)"
                 else if(key != "id" && v.startsWith("ec:") && v !in knownIds) errors += "参照先がありません: $key -> $v"
             }
             else -> if(key in refTypes) errors += "参照IDが必要です: $key"

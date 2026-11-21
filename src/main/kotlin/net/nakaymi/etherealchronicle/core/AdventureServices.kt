@@ -182,4 +182,5 @@ fun PlayerProfile.restore(other: PlayerProfile) {
     classId=other.classId; level=other.level; xp=other.xp; currency=other.currency; resource=other.resource; selectedSkill=other.selectedSkill; starterGranted=other.starterGranted; accessory=other.accessory
     skillLevels.clear(); skillLevels.putAll(other.skillLevels); flags.clear(); flags.addAll(other.flags)
     quests.clear(); quests.putAll(other.snapshot().quests); dailyPurchases.clear(); dailyPurchases.putAll(other.dailyPurchases); transactions.clear(); transactions.addAll(other.transactions); pendingRewards.clear(); pendingRewards.putAll(other.pendingRewards); dropPity.clear(); dropPity.putAll(other.dropPity)
+    challengeRecords.clear(); challengeRecords.putAll(other.snapshot().challengeRecords)
 }

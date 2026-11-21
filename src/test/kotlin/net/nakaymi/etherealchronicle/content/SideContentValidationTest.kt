@@ -55,6 +55,17 @@ class SideContentValidationTest {
         assertTrue(bash.tauntTicks > 0 && bash.threatMultiplier > 1.0)
     }
 
+    @Test
+    fun `crucible challenge loads three waves and time rank thresholds`() {
+        val definition=loadBundled().world.dungeons.getValue("ec:dungeon_aether_crucible")
+        assertEquals(3,definition.waves.size)
+        assertEquals("ec:enemy_void_sentinel",definition.waves.first().boss)
+        assertEquals("ec:boss_aether_chimera",definition.waves.last().boss)
+        assertEquals("S",net.nakaymi.etherealchronicle.core.challengeRank(180,definition.scoreRanks))
+        assertEquals("A",net.nakaymi.etherealchronicle.core.challengeRank(181,definition.scoreRanks))
+        assertEquals("C",net.nakaymi.etherealchronicle.core.challengeRank(1000,definition.scoreRanks))
+    }
+
     private val newClasses = listOf(
         "ec:class_paladin" to "ec:paladin",
         "ec:class_cleric" to "ec:cleric",

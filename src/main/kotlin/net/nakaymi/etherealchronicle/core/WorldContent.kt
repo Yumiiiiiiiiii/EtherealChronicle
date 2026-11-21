@@ -23,7 +23,9 @@ data class Position(val world: String, val x: Double, val y: Double, val z: Doub
 data class Area(val id: String, val name: String, val world: String, val minX: Double, val maxX: Double, val minY: Double, val maxY: Double, val minZ: Double, val maxZ: Double, val safe: Boolean) {
     fun contains(p: Position) = p.world == world && p.x in minX..maxX && p.y in minY..maxY && p.z in minZ..maxZ
 }
-data class DungeonDefinition(val id: String, val unlockFlag: String, val boss: String, val guards: List<String>, val guardOffsets: List<Pair<Int,Int>>, val area: String, val palette: List<String>, val bossOffset: Pair<Int,Int>, val entryMessage: String, val clearMessage: String)
+data class DungeonWave(val boss: String, val guards: List<String>, val guardOffsets: List<Pair<Int,Int>>, val bossOffset: Pair<Int,Int>)
+data class ScoreRank(val rank: String,val maxSeconds: Long)
+data class DungeonDefinition(val id: String, val unlockFlag: String, val boss: String, val guards: List<String>, val guardOffsets: List<Pair<Int,Int>>, val area: String, val palette: List<String>, val bossOffset: Pair<Int,Int>, val entryMessage: String, val clearMessage: String,val waves: List<DungeonWave> = emptyList(),val scoreRanks: List<ScoreRank> = emptyList())
 data class NpcDefinition(val id: String, val name: String, val position: Position, val dialogue: String, val shop: String?)
 data class TokenCost(val item: String, val amount: Int)
 data class ShopEntry(val id: String, val item: String, val amount: Int, val price: Long, val tokens: List<TokenCost>, val condition: Condition, val dailyLimit: Int, val tokenDiscountFlag: String?, val tokenDiscount: List<TokenCost>)
@@ -101,8 +103,15 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
                         val guards=config.strings("guards")
                         val offsets=config.maps("guard_offsets").map { it.int("x") to it.int("z") }
                         val bossOffset=config.mapping("boss_offset").let { it.int("x") to it.int("z") }
-                        val definition=DungeonDefinition(id,config.string("unlock_flag"),config.string("boss"),guards,offsets,config.string("area"),config.strings("palette"),bossOffset,config.string("entry_message"),config.string("clear_message"))
+                        val waves=config.maps("waves").map { wave ->
+                            val bossOffset=wave.mapping("boss_offset").let { it.int("x") to it.int("z") }
+                            val guards=wave.strings("guards"); val offsets=wave.maps("guard_offsets").map { it.int("x") to it.int("z") }
+                            DungeonWave(wave.string("boss"),guards,offsets,bossOffset)
+                        }
+                        val ranks=config.maps("score_ranks").map { ScoreRank(it.string("rank"),it.whole("max_seconds",0)) }
+                        val definition=DungeonDefinition(id,config.string("unlock_flag"),config.string("boss"),guards,offsets,config.string("area"),config.strings("palette"),bossOffset,config.string("entry_message"),config.string("clear_message"),waves,ranks)
                         require(id in d.strings("dungeons") && id !in dungeons && definition.unlockFlag in d.strings("flags") && definition.guards.size == definition.guardOffsets.size && definition.palette.size == 3)
+                        require(definition.waves.all { it.guardOffsets.size == it.guards.size } && definition.scoreRanks.all { it.rank in setOf("S","A","B","C") && it.maxSeconds > 0 } && definition.scoreRanks.zipWithNext().all { (a,b) -> a.maxSeconds <= b.maxSeconds })
                         dungeons[id]=definition
                     }
                 }
@@ -123,7 +132,7 @@ class WorldContent(documents: Map<String,Map<String,Any?>>) {
         }
         require(chapters.values.flatMap { it.strings("dungeons") }.all { it in dungeons }) { "章のダンジョン定義が不足しています。" }
         dungeons.values.forEach { dungeon ->
-            require(dungeon.area in areas && dungeon.boss in enemies && enemies[dungeon.boss]?.boss == true && dungeon.guards.all { enemies[it] != null }) { "${dungeon.id}: ダンジョン参照が不正です。" }
+            require(dungeon.area in areas && dungeon.boss in enemies && enemies[dungeon.boss]?.boss == true && dungeon.guards.all { enemies[it] != null } && dungeon.waves.all { wave -> wave.boss in enemies && wave.guards.all { it in enemies } }) { "${dungeon.id}: ダンジョン参照が不正です。" }
             require(dungeon.unlockFlag.startsWith("ec:flag_") && dungeon.palette.all { it.matches(Regex("[A-Z_]+")) }) { "${dungeon.id}: ダンジョン設定が不正です。" }
         }
         validateWorldReferences(documents)

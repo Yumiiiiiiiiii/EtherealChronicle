@@ -548,6 +548,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             "equipment" -> adventure.equipment(player)
             "dungeon" -> when(args.getOrNull(1)) {
                 "leave" -> dungeons.leave(player)
+                "records" -> if(p.challengeRecords.isEmpty()) player.sendMessage(Component.text("試練の記録はまだありません。")) else p.challengeRecords.forEach { (id,record) -> player.sendMessage(Component.text("$id: ${record.bestSeconds}秒 / ランク${record.bestRank}")) }
                 "enter" -> dungeons.enter(player,args.getOrNull(2) ?: "ec:dungeon_void_sanctum")
                 null -> dungeons.enter(player)
                 else -> dungeons.enter(player,args[1])
