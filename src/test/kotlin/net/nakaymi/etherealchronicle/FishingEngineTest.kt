@@ -1,8 +1,10 @@
 package net.nakaymi.etherealchronicle
 
 import net.nakaymi.etherealchronicle.core.*
+import net.nakaymi.etherealchronicle.data.ContentService
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import java.nio.file.Path
 import java.util.UUID
 import kotlin.random.Random
 
@@ -25,6 +27,39 @@ class FishingEngineTest {
         assertEquals(FishingPhase.REELING,engine.tick(state,0.1,ReelInput.PULL))
         val escaped=FishingState(fish,phase=FishingPhase.BITE_ALERT,biteWindowLeft=0.1)
         assertEquals(FishingPhase.ESCAPED,engine.tick(escaped,0.1,ReelInput.IDLE))
+        assertEquals(FishingEscapeCause.BITE_MISSED,escaped.escapeCause)
+    }
+    @Test fun `reel timeout has a distinct failure cause`() {
+        val engine=FishingEngine(LifeBalance(reelingTimeoutSeconds=1),Random(3))
+        val state=FishingState(fish,phase=FishingPhase.REELING,behaviorSeconds=10.0,tension=50.0)
+        assertEquals(FishingPhase.ESCAPED,engine.tick(state,1.0,ReelInput.IDLE))
+        assertEquals(FishingEscapeCause.TIMEOUT,state.escapeCause)
+    }
+    @Test fun `adaptive 420ms pull rhythm can catch the beginner debug fish`() {
+        val world=ContentService(Path.of("src/main/resources/content")).load().world
+        val balance=world.lifeBalance
+        val fish=world.fishSpecies.getValue("ec:fish_sunbeam_trout")
+        val catches=(1L..20L).count { seed ->
+            val engine=FishingEngine(balance,Random(seed))
+            val state=FishingState(fish,phase=FishingPhase.REELING,tensionStability=1.0)
+            var nextClick=0.0; var pullUntil=0.0
+            repeat((balance.reelingTimeoutSeconds*10).toInt()) { step ->
+                if(state.phase!=FishingPhase.REELING) return@repeat
+                val now=step*0.1
+                val input=when(state.behavior) {
+                    FishBehavior.DIVE -> { pullUntil=now; nextClick=now+0.42; ReelInput.BRACE }
+                    FishBehavior.THRASH -> { pullUntil=now; ReelInput.IDLE }
+                    FishBehavior.CALM, FishBehavior.TELEGRAPH -> {
+                        if(state.tension<65.0 && now>=nextClick) { nextClick=now+0.42; pullUntil=now+0.35 }
+                        if(now<pullUntil) ReelInput.PULL else ReelInput.IDLE
+                    }
+                }
+                engine.tick(state,0.1,input)
+            }
+            state.phase==FishingPhase.CAUGHT
+        }
+        java.io.File("build/fishing-cadence.txt").writeText("$catches/20 seeded easy-fish sessions caught")
+        assertTrue(catches>=16,"only $catches/20 beginner fish caught with 420ms pulls, release during thrash, and brace on dives")
     }
     @Test fun `catch records maximum size crown and score`() {
         val engine=FishingEngine(LifeBalance(),Random(8)); val state=FishingState(fish,phase=FishingPhase.CAUGHT)

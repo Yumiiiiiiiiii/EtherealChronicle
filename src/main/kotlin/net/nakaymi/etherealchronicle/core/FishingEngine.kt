@@ -5,11 +5,13 @@ import kotlin.math.sqrt
 import kotlin.random.Random
 
 enum class FishingPhase { CASTING, WAITING, BITE_ALERT, REELING, CAUGHT, ESCAPED, CANCELLED }
+enum class FishingEscapeCause { BITE_MISSED, OVER_TENSION, LINE_SLACK, TIMEOUT }
 enum class FishBehavior { CALM, TELEGRAPH, THRASH, DIVE }
 enum class ReelInput { IDLE, PULL, BRACE }
 data class FishingState(
     val fish: FishSpeciesDefinition,
     var phase: FishingPhase = FishingPhase.CASTING,
+    var escapeCause: FishingEscapeCause? = null,
     var elapsedSeconds: Double = 0.0,
     var biteWindowLeft: Double = fish.minigame.biteWindowMillis/1000.0,
     var progress: Double = 0.0,
@@ -84,7 +86,7 @@ class FishingEngine(private val balance: LifeBalance,private val random: Random 
             FishingPhase.WAITING -> { state.elapsedSeconds+=dt; if(state.elapsedSeconds>=state.waitSeconds) { state.phase=FishingPhase.BITE_ALERT; state.biteWindowLeft=state.fish.minigame.biteWindowMillis/1000.0 } }
             FishingPhase.BITE_ALERT -> {
                 if(input==ReelInput.PULL) { state.phase=FishingPhase.REELING; state.elapsedSeconds=0.0 }
-                else { state.biteWindowLeft-=dt; if(state.biteWindowLeft<=0) state.phase=FishingPhase.ESCAPED }
+                else { state.biteWindowLeft-=dt; if(state.biteWindowLeft<=0) { state.escapeCause=FishingEscapeCause.BITE_MISSED; state.phase=FishingPhase.ESCAPED } }
             }
             FishingPhase.REELING -> reel(state,dt,input)
             else -> Unit
@@ -121,7 +123,9 @@ class FishingEngine(private val balance: LifeBalance,private val random: Random 
         state.slackSeconds=if(state.tension<=2.0) state.slackSeconds+dt else 0.0
         when {
             state.progress>=100 -> state.phase=FishingPhase.CAUGHT
-            state.tension>=100 || state.slackSeconds>=balance.slackFailSeconds || state.elapsedSeconds>=balance.reelingTimeoutSeconds -> state.phase=FishingPhase.ESCAPED
+            state.tension>=100 -> { state.escapeCause=FishingEscapeCause.OVER_TENSION; state.phase=FishingPhase.ESCAPED }
+            state.slackSeconds>=balance.slackFailSeconds -> { state.escapeCause=FishingEscapeCause.LINE_SLACK; state.phase=FishingPhase.ESCAPED }
+            state.elapsedSeconds>=balance.reelingTimeoutSeconds -> { state.escapeCause=FishingEscapeCause.TIMEOUT; state.phase=FishingPhase.ESCAPED }
         }
     }
     fun catch(state:FishingState,rodSizeBonus:Double,lifeLevel:Int):FishCatch {
