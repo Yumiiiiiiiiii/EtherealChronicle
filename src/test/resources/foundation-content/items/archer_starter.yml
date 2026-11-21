@@ -1,0 +1,10 @@
+schema_version: 1
+id: ec:archer_starter
+type: item
+name: 見習いの弓使い 装備
+material: BOW
+rarity: COMMON
+min_level: 1
+classes: [ec:archer]
+budget: 10
+stats: {attack: 3}

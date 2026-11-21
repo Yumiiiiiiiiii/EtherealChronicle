@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_aether_gel
+type: item
+name: エーテルゼリー
+material: SLIME_BALL
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 27
+lore: 'エーテルスライムから採れる透き通った膠質。薬草の調合材として人気がある。'

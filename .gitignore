@@ -2,6 +2,7 @@ dev/server/*
 !dev/server/.gitkeep
 build/
 .gradle/
+.kotlin/
 .idea/
 *.class
 node_modules/

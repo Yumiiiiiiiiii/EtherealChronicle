@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_off_astral_tome
+type: item
+name: 星詠みの魔導書
+material: ENCHANTED_BOOK
+rarity: RARE
+slot: OFFHAND
+min_level: 12
+classes: [ec:class_mage]
+budget: 19
+stats: {attack: 12, skill_power: 0.36, resource: 55, element_resist: 0.06}
+price: 1100
+lore: '銀のインクで星図が描かれた魔導書。【マナ還流】魔力が枯渇しかけた時に星図がマナを補う。'
+effects:
+  - {kind: RESOURCE, amount: 45, cooldown_ms: 30000, chance: 1.0}

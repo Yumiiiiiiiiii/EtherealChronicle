@@ -1,6 +1,6 @@
 # AGENTS.md — EtherealChronicle (PaperMC MMORPG plugin)
 
-Target: Paper 26.3 (build 257 STABLE), Java 25, Kotlin 2.4.21, Gradle 9.9.2 (wrapper). Plugin id `EtherealChronicle`, base package `dev.mcmmo.rpg`.
+Target: Paper 26.3 (build 257 STABLE), Java 25, Kotlin 2.4.21, Gradle 9.9.2 (wrapper). Plugin id `EtherealChronicle`, base package `net.nakaymi.etherealchronicle`.
 Build: `./gradlew build` -> `build/libs/EtherealChronicle-<ver>.jar`. Test server: `dev/server` (Paper jar present; EULA NOT auto-accepted).
 
 ## Roles
@@ -11,7 +11,7 @@ Implementer != reviewer. Work on separate git branches/worktrees; merge via lead
 
 ## Architecture rules
 - Data-driven: items, classes, skills, enemies, bosses, NPCs, quests, dialogues, chapters, drop tables, shops, balance all live as YAML under `src/main/resources/content/<type>/*.yml` (copied to plugin data folder `content/` on first run; server-side files override). Each file has `schema_version` and stable `id`s (snake_case, namespaced `ec:xxx`). Validator checks duplicate ids, dangling references, ranges.
-- Separate pure game logic (package `dev.mcmmo.rpg.core.*`, NO org.bukkit imports, unit-testable) from Paper glue (`dev.mcmmo.rpg.paper.*`).
+- Separate pure game logic (package `net.nakaymi.etherealchronicle.core.*`, NO org.bukkit imports, unit-testable) from Paper glue (`net.nakaymi.etherealchronicle.paper.*`).
 - Player data: per-UUID YAML/JSON file in `playerdata/`, async save, atomic write (tmp+rename), backup, schema version + migrations. Never block main thread with IO.
 - All game text Japanese (Adventure Components, MiniMessage). Identifiers English.
 - Economy/inventory ops must be transactional (no dupe). XP/currency gains capped by balance config.

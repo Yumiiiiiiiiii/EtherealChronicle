@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_q_void_remnant
+type: item
+name: 虚核の残滓
+material: HEART_OF_THE_SEA
+rarity: EPIC
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 0
+bound: true
+quest_item: true
+lore: 'ヴォイド・ウォーデン撃破後に祭壇へ残された澄み渡る結晶核。ルミナの未来を左右する。'

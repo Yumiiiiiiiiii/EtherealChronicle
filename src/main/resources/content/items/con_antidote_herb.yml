@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_con_antidote_herb
+type: item
+name: 解毒の香草
+material: FERN
+rarity: COMMON
+slot: NONE
+min_level: 4
+classes: []
+budget: 0
+stats: {}
+price: 40
+lore: '爽やかな香りを放つ森の香草。毒・胞子・虚空侵蝕などの状態異常を即座に浄化する。'
+effects:
+  - {kind: CLEANSE, amount: 1, cooldown_ms: 12000, duration_ticks: 100, chance: 1.0}

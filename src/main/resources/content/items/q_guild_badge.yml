@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_q_guild_badge
+type: item
+name: ルミナ見習い冒険者証
+material: NAME_TAG
+rarity: COMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 0
+bound: true
+quest_item: true
+lore: 'ルミナ港冒険者ギルドの正規登録を示す銅の徽章。'

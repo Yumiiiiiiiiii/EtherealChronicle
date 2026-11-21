@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_wpn_stargazer_rod
+type: item
+name: 天球儀の星杖
+material: END_ROD
+rarity: EPIC
+slot: HAND
+min_level: 16
+classes: [ec:class_mage]
+budget: 31
+stats: {attack: 34, skill_power: 0.68, crit: 0.06, resource: 75}
+weapon: 131
+price: 3267
+lore: '賢者リラが設計したミニチュア天球儀が杖頭で静かに回転する。【星辰の循環】星々の軌道が魔力を還流させる。'
+effects:
+  - {kind: RESOURCE, amount: 22, cooldown_ms: 6000, chance: 0.4}

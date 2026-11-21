@@ -1,0 +1,27 @@
+schema_version: 1
+id: ec:enemy_spore_spider
+type: enemy
+name: 胞子グモ
+entity: CAVE_SPIDER
+level: 6
+hp: 650
+attack: 32
+defense: 23
+xp: 88
+currency: 23
+droptable: ec:drop_spore_spider
+element: PHYSICAL
+weaknesses: [FIRE, LIGHTNING]
+resistances: []
+speed: 0.31
+size: 1
+elite: false
+aggro_range: 12
+leash_range: 24
+attack_interval_ticks: 34
+traits: [POISON]
+specials:
+  - {id: spore_mist, name: '毒胞子噴霧', shape: CIRCLE, cooldown_ticks: 220, telegraph_ticks: 20, radius: 3.5, range: 6, multiplier: 1.2, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: POISON}
+spawn_points:
+  - {id: ashwood_marsh_1, world: ec_world, x: 114, y: 65, z: -16, cap: 2, respawn_ticks: 220}
+  - {id: ashwood_marsh_2, world: ec_world, x: 118, y: 65, z: 18, cap: 2, respawn_ticks: 220}

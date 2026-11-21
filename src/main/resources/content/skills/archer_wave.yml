@@ -1,0 +1,8 @@
+schema_version: 1
+id: ec:archer_wave
+type: skill
+name: 狙い撃ち 3
+cost: 30
+cooldown_ms: 6000
+multiplier: 2.5
+range: 16

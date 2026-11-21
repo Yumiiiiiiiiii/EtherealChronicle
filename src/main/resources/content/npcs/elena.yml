@@ -1,0 +1,9 @@
+schema_version: 1
+id: ec:npc_elena
+type: npc
+name: レンジャー隊長エレナ
+entity: VILLAGER
+chapter: ec:chapter_1
+area: ec:area_ashwood_forest
+location: {world: ec_world, x: 62, y: 65, z: 0, yaw: -90}
+dialogue: ec:dlg_elena_hub

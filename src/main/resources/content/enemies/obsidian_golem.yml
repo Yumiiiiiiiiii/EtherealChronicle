@@ -1,0 +1,27 @@
+schema_version: 1
+id: ec:enemy_obsidian_golem
+type: enemy
+name: 黒曜ゴーレム
+entity: IRON_GOLEM
+level: 11
+hp: 1800
+attack: 60
+defense: 58
+xp: 235
+currency: 50
+droptable: ec:drop_obsidian_golem
+element: PHYSICAL
+weaknesses: [LIGHTNING, AETHER]
+resistances: [PHYSICAL, FIRE]
+speed: 0.2
+size: 2
+elite: false
+aggro_range: 10
+leash_range: 20
+attack_interval_ticks: 48
+traits: [KNOCKBACK_RESIST]
+specials:
+  - {id: earth_stomp, name: '地砕きストンプ', shape: CIRCLE, cooldown_ticks: 240, telegraph_ticks: 28, radius: 4.0, range: 5, multiplier: 1.85, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: SLOW}
+spawn_points:
+  - {id: mine_tunnel2_1, world: ec_world, x: 198, y: 65, z: -18, cap: 2, respawn_ticks: 260}
+  - {id: mine_tunnel2_2, world: ec_world, x: 204, y: 65, z: 18, cap: 1, respawn_ticks: 260}

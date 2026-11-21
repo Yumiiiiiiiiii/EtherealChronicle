@@ -1,0 +1,33 @@
+schema_version: 1
+id: ec:balance
+type: balance
+level_cap: 20
+xp_base: 100
+xp_exponent: 1.5
+xp_gain_cap: 10000
+currency_gain_cap: 5000
+damage_cap: 10000
+stat_cap: 100000
+crit_cap: 0.75
+defense_scale: 100
+skill_level_cap: 5
+skill_growth: 0.1
+crit_damage_cap: 3.0
+element_cap: 2.0
+rarities:
+  COMMON: {budget_multiplier: 1.0, affixes: 0}
+  UNCOMMON: {budget_multiplier: 1.2, affixes: 1}
+  RARE: {budget_multiplier: 1.5, affixes: 2}
+  EPIC: {budget_multiplier: 1.8, affixes: 3}
+  LEGENDARY: {budget_multiplier: 2.2, affixes: 4}
+sell_ratio: 0.3
+max_currency: 100000000
+transaction_amount_cap: 64
+party_size_cap: 4
+party_xp_radius: 32
+global_enemy_cap: 100
+instance_cap: 8
+instance_timeout_ticks: 36000
+weakness_multiplier: 1.25
+resistance_multiplier: 0.8
+

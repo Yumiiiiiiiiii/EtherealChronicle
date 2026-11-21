@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_wpn_quartz_scepter
+type: item
+name: 雷晶の魔導錫
+material: BREEZE_ROD
+rarity: RARE
+slot: HAND
+min_level: 11
+classes: [ec:class_mage]
+budget: 24
+stats: {attack: 22, skill_power: 0.42, crit: 0.04, resource: 50}
+weapon: 77
+price: 1250
+lore: '嘆きの廃坑から採掘された高純度の帯電水晶を削り出した錫杖。【連鎖放電】属性攻撃が雷鳴を呼ぶ。'
+effects:
+  - {kind: ATTACK_PROC, amount: 38, cooldown_ms: 6000, chance: 0.35, element: LIGHTNING}

@@ -1,0 +1,21 @@
+schema_version: 1
+id: ec:quest_m02_first_hunt
+type: quest
+name: 森の異変と初陣
+condition: {completed_quests: ['ec:quest_m01_awakening']}
+objectives:
+  - {id: kill_slimes, kind: KILL, target: 'ec:enemy_aether_slime', amount: 5}
+  - {id: kill_wolves, kind: KILL, target: 'ec:enemy_thorn_wolf', amount: 3}
+  - {id: report_elena, kind: TALK, target: 'ec:npc_elena', amount: 1}
+rewards:
+  xp: 240
+  currency: 120
+  set_flags: []
+  items:
+    - {item: 'ec:item_off_oak_buckler', amount: 1, condition: {classes: ['ec:class_warrior']}}
+    - {item: 'ec:item_off_leather_quiver', amount: 1, condition: {classes: ['ec:class_archer']}}
+    - {item: 'ec:item_off_worn_grimoire', amount: 1, condition: {classes: ['ec:class_mage']}}
+    - {item: 'ec:item_con_minor_hp_potion', amount: 2}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

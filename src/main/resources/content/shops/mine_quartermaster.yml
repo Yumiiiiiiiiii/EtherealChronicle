@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:shop_mine_quartermaster
+type: shop
+name: 廃坑補給官トマスの兵站所
+npc: ec:npc_tomas
+buyback: true
+entries:
+  - {id: medium_hp_potion, item: 'ec:item_con_medium_hp_potion', amount: 1, price: 85}
+  - {id: antidote_herb, item: 'ec:item_con_antidote_herb', amount: 1, price: 40}
+  - {id: miner_ration, item: 'ec:item_con_miner_ration', amount: 1, price: 130}
+  - {id: return_scroll, item: 'ec:item_con_return_scroll', amount: 1, price: 35}
+  - {id: revive_feather, item: 'ec:item_con_revive_feather', amount: 1, price: 380, condition: {completed_quests: ['ec:quest_m05_mine_betrayal']}, daily_limit: 3}
+  - {id: miner_greaves, item: 'ec:item_arm_miner_greaves', amount: 1, price: 680}
+  - {id: minebreaker_greatsword, item: 'ec:item_wpn_minebreaker_greatsword', amount: 1, price: 1250, condition: {min_level: 10}}
+  - {id: crystal_recurve, item: 'ec:item_wpn_crystal_recurve', amount: 1, price: 1250, condition: {min_level: 10}}
+  - {id: quartz_scepter, item: 'ec:item_wpn_quartz_scepter', amount: 1, price: 1250, condition: {min_level: 10}}
+  - {id: obsidian_aegis, item: 'ec:item_off_obsidian_aegis', amount: 1, price: 1100, condition: {has_flags: ['ec:flag_iron_grinder_defeated']}}
+  - {id: windrunner_quiver, item: 'ec:item_off_windrunner_quiver', amount: 1, price: 1100, condition: {has_flags: ['ec:flag_iron_grinder_defeated']}}
+  - {id: astral_tome, item: 'ec:item_off_astral_tome', amount: 1, price: 1100, condition: {has_flags: ['ec:flag_iron_grinder_defeated']}}

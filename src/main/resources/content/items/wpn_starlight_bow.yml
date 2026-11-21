@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_wpn_starlight_bow
+type: item
+name: 星光の狙撃弓
+material: BOW
+rarity: EPIC
+slot: HAND
+min_level: 16
+classes: [ec:class_archer]
+budget: 27
+stats: {attack: 34, crit: 0.1, crit_damage: 0.2, skill_power: 0.16}
+weapon: 139
+price: 3267
+lore: '星見の丘の照準鏡を組み込んだ優美な弓。【遠距離照準】遠距離から星光の追撃で急所を撃ち抜く。'
+effects:
+  - {kind: ATTACK_PROC, amount: 55, cooldown_ms: 5000, chance: 0.35, element: AETHER}

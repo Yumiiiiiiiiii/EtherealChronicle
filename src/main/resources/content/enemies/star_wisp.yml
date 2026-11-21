@@ -1,0 +1,27 @@
+schema_version: 1
+id: ec:enemy_star_wisp
+type: enemy
+name: 星屑のウィスプ
+entity: BLAZE
+level: 13
+hp: 2000
+attack: 74
+defense: 50
+xp: 287
+currency: 62
+droptable: ec:drop_star_wisp
+element: AETHER
+weaknesses: [VOID, ICE]
+resistances: [AETHER, LIGHTNING]
+speed: 0.26
+size: 1
+elite: false
+aggro_range: 15
+leash_range: 26
+attack_interval_ticks: 40
+traits: []
+specials:
+  - {id: stardust_ring, name: 'スターダスト・リング', shape: CIRCLE, cooldown_ticks: 240, telegraph_ticks: 24, radius: 5.0, range: 10, multiplier: 1.6, min_hp_ratio: 0.0, max_hp_ratio: 1.0, effect: NONE}
+spawn_points:
+  - {id: hill_monolith_n, world: ec_world, x: 272, y: 65, z: -22, cap: 2, respawn_ticks: 240}
+  - {id: hill_monolith_s, world: ec_world, x: 276, y: 65, z: 22, cap: 2, respawn_ticks: 240}

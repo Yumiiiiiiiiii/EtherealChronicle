@@ -1,0 +1,16 @@
+schema_version: 1
+id: ec:item_con_starlight_tea
+type: item
+name: 星見のハーブティー
+material: HONEY_BOTTLE
+rarity: RARE
+slot: NONE
+min_level: 12
+classes: []
+budget: 0
+stats: {}
+price: 190
+lore: '星見の丘に咲く夜光草を淹れた香り高い茶。精神を研ぎ澄まし、長期戦の集中と魔力循環を支える。'
+effects:
+  - {kind: RESOURCE, amount: 35, cooldown_ms: 3000, chance: 1.0}
+  - {kind: DEFENSE_BUFF, amount: 10, cooldown_ms: 3000, duration_ticks: 18000, chance: 1.0}

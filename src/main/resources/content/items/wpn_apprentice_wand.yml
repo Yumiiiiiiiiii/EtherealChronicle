@@ -1,0 +1,14 @@
+schema_version: 1
+id: ec:item_wpn_apprentice_wand
+type: item
+name: 見習いの樫杖
+material: STICK
+rarity: COMMON
+slot: HAND
+min_level: 1
+classes: [ec:class_mage]
+budget: 7
+stats: {attack: 4, skill_power: 0.1, resource: 15}
+weapon: 10
+price: 60
+lore: '先端に小さなエーテル石をはめ込んだ入門用の杖。魔力の暴発を抑える安全構造になっている。'

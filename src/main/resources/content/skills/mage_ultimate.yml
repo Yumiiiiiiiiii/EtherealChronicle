@@ -1,0 +1,8 @@
+schema_version: 1
+id: ec:mage_ultimate
+type: skill
+name: 星火 4
+cost: 40
+cooldown_ms: 8000
+multiplier: 3
+range: 16

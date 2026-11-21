@@ -1,0 +1,22 @@
+schema_version: 1
+id: ec:quest_m01_awakening
+type: quest
+name: 蒼穹の港町
+objectives:
+  - {id: talk_celia, kind: TALK, target: 'ec:npc_celia', amount: 1}
+  - {id: talk_vulcan_class, kind: TALK, target: 'ec:npc_vulcan', amount: 1}
+  - {id: talk_garudo, kind: TALK, target: 'ec:npc_garudo', amount: 1}
+  - {id: return_vulcan, kind: TALK, target: 'ec:npc_vulcan', amount: 1}
+rewards:
+  xp: 90
+  currency: 60
+  set_flags: ['ec:flag_ch1_started']
+  items:
+    - {item: 'ec:item_wpn_rusty_broadsword', amount: 1, condition: {classes: ['ec:class_warrior']}}
+    - {item: 'ec:item_wpn_hunter_shortbow', amount: 1, condition: {classes: ['ec:class_archer']}}
+    - {item: 'ec:item_wpn_apprentice_wand', amount: 1, condition: {classes: ['ec:class_mage']}}
+    - {item: 'ec:item_con_minor_hp_potion', amount: 3}
+    - {item: 'ec:item_con_lumina_stew', amount: 1}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000

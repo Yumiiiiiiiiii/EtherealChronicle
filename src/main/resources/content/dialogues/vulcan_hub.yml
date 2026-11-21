@@ -1,0 +1,199 @@
+schema_version: 1
+id: ec:dlg_vulcan_hub
+type: dialogue
+name: ヴァルカンの指令
+speaker: ec:npc_vulcan
+start: root
+nodes:
+  root:
+    text: おう、相棒！調子はどうだ？無理はするなよ、背中を預けてるんだからな。
+    branches:
+      - {condition: {active_quests: ['ec:quest_m01_awakening'], not_flags: ['ec:flag_class_selected']}, next: class_select}
+      - {condition: {active_quests: ['ec:quest_m08_void_warden'], has_flags: ['ec:flag_void_warden_defeated'], not_flags: ['ec:flag_ch1_completed']}, next: ending_choice3}
+      - {condition: {has_flags: ['ec:flag_ch1_completed']}, next: post_ch1}
+    choices:
+      - id: complete_m01
+        label: ガルドへの挨拶が終わったよ（蒼穹の港町・報告）
+        condition: {active_quests: ['ec:quest_m01_awakening'], has_flags: ['ec:flag_class_selected']}
+        next: m01_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_m01_awakening'}
+      - id: start_m02
+        label: 森の異変について聞く（森の異変と初陣・受注）
+        condition: {completed_quests: ['ec:quest_m01_awakening'], not_started_quests: ['ec:quest_m02_first_hunt']}
+        next: m02_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_m02_first_hunt'}
+      - id: complete_m03
+        label: 森の星片と黒き楔について報告する（暴走する星片・報告）
+        condition: {active_quests: ['ec:quest_m03_ashwood_core']}
+        next: m03_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_m03_ashwood_core'}
+      - id: start_m04
+        label: 嘆きの廃坑の調査を引き受ける（嘆きの廃坑へ・受注）
+        condition: {min_level: 7, completed_quests: ['ec:quest_m03_ashwood_core'], not_started_quests: ['ec:quest_m04_road_to_mine']}
+        next: m04_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_m04_road_to_mine'}
+      - id: start_s03
+        label: 街道の魔物討伐を受ける（街道を脅かす牙・受注）
+        condition: {completed_quests: ['ec:quest_m02_first_hunt'], not_started_quests: ['ec:quest_s03_wolf_pack']}
+        next: s03_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_s03_wolf_pack'}
+      - id: complete_s03
+        label: 狼とゴブリンの討伐を報告する（街道を脅かす牙・報告）
+        condition: {active_quests: ['ec:quest_s03_wolf_pack']}
+        next: s03_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_s03_wolf_pack'}
+      - id: complete_s09
+        label: 補給隊の監査報告書を提出する（補給隊の緊急監査・報告）
+        condition: {active_quests: ['ec:quest_s09_tomas_audit']}
+        next: s09_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_s09_tomas_audit'}
+      - id: start_s11
+        label: 星見の丘の教団掃討を受ける（黒き影の掃討・反復受注）
+        condition: {has_flags: ['ec:flag_stargazer_unlocked'], not_started_quests: ['ec:quest_s11_cult_purge']}
+        next: s11_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_s11_cult_purge'}
+      - id: complete_s11
+        label: 教団掃討を報告する（黒き影の掃討・報告）
+        condition: {active_quests: ['ec:quest_s11_cult_purge']}
+        next: s11_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_s11_cult_purge'}
+      - id: bye
+        label: また報告に来るよ
+  class_select:
+    text: ハッハッハ！お前がセリアの言ってた新人か。いい目をしてるじゃねぇか！まずは戦場での立ち位置――お前の『職業』を決めようぜ。どの道を選ぶ？
+    choices:
+      - id: preview_warrior
+        label: 戦士（Warrior）— 盾と大剣で前衛を守る
+        next: confirm_warrior
+      - id: preview_archer
+        label: 弓使い（Archer）— 機動力と会心の一撃で射抜く
+        next: confirm_archer
+      - id: preview_mage
+        label: 魔法使い（Mage）— 属性魔法と支援で戦況を制す
+        next: confirm_mage
+  confirm_warrior:
+    text: 戦士だな！高いHPと防御力、溜めた『怒り』を叩き込む近接の要だ。協力戦じゃ仲間の盾にもなれる。こいつで決まりか？
+    choices:
+      - id: choose_warrior
+        label: 戦士になる！
+        next: class_done
+        set_flags: ['ec:flag_class_selected']
+        actions:
+          - {kind: SELECT_CLASS, target: 'ec:class_warrior'}
+      - id: back_from_warrior
+        label: 他の職業も見たい
+        next: class_select
+  confirm_archer:
+    text: 弓使いか！『集中』を研ぎ澄ませ、遠距離から急所を貫く狩人だ。回避と手数で強敵を翻弄できるぜ。こいつで決まりか？
+    choices:
+      - id: choose_archer
+        label: 弓使いになる！
+        next: class_done
+        set_flags: ['ec:flag_class_selected']
+        actions:
+          - {kind: SELECT_CLASS, target: 'ec:class_archer'}
+      - id: back_from_archer
+        label: 他の職業も見たい
+        next: class_select
+  confirm_mage:
+    text: 魔法使いだな！『マナ』を操り、属性の広範囲魔法や味方支援までこなす頭脳派だ。打たれ弱いが火力は随一だぜ。こいつで決まりか？
+    choices:
+      - id: choose_mage
+        label: 魔法使いになる！
+        next: class_done
+        set_flags: ['ec:flag_class_selected']
+        actions:
+          - {kind: SELECT_CLASS, target: 'ec:class_mage'}
+      - id: back_from_mage
+        label: 他の職業も見たい
+        next: class_select
+  class_done:
+    text: よし、決まったな！それじゃ鍛冶屋のガルドのところへ挨拶に行ってきな。戻ってきたら初仕事を任せるぜ、相棒！
+    choices: []
+  m01_done:
+    text: ハッハッハ！いい面構えじゃねぇか、相棒！よし、初期武装と回復薬を受け取れ――さっそく初仕事だ。北門の鐘が鳴っている、森の様子がおかしいんだ。
+    choices:
+      - id: accept_m02_now
+        label: すぐに森へ向かうよ（森の異変と初陣・受注）
+        next: m02_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_m02_first_hunt'}
+      - id: prep_first
+        label: 少し準備してから受けに来る
+  m02_started:
+    text: 北門を出てすぐの『アッシュウッドの森』で魔物が急に凶暴化したらしい。レンジャー隊長のエレナが現地で踏ん張ってる。街道のスライムと狼を片付けて合流してくれ！
+    choices: []
+  m03_done:
+    text: ……ほう、星片に黒い楔が打ち込まれていたか。間違いねぇ、噂の〈虚ろの手〉の連中だ！お前の判断は尊重するぜ。次は北東の『嘆きの廃坑』だ――奴らの本拠に近い反応が出てる！
+    choices: []
+  m04_started:
+    text: 嘆きの廃坑は十年前に閉鎖された古鉱山だが、最近やけに魔力反応が濃い。入口野営地の補給官トマスと鉱夫長ダレンに合流し、坑内の異変を調べてきてくれ。
+    choices: []
+  s03_started:
+    text: 森の街道で商人の荷車がイバラオオカミとコケゴブリンに襲われた。これ以上被害が広がる前に、連中の数を間引いてきてくれ！
+    choices: []
+  s03_done:
+    text: よし、街道の安全は確保できたな！ガルドに頼んで作らせた上等な武器だ、あんたの職に合うやつを持っていきな！
+    choices: []
+  s09_done:
+    text: 厳しい決断だったが、規律を守ったあんたの仕事は見事だ。回収した物資と証言はルミナ防衛に回すぜ。ギルドからの特別査定報酬だ、受け取れ！
+    choices: []
+  s11_started:
+    text: 星見の丘じゃ、まだ〈虚ろの手〉の連中がしぶとく動き回ってる。毎日少しずつでも奴らの勢力を削いでおく必要があるんだ。掃討を頼めるか？
+    choices: []
+  s11_done:
+    text: 上出来だぜ、相棒！こいつが今日の討伐報酬と浄化星片だ。また明日も頼むぞ！
+    choices: []
+  ending_choice3:
+    text: ……こいつが聖堂の最奥に残った〈虚核の残滓〉か。カインの言い残した〈第二の星片〉も気がかりだが、この強力な結晶の帰属を決めねぇとな。リラ殿は第二の星片の解析に託してほしいと言い、俺はルミナ港の防衛結界として金庫に厳重封印したい。……命を懸けて持ち帰った相棒、お前が決めてくれ。
+    choices:
+      - id: choose_guild_seal
+        label: ルミナ港ギルドの金庫へ厳重に封印する（ルミナの守りを固める）
+        next: ending_guild
+        set_flags: ['ec:flag_choice3_guild']
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_m08_void_warden'}
+      - id: choose_observatory_research
+        label: 星見の賢者リラに研究を託す（第二の星片の所在を解析する）
+        next: ending_observatory
+        set_flags: ['ec:flag_choice3_observatory']
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_m08_void_warden'}
+  ending_guild:
+    text: ……よし、受け取ったぜ！このルミナ港は俺とお前の手で必ず守り抜いてみせる。『ルミナの盾』の称号を贈ろう。次に北の〈蒼穹の氷嶺〉へ遠征する時も、先頭はあんたに任せるぜ、相棒！
+    choices: []
+  ending_observatory:
+    text: ハッ、リラ殿に託したか！さっそく星図が〈蒼穹の氷嶺〉の脈動を捉えたそうだ。『星の導き手』の称号と交換所の優遇権を受け取れ。道が見えたなら準備あるのみだ、腕を磨いておけよ相棒！
+    choices: []
+  post_ch1:
+    text: やりやがったな、相棒！ルミナ港はあんたのおかげで救われた。北の〈蒼穹の氷嶺〉への旅立ちに備えて、星見の丘の残党掃討や聖堂の周回で装備を整えておけよ！
+    choices:
+      - id: post_s11_start
+        label: 黒き影の掃討を受ける（反復依頼）
+        condition: {not_started_quests: ['ec:quest_s11_cult_purge']}
+        next: s11_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_s11_cult_purge'}
+      - id: post_s11_done
+        label: 黒き影の掃討を報告する
+        condition: {active_quests: ['ec:quest_s11_cult_purge']}
+        next: s11_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_s11_cult_purge'}
+      - id: post_s09_done
+        label: 補給隊の監査報告書を提出する
+        condition: {active_quests: ['ec:quest_s09_tomas_audit']}
+        next: s09_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_s09_tomas_audit'}
+      - id: post_bye
+        label: またな、ギルド長

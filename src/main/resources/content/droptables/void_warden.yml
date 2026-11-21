@@ -1,0 +1,18 @@
+schema_version: 1
+id: ec:drop_void_warden
+type: droptable
+entries:
+  - {item: 'ec:item_q_void_remnant', chance: 1.0, min: 1, max: 1}
+  - {item: 'ec:item_mat_void_core_essence', chance: 1.0, min: 1, max: 1}
+  - {item: 'ec:item_mat_starshard_fragment', chance: 1.0, min: 6, max: 6}
+  - {item: 'ec:item_con_greater_hp_potion', chance: 1.0, min: 2, max: 2}
+  - {item: 'ec:item_wpn_aether_vanguard_sword', chance: 0.09, min: 1, max: 1}
+  - {item: 'ec:item_wpn_starlight_bow', chance: 0.09, min: 1, max: 1}
+  - {item: 'ec:item_wpn_stargazer_rod', chance: 0.09, min: 1, max: 1}
+  - {item: 'ec:item_arm_vanguard_plate', chance: 0.08, min: 1, max: 1}
+  - {item: 'ec:item_arm_ranger_jerkin', chance: 0.08, min: 1, max: 1}
+  - {item: 'ec:item_arm_sage_robe', chance: 0.08, min: 1, max: 1}
+  - {item: 'ec:item_wpn_void_cleaver', chance: 0.03, min: 1, max: 1}
+  - {item: 'ec:item_wpn_astral_piercer', chance: 0.03, min: 1, max: 1}
+  - {item: 'ec:item_wpn_aether_chronicle_staff', chance: 0.03, min: 1, max: 1}
+  - {item: 'ec:item_acc_void_heart_ring', chance: 0.03, min: 1, max: 1}

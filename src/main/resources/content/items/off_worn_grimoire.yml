@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_off_worn_grimoire
+type: item
+name: 古びた魔導書
+material: BOOK
+rarity: COMMON
+slot: OFFHAND
+min_level: 3
+classes: [ec:class_mage]
+budget: 6
+stats: {skill_power: 0.12, resource: 25, element_resist: 0.02}
+price: 120
+lore: '基礎的な炎・氷・雷の詠唱式が書き込まれた手引書。余白には先人の走り書きが残る。'

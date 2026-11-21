@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:quest_s12_sanctum_trial
+type: quest
+name: 聖堂の残響
+condition: {min_level: 16, has_flags: ['ec:flag_sanctum_unlocked']}
+objectives:
+  - {id: clear_sentinels, kind: KILL, target: 'ec:enemy_void_sentinel', amount: 6}
+  - {id: defeat_warden_echo, kind: KILL, target: 'ec:boss_void_warden', amount: 1}
+  - {id: report_lyra, kind: TALK, target: 'ec:npc_lyra', amount: 1}
+rewards:
+  xp: 3800
+  currency: 780
+  set_flags: []
+  items:
+    - {item: 'ec:item_mat_starshard_fragment', amount: 5}
+    - {item: 'ec:item_mat_void_core_essence', amount: 1}
+auto_complete: false
+repeatable: true
+repeat_cooldown_ms: 43200000

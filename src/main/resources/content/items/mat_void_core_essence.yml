@@ -1,0 +1,14 @@
+schema_version: 1
+id: ec:item_mat_void_core_essence
+type: item
+name: 虚核のエッセンス
+material: ECHO_SHARD
+rarity: EPIC
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 0
+bound: true
+lore: '虚核の守護者から抽出された濃密な結晶核。賢者リラの元で伝説の武具を紡ぐための鍵となる。'

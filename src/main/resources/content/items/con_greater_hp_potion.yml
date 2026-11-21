@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_con_greater_hp_potion
+type: item
+name: 上級回復薬
+material: POTION
+rarity: RARE
+slot: NONE
+min_level: 14
+classes: []
+budget: 0
+stats: {}
+price: 210
+lore: '星片の雫をわずかに混ぜた輝紅の秘薬。即座にHPを560回復する。'
+effects:
+  - {kind: HEAL, amount: 560, cooldown_ms: 8000, chance: 1.0}

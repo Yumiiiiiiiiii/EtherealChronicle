@@ -1,0 +1,71 @@
+schema_version: 1
+id: ec:dlg_daren_hub
+type: dialogue
+name: ダレンの告白
+speaker: ec:npc_daren
+start: root
+nodes:
+  root:
+    text: ……お、おい冒険者。あんまり坑道の奥まで首を突っ込むんじゃねぇよ。あそこはもう、俺たちの手に負える場所じゃ……。
+    branches:
+      - {condition: {active_quests: ['ec:quest_m05_mine_betrayal'], not_flags: ['ec:flag_choice2_forgive', 'ec:flag_choice2_report']}, next: choice2_confront}
+      - {condition: {has_flags: ['ec:flag_choice2_forgive']}, next: forgiven_hub}
+      - {condition: {has_flags: ['ec:flag_choice2_report']}, next: reported_hub}
+    choices:
+      - id: ask_mine
+        label: 嘆きの廃坑で何が起きているんだ？
+        next: mine_info
+      - id: bye
+        label: 気をつけて進むよ
+  mine_info:
+    text: 十年前の落盤以来ずっと閉鎖されてた坑道なんだが、数日前から紫の霧と不気味な連中が入り込んじまってな……。すまねぇ、俺に話せるのはそれだけだ。
+    choices: []
+  choice2_confront:
+    text: ……っ！その黒封蝋の密書……坑道の奥から持ってきちまったのか……。ああ、認めるよ。第3縦坑の封印鍵を〈虚ろの手〉に渡したのは俺だ！だが聞いてくれ、落盤で行方不明になった若い鉱夫2人を教団に人質に取られてたんだ……！すまねぇ、俺が弱かったばかりに……。
+    choices:
+      - id: forgive_daren
+        label: 事情は分かった。これ以上誰も失わないため、俺と一緒に戦って贖罪してくれ
+        next: daren_forgiven
+        set_flags: ['ec:flag_choice2_forgive']
+      - id: report_daren
+        label: 人質の事情があっても裏切りは裏切りだ。規律通りギルドへ告発する
+        next: daren_reported
+        set_flags: ['ec:flag_choice2_report']
+  daren_forgiven:
+    text: ……本気か、あんた！？くそっ、涙が出ちまうじゃねぇか……。分かった、この命懸けて償うぜ！まず俺が知ってる弱点を教える。第3縦坑の『アイアン・グラインダー』は背面の冷却弁が脆くなってるんだ！過熱レーザーの隙に背後へ回り込め、必ず効く！トマス補給官へ報告して鍵を受け取ってくれ。
+    choices: []
+  daren_reported:
+    text: ……そうだよな。甘えちゃいけねぇよな。分かった、逃げも隠れもしねぇ。トマス補給官へ引き渡してくれ。……ただ一つだけ、奥にいる鉱夫たちを見捨てないでやってくれよな……。
+    choices: []
+  forgiven_hub:
+    text: あんたが俺を信じてくれたおかげで、もう一度つるはしを握る気になれたんだ。俺にできることなら何でも言ってくれ！
+    choices:
+      - id: start_s08
+        label: 隠し縦坑について聞く（鉱夫長の贖罪・受注）
+        condition: {completed_quests: ['ec:quest_m06_iron_grinder'], not_started_quests: ['ec:quest_s08_daren_atonement']}
+        next: s08_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_s08_daren_atonement'}
+      - id: complete_s08
+        label: 隠し縦坑の魔物を鎮めてきたよ（鉱夫長の贖罪・報告）
+        condition: {active_quests: ['ec:quest_s08_daren_atonement']}
+        next: s08_done
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_s08_daren_atonement'}
+      - id: boss_hint
+        label: アイアン・グラインダーの弱点をもう一度聞く
+        next: grinder_hint
+      - id: bye_f
+        label: また来るよ、ダレン
+  grinder_hint:
+    text: 奴のドリル突進を壁に誘導すれば過熱して隙ができる。それと過熱レーザーを撃ち始めたら背面の冷却弁へ回り込め！排熱炉心が暴走したら全力で距離を取るんだぜ。
+    choices: []
+  s08_started:
+    text: 隠し縦坑の奥に、助けられなかった仲間の形見が残ってるんだ。虚ろの坑夫と教団信徒を鎮めて、俺の罪を終わらせるために力を貸してくれねぇか。
+    choices: []
+  s08_done:
+    text: ……ありがとうよ。あいつらも、ようやく眠れるだろう。この浄化星片は俺が若い頃に掘り当てた宝だ。あんたが持って行ってくれ――星見の丘で、あの教団の連中をぶっ飛ばしてきな！
+    choices: []
+  reported_hub:
+    text: ……ギルドの処分は受け入れるつもりだ。あんたは先に進んでくれ、俺の分まで教団を止めてやってくれよな。
+    choices: []

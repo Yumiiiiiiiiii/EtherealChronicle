@@ -1,0 +1,10 @@
+schema_version: 1
+id: ec:mage_starter
+type: item
+name: 見習いの魔法使い 装備
+material: BLAZE_ROD
+rarity: COMMON
+min_level: 1
+classes: [ec:mage]
+budget: 10
+stats: {attack: 3}

@@ -1,0 +1,12 @@
+schema_version: 1
+id: ec:class_warrior
+aliases: [ec:warrior]
+type: class
+name: 戦士
+resource: RAGE
+regeneration: 0
+hit_gain: 10
+skills: [ec:warrior_strike, ec:warrior_burst, ec:warrior_wave, ec:warrior_ultimate]
+starter_items: [ec:item_wpn_rusty_broadsword]
+stats: {hp: 140, resource: 100, attack: 14, defense: 14, crit: 0.05, crit_damage: 1.5, element_resist: 0, skill_power: 1.0}
+growth: {hp: 24, resource: 0, attack: 3.5, defense: 3.5, crit: 0.003, crit_damage: 0, element_resist: 0, skill_power: 0.02}

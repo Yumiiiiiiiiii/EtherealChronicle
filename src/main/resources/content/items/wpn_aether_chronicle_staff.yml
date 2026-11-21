@@ -1,0 +1,17 @@
+schema_version: 1
+id: ec:item_wpn_aether_chronicle_staff
+type: item
+name: 蒼穹年代記の聖杖「アエリア」
+material: TRIDENT
+rarity: LEGENDARY
+slot: HAND
+min_level: 18
+classes: [ec:class_mage]
+budget: 37
+stats: {attack: 48, skill_power: 0.98, crit: 0.09, crit_damage: 0.2, resource: 110}
+weapon: 179
+price: 8000
+lore: '砕け散る前の〈エーテル核〉の波長を再現した至高の聖杖。【エーテルの響鳴】星光の共鳴爆発と共に味方へ加護をもたらす。'
+effects:
+  - {kind: ATTACK_PROC, amount: 105, cooldown_ms: 10000, chance: 0.4, element: AETHER}
+  - {kind: DEFENSE_BUFF, amount: 14, cooldown_ms: 10000, duration_ticks: 100, chance: 0.4}

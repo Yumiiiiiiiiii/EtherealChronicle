@@ -1,0 +1,13 @@
+schema_version: 1
+id: ec:item_mat_void_dust
+type: item
+name: 虚空の塵
+material: GUNPOWDER
+rarity: UNCOMMON
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 160
+lore: '黒き教団〈虚ろの手〉の魔術が残す紫黒の微粒子。星見の丘での研究材料にもなる。'

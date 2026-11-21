@@ -1,0 +1,101 @@
+schema_version: 1
+id: ec:dlg_celia_hub
+type: dialogue
+name: セリアの案内
+speaker: ec:npc_celia
+start: root
+nodes:
+  root:
+    text: ようこそルミナ港へ！何かお手伝いできることはありますか？
+    branches:
+      - {condition: {not_flags: ['ec:flag_ch1_started'], not_started_quests: ['ec:quest_m01_awakening']}, next: intro_welcome}
+      - {condition: {active_quests: ['ec:quest_m01_awakening']}, next: intro_progress}
+      - {condition: {has_flags: ['ec:flag_ch1_completed']}, next: post_ch1}
+    choices:
+      - id: start_tour
+        label: ルミナ港の施設を案内してほしい（依頼受注）
+        condition: {completed_quests: ['ec:quest_m01_awakening'], not_started_quests: ['ec:quest_s01_lumina_tour']}
+        next: tour_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_s01_lumina_tour'}
+      - id: complete_tour
+        label: みなさんへの挨拶が終わったよ（依頼報告）
+        condition: {active_quests: ['ec:quest_s01_lumina_tour']}
+        next: tour_completed
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_s01_lumina_tour'}
+      - id: skill_help
+        label: スキルの使い方をもう一度聞きたい
+        next: tutorial_skill
+      - id: goodbye
+        label: また今度にする
+  intro_welcome:
+    text: ようこそルミナ港へ！飛空艇の長旅、お疲れさまでした！あなたが噂の新人冒険者さんですね。まずはギルド登録を済ませましょう！
+    choices:
+      - id: register
+        label: はい、冒険者登録をお願いします
+        next: intro_registered
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_m01_awakening'}
+          - {kind: GIVE_ITEM, target: 'ec:item_q_guild_badge', amount: 1, once_flag: 'ec:flag_given_guild_badge'}
+      - id: ask_lore
+        label: アエリアと〈星片〉について教えて
+        next: lore_explain
+  lore_explain:
+    text: 千年前、空を支えていた〈エーテル核〉が砕けて、その欠片――〈星片〉が各地の浮島へ降ったんです。私たちの暮らしを支える大切な資源ですが、暴走すると魔物を狂わせてしまうんですよ。……最近は森の方で少し不穏な噂もあるんです。
+    choices:
+      - id: register_after_lore
+        label: なるほど。では冒険者登録をお願いします！
+        next: intro_registered
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_m01_awakening'}
+          - {kind: GIVE_ITEM, target: 'ec:item_q_guild_badge', amount: 1, once_flag: 'ec:flag_given_guild_badge'}
+  intro_registered:
+    text: 登録完了です！『ルミナ見習い冒険者証』をお渡ししますね。この奥にいらっしゃるヴァルカンギルド長に挨拶して、あなたの戦う職業を決めてきてください！
+    choices: []
+  intro_progress:
+    text: ヴァルカンギルド長は本部の奥にいらっしゃいますよ。職業が決まったら鍛冶屋のガルドさんに挨拶して、またギルド長のもとへ戻ってくださいね。
+    choices:
+      - id: register_existing_adventurer
+        label: 冒険者証を受け取る
+        condition: {not_flags: ['ec:flag_given_guild_badge']}
+        next: intro_registered
+        actions:
+          - {kind: GIVE_ITEM, target: 'ec:item_q_guild_badge', amount: 1, once_flag: 'ec:flag_given_guild_badge'}
+      - id: skill_help_intro
+        label: スキルの使い方を教えて
+        next: tutorial_skill
+      - id: close_intro
+        label: 分かった、行ってくるよ
+  tour_started:
+    text: 冒険に出る前に、ルミナ港の頼もしいお店の方々へ挨拶しておきましょう！鍛冶屋のガルドさん、薬草商のミラさん、桟橋の行商人ピップさんを回ってきてくださいね。
+    choices: []
+  tour_completed:
+    text: お疲れさまでした！みなさん癖は強いですけど、腕は確かですから。この見習いの兜と帰還の巻物をお渡ししますね！
+    choices: []
+  tutorial_skill:
+    text: ホットバー9番が『スキルスロット』ですよ！武器を持ってFキー（持ち替え）でスキル1〜4を切り替え、右クリックで発動できます。しゃがみ＋右クリックでも切り替えられますよ。画面下のActionBarでHPとクールダウンを確認してくださいね！
+    choices:
+      - id: ack_skill
+        label: ありがとう、よく分かった
+  post_ch1:
+    text: 『虚核の聖堂』を制した英雄さん！街のみんながあなたの活躍を噂していますよ。――北の〈蒼穹の氷嶺〉方面から新しい定期便の連絡も来ているみたいです。次の旅支度も応援していますね！
+    choices:
+      - id: post_tour_start
+        label: ルミナ港の施設案内を受ける
+        condition: {not_started_quests: ['ec:quest_s01_lumina_tour']}
+        next: tour_started
+        actions:
+          - {kind: START_QUEST, target: 'ec:quest_s01_lumina_tour'}
+      - id: post_tour_done
+        label: ルミナ港の挨拶を報告する
+        condition: {active_quests: ['ec:quest_s01_lumina_tour']}
+        next: tour_completed
+        actions:
+          - {kind: COMPLETE_QUEST, target: 'ec:quest_s01_lumina_tour'}
+      - id: post_skill
+        label: スキルの使い方を復習する
+        next: tutorial_skill
+      - id: post_bye
+        label: ありがとう、セリア
+

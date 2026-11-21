@@ -1,0 +1,15 @@
+schema_version: 1
+id: ec:item_q_forest_starshard
+type: item
+name: 暴走した森の星片
+material: AMETHYST_CLUSTER
+rarity: RARE
+slot: NONE
+min_level: 1
+classes: []
+budget: 0
+stats: {}
+price: 0
+bound: true
+quest_item: true
+lore: '星蝕トレントの核となっていた蒼紫の星片。不安定に脈打ち続けている。'

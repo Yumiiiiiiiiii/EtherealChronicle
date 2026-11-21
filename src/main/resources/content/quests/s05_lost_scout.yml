@@ -1,0 +1,19 @@
+schema_version: 1
+id: ec:quest_s05_lost_scout
+type: quest
+name: 霧深い林の斥候
+condition: {completed_quests: ['ec:quest_m02_first_hunt']}
+objectives:
+  - {id: patrol_forest, kind: EXPLORE, target: 'ec:area_ashwood_forest', amount: 1}
+  - {id: clear_spiders, kind: KILL, target: 'ec:enemy_spore_spider', amount: 3}
+  - {id: report_elena, kind: TALK, target: 'ec:npc_elena', amount: 1}
+rewards:
+  xp: 880
+  currency: 300
+  set_flags: []
+  items:
+    - {item: 'ec:item_arm_ashwood_boots', amount: 1}
+    - {item: 'ec:item_con_antidote_herb', amount: 3}
+auto_complete: false
+repeatable: false
+repeat_cooldown_ms: 86400000
