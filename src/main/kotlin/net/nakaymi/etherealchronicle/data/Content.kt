@@ -40,7 +40,7 @@ class ContentService(private val root: Path, private val migration: ContentMigra
         val yaml = Yaml(SafeConstructor(LoaderOptions().apply { isAllowDuplicateKeys = false; maxAliasesForCollections = 20 }))
         Files.walk(root).use { paths -> paths.filter { Files.isRegularFile(it) && it.toString().endsWith(".yml") }.sorted().forEach { path ->
             try {
-                val raw = Files.newBufferedReader(path).use { yaml.load<Any>(it) } as? Map<*,*> ?: error("YAMLのルートにマッピングが必要です。")
+                val raw = Files.newBufferedReader(path).use { yaml.load<Any>(it) } as? Map<*,*> ?: error("ec.error.invalid_content")
                 val doc = migration.migrate(raw.entries.associate { it.key.toString() to it.value })
                 require(doc.int("schema_version") == 1) { "Unsupported schema_version" }
                 val id = doc.string("id")
@@ -61,33 +61,33 @@ class ContentService(private val root: Path, private val migration: ContentMigra
         }
         val aliases = linkedMapOf<String,String>()
         docs.forEach { (id,d) -> try { d.strings("aliases").forEach { alias ->
-            if(alias in docs || aliases.putIfAbsent(alias,id) != null) errors += "別名が重複しています: $alias"
+            if(alias in docs || aliases.putIfAbsent(alias,id) != null) errors += "ec.error.invalid_content: $alias"
         } } catch(e: Exception) { errors += "${sources[id]} [$id]: ${e.message}" } }
         val declarations = docs.values.filter { it["type"] == "chapter" }.flatMap { d ->
           try {
             d.strings("flags")+d.strings("dungeons")+d.maps("areas").map { it.string("id") }
           } catch(e: Exception) { val id=d["id"]; errors += "${sources[id]} [$id]: ${e.message}"; emptyList() }
         }
-        if(declarations.distinct().size != declarations.size) errors += "章内の宣言IDが重複しています。"
+        if(declarations.distinct().size != declarations.size) errors += "ec.error.invalid_content: declarations"
         val knownIds = docs.keys + aliases.keys + declarations + "ec:chronicle/root"
         val refTypes = mapOf("skills" to "skill","starter_items" to "item","classes" to "class","item" to "item","class" to "class","enemy" to "enemy","boss" to "boss","guards" to "enemy","quest" to "quest","dialogue" to "dialogue","chapter" to "chapter","droptable" to "droptable","shop" to "shop","npc" to "npc","kill_target" to "enemy","enhancement_material" to "item")
         val listRefs = setOf("skills","starter_items","classes","requires","guards")
         fun refs(v: Any?, key: String = "", inWave: Boolean = false) { when(v) {
             is Map<*,*> -> v.forEach { (k,x) ->
                 val name = k.toString()
-                if(name in listRefs && x !is List<*>) errors += "参照リストが必要です: $name"
-                if(name in refTypes && name !in listRefs && x !is String) errors += "参照IDが必要です: $name"
+                if(name in listRefs && x !is List<*>) errors += "ec.error.invalid_content: $name"
+                if(name in refTypes && name !in listRefs && x !is String) errors += "ec.error.invalid_content: $name"
                 refs(x,name,inWave || name == "waves")
             }
             is List<*> -> v.forEach { refs(it,key,inWave) }
             is String -> {
                 val expected = refTypes[key]?.takeUnless { key == "boss" }
                 val actualType = docs[aliases[v] ?: v]?.get("type")
-                if(key == "boss" && (actualType !in setOf("enemy", "boss") || !v.startsWith("ec:"))) errors += "参照先の種類が不正です: $key -> $v (enemy/boss)"
-                else if(expected != null && (actualType != expected || !v.startsWith("ec:"))) errors += "参照先の種類が不正です: $key -> $v ($expected)"
-                else if(key != "id" && v.startsWith("ec:") && v !in knownIds) errors += "参照先がありません: $key -> $v"
+                if(key == "boss" && (actualType !in setOf("enemy", "boss") || !v.startsWith("ec:"))) errors += "ec.error.invalid_content: $key -> $v (enemy/boss)"
+                else if(expected != null && (actualType != expected || !v.startsWith("ec:"))) errors += "ec.error.invalid_content: $key -> $v ($expected)"
+                else if(key != "id" && v.startsWith("ec:") && v !in knownIds) errors += "ec.error.invalid_content: $key -> $v"
             }
-            else -> if(key in refTypes) errors += "参照IDが必要です: $key"
+            else -> if(key in refTypes) errors += "ec.error.invalid_content: $key"
         } }
         docs.forEach { (id,doc) ->
             val start=errors.size; refs(doc)
@@ -98,7 +98,7 @@ class ContentService(private val root: Path, private val migration: ContentMigra
         try {
             fun typed(type: String) = docs.values.filter { it.string("type") == type }
             val balances = typed("balance")
-            require(balances.size == 1) { "balance 定義は1件必要です (現在 ${balances.size} 件)" }
+            require(balances.size == 1) { "ec.error.invalid_content: balance" }
             val b = balances.single()
             parsingId=b.string("id")
             val balance = Balance(b.int("level_cap"),b.num("xp_base"),b.num("xp_exponent"),b.long("xp_gain_cap"),b.long("currency_gain_cap"),b.num("damage_cap"),b.num("stat_cap"),b.num("crit_cap"),b.num("defense_scale"),b.int("skill_level_cap"),b.num("skill_growth"),b.num("crit_damage_cap"),b.num("element_cap"),b.text("xp_curve","POWER"),b.number("xp_linear",45.0),b.number("xp_quadratic",18.0),b.whole("xp_rounding",10),b.whole("skill_gcd_ms",800),b.integer("drop_pity_attempt_cap",100))
@@ -116,11 +116,11 @@ class ContentService(private val root: Path, private val migration: ContentMigra
             }) }
             drops.values.forEach { t -> parsingId=t.id; require(t.entries.map { it.item }.distinct().size == t.entries.size && t.entries.all { it.item in items }) { "Duplicate/invalid drop item" } }
             classes.values.forEach { c -> parsingId=c.id; require(c.starterItems.size in 1..8 && c.starterItems.all { it in items }) { "Invalid starter items" } }
-            skills.values.forEach { s -> parsingId=s.id; require(s.range in 0.1..128.0 && s.multiplier in 0.0..balance.statCap && s.cooldownMillis in 1..3_600_000 && s.radius in 0.0..32.0 && s.heal >= 0 && s.defenseBuff >= 0 && s.buffTicks in 0..72000 && s.allyRadius in 0.0..64.0 && s.tauntTicks in 0..72000 && s.threatMultiplier in 1.0..100.0) { "スキル範囲・倍率・支援効果の設定が上限外です。" } }
+            skills.values.forEach { s -> parsingId=s.id; require(s.range in 0.1..128.0 && s.multiplier in 0.0..balance.statCap && s.cooldownMillis in 1..3_600_000 && s.radius in 0.0..32.0 && s.heal >= 0 && s.defenseBuff >= 0 && s.buffTicks in 0..72000 && s.allyRadius in 0.0..64.0 && s.tauntTicks in 0..72000 && s.threatMultiplier in 1.0..100.0) { "ec.error.invalid_content" } }
             (typed("enemy")+typed("boss")).forEach { d ->
                 parsingId=d.string("id")
-                require(d.num("hp") in 1.0..balance.statCap) { "hp=${d["hp"]} は 1..${balance.statCap} の範囲外です (balance.stat_cap)。" }
-                require(d.num("attack") <= balance.statCap && d.num("defense") <= balance.statCap && d.int("level") in 1..balance.levelCap) { "attack/defense/level が上限外です。" }
+                require(d.num("hp") in 1.0..balance.statCap) { "hp ec.error.invalid_content: balance.stat_cap" }
+                require(d.num("attack") <= balance.statCap && d.num("defense") <= balance.statCap && d.int("level") in 1..balance.levelCap) { "attack/defense/level ec.error.invalid_content" }
                 d.long("xp"); d.long("currency"); d.string("entity")
             }
             typed("quest").filter { it["objectives"] == null }.forEach { d -> parsingId=d.string("id"); d.long("xp"); d.long("currency"); require(d.int("required_kills") >= 1) }
@@ -143,9 +143,9 @@ class ContentService(private val root: Path, private val migration: ContentMigra
 }
 fun Map<String,Any?>.string(k: String) = this[k] as? String ?: error("Missing string $k")
 fun Map<String,Any?>.num(k: String) = (this[k] as? Number)?.toDouble() ?: error("Missing number $k")
-fun Map<String,Any?>.int(k: String): Int = long(k).also { require(it in Int.MIN_VALUE..Int.MAX_VALUE) { "整数範囲外: $k" } }.toInt()
-fun Map<String,Any?>.long(k: String): Long = (this[k] as? Number)?.toString()?.toLongOrNull() ?: error("整数が必要です: $k")
-fun Map<String,Any?>.strings(k: String): List<String> = if(k !in this) emptyList() else (this[k] as? List<*> ?: error("リストが必要です: $k")).map { it as? String ?: error("文字列が必要です: $k") }
+fun Map<String,Any?>.int(k: String): Int = long(k).also { require(it in Int.MIN_VALUE..Int.MAX_VALUE) { "ec.error.invalid_content: $k" } }.toInt()
+fun Map<String,Any?>.long(k: String): Long = (this[k] as? Number)?.toString()?.toLongOrNull() ?: error("ec.error.invalid_content: $k")
+fun Map<String,Any?>.strings(k: String): List<String> = if(k !in this) emptyList() else (this[k] as? List<*> ?: error("ec.error.invalid_content: $k")).map { it as? String ?: error("ec.error.invalid_content: $k") }
 @Suppress("UNCHECKED_CAST")
 fun Map<String,Any?>.stats(d: Stats = Stats()): Stats {
     val s = if("stats" in this) mapping("stats") else emptyMap()
