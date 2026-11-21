@@ -8,6 +8,8 @@ import org.bukkit.attribute.Attribute
 import org.bukkit.command.*
 import org.bukkit.entity.*
 import org.bukkit.event.*
+import org.bukkit.event.block.BlockBreakEvent
+import org.bukkit.event.block.BlockPlaceEvent
 import org.bukkit.event.entity.*
 import org.bukkit.event.inventory.*
 import org.bukkit.event.player.*
@@ -218,9 +220,10 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal fun save(p: PlayerProfile) { store.save(p).exceptionally { logger.severe("Save failed ${p.uuid}: ${it.message}"); sync { if(p.uuid in profiles) dirty.add(p.uuid) }; null } }
     /** 接続世代tokenで古い非同期loadを捨て、完了したプロフィールだけを反映します。 */
     private fun join(player: Player) {
-        // 初参加者はプロフィールを読む前に職業GUIが開くため、接続直後に必須要求を出します。
-        if (::resourcePacks.isInitialized) resourcePacks.sendRequiredBeforeProfileLoad(player)
+        if (!ready) return
         val token = UUID.randomUUID(); sessions[player.uniqueId] = token
+        // 接続直後から適用結果まで操作を止め、要求送信後のプロフィール処理も待機させます。
+        resourcePacks.beginRequiredJoin(player)
         player.sendMessage(message(player,"ec.startup.loading"))
         store.load(player.uniqueId).whenComplete { profile,error -> sync {
             if(sessions[player.uniqueId] != token || !player.isOnline) return@sync
@@ -239,17 +242,105 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             profiles[player.uniqueId] = profile
             resourcePacks.send(player,runCatching { PackPreference.valueOf(profile.resourcePackPreference) }.getOrDefault(PackPreference.AUTO))
             resourcePacks.applyObservedStatus(player,profile)
-            syncTitleAdvancements(player,profile)
-            if(::dungeons.isInitialized) dungeons.recover(player)
-            if(!player.hasPlayedBefore() || profile.classId == null) Bukkit.getWorld(DemoWorld.NAME)?.let { player.teleport(DemoWorld.luminaSpawn(it)) }
-            Bukkit.getWorld(DemoWorld.NAME)?.takeIf { player.world==it }?.let { DemoWorld.clearNearbySafeHostiles(this,it,player.location) }
-            if(profile.classId == null || !profile.starterGranted) menu(player) else {
-                skillSlot(player); applyStats(player,profile)
-                adventure.whenAvailable(player.uniqueId) { if(player.isOnline && profiles[player.uniqueId] === profile) adventure.claimPending(player) }
+            resourcePacks.whenRequiredPackReady(player) {
+                if (!player.isOnline || sessions[player.uniqueId] != token || profiles[player.uniqueId] !== profile) return@whenRequiredPackReady
+                finishLoadedJoin(player,profile,snapshot)
             }
         } }
     }
+
+    /** 必須パック適用後に、ワールド移動・HUD装備・職業メニューを開始します。 */
+    private fun finishLoadedJoin(player: Player, profile: PlayerProfile, snapshot: ContentSnapshot) {
+        syncTitleAdvancements(player,profile)
+        if(::dungeons.isInitialized) dungeons.recover(player)
+        if(!player.hasPlayedBefore() || profile.classId == null) Bukkit.getWorld(DemoWorld.NAME)?.let { player.teleport(DemoWorld.luminaSpawn(it)) }
+        Bukkit.getWorld(DemoWorld.NAME)?.takeIf { player.world==it }?.let { DemoWorld.clearNearbySafeHostiles(this,it,player.location) }
+        if(profile.classId == null || !profile.starterGranted) menu(player) else {
+            skillSlot(player); applyStats(player,profile)
+            adventure.whenAvailable(player.uniqueId) { if(player.isOnline && profiles[player.uniqueId] === profile) adventure.claimPending(player) }
+        }
+    }
     @EventHandler fun onJoin(e: PlayerJoinEvent) = join(e.player)
+
+    /** 必須パックの応答待ち中に移動や操作を開始させない共通判定です。 */
+    private fun isPackLocked(player: Player): Boolean =
+        ::resourcePacks.isInitialized && resourcePacks.isAwaitingRequiredPack(player.uniqueId)
+
+    /** パック適用が終わるまでワールド移動を止めます。 */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    fun lockMovementUntilPack(event: PlayerMoveEvent) {
+        if (isPackLocked(event.player) && (event.from.blockX != event.to.blockX || event.from.blockY != event.to.blockY || event.from.blockZ != event.to.blockZ)) {
+            event.isCancelled = true
+        }
+    }
+
+    /** パック適用待ち中はコマンドを実行させません。 */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    fun lockCommandsUntilPack(event: PlayerCommandPreprocessEvent) {
+        if (isPackLocked(event.player)) event.isCancelled = true
+    }
+
+    /** パック適用待ち中はインベントリ画面を開かせません。 */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    fun lockInventoryOpenUntilPack(event: InventoryOpenEvent) {
+        if (event.player is Player && isPackLocked(event.player as Player)) event.isCancelled = true
+    }
+
+    /** パック適用待ち中はインベントリ操作を止めます。 */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    fun lockInventoryClickUntilPack(event: InventoryClickEvent) {
+        if (isPackLocked(event.whoClicked as? Player ?: return)) event.isCancelled = true
+    }
+
+    /** パック適用待ち中はドラッグ移動を止めます。 */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    fun lockInventoryDragUntilPack(event: InventoryDragEvent) {
+        if (isPackLocked(event.whoClicked as? Player ?: return)) event.isCancelled = true
+    }
+
+    /** パック適用待ち中はアイテム使用を止めます。 */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    fun lockInteractionUntilPack(event: PlayerInteractEvent) {
+        if (isPackLocked(event.player)) event.isCancelled = true
+    }
+
+    /** パック適用待ち中は持ち替えを止めます。 */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    fun lockHotbarUntilPack(event: PlayerItemHeldEvent) {
+        if (isPackLocked(event.player)) event.isCancelled = true
+    }
+
+    /** パック適用待ち中はオフハンド切替を止めます。 */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    fun lockOffhandUntilPack(event: PlayerSwapHandItemsEvent) {
+        if (isPackLocked(event.player)) event.isCancelled = true
+    }
+
+    /** パック適用待ち中はアイテムのドロップを止めます。 */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    fun lockDropUntilPack(event: PlayerDropItemEvent) {
+        if (isPackLocked(event.player)) event.isCancelled = true
+    }
+
+    /** パック適用待ち中はブロック変更と受ける/与えるダメージを止めます。 */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    fun lockBlockBreakUntilPack(event: BlockBreakEvent) {
+        if (isPackLocked(event.player)) event.isCancelled = true
+    }
+
+    /** パック適用待ち中はブロック設置を止めます。 */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    fun lockBlockPlaceUntilPack(event: BlockPlaceEvent) {
+        if (isPackLocked(event.player)) event.isCancelled = true
+    }
+
+    /** パック適用待ち中は受けるダメージと攻撃を止めます。 */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    fun lockDamageUntilPack(event: EntityDamageEvent) {
+        if (event.entity is Player && isPackLocked(event.entity as Player)) event.isCancelled = true
+        if (event is EntityDamageByEntityEvent && event.damager is Player && isPackLocked(event.damager as Player)) event.isCancelled = true
+    }
+
     @EventHandler fun onQuit(e: PlayerQuitEvent) {
         if(::adventure.isInitialized) adventure.beforeQuit(e.player)
         if(ready) codexController.clear(e.player.uniqueId)

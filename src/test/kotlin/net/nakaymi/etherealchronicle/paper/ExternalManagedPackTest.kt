@@ -25,11 +25,12 @@ class ExternalManagedPackTest {
     }
 
     @Test
-    fun `first join sends required pack before profile loading except for bypass and external manager`() {
-        assertTrue(ManagedPackPolicy.sendBeforeProfileLoad("external_url", required = true, bypass = false))
-        assertFalse(ManagedPackPolicy.sendBeforeProfileLoad("external_url", required = false, bypass = false))
-        assertFalse(ManagedPackPolicy.sendBeforeProfileLoad("external_url", required = true, bypass = true))
-        assertFalse(ManagedPackPolicy.sendBeforeProfileLoad("external_managed", required = true, bypass = false))
+    fun `required join gate excludes unavailable delivery bypass and external manager`() {
+        assertTrue(RequiredPackGatePolicy.shouldWait(true, true, "external_url", false))
+        assertFalse(RequiredPackGatePolicy.shouldWait(false, true, "external_url", false))
+        assertFalse(RequiredPackGatePolicy.shouldWait(true, true, "external_url", true))
+        assertFalse(RequiredPackGatePolicy.shouldWait(true, true, "external_managed", false))
+        assertFalse(RequiredPackGatePolicy.shouldWait(true, false, "external_url", false))
     }
 
     @Test
