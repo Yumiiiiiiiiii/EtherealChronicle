@@ -242,3 +242,11 @@
 - Current Paper refactor: moved codex GUI rendering into `paper/CodexController.kt`; kept the existing `RpgPlugin.openCodex*` entry points as delegates. `RpgPlugin.kt` is now 930 lines.
 - Verification after each commit: baseline and first core/docs slice both pass `./gradlew.bat build test --no-daemon --rerun-tasks`, 180 tests, 0 failures, 0 errors, 0 skipped. The Paper slice also passed the full command with the same counts. `git diff --check` is clean after trimming generated trailing blank lines.
 - Next: commit the codex split and continue extracting/debugging RpgPlugin responsibilities and documenting remaining controllers/core/data classes; finish with another full suite and status report.
+
+## Codex-Impl — Task13 Paper controller extraction checkpoint
+- Branch `codex/foundation`; commits so far: `8de7018` (core/world models + architecture guide), `e39db5e` (codex GUI extraction).
+- `CodexController` now owns codex inventory rendering. `RpgPlugin.openCodex*` remain compatibility delegates. `RpgPlugin.kt` reduced to 905 lines.
+- Current work extracts `/ec debug sim` execution into `SimulationCommandController`; `/ec debug fish` and `/ec debug gather` remain in the plugin and call through to the same controllers.
+- Verification for the codex split: `./gradlew.bat build test --no-daemon --rerun-tasks` SUCCESS, 180 tests, 0 failures/errors/skips. Current simulation extraction has compiled and passed the same full command. `git diff --check` checked before committing.
+- Next: commit simulation controller, then complete smaller controller/core/data Japanese KDocs and readability cleanup, update final architecture/status notes, and compare final full suite to baseline.
+

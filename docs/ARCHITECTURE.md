@@ -54,7 +54,7 @@ sequenceDiagram
 
 ## PaperイベントとController
 
-- `RpgPlugin`: 起動、参加/退出、HUD、基本戦闘、コマンドをつなぐエントリーポイントです。`CodexController` は討伐・生活・アイテム図鑑の描画を担当します。
+- `RpgPlugin`: 起動、参加/退出、HUD、基本戦闘、コマンドをつなぐエントリーポイントです。`CodexController` は討伐・生活・アイテム図鑑の描画を担当します。`SimulationCommandController` は仮想プロフィール向けの管理シミュレーション操作を担当します。
 - `AdventureController`: NPC会話、ショップ、クエスト進行、パーティ、取引ロックと報酬配布を扱います。
 - `EnemyController` / `DungeonController`: 管理対象の敵、ボス、ウェーブ、専用ワールド内のダンジョンを扱います。追跡対象を保持し、毎tick全エンティティを走査しません。
 - `FishingController` / `GatheringController`: 有界セッションと短い周期処理で生活コンテンツを扱い、完了時にcore計算と既存取引経路へ結果を渡します。
