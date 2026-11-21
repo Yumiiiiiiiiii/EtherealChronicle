@@ -122,3 +122,10 @@ Still unverified: shift-click *from the player inventory into* the shop (right-c
 - **BUG-2 FIXED (live)**: command right after `Done` replies `冒険システムは起動中です。しばらくお待ちください。`.
 - **BUG-4 FIXED (live)**: server data dir copied from the foundation-era install (157 YAMLs): the 7 unchanged legacy files are moved to `retired-content/`, the plugin stays enabled, and a stale server `content/balance/default.yml` (stat_cap 10000) that rejects `boss_void_warden hp=34000` is reported with file + id (`WARN ... void_warden.yml [ec:boss_void_warden]: hp=34000 は 1..10000.0 の範囲外です`), the plugin falls back to bundled content and `/ec validate` keeps working (`検証失敗: <file> [<id>] ...`). Sim join/class/kill OK on the fallback.
 - Open observation: older *unmodified* distributed files (e.g. `balance/default.yml`, class YAML from the foundation build) are treated as "server edits" and keep winning, so an upgraded server runs the bundled fallback until an admin fixes/removes them. Consider hash-tracking installed files so unchanged ones auto-update.
+
+## Mailbox / party / bound-item review (codex 3735ab8, MockBukkit; build/qa-mailbox-steps.txt)
+- M1 PASS: full inventory -> `/ec claim` keeps `pendingRewards`, nothing lost or dropped; after freeing space it delivers once, a second claim delivers nothing.
+- M2 PASS: `rewardKill` with a full inventory still credits currency; drops go to `pendingRewards`; no item entities on the ground.
+- P1 PASS: party-member credit queued while that member is mid-transaction, applied exactly once afterwards (currency check; XP was at cap in the test so only currency was asserted).
+- B1/B3 PASS: bound item drop and block placement cancelled. B2 PASS: shift-click into a chest, offhand swap, cursor placement and drag cancelled. Caveat: my number-key variant is not a real assertion (MockBukkit hotbar mapping); NOT verified: item frame / armor stand / allay interaction, crafting-grid ingredients, bundle clicks.
+- Full suite after merge: see Task totals above; everything green.

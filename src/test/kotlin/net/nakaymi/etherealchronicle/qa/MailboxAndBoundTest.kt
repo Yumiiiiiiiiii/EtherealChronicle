@@ -142,16 +142,16 @@ class MailboxAndBoundTest {
                 a.inventory.setItem(10, boundStack()); a.inventory.setItem(0, boundStack())
                 val chest = Bukkit.createInventory(null, 27); a.openInventory(chest)
                 val view = a.openInventory
-                val results = mutableMapOf<String, Boolean>()
-                val rawOf = { playerSlot: Int -> chest.size + (if (playerSlot < 9) 27 + playerSlot else playerSlot - 9) }
-                results["shift-click"] = a.simulateInventoryClick(view, ClickType.SHIFT_LEFT, rawOf(10)).isCancelled
+                val results = mutableMapOf<String, Boolean>(); var shiftInfo = ""
+                val rawOf = { _: Int -> (0 until view.countSlots()).first { r -> view.getItem(r)?.persistentDataContainer?.get(itemKey, PersistentDataType.STRING) == boundId } }
+                val sc = a.simulateInventoryClick(view, ClickType.SHIFT_LEFT, rawOf(10)); results["shift-click"] = sc.isCancelled; shiftInfo = "raw=${rawOf(10)} current=${sc.currentItem?.type} id=${plugin.javaClass.superclass.let { "" }} top=${view.topInventory.type}"
                 results["number-key"] = a.simulateInventoryClick(view, ClickType.NUMBER_KEY, 3).also { }.isCancelled.let { true } // chest slot 3 + hotbar key is exercised below
                 run { a.inventory.setItemInOffHand(boundStack()); results["offhand-swap"] = a.simulateInventoryClick(view, ClickType.SWAP_OFFHAND, 5).isCancelled }
                 run { a.setItemOnCursor(boundStack()); results["cursor-place"] = a.simulateInventoryClick(view, ClickType.LEFT, 4).isCancelled; a.setItemOnCursor(null) }
                 val drag = InventoryDragEvent(view, ItemStack(Material.AIR), boundStack(), false, mapOf(6 to boundStack())); server.pluginManager.callEvent(drag); results["drag"] = drag.isCancelled
                 a.closeInventory(); a.inventory.setItemInOffHand(null)
                 val bad = results.filterValues { !it }.keys
-                assertTrue(bad.isEmpty(), "bound transfer NOT blocked for: $bad")
+                assertTrue(bad.isEmpty(), "bound transfer NOT blocked for: $bad ($shiftInfo)")
                 "blocked: ${results.keys}"
             }
             rec("B3 bound item cannot be placed as a block") {
