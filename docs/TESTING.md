@@ -21,6 +21,7 @@ Owner: Claude-QA (branch `qa/harness`). Status values: **NOT-RUN** (default), PA
 
 ## Bot feasibility (assessed 2026-11-21)
 - `scripts/bot` uses `mineflayer@4.39.0` (installs fine, Node 26.12, no credentials; offline mode against localhost only — `bot.js` refuses non-local hosts).
+- **Verified 2026-11-21 (BLOCKED)**: with the server running, `node bot.js` autodetect pings the server as 26.3 then throws `No data available for version 26.3`; `--version 26.3` -> `unsupported protocol version: 26.3`; `--version 26.1` -> `ECONNRESET` (server drops the mismatched handshake). No bot join is possible until minecraft-data/minecraft-protocol add 26.3.
 - **Known gap**: the newest protocol/data version in `minecraft-data@3.119.0` / `minecraft-protocol` is **26.1**. Target is Paper **26.3**. Mineflayer will most likely fail to handshake/parse (protocol mismatch) until upstream adds 26.3. Not yet verified live because the server could not be started (EULA not accepted by a human). Run `node bot.js --version 26.1` against the server once it is up; if it connects, record it here, otherwise treat bot-driven items below as BLOCKED and cover them via console commands, plugin-side debug commands, and manual play.
 - Fallbacks: add an admin/debug command set in the plugin (e.g. `/ec debug simulate <player> ...`) so flows can be driven from console without a client; unit-test the pure core for the logic.
 - **GUI / computer-use**: the QA agent has shell, file, an in-app browser (web only) and Chrome devtools tools. No Minecraft client is installed/driven, and no desktop computer-use tools were exposed in this session. Visual/GUI checks (inventory menus, ActionBar, boss bars) are therefore manual-only.
@@ -30,27 +31,27 @@ Each item: scope, how to verify, status. Environment for all server items: Paper
 
 | # | Item | Verify by | Status |
 |---|---|---|---|
-| 0 | Unit tests (`./gradlew test`) | CI-style run | PASS for QA fixtures only (4 tests, 2026-11-21); feature tests NOT-RUN |
-| 1 | Server start | smoke-test reaches `Done`, no exceptions | NOT-RUN (blocked: EULA) |
-| 2 | Plugin load/enable | log has `Enabling EtherealChronicle`, no load errors; `/plugins` green | NOT-RUN |
-| 3 | `ec validate` / `ec reload` | console output reports 0 errors; reload atomic (bad YAML keeps old content) | NOT-RUN |
-| 4 | First join | new UUID gets profile file in `playerdata/`, welcome text (JP), spawn in Lumina | NOT-RUN |
-| 5 | Class select | choose each of 3 classes; stats/resource set; cannot re-pick without reset | NOT-RUN |
-| 6 | Tutorial | steps advance in order, skip works, rewards granted once | NOT-RUN |
-| 7 | NPC interaction | dialogue opens, branches, no duplicate spawn after restart | NOT-RUN |
-| 8 | Quest | accept -> progress -> complete -> reward once; abandon; prerequisite gating | NOT-RUN |
-| 9 | Combat | damage formula, DEF, crit, caps; PvE only in zones; no per-tick entity scans (spark/TPS) | NOT-RUN |
-| 10 | Skills | slot 9 / sneak+RClick select, cooldown, resource cost, ActionBar | NOT-RUN |
-| 11 | Level up | XP cap per balance config, stat growth, level cap 20 | NOT-RUN |
-| 12 | Items | generation, rarity/affix budget, lore in JP, drops from tables | NOT-RUN |
+| 0 | Unit tests (`./gradlew test`) | CI-style run | PASS (2026-11-21, codex/foundation b7f13e3 merged): `./gradlew test` = 21 tests, 0 failures (17 Codex + 4 QA fixtures). Real-Paper behavior covered below only where stated |
+| 1 | Server start | smoke-test reaches `Done`, no exceptions | PASS: Paper 26.3-257 reaches `Done (6.9s)` offline (smoke-20261121-120318.log) |
+| 2 | Plugin load/enable | log has `Enabling EtherealChronicle`, no load errors; `/plugins` green | PASS: `Enabling EtherealChronicle v0.1.0`, `冒険システムの準備が完了しました。`, no WARN/ERROR from plugin; default content copied to `plugins/EtherealChronicle/content` |
+| 3 | `ec validate` / `ec reload` | console output reports 0 errors; reload atomic (bad YAML keeps old content) | PASS: `ec validate` -> `コンテンツ検証成功。`; `ec reload` -> `コンテンツを再読み込みしました。`. Atomic-keep-old-on-bad-YAML NOT-RUN live (unit-tested by Codex only) |
+| 4 | First join | new UUID gets profile file in `playerdata/`, welcome text (JP), spawn in Lumina | NOT-RUN (needs real client; bot BLOCKED). Only simulated: `sim join qa` creates a profile |
+| 5 | Class select | choose each of 3 classes; stats/resource set; cannot re-pick without reset | PARTIAL: simulated `sim class qa ec:mage` -> resource 100, skills ranked 1, tutorial quest assigned; re-select rejected (`職業は既に選択されています`). GUI menu NOT-RUN |
+| 6 | Tutorial | steps advance in order, skip works, rewards granted once | PARTIAL: simulated kill auto-completes `ec:tutorial` (progress 1/1, completed) and pays 100 XP once; a second `sim quest` is rejected (`依頼の達成条件を満たしていません`). In-game flow NOT-RUN |
+| 7 | NPC interaction | dialogue opens, branches, no duplicate spawn after restart | NOT-RUN (no NPCs implemented yet) |
+| 8 | Quest | accept -> progress -> complete -> reward once; abandon; prerequisite gating | PARTIAL: only the tutorial quest exists (see 6) |
+| 9 | Combat | damage formula, DEF, crit, caps; PvE only in zones; no per-tick entity scans (spark/TPS) | NOT-RUN (needs real mobs/client; damage formula only unit-tested) |
+| 10 | Skills | slot 9 / sneak+RClick select, cooldown, resource cost, ActionBar | PARTIAL: simulated cast cost 10 mana (100->90), immediate recast -> `COOLDOWN` with no cost, after restart cast SUCCESS. Slot/ActionBar/GUI NOT-RUN |
+| 11 | Level up | XP cap per balance config, stat growth, level cap 20 | PARTIAL: sim kills: forest_slime +25 XP/+2 currency each; tutorial reward took mage to level 2 with remainder 25 XP. Cap-20 / XP-cap live NOT-RUN |
+| 12 | Items | generation, rarity/affix budget, lore in JP, drops from tables | NOT-RUN live (drop roll gave {} in 6 sim kills at 10% — consistent, not a proof) |
 | 13 | Equip | equip/unequip updates stats, level/class requirements, no stat stacking exploit | NOT-RUN |
-| 14 | Shop | buy/sell transactional, insufficient funds, full inventory, no dupe on rapid clicks/disconnect | NOT-RUN |
-| 15 | Party | invite/accept/leave/kick, XP share, disband on leader quit | NOT-RUN |
-| 16 | Boss | spawn, phases, loot per participant, reset on wipe, cleanup of tasks/entities | NOT-RUN |
-| 17 | Chapter 1 clear | full chain Lumina -> Ashwood -> mine -> boss -> ending flag set | NOT-RUN |
-| 18 | Reconnect | quit mid-fight/quest and rejoin: state intact, cooldowns sane, no dupe | NOT-RUN |
-| 19 | Restart persistence | stop server, restart: profile, quests, inventory, currency identical; kill -9 mid-save leaves valid file (tmp+rename) / backup recovers | NOT-RUN |
-| 20 | Disable/reload cleanliness | `/reload`-less stop: no leaked schedulers, all profiles flushed, no exceptions | NOT-RUN |
+| 14 | Shop | buy/sell transactional, insufficient funds, full inventory, no dupe on rapid clicks/disconnect | NOT-RUN (no shop yet) |
+| 15 | Party | invite/accept/leave/kick, XP share, disband on leader quit | NOT-RUN (no party yet) |
+| 16 | Boss | spawn, phases, loot per participant, reset on wipe, cleanup of tasks/entities | NOT-RUN (no boss yet) |
+| 17 | Chapter 1 clear | full chain Lumina -> Ashwood -> mine -> boss -> ending flag set | NOT-RUN (content not present) |
+| 18 | Reconnect | quit mid-fight/quest and rejoin: state intact, cooldowns sane, no dupe | NOT-RUN (needs client) |
+| 19 | Restart persistence | stop server, restart: profile, quests, inventory, currency identical; kill -9 mid-save leaves valid file (tmp+rename) / backup recovers | PASS for simulated profile: save -> stop server -> restart -> `sim load qa` returned identical level/xp/currency/resource/quests/skills; second save kept a valid `.yml` + `.bak`. Real-player persistence and kill -9 mid-save NOT-RUN |
+| 20 | Disable/reload cleanliness | `/reload`-less stop: no leaked schedulers, all profiles flushed, no exceptions | PASS (partial): clean `stop` shows `Disabling EtherealChronicle` with no exceptions in 3 runs; leaked-scheduler check NOT-RUN |
 | 21 | Performance | 10 simulated players / 100 mobs: tick time within budget | NOT-RUN |
 
 ## Regression rules

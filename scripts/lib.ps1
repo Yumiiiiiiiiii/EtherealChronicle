@@ -70,7 +70,6 @@ function Test-JavaVersion {
 $script:BadPatterns = @(
     "Could not load 'plugins[/\\]EtherealChronicle",
     'Error occurred while enabling EtherealChronicle',
-    'Disabling EtherealChronicle',
     'Exception',
     '\[ERROR\]',
     '/ERROR\]',
@@ -87,6 +86,10 @@ function Analyze-Log([string]$logFile) {
             if ($lines[$i] -match $p) { $problems += ('{0,5}: {1}' -f ($i + 1), $lines[$i]); break }
         }
     }
+    # 'Disabling' is only a problem if the plugin disabled itself (before the server began stopping).
+    $stop = [array]::FindIndex($lines, [Predicate[string]]{ param($l) $l -match 'Stopping (the )?server' })
+    $dis = [array]::FindIndex($lines, [Predicate[string]]{ param($l) $l -match "Disabling $script:PluginName" })
+    if ($dis -ge 0 -and ($stop -lt 0 -or $dis -lt $stop)) { $problems += ('{0,5}: {1}' -f ($dis + 1), $lines[$dis]) }
     $enabled = [bool]($lines | Where-Object { $_ -match "Enabling $script:PluginName" })
     $done = [bool]($lines | Where-Object { $_ -match 'Done \(' })
     [pscustomobject]@{ Problems = $problems; PluginEnabled = $enabled; ServerDone = $done; Lines = $lines.Count }

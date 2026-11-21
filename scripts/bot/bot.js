@@ -14,7 +14,8 @@ if (version) opts.version = version
 const say = args('say')
 const waitMs = Number(arg('wait', 5000))
 
-const bot = mineflayer.createBot(opts)
+let bot
+try { bot = mineflayer.createBot(opts) } catch (e) { console.log('ERROR: ' + e.message); process.exit(2) }
 let spawned = false
 bot.on('login', () => console.log('LOGIN ok, version=' + bot.version))
 bot.on('spawn', async () => {
