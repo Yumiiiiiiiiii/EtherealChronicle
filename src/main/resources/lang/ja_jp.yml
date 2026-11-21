@@ -34,6 +34,20 @@ ec:
     result: "<message> 記録 <seconds>秒 / ランク<rank>（自己ベスト <best_seconds>秒 / <best_rank>）"
     clear: "<message>"
     timeout: "聖堂の制限時間を迎えました。"
+  dialogue:
+    talk: "お話"
+  shop:
+    price_buy: "価格 <price>G / 左クリックで購入"
+    tokens: "素材: <items>"
+    sell_hint: "売却: 持ち物の品を右クリック"
+    currency: "所持金: <currency>G"
+  equipment:
+    accessory_equipped: "装飾品を装備しました。"
+  item:
+    cannot_drop: "このアイテムは手放せません。"
+  mailbox:
+    inventory_full: "報酬を保管しています。持ち物に空きを作り /ec claim で受け取ってください。"
+    save_retry: "受取内容を保存できませんでした。/ec claim で再試行してください。"
   class:
     choose: "職業を選んでください"
   menu:

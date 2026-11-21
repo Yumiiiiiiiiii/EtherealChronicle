@@ -50,6 +50,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         }
     }
     private fun message(player: Player,text: String) = player.sendMessage(Component.text(text))
+    private fun message(player: Player,component: Component) = player.sendMessage(component)
     private fun teleportArea(player: Player,id: String,destination: Position?) {
         val area=plugin.snapshot.world.areas[id] ?: error("転送先エリアが見つかりません: $id")
         require(area.world == DemoWorld.NAME) { "管理ワールド以外へは転送できません。" }
@@ -77,7 +78,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         dialogueSessions[p.uuid]=id to at
         val menu=RpgMenu("dialogue",id,at,plugin.message(player,"ec.menu.dialogue")).inventory
         menu.setItem(4,ItemStack(Material.WRITTEN_BOOK).apply { itemMeta=itemMeta.apply {
-            displayName(Component.text("お話")); lore(definition.text.chunked(28).map { mm.deserialize(it) })
+            displayName(plugin.message(player,"ec.dialogue.talk")); lore(definition.text.chunked(28).map { mm.deserialize(it) })
         } })
         definition.choices.take(45).forEachIndexed { index,c -> menu.setItem(9+index,ItemStack(Material.PAPER).apply { itemMeta=itemMeta.apply {
             displayName(mm.deserialize(c.label)); persistentDataContainer.set(entryKey,PersistentDataType.STRING,c.id)
@@ -92,11 +93,11 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         val menu=RpgMenu("shop",id,title=plugin.message(player,"ec.menu.shop")).inventory
         shop.entries.forEachIndexed { index,e ->
             if(e.condition.matches(p)) menu.setItem(index,plugin.createItem(e.item,e.amount).apply { itemMeta=itemMeta.apply {
-                val extra=listOf(Component.text("価格 ${e.price}G / 左クリックで購入"),Component.text("素材: ${e.tokens.joinToString { "${it.item} ×${it.amount}" }}"),Component.text("売却: 持ち物の品を右クリック"))
+                val extra=listOf(plugin.message(player,"ec.shop.price_buy", "price" to e.price),plugin.message(player,"ec.shop.tokens", "items" to e.tokens.joinToString { "${it.item} ×${it.amount}" }),plugin.message(player,"ec.shop.sell_hint"))
                 lore((lore() ?: emptyList())+extra); persistentDataContainer.set(entryKey,PersistentDataType.STRING,e.id)
             } })
         }
-        player.openInventory(menu); message(player,"所持金: ${p.currency}G")
+        player.openInventory(menu); player.sendMessage(plugin.message(player,"ec.shop.currency", "currency" to p.currency))
     }
     /** 装備可能なアクセサリー一覧を表示します。 */
     fun equipment(player: Player) {
@@ -157,7 +158,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                 }
                 "equipment" -> if(entry != null && e.rawSlot in 0..53) {
                     require(plugin.inventory(player).count(entry) > 0 && plugin.snapshot.items[entry].canEquip(p))
-                    p.accessory=entry; plugin.save(p); player.closeInventory(); message(player,"装飾品を装備しました。")
+                    p.accessory=entry; plugin.save(p); player.closeInventory(); player.sendMessage(plugin.message(player,"ec.equipment.accessory_equipped"))
                 }
             }
         } catch(error: Exception) { message(player,"操作できません: ${error.message}") }
@@ -166,7 +167,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         if(e.view.topInventory.holder is RpgMenu || locked(e.whoClicked.uniqueId)) e.isCancelled=true
     }
     @EventHandler(ignoreCancelled=true) fun drop(e: PlayerDropItemEvent) {
-        if(locked(e.player.uniqueId) || bound(e.itemDrop.itemStack)) { e.isCancelled=true; message(e.player,"このアイテムは手放せません。") }
+        if(locked(e.player.uniqueId) || bound(e.itemDrop.itemStack)) { e.isCancelled=true; e.player.sendMessage(plugin.message(e.player,"ec.item.cannot_drop")) }
     }
     @EventHandler(ignoreCancelled=true) fun tradeBound(e: InventoryClickEvent) {
         if(e.whoClicked !is Player) return
@@ -280,7 +281,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         if(p.pendingRewards.isEmpty()) { plugin.syncTitleAdvancements(player,p); unlock(p.uuid); success(); return }
         val output=p.pendingRewards.toMap(); val inventory=plugin.inventory(player)
         if(!inventory.canExchange(emptyMap(),output)) {
-            message(player,"報酬を保管しています。持ち物に空きを作り /ec claim で受け取ってください。")
+            message(player,plugin.message(player,"ec.mailbox.inventory_full"))
             plugin.syncTitleAdvancements(player,p); unlock(p.uuid); success(); return
         }
         // Paperアイテムを配る前に永続メールボックス権利を消費し、クラッシュ窓を損失側へ寄せます。
@@ -292,10 +293,10 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                 if(deliveries[p.uuid] !== claim) return@sync
                 if(error != null) {
                     if(plugin.profiles[p.uuid] === p) { p.pendingRewards.putAll(output); plugin.save(p) }
-                    if(player.isOnline) message(player,"受取内容を保存できませんでした。/ec claim で再試行してください。")
+                    if(player.isOnline) message(player,plugin.message(player,"ec.mailbox.save_retry"))
                 } else if(player.isOnline && plugin.profiles[p.uuid] === p) {
                     if(!inventory.exchange(emptyMap(),output)) {
-                        p.pendingRewards.putAll(output); plugin.save(p); message(player,"報酬は保管されています。/ec claim で受け取ってください。")
+                        p.pendingRewards.putAll(output); plugin.save(p); message(player,plugin.message(player,"ec.mailbox.inventory_full"))
                     }
                     plugin.syncTitleAdvancements(player,p)
                     success()

@@ -26,12 +26,14 @@
 | `ec.codex.undiscovered_fish` | 未発見の魚 | Undiscovered fish | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.codex.undiscovered_gathering` | 未発見の採取地 | Undiscovered gathering site | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.codex.weaknesses` | 弱点: <values> | Weaknesses: <values> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<values>` |
+| `ec.dialogue.talk` | お話 | Talk | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.dungeon.clear` | <message> | <message> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<message>` |
 | `ec.dungeon.entry` | <message> | <message> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<message>` |
 | `ec.dungeon.first_rank_reward` | 初回ランク報酬を受け取りました。 | You received the first-clear rank reward. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
 | `ec.dungeon.result` | <message> 記録 <seconds>秒 / ランク<rank>（自己ベスト <best_seconds>秒 / <best_rank>） | <message> Time <seconds>s / Rank <rank> (best <best_seconds>s / <best_rank>) | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<best_rank>`, `<best_seconds>`, `<message>`, `<rank>`, `<seconds>` |
 | `ec.dungeon.timeout` | 聖堂の制限時間を迎えました。 | The trial time limit has been reached. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
 | `ec.dungeon.wave` | 試練 第<current>/<total>波が始まります。 | Trial wave <current>/<total> is beginning. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<current>`, `<total>` |
+| `ec.equipment.accessory_equipped` | 装飾品を装備しました。 | Accessory equipped. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.fishing.actionbar_status` | <aqua>張力 <tension>% \| 進捗 <progress>% | <aqua>Tension <tension>% \| Progress <progress>% | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt | `<progress>`, `<tension>` |
 | `ec.fishing.aim_water` | 水面を狙って竿を投げてください。 | Aim at the water before casting. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
 | `ec.fishing.bait_failed` | 餌を消費できませんでした。 | Could not consume the bait. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
@@ -118,6 +120,9 @@
 | `ec.gathering.transaction_locked` | 取引処理中は採取できません。 | You cannot gather during a transaction. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
 | `ec.gathering.world_only` | 管理対象の採取エリアでのみ採取できます。 | Gathering is only available in the managed gathering areas. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
 | `ec.hud.main` | HP <hp>/<max_hp>  <resource_name> <resource>/<max_resource>  <skill> CD <cooldown>秒  仲間 <party>人 | HP <hp>/<max_hp>  <resource_name> <resource>/<max_resource>  <skill> CD <cooldown>s  Party <party> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<cooldown>`, `<hp>`, `<max_hp>`, `<max_resource>`, `<party>`, `<resource>`, `<resource_name>`, `<skill>` |
+| `ec.item.cannot_drop` | このアイテムは手放せません。 | You cannot drop this item. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
+| `ec.mailbox.inventory_full` | 報酬を保管しています。持ち物に空きを作り /ec claim で受け取ってください。 | Your reward is stored. Make room and use /ec claim to receive it. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
+| `ec.mailbox.save_retry` | 受取内容を保存できませんでした。/ec claim で再試行してください。 | Could not save the claim. Retry with /ec claim. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.menu.codex_area` | 冒険者の図鑑 — 魔物 | Adventurer Codex — Enemies | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.menu.codex_areas` | 冒険者の図鑑 — エリア | Adventurer Codex — Areas | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.menu.codex_fish` | 生活図鑑 — 魚類 | Life Codex — Fish | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
@@ -136,6 +141,10 @@
 | `ec.resource.focus` | 集中 | Focus | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.resource.mana` | マナ | Mana | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.resource.rage` | 怒り | Rage | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.shop.currency` | 所持金: <currency>G | Currency: <currency>G | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt | `<currency>` |
+| `ec.shop.price_buy` | 価格 <price>G / 左クリックで購入 | Price: <price>G / Left-click to buy | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt | `<price>` |
+| `ec.shop.sell_hint` | 売却: 持ち物の品を右クリック | Sell: right-click an item in your inventory | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
+| `ec.shop.tokens` | 素材: <items> | Materials: <items> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt | `<items>` |
 | `ec.skill.cooldown` | まだ使用できません。 | That skill is not ready yet. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.skill.obstructed` | 魔物との間に障害物があります。 | An obstacle blocks your line to the enemy. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.skill.resource_low` | リソースが足りません。 | Not enough resource. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |

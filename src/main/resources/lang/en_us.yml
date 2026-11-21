@@ -34,6 +34,20 @@ ec:
     result: "<message> Time <seconds>s / Rank <rank> (best <best_seconds>s / <best_rank>)"
     clear: "<message>"
     timeout: "The trial time limit has been reached."
+  dialogue:
+    talk: "Talk"
+  shop:
+    price_buy: "Price: <price>G / Left-click to buy"
+    tokens: "Materials: <items>"
+    sell_hint: "Sell: right-click an item in your inventory"
+    currency: "Currency: <currency>G"
+  equipment:
+    accessory_equipped: "Accessory equipped."
+  item:
+    cannot_drop: "You cannot drop this item."
+  mailbox:
+    inventory_full: "Your reward is stored. Make room and use /ec claim to receive it."
+    save_retry: "Could not save the claim. Retry with /ec claim."
   class:
     choose: "Choose a class"
   menu:
