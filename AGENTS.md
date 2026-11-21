@@ -29,3 +29,7 @@ docs/AGENT_STATUS.md must be updated by each agent at task end (what done, what 
 - Before compacting: write a checkpoint to docs/AGENT_STATUS.md (done / verified / open / branch+commit hash / next step). Commit WIP locally.
 - Compact with a summary that keeps: current task, branch/commit, open findings, exact next action. Drop raw logs, full diffs and file dumps; re-read files from disk afterwards.
 - Never paste large logs/diffs into messages; write them to docs/ or the scratchpad and send the path.
+
+## Code readability (all agents)
+- Write comments in Japanese so a human can follow the code: a short KDoc/doc comment on every public class and non-trivial function (what it does and why), and inline comments for non-obvious rules (transaction ordering, locks, balance caps, migration steps). Do not narrate trivial code.
+- Keep functions and files human-sized: split long functions, name things by intent, avoid deep nesting and duplicated logic. Refactors must preserve behavior: run the full test suite before and after and compare results; commit per package/area so a regression is easy to bisect.
