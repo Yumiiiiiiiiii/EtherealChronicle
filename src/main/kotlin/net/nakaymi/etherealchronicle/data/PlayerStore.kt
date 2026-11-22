@@ -12,6 +12,14 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
+/** YAML整数を指定範囲で読み、壊れた保存データのフィールド名を明示します。 */
+internal fun Any?.boundedInt(range: IntRange, field: String, default: Int? = null): Int {
+    val raw = this ?: default ?: error("Missing integer field: $field")
+    val number = (raw as? Number)?.toInt() ?: error("Invalid integer field: $field")
+    require(number in range) { "Out-of-range integer field: $field" }
+    return number
+}
+
 /** 読込・保存・再接続を単一IOキューで直列化し、呼び出し側snapshotを原子的に書き込みます。 */
 /** UUIDごとのprofile YAMLを単一非同期キューで移行・読込・原子的保存します。 */
 class PlayerStore(private val directory: Path): AutoCloseable {
@@ -44,7 +52,7 @@ class PlayerStore(private val directory: Path): AutoCloseable {
         val d = migrate(raw)
         require(UUID.fromString(d.string("uuid")) == uuid) { "UUID mismatch" }
         val p = PlayerProfile(uuid,d["class"] as? String,d.int("level"),d.long("xp"),d.long("currency"),d.num("resource"),d.int("selected_skill"),d["starter_granted"] as Boolean)
-        p.bestEnhancementLevel=d.integer("best_enhancement_level",0).also { require(it in 0..5) }
+        p.bestEnhancementLevel=d["best_enhancement_level"].boundedInt(0..5,"best_enhancement_level",0)
         require(p.level >= 1 && p.xp >= 0 && p.currency >= 0 && p.resource.isFinite() && p.resource >= 0 && p.selectedSkill in 0..3)
         (d["skill_levels"] as? Map<*,*>)?.forEach { (k,v) -> p.skillLevels[k as String] = (v as Number).toInt().also { require(it >= 1) } }
         d.mapping("quests").forEach { (id,value) ->

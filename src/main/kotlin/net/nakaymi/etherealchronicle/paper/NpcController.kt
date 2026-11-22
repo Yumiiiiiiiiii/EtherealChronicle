@@ -1,6 +1,7 @@
 package net.nakaymi.etherealchronicle.paper
 
 import net.nakaymi.etherealchronicle.core.WorldSchedule
+import net.nakaymi.etherealchronicle.core.WorldIds
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.NamespacedKey
@@ -64,7 +65,7 @@ internal class NpcController(private val plugin: RpgPlugin) : Listener {
             if (existing?.isValid == true) return@forEach
 
             entities.remove(definition.id)
-            require(world.name == "ec_world") { "ec.error.world_owned_only" }
+        require(world.name == WorldIds.DEMO) { "ec.error.world_owned_only" }
             val location = Location(
                 world,
                 definition.position.x,

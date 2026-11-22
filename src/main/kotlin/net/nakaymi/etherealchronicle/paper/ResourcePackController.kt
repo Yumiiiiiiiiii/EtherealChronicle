@@ -411,8 +411,7 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
         }
     }
 
-    private fun plain(component: net.kyori.adventure.text.Component): String =
-        net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(component)
+    private fun plain(component: net.kyori.adventure.text.Component): String = component.plainText()
 
     private inline fun debugLog(message: () -> String) {
         if (debug) plugin.logger.info("Resource pack debug: ${message()}")

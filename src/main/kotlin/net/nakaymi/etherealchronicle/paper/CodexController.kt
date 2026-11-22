@@ -18,8 +18,7 @@ internal class CodexController(private val plugin: RpgPlugin) {
         val found = enemies.count { (profile.bestiary[it.id] ?: 0) > 0 }
         return found to enemies.size
     }
-    private fun plain(component:Component):String =
-        net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(component)
+    private fun plain(component:Component):String = component.plainText()
 
     /** エリアごとの魔物発見状況を表示します。 */
     fun openCodex(player:Player) {

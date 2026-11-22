@@ -304,12 +304,15 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         if(e.whoClicked !is Player) return
         val current=e.currentItem; val cursor=e.cursor
         val currentBound=bound(current); val cursorBound=bound(cursor)
-        if(current?.type?.name?.endsWith("BUNDLE") == true && cursorBound || cursor.type.name.endsWith("BUNDLE") && currentBound) { e.isCancelled=true; return }
+        val bundleSwap=current?.type?.name?.endsWith("BUNDLE") == true && cursorBound || cursor.type.name.endsWith("BUNDLE") && currentBound
+        if(bundleSwap) { e.isCancelled=true; return }
         val external=e.view.topInventory.type !in setOf(InventoryType.CRAFTING,InventoryType.CREATIVE)
         val player=e.whoClicked as Player
         val offhandBound=e.click == ClickType.SWAP_OFFHAND && bound(player.inventory.itemInOffHand)
         val hotbarBound=e.hotbarButton >= 0 && bound(player.inventory.getItem(e.hotbarButton))
-        if(external && (currentBound || cursorBound || offhandBound || hotbarBound) || (e.click == ClickType.DROP || e.click == ClickType.CONTROL_DROP) && currentBound) e.isCancelled=true
+        val touchesExternal=external && (currentBound || cursorBound || offhandBound || hotbarBound)
+        val dropsBound=(e.click == ClickType.DROP || e.click == ClickType.CONTROL_DROP) && currentBound
+        if(bundleSwap || touchesExternal || dropsBound) e.isCancelled=true
     }
     @EventHandler(ignoreCancelled=true) fun boundEntity(e: PlayerInteractEntityEvent) {
         if(e.rightClicked is ItemFrame || e.rightClicked is ArmorStand || e.rightClicked is Allay) {

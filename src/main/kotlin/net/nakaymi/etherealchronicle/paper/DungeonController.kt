@@ -12,7 +12,7 @@ import java.util.UUID
 
 /** 制限数付きの複数ダンジョンinstance、wave、帰還地点を管理します。 */
 class DungeonController(private val plugin: RpgPlugin,private val adventure: AdventureController,private val enemies: EnemyController): Listener {
-    data class Instance(val slot: Int,val definition: net.nakaymi.etherealchronicle.core.DungeonDefinition,val members: MutableSet<UUID>,val returns: Map<UUID,Location>,val started: Long,var boss: UUID?=null,var completed: Boolean=false,var waveIndex: Int=0,val entities: MutableSet<UUID> = mutableSetOf(),val startedAtMillis: Long=System.currentTimeMillis())
+    data class Instance(val slot: Int,val definition: net.nakaymi.etherealchronicle.core.DungeonDefinition,val members: MutableSet<UUID>,val returns: Map<UUID,Location>,val started: Long,var boss: UUID?=null,var completed: Boolean=false,var waveIndex: Int=0,val entities: MutableSet<UUID> = mutableSetOf(),val startedAtMillis: Long=monotonicMillis())
     private val instances=mutableMapOf<Int,Instance>()
     private var tick=0L
     private val builtPalette=mutableMapOf<Int,List<String>>()
@@ -86,7 +86,7 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
         }
         instance.completed=true
         instance.entities.forEach { Bukkit.getEntity(it)?.remove() }
-        val seconds=((System.currentTimeMillis()-instance.startedAtMillis)/1000).coerceAtLeast(0)
+        val seconds=((monotonicMillis()-instance.startedAtMillis)/1000).coerceAtLeast(0)
         val ranks=instance.definition.scoreRanks
         if(ranks.isNotEmpty()) {
             val rank=net.nakaymi.etherealchronicle.core.challengeRank(seconds,ranks)

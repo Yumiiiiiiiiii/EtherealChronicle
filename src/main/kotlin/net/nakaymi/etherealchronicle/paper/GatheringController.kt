@@ -66,7 +66,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         val locale = Bukkit.getPlayer(player)?.locale()?.toString()
         val channel = channels[player]
         if (channel != null) {
-            val progress = ((System.currentTimeMillis() - channel.started).toDouble() / channel.duration).coerceIn(0.0, 1.0)
+            val progress = ((monotonicMillis() - channel.started).toDouble() / channel.duration).coerceIn(0.0, 1.0)
             return plugin.message(locale, "ec.debug.gathering_active", mapOf(
                 "node" to "${channel.site.node.id}/${channel.site.location.id}",
                 "progress" to (progress * 100).toInt(),
@@ -106,7 +106,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
             "nearest" to nearestText, "locked" to (profile?.let { plugin.adventure.locked(it.uuid) } ?: false)
         ).let(::plain)
     }
-    private fun plain(component:Component):String = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(component)
+    private fun plain(component:Component):String = component.plainText()
     /** 戦闘ダメージを受けた採取者だけを中断します。 */
     fun interrupt(player: UUID) { Bukkit.getPlayer(player)?.let { cancel(it,"ec.gathering.cancel_damage") } }
     /** タスク、チャネルBossBar、管理表示を解除します。 */
@@ -201,7 +201,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         sitesByChunk[e.chunk.x to e.chunk.z].orEmpty().filter { it.location.world==e.world.name }.forEach(::renderSite)
     }
     private fun isProtected(location: Location): Boolean {
-        if(location.world.name != "ec_world") return false
+        if(location.world.name != WorldIds.DEMO) return false
         val x=location.blockX; val y=location.blockY; val z=location.blockZ
         return sitesById.values.any { s -> s.location.world==location.world.name && kotlin.math.abs(s.location.x-x)<=1 && kotlin.math.abs(s.location.y-y)<=1 && kotlin.math.abs(s.location.z-z)<=1 }
     }
@@ -255,7 +255,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         val barTitle=net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
             .serialize(plugin.message(player,"ec.gathering.bossbar", "name" to def.name))
         val bar=Bukkit.createBossBar(barTitle,BarColor.GREEN,BarStyle.SOLID).apply { addPlayer(player); progress=0.08 }
-        channels[player.uniqueId]=Channel(site,now,duration,origin,bar)
+        channels[player.uniqueId]=Channel(site,monotonicMillis(),duration,origin,bar)
         lastAttempt[player.uniqueId]="ec.gathering.channel_started"
         player.sendActionBar(plugin.message(player,"ec.gathering.actionbar_start"))
         player.sendMessage(plugin.message(player,"ec.gathering.start_notice", "name" to def.name))
@@ -286,7 +286,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         if(player.isOnline) player.sendMessage(net.kyori.adventure.text.Component.text(rendered))
     }
     private fun tick() {
-        val now=System.currentTimeMillis()
+        val now=monotonicMillis()
         channels.toMap().forEach { (id,channel) ->
             val player=Bukkit.getPlayer(id)
             if(player==null || !player.isOnline) { channels.remove(id)?.bar?.removeAll(); return@forEach }

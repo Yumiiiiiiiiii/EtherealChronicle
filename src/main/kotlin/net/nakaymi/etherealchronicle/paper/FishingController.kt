@@ -42,7 +42,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
     private val sessions=mutableMapOf<UUID,Session>()
     private val bobberKey=NamespacedKey(plugin,"fish_bobber")
     private var capacity=plugin.snapshot.world.lifeBalance.maxFishingSessions
-    private val castGate=ActionGate(Clock { System.currentTimeMillis() })
+    private val castGate=ActionGate(Clock { monotonicMillis() })
     private val catchHistory=mutableMapOf<Pair<UUID,String>,ArrayDeque<Long>>()
     private val disabledUntil=mutableMapOf<Pair<UUID,String>,Long>()
     private val macroDetectors=mutableMapOf<UUID,FishingMacroDetector>()
@@ -88,7 +88,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         val spot=definitions.fishingSpots.values.firstOrNull { it.world==player.world.name && (it.id in fish.habitats || it.area in fish.habitats) }
             ?: definitions.fishingSpots.values.firstOrNull { it.world==player.world.name } ?: error("ec.error.fishing_spot")
         require(sessions.size<capacity) { "ec.error.fishing_capacity" }
-        val now=System.currentTimeMillis(); val bobberAt=player.location.clone().add(0.0,1.0,0.0)
+        val now=monotonicMillis(); val bobberAt=player.location.clone().add(0.0,1.0,0.0)
         val bobber=player.world.spawn(bobberAt,ItemDisplay::class.java) { display ->
             display.setItemStack(org.bukkit.inventory.ItemStack(Material.HEART_OF_THE_SEA)); display.isPersistent=false; display.isInvulnerable=true
             display.persistentDataContainer.set(bobberKey,PersistentDataType.STRING,player.uniqueId.toString())
@@ -122,8 +122,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },2,2)
     }
     private fun cleanup(session:Session) { session.bar.removeAll(); Bukkit.getEntity(session.bobber)?.remove() }
-    private fun plain(component:Component):String =
-        net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(component)
+    private fun plain(component:Component):String = component.plainText()
     private fun cancel(player:org.bukkit.entity.Player,messageKey:String?=null,reason:FishingEndReason=FishingEndReason.CANCELLED):Boolean {
         val session=sessions.remove(player.uniqueId) ?: return false
         cleanup(session)
@@ -185,8 +184,8 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         val bait=chooseBait(player,profile)
         val weather=when { player.world.isThundering -> "THUNDER"; player.world.hasStorm() -> "RAIN"; else -> "CLEAR" }
         val eligible=engine.eligible(plugin.snapshot.world.fishSpecies.values,spot,rod.tier,p.level,player.world.time,weather)
-        val recent=catchHistory[player.uniqueId to spot.id]?.count { System.currentTimeMillis()-it<balance.fatigueWindowSeconds*1000 } ?: 0
-        if(System.currentTimeMillis()<(disabledUntil[player.uniqueId to spot.id] ?: 0)) { player.sendMessage(plugin.message(player,"ec.fishing.tired")); return }
+        val recent=catchHistory[player.uniqueId to spot.id]?.count { monotonicMillis()-it<balance.fatigueWindowSeconds*1000 } ?: 0
+        if(monotonicMillis()<(disabledUntil[player.uniqueId to spot.id] ?: 0)) { player.sendMessage(plugin.message(player,"ec.fishing.tired")); return }
         val candidates=if(recent>=balance.fatigueHardThreshold) emptyList() else eligible.filter { fish ->
             if(recent>=balance.fatigueSoftThreshold) fish.rarity !in setOf(Rarity.EPIC,Rarity.LEGENDARY) else true
         }
@@ -211,12 +210,12 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         }
         val bar=Bukkit.createBossBar(plain(plugin.message(player,"ec.fishing.bossbar_search")),BarColor.BLUE,BarStyle.SOLID).apply { addPlayer(player); progress=0.03 }
         sessions[player.uniqueId]=Session(state,spot,rod,player.location.clone(),target,bobber.uniqueId,bar,bait=bait,baitCountBefore=bait?.let { plugin.inventory(player).count(it) } ?: 0,softThrottle=macro)
-        detector.cast(System.currentTimeMillis())
+        detector.cast(monotonicMillis())
         player.playSound(target,org.bukkit.Sound.ENTITY_FISHING_BOBBER_SPLASH,0.5f,1.4f)
         player.sendActionBar(plugin.message(player,"ec.fishing.cast_started"))
     }
     private fun pulse(player:org.bukkit.entity.Player,session:Session,input:ReelInput) {
-        val now=System.currentTimeMillis()
+        val now=monotonicMillis()
         if(now-session.lastInput<150) return
         session.lastInput=now; session.input=input
         val detector=macroDetectors.getOrPut(player.uniqueId) { FishingMacroDetector() }
@@ -275,12 +274,12 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         return null
     }
     private fun showBite(player:org.bukkit.entity.Player) {
-        macroDetectors.getOrPut(player.uniqueId) { FishingMacroDetector() }.bite(System.currentTimeMillis())
+        macroDetectors.getOrPut(player.uniqueId) { FishingMacroDetector() }.bite(monotonicMillis())
         player.showTitle(Title.title(plugin.message(player,"ec.fishing.bite_title"),plugin.message(player,"ec.fishing.bite_subtitle")))
         player.playSound(player.location,org.bukkit.Sound.ENTITY_FISHING_BOBBER_SPLASH,1f,1.2f)
     }
     private fun tick() {
-        castGate.cleanup(); val now=System.currentTimeMillis()
+        castGate.cleanup(); val now=monotonicMillis()
         disabledUntil.entries.removeIf { it.value<=now }
         catchHistory.values.forEach { it.removeIf { ts -> now-ts>plugin.snapshot.world.lifeBalance.fatigueWindowSeconds*1000 } }
         sessions.toMap().forEach { (id,s) ->
@@ -349,9 +348,9 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
                 val score=engine.score(profile)
                 plugin.snapshot.world.lifeBalance.fishingMilestones.filter { score>=it.threshold }.forEach { profile.flags.add(it.flag) }
                 val key=player.uniqueId to s.spot.id
-                val history=catchHistory.getOrPut(key) { ArrayDeque() }; history.addLast(System.currentTimeMillis())
+                val history=catchHistory.getOrPut(key) { ArrayDeque() }; history.addLast(monotonicMillis())
                 val fatigue=plugin.snapshot.world.lifeBalance
-                if(history.size>fatigue.fatigueHardThreshold) disabledUntil[key]=System.currentTimeMillis()+fatigue.fatigueCooldownSeconds*1000
+                if(history.size>fatigue.fatigueHardThreshold) disabledUntil[key]=monotonicMillis()+fatigue.fatigueCooldownSeconds*1000
             },success={
                 plugin.syncTitleAdvancements(player,profile)
                 val isNew=profile.fishRecords[catch.species.id]?.count==1

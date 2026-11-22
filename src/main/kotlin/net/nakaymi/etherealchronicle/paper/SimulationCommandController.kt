@@ -38,7 +38,7 @@ internal class SimulationCommandController(private val plugin: RpgPlugin) {
                     sender.sendMessage(plugin.message(sender, "ec.sim.party", "members" to parties.members(p.uuid)))
                 }
                 "spawn" -> {
-                    val world=plugin.server.getWorld("ec_world") ?: error("ec.error.world_missing")
+        val world=plugin.server.getWorld(WorldIds.DEMO) ?: error("ec.error.world_missing")
                     val id=args[3]; val definition=plugin.snapshot.world.enemies[id] ?: error("ec.error.enemy_missing: $id")
                     val pos=definition.spawns.firstOrNull()?.position
                     val location=pos?.let { Location(world,it.x,it.y,it.z) } ?: world.spawnLocation

@@ -88,8 +88,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     /** 例外診断中の安定キーを翻訳し、ファイル名やIDなどの診断情報を保ちます。 */
     internal fun diagnostic(sender: CommandSender, text: String): Component =
         language.diagnostic((sender as? Player)?.locale()?.toString(),text)
-    private fun plain(component: Component): String =
-        net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(component)
+    private fun plain(component: Component): String = component.plainText()
     /** クラスの資源種別を表示用の翻訳へ変換します。 */
     private fun resourceName(player: Player,kind: ResourceKind): Component = message(player, when(kind) {
         ResourceKind.RAGE -> "ec.resource.rage"
@@ -534,11 +533,6 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val title=profile.selectedTitle?.let(snapshot.world.titles::get)?.takeIf { it.unlockFlag in profile.flags }?.name
         val display=if(title == null) Component.text(player.name) else Component.text("[$title] ${player.name}")
         player.displayName(display); player.playerListName(display)
-    }
-    private fun areaCodexPercent(profile:PlayerProfile,area:Area):Pair<Int,Int> {
-        val enemies=snapshot.world.enemiesInArea(area.id)
-        val found=enemies.count { (profile.bestiary[it.id] ?: 0) > 0 }
-        return found to enemies.size
     }
     internal fun openCodex(player: Player) = codexController.openCodex(player)
     internal fun openCodexArea(player: Player, areaId: String) = codexController.openCodexArea(player, areaId)
