@@ -192,6 +192,7 @@ ec:
     reward_once_flag: "一度限りの配布フラグがありません。"
     consumable_cooldown: "まだ使用できません。"
     transaction_busy: "取引の処理中です。"
+    items_missing: "必要なアイテムが足りません。"
     inventory_full: "持ち物に空きがありません。"
     transaction_rolled_back: "保存に失敗したため取引を戻しました。"
     invalid_content: "コンテンツ定義が不正です。詳細を確認してください。"

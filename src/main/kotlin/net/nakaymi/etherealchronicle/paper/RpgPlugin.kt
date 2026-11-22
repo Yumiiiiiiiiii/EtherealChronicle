@@ -24,6 +24,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private var ready = false
     private val paperInventoryUi by lazy { !server.javaClass.name.startsWith("org.mockbukkit.") }
     internal val paperUiEnabled get() = paperInventoryUi
+    internal val isReadyForGameplay: Boolean get() = ready
     private val codexController by lazy { CodexController(this) }
     private val simulationCommands by lazy { SimulationCommandController(this) }
     private val invUiInventoryAdapter by lazy { InvUiInventoryAdapter(uiTheme) { stack -> item(stack)?.itemModel } }
@@ -247,7 +248,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     /** 保存失敗時にdirty状態を戻し、次回autosaveで再試行します。 */
     internal fun save(p: PlayerProfile) { store.save(p).exceptionally { logger.severe("Save failed ${p.uuid}: ${it.message}"); sync { if(p.uuid in profiles) dirty.add(p.uuid) }; null } }
     /** 接続世代tokenで古い非同期loadを捨て、完了したプロフィールだけを反映します。 */
-    private fun join(player: Player) {
+    internal fun join(player: Player) {
         if (!ready) return
         val token = UUID.randomUUID(); sessions[player.uniqueId] = token
         // 接続直後から適用結果まで操作を止め、要求送信後のプロフィール処理も待機させます。
@@ -897,7 +898,23 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         Bukkit.getWorld(DemoWorld.NAME)?.let { e.respawnLocation=DemoWorld.luminaSpawn(it) }
         sync { skillSlot(e.player); profiles[e.player.uniqueId]?.let { applyStats(e.player,it); e.player.health=e.player.getAttribute(Attribute.MAX_HEALTH)!!.value } }
     }
+    /** Paper Registry参照をメインスレッドへ集約し、起動時とreloadの安全性を揃えます。 */
     private fun validatePaperContent(c: ContentSnapshot) {
+        if (server.isPrimaryThread()) {
+            validatePaperContentNow(c)
+            return
+        }
+        val result = CompletableFuture<Unit>()
+        server.scheduler.runTask(this, Runnable {
+            runCatching { validatePaperContentNow(c) }
+                .onSuccess { result.complete(Unit) }
+                .onFailure(result::completeExceptionally)
+        })
+        result.get()
+    }
+
+    /** Bukkit/Paperのenum・Registry定義を現在のスレッドで検証します。 */
+    private fun validatePaperContentNow(c: ContentSnapshot) {
         fun validate(id: String, action: () -> Unit) { try { action() } catch(e: Exception) { throw IllegalArgumentException("${c.sources[id]} [$id]: ${e.message}",e) } }
         fun validateEnum(action: () -> Unit) {
             try { action() } catch(error: Exception) {
@@ -911,7 +928,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         c.world.treasureChests.values.forEach { chest -> validate(chest.id) { validateEnum { PaperContentValidator.particle(chest.hintParticle) } } }
         c.world.dungeons.values.forEach { dungeon -> validate(dungeon.id) { validateEnum { PaperContentValidator.dungeonPalette(dungeon.palette) } } }
         c.world.enemies.values.filter { it.visualVariant != null }.forEach { enemy ->
-            validate(enemy.id) { validateEnum { PaperContentValidator.wolfVariant(enemy.visualVariant!!) } }
+            val entityType=c.documents[enemy.id]?.get("entity") as? String
+            validate(enemy.id) { validateEnum { PaperContentValidator.wolfVariant(enemy.visualVariant!!, entityType) } }
         }
         c.documents.values.filter { it["type"] in setOf("enemy","boss") }.forEach { d -> validate(d.string("id")) { validateEnum { PaperContentValidator.livingEntity(d.string("entity")) } } }
     }
@@ -931,17 +949,36 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val commandMap = server.javaClass.getMethod("getCommandMap").invoke(server) as org.bukkit.command.CommandMap
         val command = object : Command("ec") {
             override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean = executeCommand(sender, args)
-            override fun tabComplete(sender: CommandSender, alias: String, args: Array<out String>): List<String> = onTabComplete(sender, this, alias, args).orEmpty()
+            override fun tabComplete(sender: CommandSender, alias: String, args: Array<out String>): List<String> = commandCompletions(sender, args)
         }
         command.setDescription("EtherealChronicle commands")
         commandMap.register(name, command)
     }
+
+    /** ECコマンドの利用者向け操作と管理対象を補完します。 */
+    internal fun commandCompletions(sender: CommandSender, args: Array<out String>): List<String> {
+        val prefix = args.lastOrNull().orEmpty()
+        val candidates = when {
+            args.size <= 1 -> listOf("class", "quest", "party", "equipment", "dungeon", "shop", "claim", "title", "codex", "enhance", "fish", "gather", "ui", "reload", "validate")
+            args.firstOrNull() == "class" && sender.hasPermission("etherealchronicle.admin") && args.size == 2 -> server.onlinePlayers.map { it.name }
+            args.firstOrNull() == "class" && sender.hasPermission("etherealchronicle.admin") && args.size == 3 -> snapshot.classes.all().map { it.id }
+            else -> emptyList()
+        }
+        return candidates.filter { it.startsWith(prefix, ignoreCase = true) }
+    }
+
     private fun executeCommand(sender: CommandSender, args: Array<out String>): Boolean {
         if(!ready) {
             sender.sendMessage(message(sender,"ec.startup.starting"))
             return true
         }
-        if(sender is Player && args.firstOrNull() in setOf("quest","party","equipment","dungeon","shop","claim","title","codex","enhance","fish","gather","ui","class")) {
+        val isPlayerCommand = args.firstOrNull() in setOf("quest","party","equipment","dungeon","shop","claim","title","codex","enhance","fish","gather","ui") ||
+            args.firstOrNull() == "class" && args.size == 1
+        if (args.firstOrNull() == "class" && args.size == 1 && sender !is Player) {
+            sender.sendMessage(message(sender, "ec.error.player_required"))
+            return true
+        }
+        if(sender is Player && isPlayerCommand) {
             try { playerCommand(sender,args.toList()) } catch(error: Exception) {
                 val reason=error.message?.let { diagnostic(sender,it) } ?: Component.empty()
                 sender.sendMessage(message(sender,"ec.command.failed", "reason" to reason))
@@ -953,9 +990,14 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             when(args.firstOrNull()) {
                 "reload", "validate" -> {
                     val reload = args[0] == "reload"
-                    CompletableFuture.supplyAsync { content.load().also(::validatePaperContent) }.whenComplete { snapshot,error -> sync {
+                    CompletableFuture.supplyAsync { content.load() }.whenComplete { snapshot,error -> sync {
                         if(error != null) sender.sendMessage(message(sender,"ec.command.validation_failed", "reason" to diagnostic(sender,error.cause?.message ?: error.message.orEmpty())))
                         else {
+                            val paperValidationError=runCatching { validatePaperContent(snapshot) }.exceptionOrNull()
+                            if(paperValidationError != null) {
+                                sender.sendMessage(message(sender,"ec.command.validation_failed", "reason" to diagnostic(sender,paperValidationError.cause?.message ?: paperValidationError.message.orEmpty())))
+                                return@sync
+                            }
                             if(reload) {
                                 if(adventure.hasTransactions() || choosing.isNotEmpty() || dungeons.activeCount() > 0) { sender.sendMessage(message(sender,"ec.command.reload_busy")); return@sync }
                                 val all = profiles.values + simulated.values
@@ -982,7 +1024,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                                 enemies.close(); adventure.reloadNpcs()
                                 if(::gathering.isInitialized) gathering.reload()
                                 if(::fishing.isInitialized) fishing.reload()
-                    if(::treasures.isInitialized) treasures.reload()
+                                if(::treasures.isInitialized) treasures.reload()
                             }
                             if(!reload) {
                                 logger.info("EC_CONTENT_VALIDATION_SUCCESS")
@@ -1068,7 +1110,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     sender.sendMessage(message(sender,"ec.command.level_set"))
                 }
                 "class" -> {
-                    require(args.size == 3)
+                    require(args.size == 3) { "ec.error.usage: /ec class <player> <classId>" }
                     val p = server.getPlayerExact(args[1]) ?: error("ec.error.player_missing")
                     val profile = profiles[p.uniqueId] ?: error("ec.error.profile_loading")
                     val c = content.snapshot().classes[args[2]]

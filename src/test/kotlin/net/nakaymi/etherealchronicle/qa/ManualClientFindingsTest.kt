@@ -19,7 +19,6 @@ class ManualClientFindingsTest {
     private fun ServerMock.pump(timeoutMs: Long = 5000, condition: () -> Boolean): Boolean {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
-            scheduler.waitAsyncTasksFinished()
             scheduler.performOneTick()
             if (condition()) return true
             Thread.sleep(20)
@@ -32,7 +31,7 @@ class ManualClientFindingsTest {
         val server = MockBukkit.mock()
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
-            assertTrue(server.pump { plugin.isEnabled && runCatching { plugin.snapshot }.isSuccess })
+            assertTrue(server.pump { plugin.isReadyForGameplay && runCatching { plugin.snapshot }.isSuccess })
             val world = server.getWorld(DemoWorld.NAME) ?: server.addSimpleWorld(DemoWorld.NAME)
             val player = PlayerMock(server, "LuminaQA", UUID.nameUUIDFromBytes("lumina-qa".toByteArray()))
             server.addPlayer(player)
@@ -64,7 +63,7 @@ class ManualClientFindingsTest {
         val server = MockBukkit.mock()
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
-            assertTrue(server.pump { plugin.isEnabled && runCatching { plugin.snapshot }.isSuccess })
+            assertTrue(server.pump { plugin.isReadyForGameplay && runCatching { plugin.snapshot }.isSuccess })
             val world = server.getWorld(DemoWorld.NAME) ?: server.addSimpleWorld(DemoWorld.NAME)
             val player = PlayerMock(server, "SpawnQA", UUID.nameUUIDFromBytes("spawn-qa".toByteArray()))
             player.addAttachment(plugin, "etherealchronicle.admin", true)

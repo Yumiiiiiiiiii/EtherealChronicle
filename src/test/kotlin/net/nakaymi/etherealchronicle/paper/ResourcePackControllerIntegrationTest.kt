@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test
 import org.mockbukkit.mockbukkit.MockBukkit
 import org.mockbukkit.mockbukkit.ServerMock
 import org.mockbukkit.mockbukkit.entity.PlayerMock
+import java.nio.file.Files
 import java.util.UUID
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -57,28 +58,39 @@ class ResourcePackControllerIntegrationTest {
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             awaitControllers(server, plugin)
+            plugin.resourcePacks.close()
+            // 設定差し替え後に本物のjoin/quitリスナーを一度だけ登録し直します。
             HandlerList.unregisterAll(plugin as org.bukkit.plugin.Plugin)
             plugin.config.set("resource_pack.mode", "external_url")
             plugin.config.set("resource_pack.external_url", "https://packs.example.test/pack.zip")
             plugin.config.set("resource_pack.external_sha1", "b".repeat(40))
             plugin.config.set("resource_pack.required", true)
+            plugin.config.set("resource_pack.required_timeout_seconds", 600)
+            server.pluginManager.registerEvents(plugin, plugin)
             val controller = ResourcePackController(plugin)
+            plugin.resourcePacks = controller
             val player = PlayerMock(server, "PackDecline", UUID.randomUUID())
+            player.isOp = false
             server.addPlayer(player)
-            var continued = false
-
-            controller.beginRequiredJoin(player)
-            controller.whenRequiredPackReady(player) { continued = true }
-            server.scheduler.performOneTick()
+            assertTrue(await(server) {
+                controller.isAwaitingRequiredPack(player.uniqueId) &&
+                    controller.hasPendingRequest(player.uniqueId) &&
+                    controller.hasJoinContinuation(player.uniqueId)
+            })
+            assertFalse(plugin.profiles.containsKey(player.uniqueId))
             val packId = UUID.nameUUIDFromBytes("etherealchronicle-resource-pack-v1".toByteArray())
             server.pluginManager.callEvent(
                 PlayerResourcePackStatusEvent(player, packId, PlayerResourcePackStatusEvent.Status.DECLINED),
             )
 
             assertFalse(controller.isAwaitingRequiredPack(player.uniqueId))
-            assertFalse(continued)
             assertFalse(player.isOnline)
             assertFalse(plugin.profiles.containsKey(player.uniqueId))
+            val profileFile = plugin.dataFolder.toPath().resolve("playerdata/${player.uniqueId}.yml")
+            server.scheduler.waitAsyncTasksFinished()
+            server.scheduler.performOneTick()
+            Thread.sleep(100)
+            assertFalse(Files.exists(profileFile), "a rejected connection must not create a persisted profile")
             controller.close()
         } finally {
             MockBukkit.unmock()
@@ -87,11 +99,19 @@ class ResourcePackControllerIntegrationTest {
 
     private fun awaitControllers(server: ServerMock, plugin: RpgPlugin) {
         repeat(500) {
-            if (runCatching { plugin.fishing; plugin.resourcePacks }.isSuccess) return
-            server.scheduler.waitAsyncTasksFinished()
+            if (plugin.isReadyForGameplay && runCatching { plugin.fishing; plugin.resourcePacks }.isSuccess) return
             server.scheduler.performOneTick()
             Thread.sleep(10)
         }
         error("Plugin controllers did not initialize")
+    }
+
+    private fun await(server: ServerMock, condition: () -> Boolean): Boolean {
+        repeat(300) {
+            server.scheduler.performOneTick()
+            if (condition()) return true
+            Thread.sleep(10)
+        }
+        return condition()
     }
 }

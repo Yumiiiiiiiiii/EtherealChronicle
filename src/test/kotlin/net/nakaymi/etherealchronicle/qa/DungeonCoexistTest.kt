@@ -32,7 +32,7 @@ class DungeonCoexistTest {
     }
     private fun ServerMock.pump(timeoutMs: Long = 4000, cond: () -> Boolean): Boolean {
         val end = System.currentTimeMillis() + timeoutMs
-        while (System.currentTimeMillis() < end) { scheduler.waitAsyncTasksFinished(); scheduler.performOneTick(); if (cond()) return true; Thread.sleep(20) }
+        while (System.currentTimeMillis() < end) { scheduler.performOneTick(); if (cond()) return true; Thread.sleep(20) }
         return cond()
     }
     private fun join(server: ServerMock, plugin: RpgPlugin, name: String): PlayerMock {
@@ -51,7 +51,7 @@ class DungeonCoexistTest {
     fun sanctumAndCitadel() {
         val server = MockBukkit.mock()
         try {
-            val plugin = MockBukkit.load(RpgPlugin::class.java); server.pump { plugin.isEnabled }
+            val plugin = MockBukkit.load(RpgPlugin::class.java); server.pump { plugin.isReadyForGameplay }
             val world = server.addSimpleWorld(DemoWorld.NAME)
             val a = join(server, plugin, "DgA"); val b = join(server, plugin, "DgB")
             a.teleport(Location(world, 0.0, 65.0, 0.0)); b.teleport(Location(world, 5.0, 65.0, 5.0))
@@ -102,7 +102,7 @@ class DungeonCoexistTest {
     fun airshipBothDirections() {
         val server = MockBukkit.mock(); val res = mutableListOf<String>()
         try {
-            val plugin = MockBukkit.load(RpgPlugin::class.java); server.pump { plugin.isEnabled }
+            val plugin = MockBukkit.load(RpgPlugin::class.java); server.pump { plugin.isReadyForGameplay }
             val world = server.addSimpleWorld(DemoWorld.NAME)
             val a = join(server, plugin, "AirA"); a.teleport(Location(world, 0.0, 65.0, 0.0))
             val pa = plugin.profiles.getValue(a.uniqueId); pa.level = 20

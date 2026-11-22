@@ -124,8 +124,6 @@ ForcePack公式Paper設定では `Server.packs.all.urls`, `generate-hash`, `hash
 
 外部ホストのZIPを更新したら、新しいSHA-1と配布URLをForcePack側へ反映し、ForcePackの再配信/リロード手順を使います。`/ec pack info` はEtherealChronicleのJARに同梱されたZIPを表示するため、マージ済みの総合パックを配布する場合はCIまたは配布プラグインが計算した最終ZIPのSHA-1を正としてください。
 
-## BetterModel 連携
-
 ## ローカル配信の検証
 
 同じPC上で接続確認するときは、埋め込みHTTPの待受先と公開先を両方ループバックにします。通常の公開サーバーではこの設定を使わず、外部HTTPS URLを設定してください。
@@ -140,6 +138,8 @@ resource_pack:
 ```
 
 同じLANの別端末で試す場合、`public_host` は接続端末から到達できるサーバーのLANアドレスにします。`bind_host` は待受インターフェースに合わせて設定し、必要なファイアウォール規則だけを開けてください。
+
+## BetterModel 連携
 
 BetterModel は任意依存です。Paper のソフト依存として先に読み込まれますが、導入しなくてもバニラ/`wolf_variant` の見た目で動作します。BetterModel と対応するクライアント用モデル・リソースパックを別途導入し、設定後に再起動してください。
 

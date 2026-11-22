@@ -1,7 +1,11 @@
 package net.nakaymi.etherealchronicle
 
+import net.nakaymi.etherealchronicle.data.PlayerStore
 import net.nakaymi.etherealchronicle.data.boundedInt
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Path
+import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
@@ -14,5 +18,17 @@ class PlayerStoreValidationTest {
         assertEquals("Out-of-range integer field: enhancement", assertFailsWith<IllegalArgumentException> {
             6.boundedInt(0..5, "enhancement")
         }.message)
+    }
+
+    @Test
+    fun `stored skill levels above the former hardcoded cap load successfully`(@TempDir directory: Path) {
+        val uuid = UUID.randomUUID()
+        PlayerStore(directory).use { store ->
+            val profile = net.nakaymi.etherealchronicle.core.PlayerProfile(uuid)
+            profile.skillLevels["ec:skill_test"] = 150
+
+            store.save(profile).get()
+            assertEquals(150, store.load(uuid).get().skillLevels["ec:skill_test"])
+        }
     }
 }

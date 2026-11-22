@@ -19,7 +19,6 @@ class ResourcePackModelFallbackTest {
             val readyBy = System.currentTimeMillis() + 5000
             var contentReady = runCatching { plugin.snapshot; true }.getOrDefault(false)
             while (System.currentTimeMillis() < readyBy && !contentReady) {
-                server.scheduler.waitAsyncTasksFinished()
                 server.scheduler.performOneTick()
                 Thread.sleep(20)
                 contentReady = runCatching { plugin.snapshot; true }.getOrDefault(false)

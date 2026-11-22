@@ -85,7 +85,7 @@ try {
 }
 $r = Analyze-Log $log
 if (($Commands | Where-Object { $_ -match '^ec validate(?:\s|$)' }).Count -gt 0 -and
-    -not (Select-String -Path $log -Pattern 'コンテンツ検証成功。|Content validation succeeded\.' -Quiet)) {
+    -not (Select-String -Path $log -Pattern 'EC_CONTENT_VALIDATION_SUCCESS|コンテンツ検証成功。|Content validation succeeded\.' -Quiet)) {
     Write-Host '[qa] ec validate was requested, but its success reply was not present in the captured log' -ForegroundColor Red
     $failed = $true
 }

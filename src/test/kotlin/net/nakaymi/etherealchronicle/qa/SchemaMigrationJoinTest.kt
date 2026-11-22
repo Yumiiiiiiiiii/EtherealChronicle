@@ -16,7 +16,7 @@ import kotlin.test.assertTrue
 class SchemaMigrationJoinTest {
     private fun ServerMock.pump(timeoutMs: Long = 5000, cond: () -> Boolean): Boolean {
         val end = System.currentTimeMillis() + timeoutMs
-        while (System.currentTimeMillis() < end) { scheduler.waitAsyncTasksFinished(); scheduler.performOneTick(); if (cond()) return true; Thread.sleep(20) }
+        while (System.currentTimeMillis() < end) { scheduler.performOneTick(); if (cond()) return true; Thread.sleep(20) }
         return cond()
     }
 

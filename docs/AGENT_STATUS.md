@@ -369,3 +369,19 @@
 - Verification: `./gradlew.bat build test --no-daemon` passed 285 tests, 0 failures, 0 errors, 0 skipped; `git diff --check` passed (Git only reported CRLF normalization notices).
 - Not verified: real Paper/client checks for fishing click behavior and title/background alignment; FIX-26 UI offset still needs a real client screenshot. No real-client session was available during this batch.
 - Open review: Claude-QA cross-model review requested; findings, if any, remain to be addressed before final integration.
+
+### Task23 final review addendum (2026-11-22)
+- Branch `codex/foundation`, based on merged master `547c898`.
+- Fixed class command routing so `/ec class` remains a player flow while `/ec class <player> <classId>` reaches the admin handler; restored coverage for unclassed menu reopen, classed-player rejection, and in-game admin class changes.
+- Added the final review adjustments: typed transaction-lock errors and scoped auto-completion handling, safe skill-level deserialization up to the configured-runtime ceiling, main-thread Paper registry validation with WOLF-only variant checks, safe-area periodic quest prechecks with one inventory count snapshot, gate-safe falling movement, fishing click routing integration, pack decline join-path coverage, smoke marker matching, hosting guide section order, and duplicate HTTP prefix/dead helper cleanup.
+- Verification: `./gradlew.bat build test --rerun-tasks --no-daemon` passed 288 tests, 0 failures, 0 errors, 0 skipped; `git diff --check` passed (only Git line-ending normalization notices).
+- Remaining: no real Paper/client smoke was run for these final code changes. The pack gate's spawn behavior, fishing casts/reels, and the `UiThemeProvider` offset still need real-client confirmation. Cross-model review of this final addendum is pending.
+
+### Task23 cross-model follow-up (2026-11-22)
+- Fixed the periodic quest precheck so only the next incomplete EXPLORE objective in a non-empty current area causes work; wildcard EXPLORE quests no longer create empty-area no-op transactions. Added regression coverage and allowed wildcard targets in content validation.
+- Kept the required-pack fall clamp from rewriting pure vertical movement/look packets; diagonal fall clamping preserves the requested yaw/pitch. Expanded the listener regression test.
+- Strengthened the pack-decline integration test to drive the real join path and wait until the profile continuation is registered before declining, then drain persistence before checking that no profile file was written.
+- Paper registry validation now marshals to the primary thread during asynchronous startup as well as reload. MockBukkit startup tests now pump server ticks until gameplay readiness before teardown.
+- Replaced shared mutable empty-inventory delegation with a read-only implementation; class admin command tests now also check tab-completion paths; player-store temp data uses JUnit cleanup.
+- Verification: `./gradlew.bat build test --rerun-tasks --no-daemon` passed 288 tests, 0 failures, 0 errors, 0 skipped; `git diff --check` passed (Git only reports expected CRLF normalization notices).
+- Remaining manual checks: Paper/client validation of pack-gate movement from unusual spawn locations, fishing air-click/reel handling, class dialog persistence, and UI title offset. No client was available for this follow-up.

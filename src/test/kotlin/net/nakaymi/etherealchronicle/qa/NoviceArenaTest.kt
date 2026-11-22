@@ -16,11 +16,11 @@ class NoviceArenaTest {
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             val end = System.currentTimeMillis() + 5000
-            while (runCatching { plugin.snapshot; plugin.dungeons; true }.isFailure && System.currentTimeMillis() < end) { server.scheduler.waitAsyncTasksFinished(); server.scheduler.performOneTick(); Thread.sleep(20) }
+            while (runCatching { plugin.snapshot; plugin.dungeons; true }.isFailure && System.currentTimeMillis() < end) { server.scheduler.performOneTick(); Thread.sleep(20) }
             val world = OwnedWorldMock.add(server, DemoWorld.NAME)
             val p = QaPlayerMock(server, "ArenaA", java.util.UUID.nameUUIDFromBytes("arena-a".toByteArray())); server.addPlayer(p)
             val until = System.currentTimeMillis() + 5000
-            while (p.uniqueId !in plugin.profiles && System.currentTimeMillis() < until) { server.scheduler.waitAsyncTasksFinished(); server.scheduler.performOneTick(); Thread.sleep(20) }
+            while (p.uniqueId !in plugin.profiles && System.currentTimeMillis() < until) { server.scheduler.performOneTick(); Thread.sleep(20) }
             val pr = plugin.profiles.getValue(p.uniqueId); pr.classId = "ec:class_warrior"; pr.level = 10; pr.starterGranted = true
             p.teleport(Location(world, 90.0, 65.0, 0.0))
             val d = plugin.dungeons

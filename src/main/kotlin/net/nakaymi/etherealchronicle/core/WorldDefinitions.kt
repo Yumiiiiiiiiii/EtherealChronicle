@@ -81,7 +81,11 @@ data class Area(
 ) {
     /** ワールド名と3軸の範囲が一致するかを返します。 */
     fun contains(position: Position): Boolean =
-        position.world == world && position.x in minX..maxX && position.y in minY..maxY && position.z in minZ..maxZ
+        contains(position.world, position.x, position.y, position.z)
+
+    /** Position生成を避けながら指定座標がエリア内か判定します。 */
+    fun contains(worldName: String, x: Double, y: Double, z: Double): Boolean =
+        worldName == world && x in minX..maxX && y in minY..maxY && z in minZ..maxZ
 }
 
 data class DungeonWave(val boss: String, val guards: List<String>, val guardOffsets: List<Pair<Int, Int>>, val bossOffset: Pair<Int, Int>)

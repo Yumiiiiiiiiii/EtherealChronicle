@@ -49,8 +49,18 @@ internal class RequiredPackLockListener(
     fun movement(event: org.bukkit.event.player.PlayerMoveEvent) {
         if (!lock(event.player)) return
         val destination = event.to ?: return
-        if (event.from.world != destination.world ||
-            event.from.blockX != destination.blockX ||
+        if (event.from.world != destination.world) {
+            event.isCancelled = true
+            return
+        }
+        if (destination.y < event.from.y) {
+            // Bukkitの飛行検査を起こさないよう、操作待ち中でも重力による落下だけ許可します。
+            if (destination.x != event.from.x || destination.z != event.from.z) {
+                event.to = destination.clone().apply { x = event.from.x; z = event.from.z }
+            }
+            return
+        }
+        if (event.from.blockX != destination.blockX ||
             event.from.blockY != destination.blockY ||
             event.from.blockZ != destination.blockZ
         ) event.isCancelled = true

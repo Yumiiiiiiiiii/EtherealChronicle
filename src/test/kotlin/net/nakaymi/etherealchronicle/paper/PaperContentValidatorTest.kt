@@ -13,7 +13,8 @@ class PaperContentValidatorTest {
             assertFailsWith<IllegalArgumentException> { PaperContentValidator.itemMaterial("NOT_A_MATERIAL") }
             assertFailsWith<IllegalArgumentException> { PaperContentValidator.particle("NOT_A_PARTICLE") }
             assertFailsWith<IllegalArgumentException> { PaperContentValidator.livingEntity("NOT_AN_ENTITY") }
-            assertFailsWith<IllegalArgumentException> { PaperContentValidator.wolfVariant("not a key") }
+            assertFailsWith<IllegalArgumentException> { PaperContentValidator.wolfVariant("not a key", "WOLF") }
+            assertFailsWith<IllegalArgumentException> { PaperContentValidator.wolfVariant("ec:ashwood_alpha", "ZOMBIE") }
             assertFailsWith<IllegalArgumentException> { PaperContentValidator.dungeonPalette(listOf("STONE", "DIRT")) }
         } finally { MockBukkit.unmock() }
     }
@@ -26,7 +27,7 @@ class PaperContentValidatorTest {
             PaperContentValidator.blockMaterial("STONE")
             PaperContentValidator.particle("END_ROD")
             PaperContentValidator.livingEntity("ZOMBIE")
-            PaperContentValidator.wolfVariant("ec:ashwood_alpha")
+            PaperContentValidator.wolfVariant("ec:ashwood_alpha", "WOLF")
             PaperContentValidator.dungeonPalette(listOf("STONE", "DIRT", "DEEPSLATE"))
         } finally { MockBukkit.unmock() }
     }

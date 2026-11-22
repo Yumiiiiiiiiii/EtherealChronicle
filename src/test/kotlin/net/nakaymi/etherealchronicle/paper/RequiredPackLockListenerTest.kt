@@ -6,11 +6,13 @@ import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.block.Action
 import org.bukkit.event.player.PlayerInteractEvent
+import org.bukkit.event.player.PlayerMoveEvent
 import org.bukkit.inventory.EquipmentSlot
 import org.junit.jupiter.api.Test
 import org.mockbukkit.mockbukkit.MockBukkit
 import org.mockbukkit.mockbukkit.entity.PlayerMock
 import java.util.UUID
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -65,6 +67,48 @@ class RequiredPackLockListenerTest {
             server.pluginManager.callEvent(event)
 
             assertTrue(event.isCancelled)
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
+    fun `waiting player may fall but cannot move horizontally or upward`() {
+        val server = MockBukkit.mock()
+        try {
+            val plugin = MockBukkit.load(RpgPlugin::class.java)
+            val player = PlayerMock(server, "PackFalling", UUID.randomUUID())
+            server.addPlayer(player)
+            RequiredPackLockListener(plugin, { true }, { true })
+
+            val from = player.location
+            val fall = from.clone().apply { y -= 2.0 }
+            val fallEvent = PlayerMoveEvent(player, from, fall)
+            server.pluginManager.callEvent(fallEvent)
+
+            assertFalse(fallEvent.isCancelled)
+            assertEquals(from.x, fallEvent.to.x)
+            assertEquals(fall.y, fallEvent.to.y)
+            assertEquals(from.yaw, fallEvent.to.yaw)
+
+            val diagonalFall = from.clone().apply { x += 1.0; y -= 2.0; yaw += 30f }
+            val diagonalFallEvent = PlayerMoveEvent(player, from, diagonalFall)
+            server.pluginManager.callEvent(diagonalFallEvent)
+            assertFalse(diagonalFallEvent.isCancelled)
+            assertEquals(from.x, diagonalFallEvent.to.x)
+            assertEquals(from.z, diagonalFallEvent.to.z)
+            assertEquals(diagonalFall.y, diagonalFallEvent.to.y)
+            assertEquals(diagonalFall.yaw, diagonalFallEvent.to.yaw)
+
+            val horizontal = from.clone().apply { x += 1.0 }
+            val horizontalEvent = PlayerMoveEvent(player, from, horizontal)
+            server.pluginManager.callEvent(horizontalEvent)
+            assertTrue(horizontalEvent.isCancelled)
+
+            val upward = from.clone().apply { y += 1.0 }
+            val upwardEvent = PlayerMoveEvent(player, from, upward)
+            server.pluginManager.callEvent(upwardEvent)
+            assertTrue(upwardEvent.isCancelled)
         } finally {
             MockBukkit.unmock()
         }

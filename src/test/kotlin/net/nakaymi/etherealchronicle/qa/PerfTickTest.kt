@@ -19,7 +19,7 @@ class PerfTickTest {
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             val end = System.currentTimeMillis() + 5000
-            while (!plugin.isEnabled && System.currentTimeMillis() < end) { server.scheduler.waitAsyncTasksFinished(); server.scheduler.performOneTick(); Thread.sleep(20) }
+            while (!plugin.isEnabled && System.currentTimeMillis() < end) { server.scheduler.performOneTick(); Thread.sleep(20) }
             val players = (1..20).map { i ->
                 PlayerMock(server, "Perf$i", UUID.nameUUIDFromBytes("perf-$i".toByteArray())).also { p ->
                     p.inventory.setItem(EquipmentSlot.HEAD, ItemStack(Material.LEATHER_HELMET)); p.inventory.setItem(EquipmentSlot.CHEST, ItemStack(Material.LEATHER_CHESTPLATE))
@@ -28,7 +28,7 @@ class PerfTickTest {
                 }
             }
             val until = System.currentTimeMillis() + 8000
-            while (players.any { it.uniqueId !in plugin.profiles } && System.currentTimeMillis() < until) { server.scheduler.waitAsyncTasksFinished(); server.scheduler.performOneTick(); Thread.sleep(20) }
+            while (players.any { it.uniqueId !in plugin.profiles } && System.currentTimeMillis() < until) { server.scheduler.performOneTick(); Thread.sleep(20) }
             players.forEach { p -> plugin.profiles[p.uniqueId]?.let { it.classId = "ec:class_mage"; it.starterGranted = true; it.resource = 50.0 } }
             val loaded = players.count { it.uniqueId in plugin.profiles }
             val ticks = 1200 // 60 s of game time -> 60 plugin tick() runs
