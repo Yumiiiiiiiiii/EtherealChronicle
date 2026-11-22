@@ -32,6 +32,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     private val entryKey=NamespacedKey(plugin,"entry_id")
     private val mm=MiniMessage.miniMessage()
     private val npcs=NpcController(plugin)
+    private var areasByWorld = plugin.snapshot.world.areas.values.groupBy { it.world }
     private val dialogueSessions=mutableMapOf<UUID,Pair<String,String>>()
     private val dialogueComponents=mutableMapOf<Pair<String,String>,Component>()
     private val invUiShops=mutableMapOf<UUID,String>()
@@ -40,7 +41,11 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     /** 非同期保存を含むプロフィール取引中かを返します。 */
     fun locked(id: UUID) = id in locks
     /** 時刻・天候条件に応じたNPCの再読込を専用controllerへ委譲します。 */
-    fun reloadNpcs() { dialogueComponents.clear(); npcs.reload() }
+    fun reloadNpcs() {
+        dialogueComponents.clear()
+        areasByWorld = plugin.snapshot.world.areas.values.groupBy { it.world }
+        npcs.reload()
+    }
     /** 管理対象NPCのspawn entityを解放します。 */
     fun close() = npcs.close()
     /** NPCの時間・天候条件とオンライン依頼進行を更新します。 */
@@ -52,11 +57,16 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             val p=plugin.profiles[player.uniqueId] ?: return@forEach
             if(plugin.resourcePacks.isAwaitingRequiredPack(player.uniqueId)) return@forEach
             if(player.uniqueId in locks) return@forEach
-            val pos=Position(player.world.name,player.x,player.y,player.z)
-            val currentAreas=plugin.snapshot.world.areas.values.filter { it.contains(pos) }
+            val worldName=player.world.name
+            val currentAreas=areasByWorld[worldName].orEmpty().filter { it.contains(worldName,player.x,player.y,player.z) }
             val areaIds=currentAreas.mapTo(mutableSetOf()) { it.id }
             if(!plugin.game.quests.mayNeedPeriodicUpdate(p,areaIds)) return@forEach
-            val inventory=plugin.inventory(player,persistRemoval=false)
+            val counts=player.inventory.storageContents.asSequence()
+                .filterNotNull()
+                .mapNotNull { stack -> plugin.identify(stack)?.let { it to stack.amount } }
+                .groupingBy { it.first }
+                .fold(0) { total, entry -> total + entry.second }
+            val inventory=CountSnapshotInventory(plugin.inventory(player,persistRemoval=false),counts)
             if(!plugin.game.quests.needsPeriodicUpdate(p,inventory,areaIds)) return@forEach
             try {
                 transaction(player,{ staged ->
@@ -67,6 +77,13 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                 },skipIfUnchanged=true)
             } catch(e: Exception) { plugin.logger.warning("Quest progress update failed ${p.uuid}: ${e.message}") }
         }
+    }
+    /** 毎秒の依頼判定用に、単一所持品走査の集計countを再利用します。 */
+    private class CountSnapshotInventory(
+        delegate: InventoryAccess,
+        private val counts: Map<String, Int>,
+    ) : InventoryAccess by delegate {
+        override fun count(item: String): Int = counts[item] ?: 0
     }
     private fun message(player: Player,text: String) = player.sendMessage(Component.text(text))
     private fun message(player: Player,component: Component) = player.sendMessage(component)
@@ -502,7 +519,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     /** 消費物を先に保存し、プロフィール状態を永続化してから出力報酬を配布します。 */
     fun transaction(player: Player,mutate: (InventoryAccess) -> Unit,persistConsumption: Boolean = true,beforePersist: () -> Unit = {},skipIfUnchanged: Boolean = false,failure: (Throwable) -> Unit = {},success: () -> Unit = {}) {
         val p=plugin.profiles[player.uniqueId] ?: return
-        val token=acquireLock(p.uuid) ?: error("ec.error.transaction_busy")
+        val token=acquireLock(p.uuid) ?: throw GameException("ec.error.transaction_busy")
         val before=p.snapshot(); val inventory=plugin.inventory(player,persistConsumption); val staged=StagedInventory(inventory)
         var beforeStorage: Array<ItemStack?>? = null
         try {
@@ -514,7 +531,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             beforeStorage = player.inventory.storageContents.map { it?.clone() }.toTypedArray()
             staged.add.keys.forEach(p::discoverItem)
             requireGame(inventory.canExchange(staged.remove,staged.add), "ec.error.inventory_full")
-            requireGame(inventory.exchangeFromSlot(staged.preferredRemovalSlot,staged.remove,emptyMap()), "ec.error.sell_items_missing")
+            requireGame(inventory.exchangeFromSlot(staged.preferredRemovalSlot,staged.remove,emptyMap()), "ec.error.items_missing")
             staged.add.forEach { (id,n) -> p.pendingRewards.merge(id,n,Int::plus) }
             beforePersist()
             plugin.persist(p).whenComplete { _,error -> plugin.sync {

@@ -147,14 +147,6 @@ class ResourcePackRequiredPolicyTest {
     }
 
     @Test
-    fun `delayed dispatch belongs only to the current online join session`() {
-        assertTrue(RequiredPackGatePolicy.shouldDispatch(true, true, true))
-        assertFalse(RequiredPackGatePolicy.shouldDispatch(false, true, true))
-        assertFalse(RequiredPackGatePolicy.shouldDispatch(true, false, true))
-        assertFalse(RequiredPackGatePolicy.shouldDispatch(true, true, false))
-    }
-
-    @Test
     fun `required timeout seconds are bounded and converted to ticks`() {
         assertEquals(2_400L, RequiredPackGatePolicy.timeoutTicks(120))
         assertEquals(200L, RequiredPackGatePolicy.timeoutTicks(0))

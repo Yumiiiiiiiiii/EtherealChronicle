@@ -3,12 +3,16 @@ package net.nakaymi.etherealchronicle.paper
 import org.bukkit.event.Event
 import org.bukkit.event.block.Action
 import org.bukkit.event.player.PlayerInteractEvent
+import org.bukkit.Location
 import org.bukkit.inventory.EquipmentSlot
 import org.junit.jupiter.api.Test
 import org.mockbukkit.mockbukkit.MockBukkit
 import org.mockbukkit.mockbukkit.entity.PlayerMock
+import org.mockbukkit.mockbukkit.ServerMock
+import net.nakaymi.etherealchronicle.qa.OwnedWorldMock
 import java.util.UUID
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /** Paperの空中クリックはブロック使用DENYでも釣りイベントへ届くことを確認します。 */
@@ -23,9 +27,10 @@ class FishingInteractRoutingTest {
             event.setUseItemInHand(Event.Result.DEFAULT)
 
             assertTrue(event.isCancelled)
-            assertTrue(shouldProcessFishingInteract(event.useItemInHand(), event.hand))
-            assertTrue(!shouldProcessFishingInteract(Event.Result.DENY, event.hand))
-            assertTrue(!shouldProcessFishingInteract(Event.Result.DEFAULT, EquipmentSlot.OFF_HAND))
+            assertTrue(shouldProcessFishingInteract(event.action, event.useInteractedBlock(), event.useItemInHand(), event.hand))
+            assertFalse(shouldProcessFishingInteract(Action.RIGHT_CLICK_BLOCK, Event.Result.DENY, Event.Result.DEFAULT, EquipmentSlot.HAND))
+            assertFalse(shouldProcessFishingInteract(event.action, event.useInteractedBlock(), Event.Result.DENY, event.hand))
+            assertFalse(shouldProcessFishingInteract(event.action, event.useInteractedBlock(), Event.Result.DEFAULT, EquipmentSlot.OFF_HAND))
         } finally {
             MockBukkit.unmock()
         }
@@ -57,10 +62,48 @@ class FishingInteractRoutingTest {
         }
     }
 
-    private fun interaction(player: PlayerMock) = PlayerInteractEvent(
+    @Test
+    fun `right click air with block use denied reaches active fishing controller`() {
+        val server = MockBukkit.mock()
+        try {
+            val plugin = MockBukkit.load(RpgPlugin::class.java)
+            assertTrue(await(server) { runCatching { plugin.fishing }.isSuccess })
+            val world = OwnedWorldMock.add(server, DemoWorld.NAME)
+            val player = PlayerMock(server, "FishingControllerClick", UUID.randomUUID())
+            server.addPlayer(player)
+            assertTrue(await(server) { player.uniqueId in plugin.profiles })
+            player.teleport(Location(world, 0.5, 65.0, 0.5))
+            val rod = plugin.snapshot.world.tackle.values.first { it.kind == net.nakaymi.etherealchronicle.core.TackleKind.ROD }
+            player.inventory.setItemInMainHand(plugin.createItem(rod.item))
+            plugin.fishing.debugStart(player, null)
+
+            val event = interaction(player, player.inventory.itemInMainHand).apply {
+                setUseInteractedBlock(Event.Result.DENY)
+                setUseItemInHand(Event.Result.DEFAULT)
+            }
+            server.pluginManager.callEvent(event)
+
+            assertTrue(plugin.fishing.active(player.uniqueId))
+            assertEquals(Event.Result.DENY, event.useItemInHand(), "the active controller must consume the rod click")
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    private fun await(server: ServerMock, condition: () -> Boolean): Boolean {
+        repeat(300) {
+            server.scheduler.waitAsyncTasksFinished()
+            server.scheduler.performOneTick()
+            if (condition()) return true
+            Thread.sleep(10)
+        }
+        return condition()
+    }
+
+    private fun interaction(player: PlayerMock, item: org.bukkit.inventory.ItemStack? = null) = PlayerInteractEvent(
         player,
         Action.RIGHT_CLICK_AIR,
-        null,
+        item,
         null,
         org.bukkit.block.BlockFace.SELF,
         EquipmentSlot.HAND,

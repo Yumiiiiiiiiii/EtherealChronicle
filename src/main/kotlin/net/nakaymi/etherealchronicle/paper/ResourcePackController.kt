@@ -233,6 +233,9 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
     /** 必須パック未適用でゲーム操作を許可しないプレイヤーか返します。 */
     fun isAwaitingRequiredPack(playerId: UUID): Boolean = playerId in joins
 
+    /** 実イベント結合テストで要求送信待ちと状態応答を区別します。 */
+    internal fun hasPendingRequest(playerId: UUID): Boolean = playerId in pendingRequests
+
     /** 待機中プレイヤーがいない高頻度イベントを O(1) で短絡します。 */
     fun hasWaiters(): Boolean = joins.isNotEmpty()
 
@@ -504,10 +507,6 @@ internal object RequiredPackGatePolicy {
     /** 待機ロック用リスナーが必要な配信構成か判定します。 */
     fun shouldRegisterLockListener(required: Boolean, deliveryAvailable: Boolean, mode: String): Boolean =
         required && deliveryAvailable && mode != "external_managed"
-
-    /** 予約済みの次tick処理を現在の接続セッションだけに許可します。 */
-    fun shouldDispatch(sessionMatches: Boolean, online: Boolean, waiting: Boolean): Boolean =
-        sessionMatches && online && waiting
 
     fun shouldWait(required: Boolean, deliveryAvailable: Boolean, mode: String, bypass: Boolean): Boolean =
         required && deliveryAvailable && ManagedPackPolicy.sendsPack(mode) && !bypass

@@ -27,7 +27,8 @@ internal object PaperContentValidator {
     }
 
     /** YAMLで指定されたwolf variantがPaperの実レジストリに存在するか確認します。 */
-    fun wolfVariant(name: String) {
+    fun wolfVariant(name: String, entityType: String?) {
+        require(entityType == "WOLF") { "wolf variant requires entity: WOLF" }
         val key = NamespacedKey.fromString(name)
             ?: throw IllegalArgumentException("invalid wolf variant key: $name")
         val registered = Registry.WOLF_VARIANT.get(key) != null

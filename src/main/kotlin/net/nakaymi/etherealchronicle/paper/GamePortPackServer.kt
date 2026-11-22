@@ -160,8 +160,8 @@ internal class PackRequestSniffer(
                 passBufferedMinecraft(context, input, output)
                 return
             }
-            if (sniffPrefixSize == GET_PREFIX.size && sniffPrefix.matchesPrefix(sniffPrefixSize, GET_PREFIX) ||
-                sniffPrefixSize == HEAD_PREFIX.size && sniffPrefix.matchesPrefix(sniffPrefixSize, HEAD_PREFIX)
+            if (sniffPrefixSize == GET_PREFIX.size && isGetPrefix ||
+                sniffPrefixSize == HEAD_PREFIX.size && isHeadPrefix
             ) {
                 val ip = ((context.channel().remoteAddress() as? InetSocketAddress)?.address?.hostAddress).orEmpty().ifBlank { "unknown" }
                 if (!limiter.acquire(ip)) {

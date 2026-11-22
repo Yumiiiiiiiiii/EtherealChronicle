@@ -53,10 +53,15 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
         p.quests.any { (id, state) ->
             if (state.completed) return@any false
             val quest = content().world.quests[id] ?: return@any false
-            quest.objectives.any { objective ->
-                objective.kind == ObjectiveKind.EXPLORE && objective.target in areaIds &&
-                    progress(p, quest, objective, EmptyInventory) < objective.amount
-            } || quest.autoComplete && quest.objectives
+            val hasPendingExploration = quest.objectives.withIndex().any { (index, objective) ->
+                objective.kind == ObjectiveKind.EXPLORE &&
+                    (objective.target in areaIds || objective.target == "*" || objective.target == "ANY") &&
+                    quest.objectives.take(index).all { earlier ->
+                        earlier.kind == ObjectiveKind.COLLECT ||
+                            progress(p, quest, earlier, EmptyInventory) >= earlier.amount
+                    }
+            }
+            hasPendingExploration || quest.autoComplete && quest.objectives
                 .filter { it.kind != ObjectiveKind.COLLECT }
                 .all { progress(p, quest, it, EmptyInventory) >= it.amount }
         }
@@ -64,24 +69,17 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
     /** 毎秒の保存取引が必要な進行中依頼だけを読み取り判定します。 */
     fun needsPeriodicUpdate(p: PlayerProfile, inventory: InventoryAccess, areaIds: Set<String>): Boolean {
         if (!mayNeedPeriodicUpdate(p, areaIds)) return false
-        if (areaIds.isEmpty() && p.quests.values.none { !it.completed }) return false
         return p.quests.any { (id, state) ->
             if (state.completed) return@any false
             val quest = content().world.quests[id] ?: return@any false
-            (quest.autoComplete && ready(p, id, inventory)) || quest.objectives.any { objective ->
+            val nextObjective = quest.objectives.firstOrNull { progress(p, quest, it, inventory) < it.amount }
+            (quest.autoComplete && ready(p, id, inventory)) || nextObjective?.let { objective ->
                 objective.kind == ObjectiveKind.EXPLORE &&
-                    objective.target in areaIds && progress(p, quest, objective, inventory) < objective.amount
-            }
+                    (objective.target in areaIds || objective.target == "*" || objective.target == "ANY")
+            } == true
         }
     }
-
-    private object EmptyInventory : InventoryAccess {
-        override fun count(item: String) = 0
-        override fun canExchange(remove: Map<String, Int>, add: Map<String, Int>) = false
-        override fun exchange(remove: Map<String, Int>, add: Map<String, Int>) = false
-        override fun canExchangeFromSlot(slot: Int?, remove: Map<String, Int>, add: Map<String, Int>) = false
-        override fun exchangeFromSlot(slot: Int?, remove: Map<String, Int>, add: Map<String, Int>) = false
-    }
+    private object EmptyInventory : InventoryAccess by MemoryInventory()
     /** 全objectiveが揃ったかを所持品状態と合わせて確認します。 */
     fun ready(p: PlayerProfile,id: String,inventory: InventoryAccess): Boolean {
         val q = content().world.quests[id] ?: return false
@@ -112,7 +110,9 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
                 changed = true
             }
             if(allowAutoComplete && q.autoComplete && ready(p,id,inventory)) {
-                try { complete(p,id,inventory) } catch(_: IllegalArgumentException) { /* ready quests remain claimable when storage is full */ }
+                try { complete(p,id,inventory) } catch (error: GameException) {
+                    if (error.messageKey != "ec.error.inventory_exchange") throw error
+                }
                 if(p.quests[id]?.completed == true) changed = true
             }
         }

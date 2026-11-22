@@ -169,16 +169,18 @@ class UiQAFixesTest {
             val player = PlayerMock(server, "ClassSwap", UUID.nameUUIDFromBytes("class-swap".toByteArray()))
             server.addPlayer(player)
             assertTrue(await(server) { player.uniqueId in plugin.profiles })
-            val command = object : org.bukkit.command.Command("ec") {
-                override fun execute(sender: org.bukkit.command.CommandSender, label: String, args: Array<out String>) = true
-            }
 
-            plugin.onCommand(server.consoleSender, command, "ec", arrayOf("class", player.name, "ec:class_warrior"))
+            player.closeInventory()
+            player.performCommand("ec class")
+            assertEquals(9, player.openInventory.topInventory.size, "unclassed players should be able to reopen class selection")
+            val adminPermission = player.addAttachment(plugin, "etherealchronicle.admin", true)
+
+            assertTrue(player.performCommand("ec class ${player.name} ec:class_warrior"))
             val warriorWeapon = "ec:item_wpn_rusty_broadsword"
             assertTrue(await(server) { count(plugin, player, warriorWeapon) == 1 }, "starter weapon was not granted; class=${plugin.profiles[player.uniqueId]?.classId}, messages=${player.nextMessage()}")
             assertEquals(warriorWeapon, plugin.identify(player.inventory.itemInMainHand))
 
-            plugin.onCommand(server.consoleSender, command, "ec", arrayOf("class", player.name, "ec:class_cleric"))
+            assertTrue(player.performCommand("ec class ${player.name} ec:class_cleric"))
 
             val clericWeapon = "ec:item_wpn_novice_censer"
             assertEquals("ec:class_cleric", plugin.profiles.getValue(player.uniqueId).classId)
@@ -186,6 +188,12 @@ class UiQAFixesTest {
             assertEquals(1, count(plugin, player, clericWeapon))
             assertEquals(1, count(plugin, player, warriorWeapon))
             assertTrue(plugin.adventure.bound(player.inventory.contents.filterNotNull().first { plugin.identify(it) == warriorWeapon }))
+
+            adminPermission.remove()
+            while (player.nextMessage() != null) { }
+            assertTrue(player.performCommand("ec class"))
+            val classMessages=generateSequence { player.nextMessage() }.toList()
+            assertTrue(classMessages.any { it.contains("already been selected") }, "classed players should not reopen class selection: $classMessages")
         } finally {
             MockBukkit.unmock()
         }

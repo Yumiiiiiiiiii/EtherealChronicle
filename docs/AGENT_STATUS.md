@@ -369,3 +369,10 @@
 - Verification: `./gradlew.bat build test --no-daemon` passed 285 tests, 0 failures, 0 errors, 0 skipped; `git diff --check` passed (Git only reported CRLF normalization notices).
 - Not verified: real Paper/client checks for fishing click behavior and title/background alignment; FIX-26 UI offset still needs a real client screenshot. No real-client session was available during this batch.
 - Open review: Claude-QA cross-model review requested; findings, if any, remain to be addressed before final integration.
+
+### Task23 final review addendum (2026-11-22)
+- Branch `codex/foundation`, based on merged master `547c898`.
+- Fixed class command routing so `/ec class` remains a player flow while `/ec class <player> <classId>` reaches the admin handler; restored coverage for unclassed menu reopen, classed-player rejection, and in-game admin class changes.
+- Added the final review adjustments: typed transaction-lock errors and scoped auto-completion handling, safe skill-level deserialization up to the configured-runtime ceiling, main-thread Paper registry validation with WOLF-only variant checks, safe-area periodic quest prechecks with one inventory count snapshot, gate-safe falling movement, fishing click routing integration, pack decline join-path coverage, smoke marker matching, hosting guide section order, and duplicate HTTP prefix/dead helper cleanup.
+- Verification: `./gradlew.bat build test --rerun-tasks --no-daemon` passed 288 tests, 0 failures, 0 errors, 0 skipped; `git diff --check` passed (only Git line-ending normalization notices).
+- Remaining: no real Paper/client smoke was run for these final code changes. The pack gate's spawn behavior, fishing casts/reels, and the `UiThemeProvider` offset still need real-client confirmation. Cross-model review of this final addendum is pending.

@@ -54,7 +54,7 @@ class PlayerStore(private val directory: Path): AutoCloseable {
         val p = PlayerProfile(uuid,d["class"] as? String,d.int("level"),d.long("xp"),d.long("currency"),d.num("resource"),d.int("selected_skill"),d["starter_granted"] as Boolean)
         p.bestEnhancementLevel=d["best_enhancement_level"].boundedInt(0..5,"best_enhancement_level",0)
         require(p.level >= 1 && p.xp >= 0 && p.currency >= 0 && p.resource.isFinite() && p.resource >= 0 && p.selectedSkill in 0..3)
-        (d["skill_levels"] as? Map<*,*>)?.forEach { (k,v) -> p.skillLevels[k as String] = (v as Number).boundedInt(1..100,"skill_levels.$k") }
+        (d["skill_levels"] as? Map<*,*>)?.forEach { (k,v) -> p.skillLevels[k as String] = v.boundedInt(1..1_000_000,"skill_levels.$k") }
         d.mapping("quests").forEach { (id,value) ->
             @Suppress("UNCHECKED_CAST") val q = value as Map<String,Any?>
             p.quests[id] = QuestProgress(q["progress"].boundedInt(0..1_000_000,"quests.$id.progress"),q["completed"] as Boolean,

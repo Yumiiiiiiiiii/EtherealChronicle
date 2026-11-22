@@ -203,6 +203,7 @@ ec:
     reward_once_flag: "A one-time reward flag is required."
     consumable_cooldown: "That item is not ready yet."
     transaction_busy: "A transaction is already in progress."
+    items_missing: "You do not have the required items."
     inventory_full: "Make room in your inventory."
     transaction_rolled_back: "The transaction was rolled back because saving failed."
     invalid_content: "Content definition is invalid. Check the diagnostic details."

@@ -152,6 +152,7 @@
 | `ec.error.inventory_full` | 持ち物に空きがありません。 | Make room in your inventory. | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.error.item_missing` | アイテムが見つかりません。 | Item not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt |  |
 | `ec.error.item_unsellable` | このアイテムは売れません。 | This item cannot be sold. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
+| `ec.error.items_missing` | 必要なアイテムが足りません。 | You do not have the required items. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.life_level_range` | 生活スキルレベルは1..<detail>で指定してください。 | Life skill level must be between 1 and <detail>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<detail>` |
 | `ec.error.materials_or_space` | 必要な素材が不足しているか、持ち物に空きがありません。 | Required materials are missing or your inventory is full. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.party_gather` | 仲間全員が近くに集まり、職業を選択してください。 | Gather your party nearby and make sure everyone has selected a class. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |

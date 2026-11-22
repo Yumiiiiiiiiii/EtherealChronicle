@@ -6,11 +6,13 @@ import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.block.Action
 import org.bukkit.event.player.PlayerInteractEvent
+import org.bukkit.event.player.PlayerMoveEvent
 import org.bukkit.inventory.EquipmentSlot
 import org.junit.jupiter.api.Test
 import org.mockbukkit.mockbukkit.MockBukkit
 import org.mockbukkit.mockbukkit.entity.PlayerMock
 import java.util.UUID
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -65,6 +67,38 @@ class RequiredPackLockListenerTest {
             server.pluginManager.callEvent(event)
 
             assertTrue(event.isCancelled)
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
+    fun `waiting player may fall but cannot move horizontally or upward`() {
+        val server = MockBukkit.mock()
+        try {
+            val plugin = MockBukkit.load(RpgPlugin::class.java)
+            val player = PlayerMock(server, "PackFalling", UUID.randomUUID())
+            server.addPlayer(player)
+            RequiredPackLockListener(plugin, { true }, { true })
+
+            val from = player.location
+            val fall = from.clone().apply { y -= 2.0 }
+            val fallEvent = PlayerMoveEvent(player, from, fall)
+            server.pluginManager.callEvent(fallEvent)
+
+            assertFalse(fallEvent.isCancelled)
+            assertEquals(from.x, fallEvent.to.x)
+            assertEquals(fall.y, fallEvent.to.y)
+
+            val horizontal = from.clone().apply { x += 1.0 }
+            val horizontalEvent = PlayerMoveEvent(player, from, horizontal)
+            server.pluginManager.callEvent(horizontalEvent)
+            assertTrue(horizontalEvent.isCancelled)
+
+            val upward = from.clone().apply { y += 1.0 }
+            val upwardEvent = PlayerMoveEvent(player, from, upward)
+            server.pluginManager.callEvent(upwardEvent)
+            assertTrue(upwardEvent.isCancelled)
         } finally {
             MockBukkit.unmock()
         }
