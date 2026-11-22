@@ -430,3 +430,15 @@
 - Follow-up in progress: connected projection to NPCs, field spawns, fishing, gathering, treasure and area/safe-zone checks; added pending bootstrap, refresh, sites/travel commands and asynchronous hub loading. This remains incomplete and not deployable: the engine adapter and safe dungeon implementation are pending, and overworld dungeon entry remains guarded.
 - Verification: the intermediate full suite exposed four failures (including translation reference generation and MockBukkit world ownership checks); after fixes, targeted AdventurePathsTest and PlayerFlowSmokeTest passed, and LangCatalogTest passed separately. The final full suite and independent tests/review remain outstanding. Fixed the language-doc generator to exclude the MiniMessage newline tag and regenerated docs/LANGUAGE.md with lead approval.
 - The overworld dungeon files are assigned to agent 3bab29b4-0818-4be1-833e-0f1d8b5d8d7c; avoid editing them until handoff. Engine files remain assigned to Terra-Overworld-Engine.
+## Terra-Overworld-Engine — WIP checkpoint (2026-11-23)
+- Branch `codex/overworld-towns`; WIP commit `223f6b0` (not ready to merge). A separate test agent is working on branch `codex/overworld-engine-tests` from this commit.
+- Done: initial incremental schematic placer, deterministic staged site selection and asynchronous Paper sampler, layout journal and guarded cleanup acknowledgement, preliminary procedural town planner and tick-budgeted world service. Added `docs/OVERWORLD_RECOVERY.md` documenting crash limitations.
+- Verification: original 312 tests passed at the preceding draft; latest WIP compiled with `compileKotlin compileTestKotlin`. Changes and real assets have not yet undergone the required independent reviews or live Paper verification.
+- Open: real asset integration, planner correctness and terrain protection, terrain/site recovery safety, waterfront and roads, synthetic tests and full suite, cross-model review and integration with the separate controller branch. Do not mark this WIP complete or merge it yet.
+- Next: finish and validate planner and service, integrate the delegated test branch, address findings, then report exact remaining limitations to the coordinator.
+
+## Codex — Overworld towns handoff (2026-11-23)
+- Branch `codex/overworld-towns`. Integrated five tests from the adjacent test worktree, 27 bundled overworld schematics, incremental planning/placement changes, and Lumina plaza spawn handling.
+- Lumina selects a safe plaza cell, sets shared world spawn south (yaw 0), persists `anchors["spawn"]` with READY, then calls `onSiteReady` on the primary thread.
+- Open: chunk saves and JSON journal are not crash-atomic; no complete per-block journal or automatic rollback; successful placement and crash/restart behavior have not been verified on real Paper. Cross-model review remains pending.
+- Verification: `./gradlew.bat test --no-daemon` passed (327 tests, 1 skipped); `git diff --check` passed. Review and real Paper integration remain open.
