@@ -2,6 +2,7 @@ package net.nakaymi.etherealchronicle.paper
 
 import net.nakaymi.etherealchronicle.core.Position
 import net.nakaymi.etherealchronicle.core.Area
+import net.nakaymi.etherealchronicle.core.WorldIds
 import org.bukkit.*
 import org.bukkit.entity.Monster
 import org.bukkit.generator.ChunkGenerator
@@ -48,7 +49,7 @@ class DemoGenerator: ChunkGenerator() {
 }
 /** 所有マーカー付きec_worldの生成・安全な追補移行・スポーン制御を担当します。 */
 object DemoWorld {
-    const val NAME="ec_world"
+    const val NAME=WorldIds.DEMO
     fun luminaSpawn(world: World) = Location(world,0.5,65.0,0.5)
     fun isOwned(world:World):Boolean = Files.exists(world.worldFolder.toPath().resolve(".etherealchronicle-owned"))
     /** 未所有ワールドを変更せず、管理ワールドのみ必要な地形versionへ進めます。 */

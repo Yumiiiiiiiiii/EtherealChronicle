@@ -26,6 +26,17 @@ class Chapter1ContentValidationTest {
     private fun loadBundled() = ContentService(Path.of("src/main/resources/content")).load()
 
     @Test
+    fun `area enemy lookup is indexed and stable across repeated reads`() {
+        val world = loadBundled().world
+        val areaId = world.areas.keys.first()
+        val first = world.enemiesInArea(areaId)
+
+        assertEquals(first.map { it.id }.sorted(), first.map { it.id })
+        assertSame(first, world.enemiesByArea.getValue(areaId))
+        assertSame(first, world.enemiesInArea(areaId))
+    }
+
+    @Test
     fun `all bundled YAMLs load cleanly through real ContentService and meet Chapter 1 targets`() {
         val snap = loadBundled()
         val world = snap.world

@@ -163,7 +163,7 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
                     val center=d.mapping("center")
                     val spotWorld=d.string("world")
                     val definition=FishingSpotDefinition(id,d.string("name"),d.string("area"),spotWorld,Position(spotWorld,center.num("x"),center.num("y"),center.num("z"),center.number("yaw",0.0).toFloat()),d.num("radius"),d.bool("default_for_area",false),d.strings("tags").toSet(),d.integer("priority",0),d["unlock_flag"] as? String)
-                    require(definition.name.isNotBlank() && definition.world == "ec_world" && definition.radius in 1.0..128.0 && definition.tags.isNotEmpty() && definition.priority in -1000..1000 && (definition.unlockFlag == null || definition.unlockFlag.matches(Regex("ec:flag_[a-z0-9_]+"))) ) { "ec.error.invalid_content" }
+                    require(definition.name.isNotBlank() && definition.world == WorldIds.DEMO && definition.radius in 1.0..128.0 && definition.tags.isNotEmpty() && definition.priority in -1000..1000 && (definition.unlockFlag == null || definition.unlockFlag.matches(Regex("ec:flag_[a-z0-9_]+"))) ) { "ec.error.invalid_content" }
                     fishingSpots[id]=definition
                 }
                 "fish_species" -> {
@@ -215,10 +215,10 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
         }
         gatheringNodes.values.forEach { node ->
             (node.yields+node.rareYields).forEach { ref(it.item,"item","${node.id}.yields") }
-            node.locations.forEach { location -> require(location.world == "ec_world" && location.area in areas && areas.getValue(location.area).contains(Position(location.world,location.x.toDouble(),location.y.toDouble(),location.z.toDouble()))) { "${node.id}/${location.id}: ec.error.invalid_content" } }
+            node.locations.forEach { location -> require(location.world == WorldIds.DEMO && location.area in areas && areas.getValue(location.area).contains(Position(location.world,location.x.toDouble(),location.y.toDouble(),location.z.toDouble()))) { "${node.id}/${location.id}: ec.error.invalid_content" } }
         }
         treasureChests.values.forEach { chest ->
-            require(chest.position.world == "ec_world" && areas.values.any { it.contains(chest.position) }) { "${chest.id}: ec.error.invalid_content" }
+            require(chest.position.world == WorldIds.DEMO && areas.values.any { it.contains(chest.position) }) { "${chest.id}: ec.error.invalid_content" }
             require(chest.items.keys.all { documents[it]?.get("type") == "item" }) { "${chest.id}: ec.error.invalid_content" }
             require(chapters.values.any { chest.onceFlag in it.strings("flags") }) { "${chest.id}: ec.error.invalid_content: ${chest.onceFlag}" }
         }
@@ -226,9 +226,14 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
         require(nodeCoordinates.distinct().size == nodeCoordinates.size) { "ec.error.invalid_content" }
         fishingSpots.values.filter { it.defaultForArea }.groupBy { it.area }.forEach { (area,spots) -> require(spots.size == 1) { "$area: ec.error.invalid_content" } }
     }
+    /** 指定エリアと敵配置を一度だけ照合し、一覧画面での繰り返し走査を避けます。 */
+    val enemiesByArea: Map<String, List<EnemyDefinition>> by lazy {
+        areas.values.associate { area ->
+            area.id to enemies.values.filter { enemy -> enemy.spawns.any { area.contains(it.position) } }.sortedBy { it.id }
+        }
+    }
     /** 指定エリア内に出現点を持つ魔物をID順で返します。 */
     fun enemiesInArea(areaId:String):List<EnemyDefinition> {
-        val area=areas[areaId] ?: return emptyList()
-        return enemies.values.filter { enemy -> enemy.spawns.any { spawn -> area.contains(spawn.position) } }.sortedBy { it.id }
+        return enemiesByArea[areaId].orEmpty()
     }
 }

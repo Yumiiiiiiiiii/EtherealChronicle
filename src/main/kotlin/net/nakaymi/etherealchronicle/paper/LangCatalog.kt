@@ -66,7 +66,8 @@ class LangCatalog internal constructor(
 
     companion object {
         private val ERROR_KEY = Regex("(ec(?:\\.[a-z0-9_]+)+)(?::\\s*([^\\n]+))?")
-        private val DETAIL_PLACEHOLDER = Regex("<(?!/?(?:aqua|black|blue|dark_aqua|dark_blue|dark_gray|dark_green|dark_purple|dark_red|gold|gray|green|italic|light_purple|red|reset|white|yellow|bold|underlined|strikethrough|obfuscated|newline|#)[^>]*)([a-zA-Z][a-zA-Z0-9_]*)>")
+        private val DETAIL_PLACEHOLDER = Regex("<(?!/?(?:aqua|black|blue|dark_aqua|dark_blue|dark_gray|dark_green|dark_purple|dark_red|gold|gray|green|italic|light_purple|red|reset|white|yellow|bold|underlined|strikethrough|obfuscated|newline|b|i|u|st|obf|br)(?=>)|#[0-9a-fA-F]{6}(?=>))([a-zA-Z][a-zA-Z0-9_]*)>")
+        internal fun detailPlaceholderMatches(template: String): List<String> = DETAIL_PLACEHOLDER.findAll(template).map { it.groupValues[1] }.toList()
         /** 言語ファイルを読み込みます。既存サーバー編集は初期化側のhash管理で保護します。 */
         fun load(
             dataFolder: Path,
@@ -82,6 +83,18 @@ class LangCatalog internal constructor(
                 logger
             )
         }
+
+        /** 起動待ちコマンドで使う同梱翻訳を、ファイルIOなしで初期化します。 */
+        fun fromBundledDefaults(
+            configuredLanguage: String,
+            logger: Logger,
+            bundledDefaults: Map<String, ByteArray>,
+        ): LangCatalog = LangCatalog(
+            normalizeSetting(configuredLanguage),
+            readBundled(bundledDefaults["lang/ja_jp.yml"]),
+            readBundled(bundledDefaults["lang/en_us.yml"]),
+            logger,
+        )
 
         private fun normalizeSetting(value: String): String = when (value.lowercase(Locale.ROOT)) {
             "auto", "ja_jp", "en_us" -> value.lowercase(Locale.ROOT)
@@ -99,6 +112,12 @@ class LangCatalog internal constructor(
             val result = linkedMapOf<String, String>()
             collect(yaml, "", result)
             return result
+        }
+
+        private fun readBundled(bytes: ByteArray?): Map<String, String> {
+            if (bytes == null) return emptyMap()
+            val yaml = YamlConfiguration.loadConfiguration(bytes.toString(Charsets.UTF_8).reader())
+            return linkedMapOf<String, String>().also { collect(yaml, "", it) }
         }
 
         private fun collect(section: ConfigurationSection, prefix: String, output: MutableMap<String, String>) {

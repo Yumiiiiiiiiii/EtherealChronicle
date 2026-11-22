@@ -46,11 +46,15 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private val lastMoved = mutableMapOf<UUID,Int>()
     private val dirty = mutableSetOf<UUID>()
     private var autosaveSeconds = 0
+    private var safeAreaSnapshot: ContentSnapshot? = null
+    private var safeAreasByWorld: Map<String, List<Area>> = emptyMap()
     internal lateinit var simStore: PlayerStore
     internal val simulated = mutableMapOf<String,PlayerProfile>()
     internal val simSessions = mutableMapOf<String,SimulationSession>()
     private data class EnhancementFlight(val token:String,val material:String,val currency:Long)
     private val enhancementFlights=mutableMapOf<UUID,EnhancementFlight>()
+    private var enhancementLoreLanguage: LangCatalog? = null
+    private var enhancementLoreLines: Set<String> = emptySet()
     private var advancementWarningLogged=false
     private lateinit var itemKey: NamespacedKey
     private lateinit var enhancementKey: NamespacedKey
@@ -60,6 +64,15 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private lateinit var starterClassKey: NamespacedKey
     /** 現在の不変コンテンツSnapshotをControllerへ公開します。 */
     internal val snapshot get() = content.snapshot()
+    /** コンテンツ版ごとに安全地帯をワールド別へ索引化します。 */
+    internal fun safeAreas(world: String): List<Area> {
+        val current = snapshot
+        if (safeAreaSnapshot !== current) {
+            safeAreasByWorld = current.world.areas.values.filter { it.safe }.groupBy { it.world }
+            safeAreaSnapshot = current
+        }
+        return safeAreasByWorld[world].orEmpty()
+    }
     /** クライアントlocaleに合わせて翻訳済みComponentを生成します。 */
     internal fun message(player: Player, key: String, vararg values: Pair<String, Any?>): Component =
         language.component(player.locale().toString(), key, values.toMap())
@@ -75,8 +88,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     /** 例外診断中の安定キーを翻訳し、ファイル名やIDなどの診断情報を保ちます。 */
     internal fun diagnostic(sender: CommandSender, text: String): Component =
         language.diagnostic((sender as? Player)?.locale()?.toString(),text)
-    private fun plain(component: Component): String =
-        net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(component)
+    private fun plain(component: Component): String = component.plainText()
     /** クラスの資源種別を表示用の翻訳へ変換します。 */
     private fun resourceName(player: Player,kind: ResourceKind): Component = message(player, when(kind) {
         ResourceKind.RAGE -> "ec.resource.rage"
@@ -106,7 +118,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val languageDefaults = listOf("ja_jp.yml", "en_us.yml").associate { name ->
             "lang/$name" to getResource("lang/$name")!!.use { it.readBytes() }
         }
-        language = LangCatalog.load(dataFolder.toPath(), config.getString("language", "auto") ?: "auto", logger, languageDefaults)
+        language = LangCatalog.fromBundledDefaults(config.getString("language", "auto") ?: "auto", logger, languageDefaults)
         // Paperプラグインはライフサイクル登録のみを使い、MockBukkitではテスト用コマンドを登録します。
         if (paperInventoryUi) registerPaperCommand()
         else getCommand("ec")?.setExecutor(this) ?: registerMockCommand()
@@ -119,7 +131,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 )
                 languageInstall.updated.forEach { logger.info("Updated unchanged bundled language file: $it") }
                 languageInstall.changed.forEach { logger.info("Preserving server-edited language file: $it") }
-                language = LangCatalog.load(dataFolder.toPath(), config.getString("language", "auto") ?: "auto", logger)
+                val loadedLanguage = LangCatalog.load(dataFolder.toPath(), config.getString("language", "auto") ?: "auto", logger)
                 val bundled = getResource("content-index.txt")!!.bufferedReader().use { reader ->
                     reader.readLines().filter { it.isNotBlank() }.associate { path ->
                         val clean = path.removePrefix("\uFEFF")
@@ -143,8 +155,12 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 store = PlayerStore(dataFolder.toPath().resolve("playerdata"))
                 simStore = PlayerStore(dataFolder.toPath().resolve("simulation"))
                 sync {
+                    language = loadedLanguage
                     game = GameService(content::snapshot,SkillEngine(Clock { System.nanoTime()/1_000_000 },content.snapshot().balance))
                     resourcePacks = ResourcePackController(this)
+                    if (resourcePacks.shouldRegisterLockListener()) {
+                        RequiredPackLockListener(this, resourcePacks::isAwaitingRequiredPack, resourcePacks::hasWaiters)
+                    }
                     uiTheme = UiThemeProvider(
                         this,
                         resourcePacks,
@@ -247,18 +263,18 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 profile.discoverItem(id)
                 if(snapshot.items.find(id) == null) ProfileContentMigration.oldItems[id]?.takeIf { snapshot.items.find(it) != null }?.let { player.inventory.setItem(slot,createItem(it,old!!.amount)) }
             }
-            profiles[player.uniqueId] = profile
             resourcePacks.send(player,runCatching { PackPreference.valueOf(profile.resourcePackPreference) }.getOrDefault(PackPreference.AUTO))
             resourcePacks.applyObservedStatus(player,profile)
             resourcePacks.whenRequiredPackReady(player) {
-                if (!player.isOnline || sessions[player.uniqueId] != token || profiles[player.uniqueId] !== profile) return@whenRequiredPackReady
-                finishLoadedJoin(player,profile,snapshot)
+                if (!player.isOnline || sessions[player.uniqueId] != token) return@whenRequiredPackReady
+                profiles[player.uniqueId] = profile
+                finishLoadedJoin(player,profile)
             }
         } }
     }
 
     /** 必須パック適用後に、ワールド移動・HUD装備・職業メニューを開始します。 */
-    private fun finishLoadedJoin(player: Player, profile: PlayerProfile, snapshot: ContentSnapshot) {
+    private fun finishLoadedJoin(player: Player, profile: PlayerProfile) {
         syncTitleAdvancements(player,profile)
         if(::dungeons.isInitialized) dungeons.recover(player)
         if(!player.hasPlayedBefore() || profile.classId == null) Bukkit.getWorld(DemoWorld.NAME)?.let { player.teleport(DemoWorld.luminaSpawn(it)) }
@@ -270,89 +286,11 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     }
     @EventHandler fun onJoin(e: PlayerJoinEvent) = join(e.player)
 
-    /** 必須パックの応答待ち中に移動や操作を開始させない共通判定です。 */
-    private fun isPackLocked(player: Player): Boolean =
-        ::resourcePacks.isInitialized && resourcePacks.isAwaitingRequiredPack(player.uniqueId)
-
-    /** パック適用が終わるまでワールド移動を止めます。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockMovementUntilPack(event: PlayerMoveEvent) {
-        if (isPackLocked(event.player) && (event.from.blockX != event.to.blockX || event.from.blockY != event.to.blockY || event.from.blockZ != event.to.blockZ)) {
-            event.isCancelled = true
-        }
-    }
-
-    /** パック適用待ち中はコマンドを実行させません。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockCommandsUntilPack(event: PlayerCommandPreprocessEvent) {
-        if (isPackLocked(event.player)) event.isCancelled = true
-    }
-
-    /** パック適用待ち中はインベントリ画面を開かせません。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockInventoryOpenUntilPack(event: InventoryOpenEvent) {
-        if (event.player is Player && isPackLocked(event.player as Player)) event.isCancelled = true
-    }
-
-    /** パック適用待ち中はインベントリ操作を止めます。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockInventoryClickUntilPack(event: InventoryClickEvent) {
-        if (isPackLocked(event.whoClicked as? Player ?: return)) event.isCancelled = true
-    }
-
-    /** パック適用待ち中はドラッグ移動を止めます。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockInventoryDragUntilPack(event: InventoryDragEvent) {
-        if (isPackLocked(event.whoClicked as? Player ?: return)) event.isCancelled = true
-    }
-
-    /** パック適用待ち中はアイテム使用を止めます。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockInteractionUntilPack(event: PlayerInteractEvent) {
-        if (isPackLocked(event.player)) event.isCancelled = true
-    }
-
-    /** パック適用待ち中は持ち替えを止めます。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockHotbarUntilPack(event: PlayerItemHeldEvent) {
-        if (isPackLocked(event.player)) event.isCancelled = true
-    }
-
-    /** パック適用待ち中はオフハンド切替を止めます。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockOffhandUntilPack(event: PlayerSwapHandItemsEvent) {
-        if (isPackLocked(event.player)) event.isCancelled = true
-    }
-
-    /** パック適用待ち中はアイテムのドロップを止めます。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockDropUntilPack(event: PlayerDropItemEvent) {
-        if (isPackLocked(event.player)) event.isCancelled = true
-    }
-
-    /** パック適用待ち中はブロック変更と受ける/与えるダメージを止めます。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockBlockBreakUntilPack(event: BlockBreakEvent) {
-        if (isPackLocked(event.player)) event.isCancelled = true
-    }
-
-    /** パック適用待ち中はブロック設置を止めます。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockBlockPlaceUntilPack(event: BlockPlaceEvent) {
-        if (isPackLocked(event.player)) event.isCancelled = true
-    }
-
-    /** パック適用待ち中は受けるダメージと攻撃を止めます。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockDamageUntilPack(event: EntityDamageEvent) {
-        if (event.entity is Player && isPackLocked(event.entity as Player)) event.isCancelled = true
-        if (event is EntityDamageByEntityEvent && event.damager is Player && isPackLocked(event.damager as Player)) event.isCancelled = true
-    }
-
     @EventHandler fun onQuit(e: PlayerQuitEvent) {
         if(::adventure.isInitialized) adventure.beforeQuit(e.player)
         if(ready) codexController.clear(e.player.uniqueId)
         sessions.remove(e.player.uniqueId); choosing.remove(e.player.uniqueId)
+        if(ready) classSelectionUi.clear(e.player.uniqueId)
         profiles.remove(e.player.uniqueId)?.let { profile -> settleEnhancement(e.player,profile); save(profile) }
         lastMoved.remove(e.player.uniqueId); dirty.remove(e.player.uniqueId)
 
@@ -413,18 +351,26 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             choosing.remove(p.uniqueId)
             if(error != null) { profile.starterGranted = false; p.sendMessage(message(p,"ec.profile.save_retry")); return@sync }
             if(!p.isOnline || profiles[p.uniqueId] !== profile) return@sync
-            if(c.starterItems.size > (0..7).count { p.inventory.getItem(it) == null }) {
+            val deferredToMailbox = c.starterItems.size > (0..7).count { p.inventory.getItem(it) == null }
+            if(deferredToMailbox) {
                 // 先行保存済みのstarterGrantedを維持し、枠不足分は耐久メールボックスへ戻します。
-                c.starterItems.groupingBy { it }.eachCount().forEach { (item,amount) -> profile.returnToMailbox(mapOf(item to amount)) }
+                val counts = c.starterItems.groupingBy { it }.eachCount()
+                profile.returnToMailbox(counts)
+                counts.keys.forEach(profile::discoverItem)
                 save(profile)
                 p.sendMessage(message(p,"ec.profile.starter_space"))
-                adventure.claimPending(p)
-                return@sync
+            } else {
+                c.starterItems.forEach { item ->
+                    val slot = (0..7).first { p.inventory.getItem(it) == null }
+                    p.inventory.setItem(slot,createStarterItem(item,id,p))
+                    profile.discoverItem(item)
+                }
+                save(profile)
             }
-            c.starterItems.forEach { item -> val slot = (0..7).first { p.inventory.getItem(it) == null }; p.inventory.setItem(slot,createStarterItem(item,id,p)); profile.discoverItem(item) }
-            save(profile)
             skillSlot(p); applyStats(p,profile); p.health=p.getAttribute(Attribute.MAX_HEALTH)!!.value
-            p.closeInventory(); p.sendMessage(message(p,"ec.profile.welcome"))
+            p.closeInventory()
+            if (deferredToMailbox) adventure.claimPending(p)
+            else p.sendMessage(message(p,"ec.profile.welcome"))
         } }
     }
     internal fun createItem(id: String, amount: Int = 1): ItemStack = createItemInternal(id, amount, null)
@@ -519,8 +465,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val buff=defenseBuffs[p.uniqueId]?.takeIf { it.second > System.nanoTime()/1_000_000 }?.first ?: 0.0
         return base.copy(defense=(base.defense+buff).coerceAtMost(snapshot.balance.statCap))
     }
-    private fun applyStats(p: Player, profile: PlayerProfile) {
-        val max = effectiveStats(p,profile).hp.coerceIn(1.0,content.snapshot().balance.statCap)
+    private fun applyStats(p: Player, profile: PlayerProfile, calculated: Stats = effectiveStats(p,profile)) {
+        val max = calculated.hp.coerceIn(1.0,content.snapshot().balance.statCap)
         p.getAttribute(Attribute.MAX_HEALTH)?.baseValue = max
         p.isHealthScaled = true; p.healthScale = 20.0
         if(p.health > max) p.health = max
@@ -587,11 +533,6 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val title=profile.selectedTitle?.let(snapshot.world.titles::get)?.takeIf { it.unlockFlag in profile.flags }?.name
         val display=if(title == null) Component.text(player.name) else Component.text("[$title] ${player.name}")
         player.displayName(display); player.playerListName(display)
-    }
-    private fun areaCodexPercent(profile:PlayerProfile,area:Area):Pair<Int,Int> {
-        val enemies=snapshot.world.enemiesInArea(area.id)
-        val found=enemies.count { (profile.bestiary[it.id] ?: 0) > 0 }
-        return found to enemies.size
     }
     internal fun openCodex(player: Player) = codexController.openCodex(player)
     internal fun openCodexArea(player: Player, areaId: String) = codexController.openCodexArea(player, areaId)
@@ -665,11 +606,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             val meta=held.itemMeta
             meta.persistentDataContainer.set(enhancementKey,PersistentDataType.INTEGER,current+1)
             meta.persistentDataContainer.set(enhancementTransactionKey,PersistentDataType.STRING,flight.token)
-            val enhancementLore = (1..tuning.enhancementCap).flatMap { level ->
-                listOf("ja_jp", "en_us").map { locale ->
-                    plain(language.component(locale, "ec.enhance.level_lore", mapOf("level" to level)))
-                }
-            }.toSet()
+            val enhancementLore = enhancementLoreLines(language, tuning.enhancementCap)
             val lore = meta.lore() ?: emptyList()
             meta.lore(lore.filterNot { plain(it) in enhancementLore } + message(player,"ec.enhance.level_lore", "level" to (current+1)))
             held.itemMeta=meta; player.inventory.setItemInMainHand(held)
@@ -682,6 +619,18 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 player.sendMessage(message(player,"ec.enhance.success", "level" to (current+1)))
             } else player.sendMessage(message(player,"ec.enhance.refunded"))
         })
+    }
+    /** 言語・強化上限が変わった時だけ既存強化loreを再生成します。 */
+    private fun enhancementLoreLines(catalog: LangCatalog, cap: Int): Set<String> {
+        if (enhancementLoreLanguage !== catalog || enhancementLoreLines.size != cap * 2) {
+            enhancementLoreLines = (1..cap).flatMap { level ->
+                listOf("ja_jp", "en_us").map { locale ->
+                    plain(catalog.component(locale, "ec.enhance.level_lore", mapOf("level" to level)))
+                }
+            }.toSet()
+            enhancementLoreLanguage = catalog
+        }
+        return enhancementLoreLines
     }
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=false) fun codexClick(e:InventoryClickEvent) {
         val player=e.whoClicked as? Player ?: return
@@ -712,12 +661,12 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         server.onlinePlayers.forEach { p ->
           try {
             val profile = profiles[p.uniqueId] ?: return@forEach
-            syncTitleAdvancements(p,profile)
+            if(resourcePacks.isAwaitingRequiredPack(p.uniqueId)) return@forEach
             val c = profile.classId?.let { content.snapshot().classes.find(it) } ?: return@forEach
             if(adventure.locked(p.uniqueId)) return@forEach
             val gatheringActive=::gathering.isInitialized && gathering.active(p.uniqueId)
             val fishingActive=::fishing.isInitialized && fishing.active(p.uniqueId)
-            val s = effectiveStats(p,profile); applyStats(p,profile); applyTitle(p,profile)
+            val s = effectiveStats(p,profile); applyStats(p,profile,s); applyTitle(p,profile)
             val beforeResource = profile.resource
             game.regenerate(profile,s.resource,Bukkit.getCurrentTick()-(lastMoved[p.uniqueId] ?: Int.MIN_VALUE/2) < 20)
             if(profile.resource != beforeResource) dirty.add(p.uniqueId)
@@ -879,7 +828,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     }
     @EventHandler fun move(e: PlayerMoveEvent) {
         if(e.from.world != e.to.world || e.from.distanceSquared(e.to) > 0.0) lastMoved[e.player.uniqueId] = Bukkit.getCurrentTick()
-        val safeAreas=snapshot.world.areas.values
+        if (e.from.world == e.to.world && e.from.blockX == e.to.blockX && e.from.blockY == e.to.blockY && e.from.blockZ == e.to.blockZ) return
+        val safeAreas=safeAreas(e.to.world.name)
         val to=e.to
         if(enteredSafeArea(Position(e.from.world.name,e.from.x,e.from.y,e.from.z),Position(to.world.name,to.x,to.y,to.z),safeAreas)) {
             DemoWorld.clearNearbySafeHostiles(this,to.world,to)
@@ -920,7 +870,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 var codexUnlocks=emptySet<String>()
                 var drops=emptyMap<String,Int>()
                 adventure.transaction(player,{ inv ->
-                    codexUnlocks=profile.recordEnemyKill(id,snapshot.world.areas,snapshot.world.enemies)
+                    codexUnlocks=profile.recordEnemyKillIndexed(id,snapshot.world.areas,snapshot.world.enemiesByArea)
                     drops=game.kill(profile,id,inv,xp[playerId] ?: 0,currency[playerId] ?: 0,playerId == loot)
                     drops.forEach { (item,amount) -> profile.pendingRewards.merge(item,amount,Int::plus) }
                 }) {
@@ -942,11 +892,18 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     }
     private fun validatePaperContent(c: ContentSnapshot) {
         fun validate(id: String, action: () -> Unit) { try { action() } catch(e: Exception) { throw IllegalArgumentException("${c.sources[id]} [$id]: ${e.message}",e) } }
-        c.items.all().forEach { item -> validate(item.id) { require(Material.valueOf(item.material).isItem) { "ec.error.invalid_content: material" } } }
-        c.classes.all().filter { it.icon != null }.forEach { definition -> validate(definition.id) { require(Material.valueOf(definition.icon!!).isItem) { "ec.error.invalid_content: icon" } } }
-        c.world.titles.values.filter { it.advancement != null }.forEach { title -> validate(title.id) { require(Material.valueOf(title.advancement!!.icon).isItem) { "ec.error.invalid_content: advancement.icon" } } }
-        c.world.gatheringNodes.values.forEach { node -> validate(node.id) { require(Material.valueOf(node.displayMaterial).isBlock && Material.valueOf(node.depletedMaterial).isBlock) { "ec.error.invalid_content: gathering display material" } } }
-        c.documents.values.filter { it["type"] in setOf("enemy","boss") }.forEach { d -> validate(d.string("id")) { require(EntityType.valueOf(d.string("entity")).isAlive) { "ec.error.invalid_content: entity" } } }
+        fun validateEnum(action: () -> Unit) {
+            try { action() } catch(error: Exception) {
+                throw IllegalArgumentException("ec.error.invalid_content: ${error.message}", error)
+            }
+        }
+        c.items.all().forEach { item -> validate(item.id) { validateEnum { PaperContentValidator.itemMaterial(item.material) } } }
+        c.classes.all().filter { it.icon != null }.forEach { definition -> validate(definition.id) { validateEnum { PaperContentValidator.itemMaterial(definition.icon!!) } } }
+        c.world.titles.values.filter { it.advancement != null }.forEach { title -> validate(title.id) { validateEnum { PaperContentValidator.itemMaterial(title.advancement!!.icon) } } }
+        c.world.gatheringNodes.values.forEach { node -> validate(node.id) { validateEnum { PaperContentValidator.blockMaterial(node.displayMaterial); PaperContentValidator.blockMaterial(node.depletedMaterial) } } }
+        c.world.treasureChests.values.forEach { chest -> validate(chest.id) { validateEnum { PaperContentValidator.particle(chest.hintParticle) } } }
+        c.world.dungeons.values.forEach { dungeon -> validate(dungeon.id) { validateEnum { dungeon.palette.forEach(PaperContentValidator::blockMaterial) } } }
+        c.documents.values.filter { it["type"] in setOf("enemy","boss") }.forEach { d -> validate(d.string("id")) { validateEnum { PaperContentValidator.livingEntity(d.string("entity")) } } }
     }
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         return executeCommand(sender,args)
@@ -997,7 +954,12 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                                 }
                                 content.install(snapshot); game.skills.updateBalance(snapshot.balance)
                                 reloadConfig()
-                                language=LangCatalog.load(dataFolder.toPath(),config.getString("language","auto") ?: "auto",logger)
+                                val languageSetting=config.getString("language","auto") ?: "auto"
+                                CompletableFuture.supplyAsync { LangCatalog.load(dataFolder.toPath(),languageSetting,logger) }
+                                    .whenComplete { loadedLanguage,languageError -> sync {
+                                        if(languageError == null && isEnabled) language=loadedLanguage
+                                        else if(languageError != null) logger.warning("Language reload failed: ${languageError.message}")
+                                    } }
                                 uiTheme.updateMode(UiThemeProvider.mode(config.getString("ui.theme.mode", "icons_only")))
                                 all.forEach { p -> p.level=p.level.coerceAtMost(snapshot.balance.levelCap); if(p.level == snapshot.balance.levelCap) p.xp=0; p.skillLevels.replaceAll { _,level -> level.coerceIn(1,snapshot.balance.skillLevelCap) } }
                                 dirty.addAll(profiles.keys)

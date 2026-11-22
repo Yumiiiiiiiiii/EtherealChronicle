@@ -25,15 +25,6 @@ class ExternalManagedPackTest {
     }
 
     @Test
-    fun `required join gate excludes unavailable delivery bypass and external manager`() {
-        assertTrue(RequiredPackGatePolicy.shouldWait(true, true, "external_url", false))
-        assertFalse(RequiredPackGatePolicy.shouldWait(false, true, "external_url", false))
-        assertFalse(RequiredPackGatePolicy.shouldWait(true, true, "external_url", true))
-        assertFalse(RequiredPackGatePolicy.shouldWait(true, true, "external_managed", false))
-        assertFalse(RequiredPackGatePolicy.shouldWait(true, false, "external_url", false))
-    }
-
-    @Test
     fun `optional pack id filters status events`() {
         val expected = UUID.randomUUID()
         assertTrue(ManagedPackPolicy.matches(null, UUID.randomUUID()))

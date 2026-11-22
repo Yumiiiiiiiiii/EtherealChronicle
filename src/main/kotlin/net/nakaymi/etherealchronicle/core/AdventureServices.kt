@@ -56,8 +56,9 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
         return !state.completed && consume.all { (item,n) -> inventory.count(item).toLong() >= n } && q.objectives.all { progress(p,q,it,inventory) >= it.amount }
     }
     /** 対象イベントを一致するobjectiveへ加算し、必要なら自動完了させます。 */
-    fun event(p: PlayerProfile,kind: ObjectiveKind,target: String,amount: Int,inventory: InventoryAccess,allowAutoComplete: Boolean = true,alsoTargets:Set<String> = emptySet()) {
+    fun event(p: PlayerProfile,kind: ObjectiveKind,target: String,amount: Int,inventory: InventoryAccess,allowAutoComplete: Boolean = true,alsoTargets:Set<String> = emptySet()): Boolean {
         require(amount > 0)
+        var changed = false
         p.quests.filterValues { !it.completed }.keys.toList().forEach { id ->
             val q = content().world.quests[id] ?: return@forEach
             val o = q.objectives.firstOrNull { progress(p,q,it,inventory) < it.amount }
@@ -74,15 +75,29 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
                 val state = p.quests.getValue(id)
                 state.objectives[o.id] = (state.objectives.getOrDefault(o.id,0).toLong()+amount).coerceAtMost(o.amount.toLong()).toInt()
                 state.progress = state.objectives.values.sum()
+                changed = true
             }
             if(allowAutoComplete && q.autoComplete && ready(p,id,inventory)) {
                 try { complete(p,id,inventory) } catch(_: IllegalArgumentException) { /* ready quests remain claimable when storage is full */ }
+                if(p.quests[id]?.completed == true) changed = true
             }
         }
+        return changed
     }
     /** 自動完了対象のうち条件を満たした依頼を安定順で返します。 */
     fun readyAutoComplete(p: PlayerProfile, inventory: InventoryAccess): List<String> =
         p.quests.keys.filter { id -> content().world.quests[id]?.let { it.autoComplete && ready(p, id, inventory) } == true }
+    /** 空き不足の依頼を保留しつつ、同じイベントで完了可能な他の自動依頼を処理します。 */
+    fun completeReadyAuto(p: PlayerProfile, inventory: InventoryAccess): List<String> = buildList {
+        readyAutoComplete(p, inventory).forEach { id ->
+            try {
+                complete(p, id, inventory)
+                add(id)
+            } catch (error: IllegalArgumentException) {
+                if (error.message != "ec.error.inventory_exchange") throw error
+            }
+        }
+    }
     /** 報酬と消費物を一度だけ反映し、repeat/reset状態を記録します。 */
     fun complete(p: PlayerProfile,id: String,inventory: InventoryAccess) {
         val q = content().world.quests[id] ?: error("ec.error.quest_missing")
@@ -123,6 +138,13 @@ sealed interface TradePlanResult {
     data class Ready(val plan: TradePlan) : TradePlanResult
     data class Rejected(val messageKey: String) : TradePlanResult
 }
+/** プレイヤーへ返す想定内の失敗理由を、制御フロー用例外として型で保持します。 */
+class GameException(val messageKey: String, val arguments: Map<String, Any?> = emptyMap()) : IllegalArgumentException(messageKey)
+
+/** 条件不成立時に翻訳キーを持つゲーム例外を送出します。 */
+internal fun requireGame(condition: Boolean, key: String) {
+    if (!condition) throw GameException(key)
+}
 /** 二重実行IDと上限を確認し、所持品を変更せず取引planを作成します。 */
 class TradeEngine(private val content: () -> ContentSnapshot) {
     /** 通常の購入条件不成立を例外ではなく言語キーとして返します。 */
@@ -134,36 +156,36 @@ class TradeEngine(private val content: () -> ContentSnapshot) {
         planResult { sell(p,shopId,item,amount,inventory,transaction,sourceSlot) }
 
     fun buy(p: PlayerProfile,shopId: String,entryId: String,inventory: InventoryAccess,transaction: String,day: Long): TradePlan {
-        require(transaction !in p.transactions) { "ec.error.transaction_replayed" }
-        val c=content(); val shop=c.world.shops[shopId] ?: error("ec.error.shop_missing")
-        val e=shop.entries.firstOrNull { it.id == entryId } ?: error("ec.error.shop_entry_missing")
-        require(e.condition.matches(p)) { "ec.error.shop_condition" }
-        require(e.amount <= c.world.tuning.transactionCap) { "ec.error.shop_amount_cap" }
+        requireGame(transaction !in p.transactions, "ec.error.transaction_replayed")
+        val c=content(); val shop=c.world.shops[shopId] ?: throw GameException("ec.error.shop_missing")
+        val e=shop.entries.firstOrNull { it.id == entryId } ?: throw GameException("ec.error.shop_entry_missing")
+        requireGame(e.condition.matches(p), "ec.error.shop_condition")
+        requireGame(e.amount <= c.world.tuning.transactionCap, "ec.error.shop_amount_cap")
         val cost=ceil(e.price.toDouble()*(if(shop.discountFlag in p.flags) 1-shop.discount else 1.0)).toLong()
-        require(cost >= 0 && p.currency >= cost) { "ec.error.currency_low" }
+        requireGame(cost >= 0 && p.currency >= cost, "ec.error.currency_low")
         val key="${ResetPeriods.key(day,"DAILY",c.world.tuning)}:$shopId:$entryId"; val purchased=p.dailyPurchases.getOrDefault(key,0)
-        require(e.dailyLimit == 0 || purchased+e.amount <= e.dailyLimit) { "ec.error.daily_limit" }
+        requireGame(e.dailyLimit == 0 || purchased+e.amount <= e.dailyLimit, "ec.error.daily_limit")
         val remove=e.tokens.associate { it.item to it.amount }.toMutableMap()
         if(e.tokenDiscountFlag in p.flags) e.tokenDiscount.forEach { remove[it.item]=(remove.getOrDefault(it.item,0)-it.amount).coerceAtLeast(0) }
         val add=mapOf(e.item to e.amount)
-        require(inventory.canExchange(remove,add)) { "ec.error.materials_or_space" }
+        requireGame(inventory.canExchange(remove,add), "ec.error.materials_or_space")
         return TradePlan(transaction,p.currency,p.currency-cost,remove,add,key,purchased+e.amount)
     }
     fun sell(p: PlayerProfile,shopId: String,item: String,amount: Int,inventory: InventoryAccess,transaction: String,sourceSlot: Int? = null): TradePlan {
         val c=content()
-        require(transaction !in p.transactions) { "ec.error.transaction_replayed" }
-        require(amount in 1..c.world.tuning.transactionCap) { "ec.error.quantity_range" }
-        require(c.world.shops[shopId]?.buyback == true) { "ec.error.shop_no_buyback" }
-        val properties=c.world.itemProperties[item] ?: error("ec.error.item_missing")
-        require(!properties.bound && !properties.questItem && properties.price > 0) { "ec.error.item_unsellable" }
+        requireGame(transaction !in p.transactions, "ec.error.transaction_replayed")
+        requireGame(amount in 1..c.world.tuning.transactionCap, "ec.error.quantity_range")
+        requireGame(c.world.shops[shopId]?.buyback == true, "ec.error.shop_no_buyback")
+        val properties=c.world.itemProperties[item] ?: throw GameException("ec.error.item_missing")
+        requireGame(!properties.bound && !properties.questItem && properties.price > 0, "ec.error.item_unsellable")
         val gain=floor(properties.price.toDouble()*c.world.tuning.sellRatio).toLong()*amount
-        require(gain <= c.balance.currencyGainCap && p.currency <= c.world.tuning.maxCurrency-gain) { "ec.error.currency_cap" }
-        require(inventory.canExchangeFromSlot(sourceSlot,mapOf(item to amount),emptyMap())) { "ec.error.sell_items_missing" }
+        requireGame(gain <= c.balance.currencyGainCap && p.currency <= c.world.tuning.maxCurrency-gain, "ec.error.currency_cap")
+        requireGame(inventory.canExchangeFromSlot(sourceSlot,mapOf(item to amount),emptyMap()), "ec.error.sell_items_missing")
         return TradePlan(transaction,p.currency,p.currency+gain,mapOf(item to amount),emptyMap(),null,0,sourceSlot)
     }
     /** 事前計算planが古くないことを確認してprofile側の通貨・日次数を確定します。 */
     fun commit(p: PlayerProfile,plan: TradePlan) {
-        require(plan.id !in p.transactions && p.currency == plan.currencyBefore) { "ec.error.transaction_changed" }
+        requireGame(plan.id !in p.transactions && p.currency == plan.currencyBefore, "ec.error.transaction_changed")
         p.currency=plan.currencyAfter
         plan.dailyKey?.let { key ->
             val period=key.substringBefore(":ec:")
@@ -176,14 +198,8 @@ class TradeEngine(private val content: () -> ContentSnapshot) {
 
     private fun planResult(create: () -> TradePlan): TradePlanResult = try {
         TradePlanResult.Ready(create())
-    } catch (error: Exception) {
-        val key = error.message?.let(TRADE_ERROR_KEY::matchEntire)?.groupValues?.get(1)
-            ?: throw error
-        TradePlanResult.Rejected(key)
-    }
-
-    private companion object {
-        val TRADE_ERROR_KEY = Regex("^(ec\\.error\\.[a-z0-9_]+)(?::.*)?$")
+    } catch (error: GameException) {
+        TradePlanResult.Rejected(error.messageKey)
     }
 }
 

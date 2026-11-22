@@ -12,13 +12,15 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /** 同梱リソースパックを起動・配信し、クライアントの適用状態をUUID単位で保持します。 */
 class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoCloseable {
-    private val settings = ResourcePackSettings.from(plugin.config)
+    private val settings = ResourcePackSettings.loadSafely(plugin.config) { error ->
+        plugin.logger.warning("Invalid resource-pack settings; delivery and required mode are disabled: ${error.message}")
+    }
     private val enabled = settings.enabled
     private val required = settings.required
     private val requiredTimeoutSeconds = settings.requiredTimeoutSeconds
     private val debug = settings.debug
     private val mode = settings.mode
-    private val externalManaged = mode == "external_managed"
+    private val externalManaged = settings.mode == "external_managed"
     private val expectedPackIdText = settings.expectedPackIdText
     private val expectedPackId = settings.expectedPackId
     private val invalidExpectedPackId = settings.invalidExpectedPackId
@@ -45,10 +47,16 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
     private data class PendingRequest(val id: UUID, val required: Boolean)
     private val pendingRequests = mutableMapOf<UUID, PendingRequest>()
     private val observedManagedStatuses = mutableMapOf<UUID, String>()
-    private val requiredPackGate = RequiredPackGate()
-    private val scheduledJoinRequests = mutableSetOf<UUID>()
-    private val requiredWaiters = mutableMapOf<UUID, MutableList<() -> Unit>>()
-    private val requiredTimeouts = mutableMapOf<UUID, BukkitTask>()
+    /** 接続中の必須パック適用処理を一つのセッションとして管理します。 */
+    private data class JoinState(
+        var dispatchTask: BukkitTask? = null,
+        var timeoutTask: BukkitTask? = null,
+        val waiters: MutableList<() -> Unit> = mutableListOf(),
+        var extensions: Int = 0,
+        var originalInvulnerable: Boolean? = null,
+        var lastStatus: PlayerResourcePackStatusEvent.Status? = null,
+    )
+    private val joins = mutableMapOf<UUID, JoinState>()
     private val artifact: ResourcePackArtifact? = if (enabled && !externalManaged) loadArtifact() else null
     private val configuredEndpoint: ResourcePackEndpoint? = if (externalManaged) null else artifact?.let {
         runCatching {
@@ -58,7 +66,8 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
                 if (externalUrl.isNotBlank()) createEndpoint("external_url") else null
             } else createEndpoint(mode).also { endpoint ->
                 if (mode != "external_url") {
-                    require(ResourcePackEndpointPolicy.canAdvertise(endpoint.bindHost, endpoint.publicHost)) {
+                    val effectiveBindHost = if (mode == "game_port") plugin.server.ip.ifBlank { "0.0.0.0" } else endpoint.bindHost
+                    require(ResourcePackEndpointPolicy.canAdvertise(effectiveBindHost, endpoint.publicHost)) {
                         "Resource pack public_host resolves to loopback while bind_host is non-loopback; configure public_host."
                     }
                 }
@@ -99,12 +108,12 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
     private val endpoint = configuredEndpoint?.takeIf {
         (it.mode != "embedded_http" || httpServer != null) && (it.mode != "game_port" || gamePortServer != null)
     } ?: endpointFallback
-    private val bundledArtifact: ResourcePackArtifact? by lazy {
-        artifact ?: runCatching {
+    private val bundledInfo: ResourcePackBuildInfo? by lazy {
+        artifact?.let { ResourcePackBuildInfo(it.sha1, it.bytes.size.toLong()) } ?: runCatching {
             val bytes = requireNotNull(plugin.getResource("resourcepack/etherealchronicle-resourcepack.zip")).use { it.readBytes() }
             val expected = requireNotNull(plugin.getResource("resourcepack/etherealchronicle-resourcepack.sha1"))
                 .bufferedReader().use { it.readLine().trim() }
-            ResourcePackArtifact(bytes, expected)
+            ResourcePackBuildInfo(expected, bytes.size.toLong())
         }.getOrNull()
     }
 
@@ -114,13 +123,18 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
         if (required && !externalManaged && !isDeliveryAvailable()) warnRequiredUnavailable()
     }
 
+    /** 必須ゲートのイベントリスナーを登録する必要がある設定か返します。 */
+    fun shouldRegisterLockListener(): Boolean = RequiredPackGatePolicy.shouldRegisterLockListener(
+        required, isDeliveryAvailable(), mode,
+    )
+
     /** プレイヤー設定と配信可能状態を確認し、Adventure ResourcePackRequestを送信します。 */
     fun send(player: org.bukkit.entity.Player, preference: PackPreference = PackPreference.AUTO) {
         // 外部管理モードでは別プラグインやserver.propertiesが唯一の送信元です。
         if (!ManagedPackPolicy.sendsPack(mode)) return
         preferences[player.uniqueId] = preference
         // 接続後の次tickに必須要求を出すまでは、プロフィール読込側からの早すぎる再送を止めます。
-        if (player.uniqueId in scheduledJoinRequests) return
+        if (joins[player.uniqueId]?.dispatchTask != null) return
         val pendingRequired = pendingRequests[player.uniqueId]?.required == true
         val deliveryEndpoint = if (gamePortFailed.get()) endpointFallback else endpoint
         val bypass = player.hasPermission("etherealchronicle.pack.bypass")
@@ -129,12 +143,17 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
         val decision = ResourcePackPolicy.decide(required, deliveryAvailable, preference, bypass)
         if (!decision.send || deliveryEndpoint == null || artifact == null) {
             pendingRequests.remove(player.uniqueId)
-            loadedPlayers -= player.uniqueId
+            val wasLoaded = loadedPlayers.remove(player.uniqueId)
+            if (shouldRemoveAppliedPack(wasLoaded, decision.send)) runCatching { player.removeResourcePacks(requestId) }
             plugin.refreshPackItemModels(player, false)
-            if (requiredPackGate.isWaiting(player.uniqueId) && !deliveryAvailable) releaseRequiredWait(player.uniqueId, continueJoin = true)
+            if (isAwaitingRequiredPack(player.uniqueId)) releaseRequiredWait(player.uniqueId, continueJoin = true)
             return
         }
-        if (pendingRequired || player.uniqueId in loadedPlayers) return
+        if (pendingRequired) return
+        if (player.uniqueId in loadedPlayers) {
+            if (isAwaitingRequiredPack(player.uniqueId)) releaseRequiredWait(player.uniqueId, continueJoin = true)
+            return
+        }
         val hash = advertisedPackSha1(externalSha1,artifact.sha1)
         val info = ResourcePackInfo.resourcePackInfo(requestId, deliveryEndpoint.url(hash), hash)
         val promptKey = if (decision.required) "ec.resource_pack.required_prompt" else "ec.resource_pack.prompt"
@@ -143,13 +162,17 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
         // 再接続時は毎回要求し、同一IDに対して変わったSHA-1を送ってキャッシュの更新判定を促します。
         try {
             player.sendResourcePacks(ResourcePackRequest.resourcePackRequest().packs(info).required(decision.required).prompt(prompt).replace(false).build())
-            debugLog("request sent player=${player.uniqueId} id=$requestId required=${decision.required} mode=$mode sha1=$hash")
-            if (decision.required && requiredPackGate.isWaiting(player.uniqueId)) scheduleRequiredTimeout(player)
-            else if (requiredPackGate.isWaiting(player.uniqueId)) releaseRequiredWait(player.uniqueId, continueJoin = true)
+            val currentBypass = player.hasPermission("etherealchronicle.pack.bypass")
+            debugLog { "request sent player=${player.uniqueId} id=$requestId required=${decision.required} mode=$mode bypass=$currentBypass sha1=$hash" }
+            if (decision.required && isAwaitingRequiredPack(player.uniqueId)) scheduleRequiredTimeout(player)
+            else if (isAwaitingRequiredPack(player.uniqueId)) releaseRequiredWait(player.uniqueId, continueJoin = true)
         } catch (error: Exception) {
             pendingRequests.remove(player.uniqueId)
             plugin.logger.warning("Resource pack request failed for ${player.uniqueId}: ${error.message}")
-            if (decision.required && requiredPackGate.isWaiting(player.uniqueId)) {
+            val mustDisconnect = decision.required &&
+                !player.hasPermission("etherealchronicle.pack.bypass") &&
+                isDeliveryAvailable()
+            if (mustDisconnect && isAwaitingRequiredPack(player.uniqueId)) {
                 releaseRequiredWait(player.uniqueId, continueJoin = false)
                 if (player.isOnline) player.kick(plugin.message(player, "ec.resource_pack.required_declined"))
             }
@@ -160,52 +183,87 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
     fun beginRequiredJoin(player: org.bukkit.entity.Player): Boolean {
         val bypass = player.hasPermission("etherealchronicle.pack.bypass")
         val deliveryAvailable = isDeliveryAvailable()
-        debugLog("join eligibility player=${player.uniqueId} required=$required deliveryAvailable=$deliveryAvailable mode=$mode bypass=$bypass")
+        debugLog { "join eligibility player=${player.uniqueId} required=$required deliveryAvailable=$deliveryAvailable mode=$mode bypass=$bypass" }
         if (!RequiredPackGatePolicy.shouldWait(required, deliveryAvailable, mode, bypass)) return false
         val playerId = player.uniqueId
-        if (!requiredPackGate.begin(playerId)) return true
-        scheduledJoinRequests += playerId
-        plugin.server.scheduler.runTaskLater(plugin, Runnable {
-            scheduledJoinRequests -= playerId
-            if (!player.isOnline || !requiredPackGate.isWaiting(playerId)) return@Runnable
-            debugLog("dispatching required request after join tick player=$playerId")
+        if (playerId in joins) return true
+        val state = JoinState(originalInvulnerable = player.isInvulnerable)
+        // 待機中は安全なハブへ移し、敵・落下・環境ダメージを受けないようにします。
+        plugin.server.getWorld(DemoWorld.NAME)?.let { world ->
+            player.teleport(DemoWorld.luminaSpawn(world))
+        }
+        player.isInvulnerable = true
+        joins[playerId] = state
+        state.dispatchTask = plugin.server.scheduler.runTaskLater(plugin, Runnable {
+            if (!RequiredPackGatePolicy.shouldDispatch(joins[playerId] === state, player.isOnline, isAwaitingRequiredPack(playerId))) {
+                return@Runnable
+            }
+            state.dispatchTask = null
+            if (!player.isOnline) {
+                releaseRequiredWait(playerId, continueJoin = false)
+                return@Runnable
+            }
+            debugLog { "dispatching required request after join tick player=$playerId" }
             send(player, preferences[playerId] ?: PackPreference.AUTO)
         }, 1L)
-        debugLog("required pack gate started player=$playerId mode=$mode timeout=${requiredTimeoutSeconds}s")
+        debugLog { "required pack gate started player=$playerId mode=$mode timeout=${requiredTimeoutSeconds}s" }
         player.sendMessage(plugin.message(player, "ec.resource_pack.waiting"))
         return true
     }
 
     /** 必須パック適用後にプロフィール反映や初期メニューを続行します。 */
     fun whenRequiredPackReady(player: org.bukkit.entity.Player, continuation: () -> Unit) {
-        if (!requiredPackGate.isWaiting(player.uniqueId)) {
+        val state = joins[player.uniqueId]
+        if (state == null) {
             continuation()
             return
         }
-        requiredWaiters.getOrPut(player.uniqueId) { mutableListOf() }.add(continuation)
+        state.waiters += continuation
     }
 
     /** 必須パック未適用でゲーム操作を許可しないプレイヤーか返します。 */
-    fun isAwaitingRequiredPack(playerId: UUID): Boolean = requiredPackGate.isWaiting(playerId)
+    fun isAwaitingRequiredPack(playerId: UUID): Boolean = playerId in joins
+
+    /** 待機中プレイヤーがいない高頻度イベントを O(1) で短絡します。 */
+    fun hasWaiters(): Boolean = joins.isNotEmpty()
 
     private fun scheduleRequiredTimeout(player: org.bukkit.entity.Player) {
         val playerId = player.uniqueId
-        requiredTimeouts.remove(playerId)?.cancel()
+        val state = joins[playerId] ?: return
+        state.timeoutTask?.cancel()
         val ticks = RequiredPackGatePolicy.timeoutTicks(requiredTimeoutSeconds)
-        requiredTimeouts[playerId] = plugin.server.scheduler.runTaskLater(plugin, Runnable {
-            requiredTimeouts.remove(playerId)
-            if (!requiredPackGate.isWaiting(playerId)) return@Runnable
-            debugLog("required request timed out player=$playerId after ${requiredTimeoutSeconds}s")
+        state.timeoutTask = plugin.server.scheduler.runTaskLater(plugin, Runnable {
+            if (joins[playerId] !== state) return@Runnable
+            state.timeoutTask = null
+            if (player.hasPermission("etherealchronicle.pack.bypass")) {
+                debugLog { "required timeout bypassed after permission update player=$playerId" }
+                releaseRequiredWait(playerId, continueJoin = true)
+                return@Runnable
+            }
+            if (!isAwaitingRequiredPack(playerId)) return@Runnable
+            if (state.extensions < RequiredPackGatePolicy.MAX_TIMEOUT_EXTENSIONS &&
+                state.lastStatus in RequiredPackGatePolicy.progressStatuses
+            ) {
+                state.extensions++
+                debugLog { "required timeout extended player=$playerId extension=${state.extensions}" }
+                scheduleRequiredTimeout(player)
+                return@Runnable
+            }
+            debugLog { "required request timed out player=$playerId after ${requiredTimeoutSeconds}s" }
             releaseRequiredWait(playerId, continueJoin = false)
             if (player.isOnline) player.kick(plugin.message(player, "ec.resource_pack.required_timeout"))
         }, ticks)
     }
 
     private fun releaseRequiredWait(playerId: UUID, continueJoin: Boolean) {
-        requiredPackGate.release(playerId)
-        scheduledJoinRequests -= playerId
-        requiredTimeouts.remove(playerId)?.cancel()
-        val callbacks = requiredWaiters.remove(playerId).orEmpty()
+        val state = joins.remove(playerId) ?: return
+        state.dispatchTask?.cancel()
+        state.timeoutTask?.cancel()
+        plugin.server.getPlayer(playerId)?.let { player ->
+            state.originalInvulnerable?.let { player.isInvulnerable = it }
+        }
+        val callbacks = state.waiters.toList()
+        state.waiters.clear()
         if (continueJoin) callbacks.forEach { it() }
     }
 
@@ -221,8 +279,7 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
 
     /** 管理者へ、JARに格納された生成済みパックのハッシュとサイズを返します。 */
     internal fun buildInfo(): ResourcePackBuildInfo? {
-        val pack = bundledArtifact ?: return null
-        return ResourcePackBuildInfo(pack.sha1, pack.bytes.size.toLong())
+        return bundledInfo
     }
 
     /** 配布要求を送らず状態だけ監視する設定か返します。 */
@@ -234,19 +291,41 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
             return
         }
         val request = pendingRequests[event.player.uniqueId]?.takeIf { it.id == event.id } ?: return
+        debugLog { "request status player=${event.player.uniqueId} id=${event.id} status=${event.status}" }
+        val action = RequiredPackGatePolicy.statusAction(
+            event.status,
+            request.required,
+            event.player.hasPermission("etherealchronicle.pack.bypass"),
+            isAwaitingRequiredPack(event.player.uniqueId),
+        )
+        if (action == RequiredPackStatusAction.EXTEND) {
+            joins[event.player.uniqueId]?.lastStatus = event.status
+            scheduleRequiredTimeout(event.player)
+            return
+        }
+        if (action == RequiredPackStatusAction.COMPLETE &&
+            event.status != PlayerResourcePackStatusEvent.Status.SUCCESSFULLY_LOADED &&
+            event.status !in terminalStatuses
+        ) {
+            releaseRequiredWait(event.player.uniqueId, continueJoin = true)
+            return
+        }
         if (event.status == PlayerResourcePackStatusEvent.Status.SUCCESSFULLY_LOADED) {
+            joins[event.player.uniqueId]?.lastStatus = event.status
             pendingRequests.remove(event.player.uniqueId)
             loadedPlayers += event.player.uniqueId
-            debugLog("request loaded player=${event.player.uniqueId} id=${event.id}")
+            debugLog { "request loaded player=${event.player.uniqueId} id=${event.id}" }
             plugin.refreshPackItemModels(event.player, true)
             releaseRequiredWait(event.player.uniqueId, continueJoin = true)
         } else if (event.status in terminalStatuses) {
+            joins[event.player.uniqueId]?.lastStatus = event.status
             pendingRequests.remove(event.player.uniqueId)
             loadedPlayers -= event.player.uniqueId
-            debugLog("request failed player=${event.player.uniqueId} id=${event.id} status=${event.status}")
+            debugLog { "request failed player=${event.player.uniqueId} id=${event.id} status=${event.status}" }
             plugin.refreshPackItemModels(event.player, false)
             if (required && !isDeliveryAvailable()) warnRequiredUnavailable()
-            val mustDisconnect = ManagedPackPolicy.disconnectsOnFailure(mode, request.required && isDeliveryAvailable(), event.status in terminalStatuses)
+            val mustDisconnect = action == RequiredPackStatusAction.DISCONNECT &&
+                ManagedPackPolicy.disconnectsOnFailure(mode, request.required && isDeliveryAvailable(), event.status in terminalStatuses)
             releaseRequiredWait(event.player.uniqueId, continueJoin = !mustDisconnect)
             if (mustDisconnect && event.player.isOnline) {
                 event.player.kick(plugin.message(event.player, requiredFailureMessageKey(event.status)))
@@ -259,7 +338,6 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
         preferences -= event.player.uniqueId
         pendingRequests -= event.player.uniqueId
         observedManagedStatuses -= event.player.uniqueId
-        scheduledJoinRequests -= event.player.uniqueId
         releaseRequiredWait(event.player.uniqueId, continueJoin = false)
     }
 
@@ -270,11 +348,7 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
         preferences.clear()
         pendingRequests.clear()
         observedManagedStatuses.clear()
-        requiredTimeouts.values.forEach(BukkitTask::cancel)
-        requiredTimeouts.clear()
-        requiredWaiters.clear()
-        requiredPackGate.clear()
-        scheduledJoinRequests.clear()
+        joins.keys.toList().forEach { releaseRequiredWait(it, continueJoin = false) }
     }
 
     private fun loadArtifact(): ResourcePackArtifact? = runCatching {
@@ -337,11 +411,10 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
         }
     }
 
-    private fun plain(component: net.kyori.adventure.text.Component): String =
-        net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(component)
+    private fun plain(component: net.kyori.adventure.text.Component): String = component.plainText()
 
-    private fun debugLog(message: String) {
-        if (debug) plugin.logger.info("Resource pack debug: $message") else plugin.logger.fine("Resource pack debug: $message")
+    private inline fun debugLog(message: () -> String) {
+        if (debug) plugin.logger.info("Resource pack debug: ${message()}")
     }
 
     private companion object {
@@ -357,6 +430,9 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
 
 /** ビルド済みZIPの識別情報を管理者コマンドへ渡します。 */
 internal data class ResourcePackBuildInfo(val sha1: String, val sizeBytes: Long)
+
+/** OFF変更時は、すでに適用済みの同じ要求だけをクライアントから除去します。 */
+internal fun shouldRemoveAppliedPack(wasLoaded: Boolean, shouldSend: Boolean): Boolean = wasLoaded && !shouldSend
 
 /** 外部配信のイベント監視で、送信・ID照合・適用状態の規則を集約します。 */
 internal object ManagedPackPolicy {
@@ -393,21 +469,53 @@ internal fun requiredFailureMessageKey(status: PlayerResourcePackStatusEvent.Sta
 
 /** 必須パック待機の開始条件とタイムアウトを安全な範囲へ正規化します。 */
 internal object RequiredPackGatePolicy {
+    const val MAX_TIMEOUT_EXTENSIONS = 3
+    const val MIN_TIMEOUT_SECONDS = 10
+    const val MAX_TIMEOUT_SECONDS = 600
+    val progressStatuses = setOf(
+        PlayerResourcePackStatusEvent.Status.ACCEPTED,
+        PlayerResourcePackStatusEvent.Status.DOWNLOADED,
+    )
+    val terminalStatuses = setOf(
+        PlayerResourcePackStatusEvent.Status.DECLINED,
+        PlayerResourcePackStatusEvent.Status.FAILED_DOWNLOAD,
+        PlayerResourcePackStatusEvent.Status.INVALID_URL,
+        PlayerResourcePackStatusEvent.Status.FAILED_RELOAD,
+        PlayerResourcePackStatusEvent.Status.DISCARDED,
+    )
+
+    /** 必須ゲートに対する各クライアント状態イベントの処理を決めます。 */
+    fun statusAction(
+        status: PlayerResourcePackStatusEvent.Status,
+        requestRequired: Boolean,
+        bypass: Boolean,
+        waiting: Boolean,
+    ): RequiredPackStatusAction = when {
+        status == PlayerResourcePackStatusEvent.Status.SUCCESSFULLY_LOADED -> RequiredPackStatusAction.COMPLETE
+        waiting && bypass -> RequiredPackStatusAction.COMPLETE
+        waiting && requestRequired && status in progressStatuses -> RequiredPackStatusAction.EXTEND
+        waiting && requestRequired && status in terminalStatuses -> RequiredPackStatusAction.DISCONNECT
+        waiting && status in terminalStatuses -> RequiredPackStatusAction.COMPLETE
+        else -> RequiredPackStatusAction.IGNORE
+    }
+
+    /** 待機ロック用リスナーが必要な配信構成か判定します。 */
+    fun shouldRegisterLockListener(required: Boolean, deliveryAvailable: Boolean, mode: String): Boolean =
+        required && deliveryAvailable && mode != "external_managed"
+
+    /** 予約済みの次tick処理を現在の接続セッションだけに許可します。 */
+    fun shouldDispatch(sessionMatches: Boolean, online: Boolean, waiting: Boolean): Boolean =
+        sessionMatches && online && waiting
+
     fun shouldWait(required: Boolean, deliveryAvailable: Boolean, mode: String, bypass: Boolean): Boolean =
         required && deliveryAvailable && ManagedPackPolicy.sendsPack(mode) && !bypass
 
-    fun timeoutTicks(seconds: Int): Long = seconds.coerceIn(10, 600).toLong() * 20L
+    fun timeoutTicks(seconds: Int): Long =
+        seconds.coerceIn(MIN_TIMEOUT_SECONDS, MAX_TIMEOUT_SECONDS).toLong() * 20L
 }
 
-/** UUID単位の必須リソースパック待機状態を管理します。 */
-internal class RequiredPackGate {
-    private val waiting = mutableSetOf<UUID>()
-
-    fun begin(playerId: UUID): Boolean = waiting.add(playerId)
-    fun isWaiting(playerId: UUID): Boolean = playerId in waiting
-    fun release(playerId: UUID): Boolean = waiting.remove(playerId)
-    fun clear() = waiting.clear()
-}
+/** パック状態イベントをゲートへ適用する純粋な処理分類です。 */
+internal enum class RequiredPackStatusAction { COMPLETE, EXTEND, DISCONNECT, IGNORE }
 
 /** 配信不能時は必須指定を弱め、運用設定で利用者全員を締め出さない判定です。 */
 internal data class ResourcePackDecision(val send: Boolean, val required: Boolean) {

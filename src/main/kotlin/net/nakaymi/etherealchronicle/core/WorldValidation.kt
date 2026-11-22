@@ -39,7 +39,7 @@ internal fun WorldContent.validateWorldReferences(documents: Map<String,Map<Stri
             "ENTER_DUNGEON" -> require(chapters.values.any { a.target in it.strings("dungeons") }) { "actions.ENTER_DUNGEON -> ${a.target}: ec.error.invalid_content" }
             "TELEPORT_AREA" -> {
                 val area=areas[a.target] ?: error("actions.TELEPORT_AREA -> ${a.target}: ec.error.invalid_content")
-                require(area.world == "ec_world") { "actions.TELEPORT_AREA: ec.error.invalid_content" }
+        require(area.world == WorldIds.DEMO) { "actions.TELEPORT_AREA: ec.error.invalid_content" }
                 a.destination?.let { require(area.contains(it)) { "actions.TELEPORT_AREA.destination: ec.error.invalid_content" } }
                 a.requiredFlag?.let { flag -> require(chapters.values.any { flag in it.strings("flags") }) { "actions.TELEPORT_AREA.required_flag: ec.error.invalid_content" } }
             }

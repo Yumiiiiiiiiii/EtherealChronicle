@@ -81,6 +81,9 @@ class EmbeddedPackServer(
         { task -> Thread(task, "ec-resource-pack-http").apply { isDaemon = true } },
         ThreadPoolExecutor.AbortPolicy(),
     )
+    private val writeWatchdog = java.util.concurrent.Executors.newSingleThreadScheduledExecutor { task ->
+        Thread(task, "ec-resource-pack-write-watchdog").apply { isDaemon = true }
+    }
     private val serverSocket = ServerSocket().apply {
         reuseAddress = true
         bind(InetSocketAddress(endpoint.bindHost, endpoint.port), maxConcurrent)
@@ -180,7 +183,7 @@ class EmbeddedPackServer(
     /** HTTP応答に必要な最小ヘッダーだけを書き、本文はGETにだけ付けます。 */
     private fun writeResponse(socket: Socket, status: Int, reason: String, body: ByteArray?, headOnly: Boolean) {
         val bytes = body ?: ByteArray(0)
-        withSocketWriteDeadline(socket, writeDeadlineMillis) { socketOutput ->
+        withSocketWriteDeadline(socket, resourcePackWriteDeadlineMillis(bytes.size, writeDeadlineMillis), writeWatchdog) { socketOutput ->
             val output = BufferedOutputStream(socketOutput)
             val contentType = if (status == 200) "Content-Type: application/zip\r\n" else ""
             val cacheControl = cacheControlHeader(status)
@@ -206,6 +209,7 @@ class EmbeddedPackServer(
         runCatching { serverSocket.close() }
         sockets.toList().forEach { runCatching { it.close() } }
         executor.shutdownNow()
+        writeWatchdog.shutdownNow()
     }
 
     private companion object {
@@ -219,9 +223,10 @@ class EmbeddedPackServer(
 internal fun withSocketWriteDeadline(
     socket: Socket,
     timeoutMillis: Int,
+    watchdog: ScheduledExecutorService,
     write: (OutputStream) -> Unit,
 ) {
-    val timeout = socketWriteWatchdog.schedule({ runCatching { socket.close() } }, timeoutMillis.toLong(), TimeUnit.MILLISECONDS)
+    val timeout = watchdog.schedule({ runCatching { socket.close() } }, timeoutMillis.toLong(), TimeUnit.MILLISECONDS)
     try {
         write(socket.getOutputStream())
     } finally {
@@ -229,9 +234,14 @@ internal fun withSocketWriteDeadline(
     }
 }
 
-private val socketWriteWatchdog: ScheduledExecutorService = java.util.concurrent.Executors.newSingleThreadScheduledExecutor { task ->
-    Thread(task, "ec-resource-pack-write-watchdog").apply { isDaemon = true }
+/** パック容量に応じて通常回線の書込み猶予を増やし、上限時間で低速接続を切ります。 */
+internal fun resourcePackWriteDeadlineMillis(sizeBytes: Int, minimumDeadlineMillis: Int): Int {
+    val expectedMillis = sizeBytes.coerceAtLeast(0).toLong() * 1_000 / MINIMUM_PACK_RATE_BYTES_PER_SECOND
+    return maxOf(minimumDeadlineMillis, expectedMillis.toInt()).coerceAtMost(MAX_PACK_WRITE_DEADLINE_MILLIS)
 }
+
+private const val MINIMUM_PACK_RATE_BYTES_PER_SECOND = 512 * 1024L
+private const val MAX_PACK_WRITE_DEADLINE_MILLIS = 180_000
 
 /** 成功ZIPだけを長期キャッシュし、エラー応答の誤キャッシュを避けます。 */
 internal fun cacheControlHeader(status: Int): String =

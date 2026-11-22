@@ -1,5 +1,8 @@
 package net.nakaymi.etherealchronicle.core
 
+/** 安全なデモワールドの識別子を一箇所で管理します。 */
+object WorldIds { const val DEMO = "ec_world" }
+
 /** YAMLから読み込む依頼条件。すべての条件群を満たしたときに依頼を受注できます。 */
 data class Condition(
     val minLevel: Int = 1,

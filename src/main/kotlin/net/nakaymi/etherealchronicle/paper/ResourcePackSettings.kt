@@ -47,6 +47,42 @@ internal data class ResourcePackSettings(
     }
 
     companion object {
+        /** 設定ミスを通知し、パック機能だけを止めてプラグイン起動を継続します。 */
+        fun loadSafely(config: ConfigurationSection, onFailure: (Throwable) -> Unit): ResourcePackSettings =
+            runCatching { from(config) }.getOrElse { error ->
+                onFailure(error)
+                safeDisabled()
+            }
+
+        /** typoなどで設定読込に失敗した場合に配信と必須化を安全に止めます。 */
+        fun safeDisabled(): ResourcePackSettings = ResourcePackSettings(
+            enabled = false,
+            required = false,
+            requiredTimeoutSeconds = 120,
+            debug = false,
+            mode = "embedded_http",
+            expectedPackIdText = "",
+            expectedPackId = null,
+            invalidExpectedPackId = false,
+            gamePortEnabled = false,
+            bindHost = "127.0.0.1",
+            publicHost = "",
+            port = 25580,
+            maxConcurrent = 32,
+            maxPerIp = 4,
+            idleReadTimeoutMillis = 500,
+            headerDeadlineMillis = 1_500,
+            writeDeadlineMillis = 5_000,
+            externalUrl = "",
+            externalSha1 = "",
+            gamePortMaxConnections = 16,
+            gamePortMaxPerIp = 2,
+            gamePortMaxHeaderBytes = 4_096,
+            gamePortHeaderDeadlineMillis = 2_000,
+            gamePortIdleTimeoutMillis = 500,
+            gamePortBandwidthKbPerSecond = 1_024,
+        )
+
         /** Bukkitの設定ツリーを型付き設定へ変換します。 */
         fun from(config: ConfigurationSection): ResourcePackSettings {
             val expectedPackIdText = config.getString("resource_pack.expected_pack_id", "")?.trim().orEmpty()
@@ -87,12 +123,18 @@ internal data class ResourcePackSettings(
 
 /** 組み込みHTTPの公開先がローカル限定にならないかを判定します。 */
 internal object ResourcePackEndpointPolicy {
-    fun canAdvertise(bindHost: String, publicHost: String): Boolean =
-        isLoopback(bindHost) || !isLoopback(publicHost)
+    fun canAdvertise(bindHost: String, publicHost: String): Boolean {
+        if (isWildcard(publicHost)) return false
+        return isLoopback(bindHost) || !isLoopback(publicHost)
+    }
 
     private fun isLoopback(host: String): Boolean {
         val normalized = host.trim().removePrefix("[").removeSuffix("]").lowercase()
+        val mappedIpv4 = normalized.removePrefix("::ffff:")
         return normalized == "localhost" || normalized.endsWith(".localhost") || normalized == "::1" ||
-            normalized.startsWith("127.")
+            mappedIpv4.startsWith("127.")
     }
+
+    private fun isWildcard(host: String): Boolean = host.trim().removePrefix("[").removeSuffix("]")
+        .lowercase() in setOf("0.0.0.0", "::", "*")
 }

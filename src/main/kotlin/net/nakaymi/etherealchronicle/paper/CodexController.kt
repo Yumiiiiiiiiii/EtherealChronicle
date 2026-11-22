@@ -18,8 +18,7 @@ internal class CodexController(private val plugin: RpgPlugin) {
         val found = enemies.count { (profile.bestiary[it.id] ?: 0) > 0 }
         return found to enemies.size
     }
-    private fun plain(component:Component):String =
-        net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(component)
+    private fun plain(component:Component):String = component.plainText()
 
     /** エリアごとの魔物発見状況を表示します。 */
     fun openCodex(player:Player) {
@@ -48,12 +47,22 @@ internal class CodexController(private val plugin: RpgPlugin) {
             val dropNames=drops?.let(plugin.snapshot.drops::find)?.entries?.map { plugin.contentName(player,it.item) }.orEmpty()
             menu.setItem(slot,ItemStack(if(discovered) Material.BLAZE_POWDER else Material.GRAY_DYE).apply { itemMeta=itemMeta.apply {
                 displayName(if(discovered) Component.text(enemy.name) else plugin.message(player,"ec.codex.undiscovered_enemy"))
-                val weaknesses=enemy.weaknesses.joinToString().ifEmpty { plain(plugin.message(player,"ec.codex.no_weakness")) }
+                val weaknesses=enemy.weaknesses.joinToString { weakness -> plain(plugin.message(player, weaknessNameKey(weakness))) }
+                    .ifEmpty { plain(plugin.message(player,"ec.codex.no_weakness")) }
                 lore(if(discovered) listOf(plugin.message(player,"ec.codex.defeated_count","count" to count),plugin.message(player,"ec.codex.weaknesses","values" to weaknesses),plugin.message(player,"ec.codex.drops","values" to dropNames.joinToString())) else listOf(plugin.message(player,"ec.codex.search_area")))
             } })
         }
         codexFooter(player,menu,page,true)
         plugin.openCodexMenu(player, menu)
+    }
+    private fun weaknessNameKey(value: String): String = when (value.uppercase()) {
+        "PHYSICAL" -> "ec.codex.element.physical"
+        "FIRE" -> "ec.codex.element.fire"
+        "ICE" -> "ec.codex.element.ice"
+        "LIGHTNING" -> "ec.codex.element.lightning"
+        "AETHER" -> "ec.codex.element.aether"
+        "VOID" -> "ec.codex.element.void"
+        else -> "ec.codex.element.unknown"
     }
     /** 発見済みアイテムを一覧表示します。 */
     fun openCodexItems(player:Player) {

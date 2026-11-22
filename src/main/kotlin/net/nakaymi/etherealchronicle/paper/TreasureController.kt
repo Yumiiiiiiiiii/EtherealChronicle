@@ -20,12 +20,15 @@ class TreasureController(private val plugin:RpgPlugin):Listener {
     private val key=NamespacedKey(plugin,"treasure_id")
     private val entities=mutableMapOf<String,MutableList<java.util.UUID>>()
     private val spawning=mutableSetOf<String>()
+    private var chestsByChunk: Map<Pair<Int, Int>, List<TreasureChestDefinition>> = emptyMap()
     init { plugin.server.pluginManager.registerEvents(this,plugin) }
 
     /** 定義済み宝箱表示だけを再配置します。 */
     fun reload() {
         entities.values.flatten().forEach { Bukkit.getEntity(it)?.remove() }; entities.clear()
-        plugin.snapshot.world.treasureChests.values.forEach(::spawn)
+        val chests = plugin.snapshot.world.treasureChests.values.toList()
+        chestsByChunk = chests.groupBy { (it.position.x.toInt() shr 4) to (it.position.z.toInt() shr 4) }
+        chests.forEach(::spawn)
     }
 
     private fun spawn(chest:TreasureChestDefinition) {
@@ -33,6 +36,9 @@ class TreasureController(private val plugin:RpgPlugin):Listener {
         try {
         val world=Bukkit.getWorld(chest.position.world) ?: return
         if(world.name!=DemoWorld.NAME || !DemoWorld.isOwned(world)) return
+        val chunkX=chest.position.x.toInt() shr 4; val chunkZ=chest.position.z.toInt() shr 4
+        // 再読込時に未ロードchunkを同期ロードせず、後続のChunkLoadEventに配置を任せます。
+        if(!world.isChunkLoaded(chunkX,chunkZ)) return
         val loc=Location(world,chest.position.x,chest.position.y,chest.position.z)
         // 対象の設定済みchunkだけ調べ、ワールド全体のentity走査を避けます。
         world.getChunkAt(loc).entities.filter { it.persistentDataContainer.get(key,PersistentDataType.STRING)==chest.id }.forEach { it.remove() }
@@ -46,10 +52,7 @@ class TreasureController(private val plugin:RpgPlugin):Listener {
     @EventHandler
     fun chunkLoad(event:org.bukkit.event.world.ChunkLoadEvent) {
         if(event.world.name!=DemoWorld.NAME) return
-        plugin.snapshot.world.treasureChests.values.filter { chest ->
-            val x=chest.position.x.toInt() shr 4; val z=chest.position.z.toInt() shr 4
-            x==event.chunk.x && z==event.chunk.z
-        }.forEach { chest ->
+        chestsByChunk[event.chunk.x to event.chunk.z].orEmpty().forEach { chest ->
             if(entities[chest.id]?.any { Bukkit.getEntity(it)?.isValid==true } != true) spawn(chest)
         }
     }

@@ -29,6 +29,18 @@ class LangCatalogTest {
         assertTrue(english.toString().contains("<red>traveler"))
     }
 
+    @Test
+    fun bundledFallbackCanBeInitializedWithoutReadingPluginDataFiles() {
+        val defaults = mapOf(
+            "lang/ja_jp.yml" to "greeting: おはよう\n".toByteArray(),
+            "lang/en_us.yml" to "greeting: Hello\n".toByteArray(),
+        )
+        val catalog = LangCatalog.fromBundledDefaults("auto", Logger.getLogger("LangCatalogTest"), defaults)
+
+        assertEquals("Hello", net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+            .serialize(catalog.component("en_us", "greeting")))
+    }
+
     /** 例外キーの後ろに付く診断値を翻訳テンプレートのplaceholderへ渡します。 */
     @Test
     fun diagnosticInterpolatesAppendedDetails() {
@@ -41,6 +53,13 @@ class LangCatalogTest {
 
         assertTrue(catalog.diagnostic("en_us", "ec.error.item: ec:item_missing").toString().contains("ec:item_missing"))
         assertFalse(catalog.diagnostic("en_us", "ec.error.item: ec:item_missing").toString().contains("<id>"))
+    }
+
+    @Test
+    fun diagnosticKeepsShortMiniMessageTagsAndReplacesFullPlaceholders() {
+        val template = "Cost <gold_cost>; <b>bold</b>; value <detail>"
+        assertEquals(listOf("gold_cost", "detail"), LangCatalog.detailPlaceholderMatches(template))
+        assertEquals(emptyList(), LangCatalog.detailPlaceholderMatches("<gold>gold</gold> <br>"))
     }
 
     /** 言語ファイルは独立manifestを使い、編集済み同梱ファイルを上書きしないことを確認します。 */
