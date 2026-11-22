@@ -34,6 +34,12 @@ import kotlin.random.Random
 
 /** 有界の独自釣りセッションを管理し、バニラの浮きと釣果報酬を抑止します。 */
 class FishingController(private val plugin:RpgPlugin,private val random:Random=Random.Default):Listener {
+    private fun projectedSpots(): List<FishingSpotDefinition> = plugin.snapshot.world.fishingSpots.values.mapNotNull { spot ->
+        plugin.projectedPosition(spot.center, spot.area)?.let { spot.copy(world = it.world, center = it) }
+    }
+
+    /** 拠点変更時に旧座標の釣りセッションを終了します。 */
+    fun refreshWorldAnchors() = reload()
     private data class Session(
         val state:FishingState,val spot:FishingSpotDefinition,val rod:TackleDefinition,val castOrigin:Location,
         val water:Location,val bobber:UUID,val bar:BossBar,var input:ReelInput=ReelInput.IDLE,var lastInput:Long=0,
@@ -77,17 +83,18 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
     fun debugCancel(player:org.bukkit.entity.Player):Boolean = cancel(player,"ec.fishing.debug_cancel")
     /** 通常ミニゲームと同じセッション・表示を指定魚種で開始します。 */
     fun debugStart(player:org.bukkit.entity.Player,speciesId:String?):String {
-        require(player.world.name==DemoWorld.NAME && DemoWorld.isOwned(player.world)) { "ec.error.fishing_world" }
+        require(plugin.isManagedWorld(player.world)) { "ec.error.fishing_world" }
         val profile=plugin.profiles[player.uniqueId] ?: error("ec.error.fishing_profile")
         require(!active(player.uniqueId)) { "ec.error.fishing_active" }
         val definitions=plugin.snapshot.world
         val rod=plugin.identify(player.inventory.itemInMainHand)?.let { id -> definitions.tackle.values.firstOrNull { it.item==id && it.kind==TackleKind.ROD } }
             ?: definitions.tackle.values.firstOrNull { it.kind==TackleKind.ROD } ?: error("ec.error.fishing_rod")
         val fish=speciesId?.let { definitions.fishSpecies[it] ?: error("ec.error.fishing_species: $it") }
-            ?: defaultDebugFish(definitions.fishSpecies.values,definitions.fishingSpots.values,profile.lifeSkills.getValue(LifeSkillKind.FISHING).level,player.world.name)
+            ?: defaultDebugFish(definitions.fishSpecies.values,projectedSpots(),profile.lifeSkills.getValue(LifeSkillKind.FISHING).level,player.world.name)
             ?: error("ec.error.fishing_no_species")
-        val spot=definitions.fishingSpots.values.firstOrNull { it.world==player.world.name && (it.id in fish.habitats || it.area in fish.habitats) }
-            ?: definitions.fishingSpots.values.firstOrNull { it.world==player.world.name } ?: error("ec.error.fishing_spot")
+        val spots=projectedSpots()
+        val spot=spots.firstOrNull { it.world==player.world.name && (it.id in fish.habitats || it.area in fish.habitats) }
+            ?: spots.firstOrNull { it.world==player.world.name } ?: error("ec.error.fishing_spot")
         require(sessions.size<capacity) { "ec.error.fishing_capacity" }
         val now=monotonicMillis(); val bobberAt=player.location.clone().add(0.0,1.0,0.0)
         val bobber=player.world.spawn(bobberAt,ItemDisplay::class.java) { display ->
@@ -136,7 +143,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
     @EventHandler(priority=EventPriority.LOWEST)
     fun suppressVanilla(e:PlayerFishEvent) {
         val customRod=plugin.identify(e.player.inventory.itemInMainHand)?.let { id -> plugin.snapshot.world.tackle.values.any { it.item==id && it.kind==TackleKind.ROD } }==true
-        if(e.player.world.name==DemoWorld.NAME && DemoWorld.isOwned(e.player.world) || customRod) e.isCancelled=true
+        if(!plugin.activeWorldProjection.registry.isOverworldMode() && plugin.isManagedWorld(e.player.world) || customRod) e.isCancelled=true
     }
     /** 竿の右・左クリックを釣り開始またはミニゲーム入力へ変換します。 */
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=false)
@@ -165,7 +172,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         cast(player,rod)
     }
     private fun cast(player:org.bukkit.entity.Player,rod:TackleDefinition) {
-        if(player.world.name!=DemoWorld.NAME || !DemoWorld.isOwned(player.world)) { player.sendMessage(plugin.message(player,"ec.fishing.world_only")); return }
+        if(!plugin.isManagedWorld(player.world)) { player.sendMessage(plugin.message(player,"ec.fishing.world_only")); return }
         val profile=plugin.profiles[player.uniqueId] ?: return
         if(profile.classId==null || plugin.adventure.locked(profile.uuid)) { player.sendMessage(plugin.message(player,"ec.fishing.profile_loading")); return }
         val balance=plugin.snapshot.world.lifeBalance
@@ -180,7 +187,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         val target=hit.location.clone().add(0.5,0.85,0.5)
         val distance=player.location.distance(target)
         if(distance !in PaperDistance.MIN_FISH_CAST_DISTANCE_BLOCKS..balance.castRange) { player.sendMessage(plugin.message(player,"ec.fishing.distance")); return }
-        val spot=selectFishingSpot(plugin.snapshot.world.fishingSpots.values,player.world.name,target.x,target.z,profile.flags)
+        val spot=selectFishingSpot(projectedSpots(),player.world.name,target.x,target.z,profile.flags)
             ?: run { player.sendMessage(plugin.message(player,"ec.fishing.no_shadow")); return }
         val p=profile.lifeSkills.getValue(LifeSkillKind.FISHING)
         val bait=chooseBait(player,profile)

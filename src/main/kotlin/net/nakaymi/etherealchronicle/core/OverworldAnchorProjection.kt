@@ -20,6 +20,9 @@ data class OverworldSiteAnchor(
     val portalExitX: Int? = null,
     val portalExitY: Int? = null,
     val portalExitZ: Int? = null,
+    val plazaSpawnX: Int? = null,
+    val plazaSpawnY: Int? = null,
+    val plazaSpawnZ: Int? = null,
 )
 
 /** 入場検知に使う入口中心と、地上への帰還先です。 */
@@ -66,12 +69,19 @@ class PendingOverworldSiteRegistry(
 }
 
 /** 既存 ec_world の座標をそのまま扱う後方互換モードです。 */
-class DedicatedWorldSiteRegistry(private val worldName: String = WorldIds.DEMO) : OverworldSiteRegistry {
+class DedicatedWorldSiteRegistry(
+    private val worldName: String = WorldIds.DEMO,
+    areas: Collection<Area> = emptyList(),
+) : OverworldSiteRegistry {
+    private val sites = areas.associate { area ->
+        area.id to OverworldSiteAnchor(area.id, ((area.minX + area.maxX) / 2).toInt(), 65,
+            ((area.minZ + area.maxZ) / 2).toInt(), "", OverworldSiteStatus.READY)
+    }
     override fun activeWorldName(): String = worldName
     override fun isOverworldMode(): Boolean = false
     override fun isReady(): Boolean = true
-    override fun siteForArea(areaId: String): OverworldSiteAnchor? = null
-    override fun allSites(): List<OverworldSiteAnchor> = emptyList()
+    override fun siteForArea(areaId: String): OverworldSiteAnchor? = sites[areaId]
+    override fun allSites(): List<OverworldSiteAnchor> = sites.values.toList()
     override fun portalForDungeon(dungeonId: String): OverworldDungeonPortal? = null
     override fun allPortals(): List<OverworldDungeonPortal> = emptyList()
     override fun triggerRepair(): String = "UNAVAILABLE"

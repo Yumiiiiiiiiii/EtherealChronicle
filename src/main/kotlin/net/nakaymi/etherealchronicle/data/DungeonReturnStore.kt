@@ -12,7 +12,6 @@ import java.nio.file.StandardOpenOption
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 
 /** クラッシュ後にプレイヤーを地上へ戻すための独立した保存データです。 */
 data class DungeonReturnRecord(
@@ -110,9 +109,8 @@ class DungeonReturnStore(private val file: Path) : AutoCloseable {
         append('"')
     }
 
-    /** 進行中の保存を完了してから IO スレッドを終了します。 */
+    /** 新しい操作を受け付けず、投入済みの保存は IO スレッド上で完了させます。 */
     override fun close() {
         executor.shutdown()
-        check(executor.awaitTermination(30, TimeUnit.SECONDS)) { "Dungeon return IO did not finish" }
     }
 }

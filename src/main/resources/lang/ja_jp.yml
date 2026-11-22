@@ -1,4 +1,11 @@
 ec:
+  sites:
+    repair_result: "拠点の修復: <result>"
+    pending_position: "座標未確定"
+    unknown_biome: "未確定"
+    site: "<id>: <position> / <biome> / <status>"
+    portal: "<id>: 入口 <entrance> / 退出 <exit>"
+    travel_success: "<name>へ移動しました。"
   startup:
     loading: "冒険データを読み込んでいます…"
     starting: "冒険システムは起動中です。しばらくお待ちください。"
@@ -105,6 +112,7 @@ ec:
     result: "<message> 記録 <seconds>秒 / ランク<rank>（自己ベスト <best_seconds>秒 / <best_rank>）"
     clear: "<message>"
     timeout: "聖堂の制限時間を迎えました。"
+    relogin_required: "帰還記録の安全確認には再ログインが必要です。確認まで次の試練には入場できません。"
     preparing: "<name> を準備しています。"
     no_records: "試練の記録はまだありません。"
     record: "<name>: <seconds>秒 / ランク<rank>"

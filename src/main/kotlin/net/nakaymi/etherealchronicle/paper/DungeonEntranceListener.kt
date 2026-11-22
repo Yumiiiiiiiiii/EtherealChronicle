@@ -42,7 +42,8 @@ class DungeonEntranceListener(
             val location = player.location
             if (!player.isOnline || location.world.name != registry.activeWorldName() ||
                 !isInsidePortal(portal, location.x, location.y, location.z) ||
-                registry.siteForArea(portal.areaId)?.status != OverworldSiteStatus.READY) return@Runnable
+                registry.siteForArea(portal.areaId)?.status != OverworldSiteStatus.READY ||
+                registry.portalForDungeon(portal.dungeonId) != portal) return@Runnable
             try {
                 dungeons.enter(player, portal.dungeonId)
             } catch (error: Exception) {

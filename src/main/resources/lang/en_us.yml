@@ -1,4 +1,11 @@
 ec:
+  sites:
+    repair_result: "Site repair: <result>"
+    pending_position: "Position pending"
+    unknown_biome: "Unknown"
+    site: "<id>: <position> / <biome> / <status>"
+    portal: "<id>: entrance <entrance> / exit <exit>"
+    travel_success: "Traveled to <name>."
   startup:
     loading: "Loading your adventure data…"
     starting: "The adventure system is starting. Please wait."
@@ -108,6 +115,7 @@ ec:
     result: "<message> Time <seconds>s / Rank <rank> (best <best_seconds>s / <best_rank>)"
     clear: "<message>"
     timeout: "The trial time limit has been reached."
+    relogin_required: "Reconnect to verify your return. You cannot enter another trial until it is confirmed."
     preparing: "Preparing <name>."
     no_records: "No trial records yet."
     record: "<name>: <seconds>s / Rank <rank>"

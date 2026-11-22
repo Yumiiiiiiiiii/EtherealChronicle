@@ -27,20 +27,27 @@ class TreasureController(private val plugin:RpgPlugin):Listener {
     /** 定義済み宝箱表示だけを再配置します。 */
     fun reload() {
         entities.values.flatten().forEach { Bukkit.getEntity(it)?.remove() }; entities.clear()
-        val chests = plugin.snapshot.world.treasureChests.values.toList()
+        val chests = plugin.snapshot.world.treasureChests.values.mapNotNull { chest ->
+            plugin.activeWorldProjection.projector.projectHorizontal(chest.position)?.let { chest.copy(position = it) }
+        }
         chestsByChunk = chests.groupBy { chunkCoordinates(it.position.x, it.position.z) }
         chests.forEach(::spawn)
     }
 
+    /** 拠点変更時に旧表示を除去し、チャンク別索引を再構築します。 */
+    fun refreshWorldAnchors() = reload()
+
     private fun spawn(chest:TreasureChestDefinition) {
         if(!spawning.add(chest.id)) return
         try {
-        val world=Bukkit.getWorld(chest.position.world) ?: return
-        if(world.name!=DemoWorld.NAME || !DemoWorld.isOwned(world)) return
+        val source=plugin.snapshot.world.treasureChests[chest.id] ?: return
+        val position=plugin.projectedPosition(source.position) ?: return
+        val world=Bukkit.getWorld(position.world) ?: return
+        if(!plugin.isManagedWorld(world)) return
         val (chunkX,chunkZ)=chunkCoordinates(chest.position.x,chest.position.z)
         // 再読込時に未ロードchunkを同期ロードせず、後続のChunkLoadEventに配置を任せます。
         if(!world.isChunkLoaded(chunkX,chunkZ)) return
-        val loc=Location(world,chest.position.x,chest.position.y,chest.position.z)
+        val loc=Location(world,position.x,position.y,position.z)
         // 対象の設定済みchunkだけ調べ、ワールド全体のentity走査を避けます。
         world.getChunkAt(loc).entities.filter { it.persistentDataContainer.get(key,PersistentDataType.STRING)==chest.id }.forEach { it.remove() }
         val display=world.spawn(loc,BlockDisplay::class.java) { it.block=Material.CHEST.createBlockData(); it.isPersistent=false; it.isInvulnerable=true; it.persistentDataContainer.set(key,PersistentDataType.STRING,chest.id) }
@@ -60,7 +67,7 @@ class TreasureController(private val plugin:RpgPlugin):Listener {
 
     @EventHandler
     fun chunkLoad(event:org.bukkit.event.world.ChunkLoadEvent) {
-        if(event.world.name!=DemoWorld.NAME) return
+        if(!plugin.isActiveWorld(event.world)) return
         chestsByChunk[event.chunk.x to event.chunk.z].orEmpty().forEach { chest ->
             if(entities[chest.id]?.any { Bukkit.getEntity(it)?.isValid==true } != true) spawn(chest)
         }

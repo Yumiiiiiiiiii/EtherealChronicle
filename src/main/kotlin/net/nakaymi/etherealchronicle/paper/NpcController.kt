@@ -1,7 +1,6 @@
 package net.nakaymi.etherealchronicle.paper
 
 import net.nakaymi.etherealchronicle.core.WorldSchedule
-import net.nakaymi.etherealchronicle.core.WorldIds
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.NamespacedKey
@@ -34,6 +33,9 @@ internal class NpcController(private val plugin: RpgPlugin) : Listener {
         reconcile()
     }
 
+    /** 完成拠点の変更後に既存 NPC を撤去して再配置します。 */
+    fun refreshWorldAnchors() = reload()
+
     /** 現在のNPC定義だけを確認し、出現条件に合わせて配置・撤去します。 */
     fun tick() = reconcile()
 
@@ -47,7 +49,8 @@ internal class NpcController(private val plugin: RpgPlugin) : Listener {
 
     private fun reconcile() {
         plugin.snapshot.world.npcs.values.forEach { definition ->
-            val world = Bukkit.getWorld(definition.position.world)
+            val position = plugin.projectedPosition(definition.position)
+            val world = position?.let { Bukkit.getWorld(it.world) }
             val shouldExist = world != null && WorldSchedule.matches(
                 definition.timeWindows,
                 definition.weather,
@@ -65,13 +68,14 @@ internal class NpcController(private val plugin: RpgPlugin) : Listener {
             if (existing?.isValid == true) return@forEach
 
             entities.remove(definition.id)
-        require(world.name == WorldIds.DEMO) { "ec.error.world_owned_only" }
+            if (!plugin.isActiveWorld(world)) return@forEach
+            val projected = position ?: return@forEach
             val location = Location(
                 world,
-                definition.position.x,
-                definition.position.y,
-                definition.position.z,
-                definition.position.yaw,
+                projected.x,
+                projected.y,
+                projected.z,
+                projected.yaw,
                 0f,
             )
             // Chunkを読み込まず、ロード済み地点だけを管理することでTPSとワールド状態を守ります。

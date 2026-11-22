@@ -67,7 +67,7 @@
 | `ec.command.item_given` | アイテムを付与しました。 | Item granted. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.level_set` | レベルを変更しました。 | Level updated. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.life_level_set` | <kind> をレベル <level> に設定しました。 | Set <kind> to level <level>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<kind>`, `<level>` |
-| `ec.command.no_permission` | 権限がありません。 | You do not have permission to use this command. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.command.no_permission` | 権限がありません。 | You do not have permission to use this command. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.command.reload_busy` | 取引・職業選択・聖堂攻略中は再読み込みできません。 | Content cannot reload during a transaction, class selection, or trial. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.reload_content_in_use` | 使用中の職業または依頼を削除する変更は再読み込みできません。 | Reload cannot remove a class or quest currently in use. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.reload_success` | コンテンツを再読み込みしました。resource_pack.* の設定変更は再起動後に反映されます。 | Content reloaded. Changes to resource_pack.* settings require a restart. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
@@ -91,6 +91,7 @@
 | `ec.dungeon.no_records` | 試練の記録はまだありません。 | No trial records yet. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.dungeon.preparing` | <name> を準備しています。 | Preparing <name>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt | `<name>` |
 | `ec.dungeon.record` | <name>: <seconds>秒 / ランク<rank> | <name>: <seconds>s / Rank <rank> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<name>`, `<rank>`, `<seconds>` |
+| `ec.dungeon.relogin_required` | 帰還記録の安全確認には再ログインが必要です。確認まで次の試練には入場できません。 | Reconnect to verify your return. You cannot enter another trial until it is confirmed. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
 | `ec.dungeon.result` | <message> 記録 <seconds>秒 / ランク<rank>（自己ベスト <best_seconds>秒 / <best_rank>） | <message> Time <seconds>s / Rank <rank> (best <best_seconds>s / <best_rank>) | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<best_rank>`, `<best_seconds>`, `<message>`, `<rank>`, `<seconds>` |
 | `ec.dungeon.timeout` | 聖堂の制限時間を迎えました。 | The trial time limit has been reached. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
 | `ec.dungeon.wave` | 試練 第<current>/<total>波が始まります。 | Trial wave <current>/<total> is beginning. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<current>`, `<total>` |
@@ -102,7 +103,7 @@
 | `ec.enhance.refunded` | 強化対象が持ち物から見つからず、費用を返却しました。 | The target equipment was missing, so the cost was refunded. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.enhance.success` | 装備を +<level> に強化しました。 | Equipment enhanced to +<level>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<level>` |
 | `ec.equipment.accessory_equipped` | 装飾品を装備しました。 | Accessory equipped. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
-| `ec.error.area_missing` | 転送先エリアが見つかりません。 | Destination area not found. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
+| `ec.error.area_missing` | 転送先エリアが見つかりません。 | Destination area not found. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.error.argument_missing` | 引数が不足しています: <detail> | Missing argument: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt | `<detail>` |
 | `ec.error.class_already_selected` | 職業は既に選択されています。 | A class has already been selected. | src/main/kotlin/net/nakaymi/etherealchronicle/core/GameService.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.error.class_busy` | 職業変更を処理中です。しばらくお待ちください。 | A class change is already in progress. Please wait. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
@@ -119,7 +120,7 @@
 | `ec.error.dialogue_too_deep` | 会話の分岐が長すぎます。 | The dialogue branch is too long. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.dungeon_already_inside` | 既にダンジョン内です。 | You are already in a dungeon. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
 | `ec.error.dungeon_full` | 聖堂が満員です。しばらくお待ちください。 | The sanctuary is full. Please wait. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
-| `ec.error.dungeon_missing` | ダンジョンが見つかりません: <detail> | Dungeon not found: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<detail>` |
+| `ec.error.dungeon_missing` | ダンジョンが見つかりません: <detail> | Dungeon not found: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonEntranceListener.kt | `<detail>` |
 | `ec.error.dungeon_required` | 進捗の条件には有効なダンジョンIDが必要です。 | The advancement condition requires a valid dungeon ID. | src/main/kotlin/net/nakaymi/etherealchronicle/core/WorldContent.kt |  |
 | `ec.error.dungeon_unlock_required` | 仲間全員がダンジョンへの道を開放してください。 | All party members must unlock access to the dungeon. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
 | `ec.error.enemy_missing` | 魔物が見つかりません。 | Enemy not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/GameService.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
@@ -195,16 +196,16 @@
 | `ec.error.target_missing` | 対象が見つかりません。 | The target was not found. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.error.target_participant` | 対象の参加者ではありません。 | You are not a participant in that target. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.error.teleport_condition` | 転送条件を満たしていません。 | You do not meet the teleport requirements. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
-| `ec.error.teleport_destination` | 転送座標は対象エリア内で指定してください。 | The teleport destination must be inside the selected area. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
+| `ec.error.teleport_destination` | 転送座標は対象エリア内で指定してください。 | The teleport destination must be inside the selected area. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.error.teleport_world` | 管理ワールド以外へは転送できません。 | Teleporting outside the managed world is not allowed. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
-| `ec.error.transaction_busy` | 取引の処理中です。 | A transaction is already in progress. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.error.transaction_busy` | 取引の処理中です。 | A transaction is already in progress. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.error.transaction_changed` | 取引の状態が変化しました。 | The transaction state changed. Please try again. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.transaction_replayed` | 処理済みの取引です。 | This transaction has already been processed. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.transaction_rolled_back` | 保存に失敗したため取引を戻しました。 | The transaction was rolled back because saving failed. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
-| `ec.error.usage` | 使い方: <detail> | Usage: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<detail>` |
+| `ec.error.usage` | 使い方: <detail> | Usage: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<detail>` |
 | `ec.error.world_missing` | 転送先ワールドがありません。 | Destination world is unavailable. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
-| `ec.error.world_owned_only` | この操作は管理対象ワールド内でのみ利用できます。 | This action is only available in the managed world. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/NpcController.kt |  |
-| `ec.error.world_unavailable` | 専用ワールドの準備ができていません。 | The dedicated world is not ready. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.error.world_owned_only` | この操作は管理対象ワールド内でのみ利用できます。 | This action is only available in the managed world. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt |  |
+| `ec.error.world_unavailable` | 専用ワールドの準備ができていません。 | The dedicated world is not ready. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.fishing.actionbar_status` | <aqua>張力 <tension>% \| 進捗 <progress>% | <aqua>Tension <tension>% \| Progress <progress>% | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt | `<progress>`, `<tension>` |
 | `ec.fishing.aim_water` | 水面を狙って竿を投げてください。 | Aim at the water before casting. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
 | `ec.fishing.bait_auto` | 自動 | Auto | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
@@ -390,6 +391,12 @@
 | `ec.sim.saved` | 仮想プロフィール <name> を保存しました。 | Saved virtual profile <name>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<name>` |
 | `ec.sim.spawn` | 仮想出現 UUID=<uuid> HP=<hp> | Simulated spawn UUID=<uuid> HP=<hp> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<hp>`, `<uuid>` |
 | `ec.sim.transaction` | 取引 <id> / 所持金: <currency> / 持ち物: <inventory> | Transaction <id> / Currency: <currency> / Inventory: <inventory> | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt | `<currency>`, `<id>`, `<inventory>` |
+| `ec.sites.pending_position` | 座標未確定 | Position pending | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
+| `ec.sites.portal` | <id>: 入口 <entrance> / 退出 <exit> | <id>: entrance <entrance> / exit <exit> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<entrance>`, `<exit>`, `<id>` |
+| `ec.sites.repair_result` | 拠点の修復: <result> | Site repair: <result> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<result>` |
+| `ec.sites.site` | <id>: <position> / <biome> / <status> | <id>: <position> / <biome> / <status> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<biome>`, `<id>`, `<position>`, `<status>` |
+| `ec.sites.travel_success` | <name>へ移動しました。 | Traveled to <name>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<name>` |
+| `ec.sites.unknown_biome` | 未確定 | Unknown | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.skill.cooldown` | まだ使用できません。 | That skill is not ready yet. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.skill.obstructed` | 魔物との間に障害物があります。 | An obstacle blocks your line to the enemy. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.skill.resource_low` | リソースが足りません。 | Not enough resource. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |

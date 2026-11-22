@@ -39,7 +39,7 @@ $rows = foreach ($key in $orderedKeys) {
     $j = $ja[$key].Replace('|','\|').Replace("`n",'<br>')
     if (!$en.Contains($key)) { throw "Missing English translation for $key" }
     $e = $en[$key].Replace('|','\|').Replace("`n",'<br>')
-    $tokenNames = @([regex]::Matches($ja[$key], '<(?!aqua|black|blue|dark_aqua|dark_blue|dark_gray|dark_green|dark_purple|dark_red|gold|gray|green|italic|light_purple|red|reset|white|yellow)([a-zA-Z][a-zA-Z0-9_]*)>') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)
+    $tokenNames = @([regex]::Matches($ja[$key], '<(?!aqua|black|blue|dark_aqua|dark_blue|dark_gray|dark_green|dark_purple|dark_red|gold|gray|green|italic|light_purple|newline|red|reset|white|yellow)([a-zA-Z][a-zA-Z0-9_]*)>') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)
     $tokenNames = [string[]]$tokenNames
     if ($tokenNames.Count -gt 1) { [Array]::Sort($tokenNames, [StringComparer]::Ordinal) }
     $tokens = $tokenNames | ForEach-Object { '`<' + $_ + '>`' }

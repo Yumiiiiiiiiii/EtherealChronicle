@@ -4,10 +4,67 @@ import net.nakaymi.etherealchronicle.core.*
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.command.CommandSender
+import org.bukkit.entity.Player
 import java.util.UUID
 
 /** サーバー実体を使わずゲームサービスを検査する管理用仮想プレイヤー操作です。 */
 internal class SimulationCommandController(private val plugin: RpgPlugin) {
+    private val pendingTravel = mutableMapOf<UUID, UUID>()
+    /** 切断後の古いチャンク読込結果が再接続者を移動しないようにします。 */
+    fun cancelTravel(playerId: UUID) { pendingTravel.remove(playerId) }
+    /** 拠点と入口の準備状態を表示し、管理者だけに修復を許可します。 */
+    fun sites(sender: CommandSender, args: List<String>) {
+        val registry = plugin.activeWorldProjection.registry
+        if (args.getOrNull(1) == "repair") {
+            require(sender.hasPermission("etherealchronicle.admin")) { "ec.command.no_permission" }
+            sender.sendMessage(plugin.message(sender, "ec.sites.repair_result", "result" to registry.triggerRepair()))
+            return
+        }
+        require(args.size == 1) { "ec.error.usage: /ec sites [repair]" }
+        registry.allSites().forEach { site ->
+            val where = if (site.status == OverworldSiteStatus.PENDING) plugin.message(sender, "ec.sites.pending_position") else "${site.centerX}, ${site.surfaceY}, ${site.centerZ}"
+            val biome = site.biomeKey.ifBlank { plugin.message(sender, "ec.sites.unknown_biome").plainText() }
+            sender.sendMessage(plugin.message(sender, "ec.sites.site", "id" to site.areaId, "position" to where, "biome" to biome, "status" to site.status))
+        }
+        registry.allPortals().forEach { portal ->
+            sender.sendMessage(plugin.message(sender, "ec.sites.portal", "id" to portal.dungeonId,
+                "entrance" to "${portal.centerX}, ${portal.centerY}, ${portal.centerZ}",
+                "exit" to "${portal.exitX}, ${portal.exitY}, ${portal.exitZ}"))
+        }
+    }
+
+    /** 地点 ID の短縮形を解決します。曖昧な省略形は受け付けません。 */
+    fun resolveSiteId(input: String): String? {
+        val short = input.lowercase().removePrefix("ec:").removePrefix("area_")
+        val matches = plugin.snapshot.world.areas.keys.filter { it.removePrefix("ec:area_") == short }
+        return matches.singleOrNull()
+    }
+
+    /** チャンクを非同期で読み込み、地表と頭上を検査してから移動します。 */
+    fun travel(player: Player, input: String) {
+        require(player.uniqueId !in pendingTravel) { "ec.error.transaction_busy" }
+        val areaId = resolveSiteId(input) ?: error("ec.error.area_missing")
+        val area = plugin.snapshot.world.areas.getValue(areaId)
+        val source = Position(area.world, (area.minX + area.maxX) / 2, 65.0, (area.minZ + area.maxZ) / 2)
+        val horizontal = plugin.activeWorldProjection.projector.projectHorizontal(source, areaId) ?: error("ec.error.world_unavailable")
+        val world = plugin.server.getWorld(horizontal.world) ?: error("ec.error.world_unavailable")
+        val chunk = ChunkCoordinates.fromPosition(horizontal.x, horizontal.z)
+        val token = UUID.randomUUID()
+        pendingTravel[player.uniqueId] = token
+        world.getChunkAtAsync(chunk.x, chunk.z).whenComplete { _, failure -> plugin.sync {
+            if (!player.isOnline || player.isDead || pendingTravel[player.uniqueId] != token) return@sync
+            pendingTravel.remove(player.uniqueId)
+            val target = if (failure == null) plugin.projectedPosition(source, areaId) else null
+            if (target == null || target.world != world.name) { player.sendMessage(plugin.message(player, "ec.error.world_unavailable")); return@sync }
+            val location = Location(world, target.x + 0.5, target.y, target.z + 0.5)
+            val ground = location.clone().subtract(0.0, 1.0, 0.0).block.type
+            val safe = world.worldBorder.isInside(location) && location.block.type.isAir &&
+                location.clone().add(0.0, 1.0, 0.0).block.type.isAir && ground.isSolid &&
+                ground !in setOf(org.bukkit.Material.MAGMA_BLOCK, org.bukkit.Material.CACTUS, org.bukkit.Material.CAMPFIRE, org.bukkit.Material.SOUL_CAMPFIRE)
+            if (!safe || !player.teleport(location)) player.sendMessage(plugin.message(player, "ec.error.teleport_destination"))
+            else player.sendMessage(plugin.message(player, "ec.sites.travel_success", "name" to area.name))
+        } }
+    }
     /** 仮想プロフィールへ指定操作を適用し、結果を送信者へ返します。 */
     fun run(sender: CommandSender, args: List<String>) {
         require(args.size >= 3 && args[0] == "sim") { "ec.error.sim_usage" }
@@ -38,9 +95,9 @@ internal class SimulationCommandController(private val plugin: RpgPlugin) {
                     sender.sendMessage(plugin.message(sender, "ec.sim.party", "members" to parties.members(p.uuid)))
                 }
                 "spawn" -> {
-        val world=plugin.server.getWorld(WorldIds.DEMO) ?: error("ec.error.world_missing")
+                    val world=plugin.server.getWorld(plugin.activeWorldProjection.worldName()) ?: error("ec.error.world_missing")
                     val id=args[3]; val definition=plugin.snapshot.world.enemies[id] ?: error("ec.error.enemy_missing: $id")
-                    val pos=definition.spawns.firstOrNull()?.position
+                    val pos=definition.spawns.firstOrNull()?.position?.let { plugin.projectedPosition(it) }
                     val location=pos?.let { Location(world,it.x,it.y,it.z) } ?: world.spawnLocation
                     val mob=plugin.enemies.spawn(id,location,"sim:$name:$id",1,setOf(p.uuid),pinForSimulation=true) ?: error("ec.error.spawn_unavailable")
                     sender.sendMessage(plugin.message(sender, "ec.sim.spawn", "uuid" to mob.uniqueId, "hp" to plugin.enemies.state(mob.uniqueId)?.boss?.hp))

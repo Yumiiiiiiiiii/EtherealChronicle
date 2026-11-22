@@ -97,7 +97,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
                 "cooldown" to (profile?.gatheringReadyAt?.get(siteKey(site))?.let { maxOf(0,it-System.currentTimeMillis()) } ?: 0)
             ).let(::plain)
         } ?: plain(plugin.message(player,"ec.debug.none"))
-        val owned=runCatching { player.world.name==DemoWorld.NAME && DemoWorld.isOwned(player.world) }.getOrDefault(false)
+        val owned=plugin.isManagedWorld(player.world)
         return plugin.message(player,"ec.debug.gathering_details",
             "active" to active, "world" to player.world.name, "owned" to owned,
             "x" to player.location.blockX, "y" to player.location.blockY, "z" to player.location.blockZ,
@@ -127,9 +127,17 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
             task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },PaperTaskIntervals.GATHERING_UPDATE_TICKS,PaperTaskIntervals.GATHERING_UPDATE_TICKS)
     }
 
+    /** 拠点変更時に旧表示とチャネルを解放し、完成した地点を再構築します。 */
+    fun refreshWorldAnchors() = reload()
+
     private fun key(world:String,x:Int,y:Int,z:Int)="$world:$x,$y,$z"
     private fun siteKey(site: Site)="${site.node.id}/${site.location.id}"
-    private fun buildSites() = plugin.snapshot.world.gatheringNodes.values.flatMap { node -> node.locations.map { Site(node,it) } }
+    private fun projectedSite(node: GatheringNodeDefinition, location: GatheringLocation): Site? {
+        val source = Position(location.world, location.x.toDouble(), location.y.toDouble(), location.z.toDouble())
+        val projected = plugin.projectedPosition(source, location.area) ?: return null
+        return Site(node, location.copy(world = projected.world, x = floor(projected.x).toInt(), y = floor(projected.y).toInt(), z = floor(projected.z).toInt()))
+    }
+    private fun buildSites() = plugin.snapshot.world.gatheringNodes.values.flatMap { node -> node.locations.mapNotNull { projectedSite(node,it) } }
         .flatMap { site -> listOf(
             key(site.location.world,site.location.x,site.location.y-1,site.location.z) to site,
             key(site.location.world,site.location.x,site.location.y,site.location.z) to site
@@ -147,7 +155,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
     private fun renderSite(site:Site) {
         val at=location(site) ?: return
         val world=at.world
-        if(world.name!=DemoWorld.NAME || !DemoWorld.isOwned(world)) return
+        if(!plugin.isManagedWorld(world) || !world.isChunkLoaded(at.blockX shr 4, at.blockZ shr 4)) return
         val k=siteKey(site)
         if(displays[k]?.all { Bukkit.getEntity(it)?.isValid==true }==true) return
         displays.remove(k)?.forEach { Bukkit.getEntity(it)?.remove() }
@@ -198,10 +206,26 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         }.forEach { entity ->
             if(displays.values.flatten().none { it == entity.uniqueId }) entity.remove()
         }
+        if (plugin.activeWorldProjection.registry.isOverworldMode() && plugin.isActiveWorld(e.world)) {
+            val loaded = plugin.snapshot.world.gatheringNodes.values.flatMap { node -> node.locations.mapNotNull { point ->
+                val source = Position(point.world, point.x.toDouble(), point.y.toDouble(), point.z.toDouble())
+                val horizontal = plugin.activeWorldProjection.projector.projectHorizontal(source, point.area) ?: return@mapNotNull null
+                if (horizontal.world != e.world.name || ChunkCoordinates.fromPosition(horizontal.x, horizontal.z) != ChunkCoordinates(e.chunk.x, e.chunk.z)) return@mapNotNull null
+                projectedSite(node,point)
+            } }
+            if (loaded.isNotEmpty()) {
+                sitesById = (sitesById.values + loaded).associateBy(::siteKey)
+                sites = sitesById.values.flatMap { site -> listOf(
+                    key(site.location.world,site.location.x,site.location.y-1,site.location.z) to site,
+                    key(site.location.world,site.location.x,site.location.y,site.location.z) to site,
+                ) }.toMap()
+                sitesByChunk = sitesById.values.groupBy { ChunkCoordinates.fromBlocks(it.location.x,it.location.z) }
+            }
+        }
         sitesByChunk[ChunkCoordinates(e.chunk.x, e.chunk.z)].orEmpty().filter { it.location.world==e.world.name }.forEach(::renderSite)
     }
     private fun isProtected(location: Location): Boolean {
-        if(location.world.name != WorldIds.DEMO) return false
+        if(!plugin.isActiveWorld(location.world)) return false
         val x=location.blockX; val y=location.blockY; val z=location.blockZ
         return sitesById.values.any { s -> s.location.world==location.world.name && kotlin.math.abs(s.location.x-x)<=1 && kotlin.math.abs(s.location.y-y)<=1 && kotlin.math.abs(s.location.z-z)<=1 }
     }
@@ -232,7 +256,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         begin(e.player,site)
     }
     private fun begin(player: org.bukkit.entity.Player,site: Site) {
-        if(player.world.name!=DemoWorld.NAME || !DemoWorld.isOwned(player.world)) { reject(player,"ec.gathering.world_only"); return }
+        if(!plugin.isManagedWorld(player.world)) { reject(player,"ec.gathering.world_only"); return }
         val profile=plugin.profiles[player.uniqueId] ?: run { reject(player,"ec.gathering.profile_loading"); return }
         if(plugin.adventure.locked(profile.uuid)) { reject(player,"ec.gathering.transaction_locked"); return }
         if(channels.containsKey(player.uniqueId)) { reject(player,"ec.gathering.already_gathering"); return }

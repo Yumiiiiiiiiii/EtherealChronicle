@@ -87,7 +87,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
         val d=plugin.snapshot.world.enemies[id] ?: error("ec.error.enemy_missing: $id")
         if(budget.count(point) >= cap || budget.total() >= plugin.snapshot.world.tuning.enemyCap) return null
         val world=location.world ?: return null
-        if(world.name != DemoWorld.NAME) error("ec.error.world_owned_only")
+        if(!plugin.isActiveWorld(world)) error("ec.error.world_owned_only")
         if(pinForSimulation) location.chunk.addPluginChunkTicket(plugin)
         val entity=world.spawnEntity(location,EntityType.valueOf(d.entity)) as LivingEntity
         if(!budget.reserve(entity.uniqueId,point,cap)) { entity.remove(); return null }
@@ -184,17 +184,19 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
             }
         }
         plugin.snapshot.world.enemies.values.forEach { d -> d.spawns.forEach { point ->
-            val id="${d.id}/${point.id}"; val world=Bukkit.getWorld(point.position.world) ?: return@forEach
-            val chunk=ChunkCoordinates.fromPosition(point.position.x,point.position.z)
-            if(world.name != DemoWorld.NAME || tick < nextSpawn.getOrDefault(id,0) || !world.isChunkLoaded(chunk.x,chunk.z)) return@forEach
+            val id="${d.id}/${point.id}"
+            val position=plugin.projectedPosition(point.position) ?: return@forEach
+            val world=Bukkit.getWorld(position.world) ?: return@forEach
+            val chunk=ChunkCoordinates.fromPosition(position.x,position.z)
+            if(!plugin.isActiveWorld(world) || tick < nextSpawn.getOrDefault(id,0) || !world.isChunkLoaded(chunk.x,chunk.z)) return@forEach
             if(!WorldSchedule.matches(point.timeWindows,point.weather,world.time,world.hasStorm(),world.isThundering)) return@forEach
-            val spawnLocation=Location(world,point.position.x,point.position.y,point.position.z)
+            val spawnLocation=Location(world,position.x,position.y,position.z)
             if(world.players.none { it.location.isWithinBlocks(spawnLocation,PaperDistance.ENEMY_SPAWN_VISIBILITY_BLOCKS) }) return@forEach
-            if(budget.count(id) < point.cap) spawn(d.id,Location(world,point.position.x,point.position.y,point.position.z),id,point.cap)
+            if(budget.count(id) < point.cap) spawn(d.id,spawnLocation,id,point.cap)
             nextSpawn[id]=tick+point.respawnTicks
         } }
     }
-    private fun isSafe(player: Player) = plugin.snapshot.world.areas.values.any { it.safe && it.contains(Position(player.world.name,player.x,player.y,player.z)) }
+    private fun isSafe(player: Player) = plugin.safeAreas(player.world.name).any { it.contains(Position(player.world.name,player.x,player.y,player.z)) }
     private fun attack(state: MobState,player: Player,multiplier: Double) {
         dealing[state.entity.uniqueId]=multiplier*state.boss.damageScale(tick)
         try { player.damage(state.boss.definition.attack*multiplier,state.entity) } finally { dealing.remove(state.entity.uniqueId) }
@@ -291,6 +293,12 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
     }
     fun removeSimulation(participant: UUID) { states.filterValues { it.pinned && participant in it.participants }.keys.toList().forEach { remove(it,true) } }
     fun removeParticipants(participants: Set<UUID>) { states.filterValues { it.participants == participants }.keys.toList().forEach { remove(it,true) } }
+    /** フィールド敵だけを撤去し、ダンジョンや管理者による敵は維持します。 */
+    fun refreshWorldAnchors() {
+        val fieldPoints = nextSpawn.keys.toSet() + plugin.snapshot.world.enemies.values.flatMap { enemy -> enemy.spawns.map { "${enemy.id}/${it.id}" } }
+        states.filterValues { it.point in fieldPoints }.keys.toList().forEach { remove(it,true) }
+        nextSpawn.clear()
+    }
     fun close() { states.keys.toList().forEach { remove(it,true) }; betterModel.close() }
 }
 
