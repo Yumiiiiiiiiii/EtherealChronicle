@@ -27,6 +27,9 @@ data class SchematicPlacementOptions(
 /** 回転後のスキーマチック内の座標です。 */
 data class SchematicPoint(val x: Int, val y: Int, val z: Int)
 
+/** 基礎の事前確認を分割実行し、完了後に配置手順を取得します。 */
+internal class SchematicPreparation(val steps: Iterator<Unit>, val result: () -> Iterator<() -> Unit>)
+
 /** パレットを一度だけ解決し、物理更新なしで配置します。 */
 object SchematicPlacer {
     /** 回転後の横幅と奥行きを返します。 */
@@ -62,15 +65,46 @@ object SchematicPlacer {
     fun prepare(schematic: SchematicData, world: World, originX: Int, originY: Int, originZ: Int, options: SchematicPlacementOptions,
         warning: (String, Throwable?) -> Unit = ::defaultWarning,
     ): Iterator<() -> Unit> {
+        val preparation = prepareStepped(schematic, world, originX, originY, originZ, options, warning)
+        preparation.steps.forEach { }
+        return preparation.result()
+    }
+
+    /** 接地確認を列単位で進め、全列に成功するまで配置手順を公開しません。 */
+    internal fun prepareStepped(schematic: SchematicData, world: World, originX: Int, originY: Int, originZ: Int, options: SchematicPlacementOptions,
+        warning: (String, Throwable?) -> Unit = ::defaultWarning,
+    ): SchematicPreparation {
         require(originY >= world.minHeight && originY.toLong() + schematic.height <= world.maxHeight.toLong())
         val states = schematic.palette
         val structureVoid = states.map { it.substringBefore('[') == "minecraft:structure_void" }
         val air = states.map(::isAir)
         val blockData = states.map { state -> resolveState(state, options, warning) }
         require(!options.extendFoundation || blockData.all { it != null }) { "Cannot validate foundation with an unresolved palette" }
-        val foundations = if (options.extendFoundation) foundationColumns(schematic, world, originX, originY, originZ, options, blockData) else emptyList()
+        val foundations = mutableListOf<FoundationColumn>()
+        var complete = false
+        val steps = sequence {
+            if (options.extendFoundation) {
+                for (z in 0 until schematic.length) for (x in 0 until schematic.width) {
+                    yield(Unit)
+                    val material = blockData[schematic.paletteIndexAt(z * schematic.width + x)]?.material ?: continue
+                    if (!material.isSolid || material == Material.STRUCTURE_VOID) continue
+                    foundations += foundationColumn(schematic, world, originX, originY, originZ, options, x, z)
+                }
+                require(foundations.isNotEmpty()) { "Schematic has no solid foundation blocks" }
+            }
+            complete = true
+        }.iterator()
 
-        return sequence<() -> Unit> {
+        return SchematicPreparation(steps) {
+            check(complete) { "Schematic foundation validation is incomplete" }
+            sequence<() -> Unit> {
+            foundations.forEach { column ->
+                yield {
+                    require(world.getBlockAt(column.x, column.bottom - 1, column.z).type in naturalGround) {
+                        "Foundation ground changed at ${column.x},${column.bottom - 1},${column.z}"
+                    }
+                }
+            }
             if (options.clearTreeCanopyAbove) {
                 val (width, length) = rotatedDimensions(schematic, options.rotation)
                 for (x in 0 until width) for (z in 0 until length) for (y in originY until minOf(world.maxHeight, originY + schematic.height + 8)) {
@@ -103,19 +137,16 @@ object SchematicPlacer {
                     if (!air[paletteIndex] || !block.type.isAir) block.setBlockData(data, false)
                 }
             }
-        }.iterator()
+            }.iterator()
+        }
     }
 
     private data class FoundationColumn(val x: Int, val z: Int, val bottom: Int)
 
     /** 支柱の全列を先に検証し、建造物や地盤のない場所を変更前に拒否します。 */
-    private fun foundationColumns(schematic: SchematicData, world: World, ox: Int, oy: Int, oz: Int,
-        options: SchematicPlacementOptions, data: List<BlockData?>,
-    ): List<FoundationColumn> {
-        val columns = mutableListOf<FoundationColumn>()
-        for (z in 0 until schematic.length) for (x in 0 until schematic.width) {
-            val material = data[schematic.paletteIndexAt(z * schematic.width + x)]?.material ?: continue
-            if (!material.isSolid || material == Material.STRUCTURE_VOID) continue
+    private fun foundationColumn(schematic: SchematicData, world: World, ox: Int, oy: Int, oz: Int,
+        options: SchematicPlacementOptions, x: Int, z: Int,
+    ): FoundationColumn {
             val point = transformLocalPoint(schematic, options.rotation, x, 0, z)
             val wx = ox + point.x
             val wz = oz + point.z
@@ -129,10 +160,7 @@ object SchematicPlacer {
                 false
             }
             require(ground != null) { "No solid foundation within ${options.maxFoundationDepth} blocks at $wx,$wz" }
-            columns += FoundationColumn(wx, wz, ground + 1)
-        }
-        require(columns.isNotEmpty()) { "Schematic has no solid foundation blocks" }
-        return columns
+            return FoundationColumn(wx, wz, ground + 1)
     }
 
     private val naturalGround = setOf(

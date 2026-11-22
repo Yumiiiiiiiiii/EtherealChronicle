@@ -5,6 +5,7 @@ import net.nakaymi.etherealchronicle.core.OverworldSiteLocator
 import net.nakaymi.etherealchronicle.core.SiteTerrain
 import org.bukkit.HeightMap
 import org.bukkit.Material
+import org.bukkit.Tag
 import org.bukkit.World
 import org.bukkit.plugin.Plugin
 import java.util.Locale
@@ -58,7 +59,7 @@ internal class OverworldSiteSearch(private val plugin: Plugin, private val world
         val originZ = (z shr 4) shl 4
         val points = listOf(x to z, originX + 2 to originZ + 2, originX + 13 to originZ + 2,
             originX + 2 to originZ + 13, originX + 13 to originZ + 13)
-        val heights = points.map { (px, pz) -> world.getHighestBlockYAt(px, pz, HeightMap.MOTION_BLOCKING_NO_LEAVES) }
+        val heights = points.map { (px, pz) -> OverworldTerrain.surfaceY(world, px, pz) }
         val surface = world.getBlockAt(x, heights.first(), z).type
         val water = points.zip(heights).any { (point, y) -> world.getBlockAt(point.first, y, point.second).type == Material.WATER }
         return SiteTerrain(
@@ -68,5 +69,18 @@ internal class OverworldSiteSearch(private val plugin: Plugin, private val world
             relief = heights.max() - heights.min(),
             nearbyWater = water,
         )
+    }
+}
+
+/** 樹冠や幹の頂点ではなく、その下の地面を基準に施設の高さを決めます。 */
+internal object OverworldTerrain {
+    fun surfaceY(world: World, x: Int, z: Int): Int {
+        var y = world.getHighestBlockYAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES)
+        while (y > world.minHeight) {
+            val type = world.getBlockAt(x, y, z).type
+            if (!Tag.LOGS.isTagged(type) && !Tag.LEAVES.isTagged(type)) break
+            y--
+        }
+        return y
     }
 }

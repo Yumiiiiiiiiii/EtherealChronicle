@@ -427,3 +427,9 @@
 - Verification: original 312 tests passed at the preceding draft; latest WIP compiled with `compileKotlin compileTestKotlin`. Changes and real assets have not yet undergone the required independent reviews or live Paper verification.
 - Open: real asset integration, planner correctness and terrain protection, terrain/site recovery safety, waterfront and roads, synthetic tests and full suite, cross-model review and integration with the separate controller branch. Do not mark this WIP complete or merge it yet.
 - Next: finish and validate planner and service, integrate the delegated test branch, address findings, then report exact remaining limitations to the coordinator.
+
+## Codex — Overworld towns handoff (2026-11-23)
+- Branch `codex/overworld-towns`. Integrated five tests from the adjacent test worktree, 27 bundled overworld schematics, incremental planning/placement changes, and Lumina plaza spawn handling.
+- Lumina selects a safe plaza cell, sets shared world spawn south (yaw 0), persists `anchors["spawn"]` with READY, then calls `onSiteReady` on the primary thread.
+- Open: chunk saves and JSON journal are not crash-atomic; no complete per-block journal or automatic rollback; successful placement and crash/restart behavior have not been verified on real Paper. Cross-model review remains pending.
+- Verification: `./gradlew.bat test --no-daemon` passed (327 tests, 1 skipped); `git diff --check` passed. Review and real Paper integration remain open.

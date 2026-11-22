@@ -89,8 +89,14 @@ class OverworldLayoutStore(private val worldFolder: Path) {
         require(layout.sites.size == SITE_IDS.size && layout.sites.map { it.site.id }.toSet() == SITE_IDS)
         require(layout.sites.all { it.status in OverworldSiteStatus.entries && it.site.tier in 1..3 && it.site.biome.isNotBlank() && it.anchors.size <= 128 })
         require(layout.portals.size <= 4 && layout.portals.map { it.dungeonId }.distinct().size == layout.portals.size)
-        require(layout.portals.all { it.areaId in SITE_IDS && it.dungeonId.startsWith("ec:dungeon_") &&
-            it.min.x <= it.max.x && it.min.y <= it.max.y && it.min.z <= it.max.z })
+        require(layout.portals.all { portal ->
+            val site = layout.sites.singleOrNull { it.site.id == portal.areaId }?.site
+            site != null && DUNGEON_AREAS[portal.dungeonId] == portal.areaId &&
+                portal.min.x <= portal.max.x && portal.min.y <= portal.max.y && portal.min.z <= portal.max.z &&
+                listOf(portal.min, portal.max, portal.exit).all { point ->
+                    kotlin.math.abs(point.x.toLong() - site.x) <= 72 && kotlin.math.abs(point.z.toLong() - site.z) <= 72 && point.y in -2048..2048
+                }
+        })
         if (layout.status == OverworldBuildStatus.COMPLETED) {
             require(layout.sites.all { it.status == OverworldSiteStatus.READY } && layout.portals.size == 4)
         }
@@ -100,5 +106,7 @@ class OverworldLayoutStore(private val worldFolder: Path) {
         const val MAX_BYTES = 4 * 1024 * 1024
         val SITE_IDS = setOf("ec:area_lumina_port", "ec:area_ashwood_forest", "ec:area_weeping_mine", "ec:area_stargazer_hill",
             "ec:area_void_sanctum", "ec:area_frostpeak_outpost", "ec:area_glacier_ridge", "ec:area_crystalline_cavern", "ec:area_glacial_citadel")
+        val DUNGEON_AREAS = mapOf("ec:dungeon_novice_arena" to "ec:area_ashwood_forest", "ec:dungeon_aether_crucible" to "ec:area_stargazer_hill",
+            "ec:dungeon_void_sanctum" to "ec:area_void_sanctum", "ec:dungeon_glacial_citadel" to "ec:area_glacial_citadel")
     }
 }

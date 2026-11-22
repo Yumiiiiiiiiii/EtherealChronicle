@@ -3,6 +3,8 @@ package net.nakaymi.etherealchronicle.paper
 import net.nakaymi.etherealchronicle.core.OverworldSite
 import org.bukkit.Bukkit
 import org.bukkit.Chunk
+import org.bukkit.Location
+import org.bukkit.Material
 import org.bukkit.World
 import org.bukkit.plugin.Plugin
 import java.util.concurrent.CompletableFuture
@@ -112,9 +114,15 @@ class OverworldWorldService internal constructor(
                     save(withAnchors, result) {
                         val operations = assembler.actions(world, plan)
                         applyOperations(operations, result) {
-                            releaseTickets()
-                            val ready = replaceSite(withAnchors, next.copy(status = OverworldSiteStatus.READY, anchors = plan.anchors))
+                            val spawn = if (next.site.id == "ec:area_lumina_port") findPlazaSpawn(plan.anchors) else null
+                            val finalAnchors = if (spawn == null) plan.anchors else plan.anchors + ("spawn" to spawn)
+                            val ready = replaceSite(withAnchors, next.copy(status = OverworldSiteStatus.READY, anchors = finalAnchors))
+                            if (spawn != null && (!isSafeSpawn(spawn) || !world.setSpawnLocation(Location(world, spawn.x + 0.5, spawn.y.toDouble(), spawn.z + 0.5, 0f, 0f)))) {
+                                val failed = replaceSite(withAnchors, next.copy(status = OverworldSiteStatus.FAILED, anchors = finalAnchors))
+                                return@applyOperations save(failed, result) { fail(result, IllegalStateException("Could not set a safe Lumina spawn")) }
+                            }
                             save(ready, result) {
+                                releaseTickets()
                                 onSiteReady(ready)
                                 generateNext(ready, result, onSiteReady)
                             }
@@ -124,11 +132,31 @@ class OverworldWorldService internal constructor(
         }
     }
 
+    /** 広場の床上から、足元が安全で頭上に余裕がある地点を中央優先で選びます。 */
+    private fun findPlazaSpawn(anchors: Map<String, OverworldPoint>): OverworldPoint {
+        val min = anchors.getValue("plaza_min")
+        val max = anchors.getValue("plaza_max")
+        val center = anchors.getValue("plaza_center")
+        return (min.x..max.x).flatMap { x -> (min.z..max.z).map { z -> OverworldPoint(x, center.y, z) } }
+            .sortedBy { point -> kotlin.math.abs(point.x - center.x) + kotlin.math.abs(point.z - center.z) }
+            .firstOrNull(::isSafeSpawn) ?: error("No safe spawn in Lumina plaza")
+    }
+
+    /** 地面・足元・頭上を検証し、危険ブロックと水中へのスポーンを避けます。 */
+    private fun isSafeSpawn(point: OverworldPoint): Boolean {
+        if (point.y <= world.minHeight || point.y + 1 >= world.maxHeight) return false
+        val floor = world.getBlockAt(point.x, point.y - 1, point.z).type
+        return floor.isSolid && floor !in unsafeSpawnFloors && world.getBlockAt(point.x, point.y, point.z).type.isAir &&
+            world.getBlockAt(point.x, point.y + 1, point.z).type.isAir
+    }
+
     /** 敷地候補の検証を1 tickに1回ずつ実行します。 */
     private fun advancePlanning(planning: OverworldTownPlanning, result: CompletableFuture<OverworldLayout>, done: (OverworldTownPlan) -> Unit) {
         try {
-            if (!planning.steps.hasNext()) { done(planning.result()); return }
-            planning.steps.next()
+            repeat(PLANNING_STEPS_PER_TICK) {
+                if (!planning.steps.hasNext()) { done(planning.result()); return }
+                planning.steps.next()
+            }
             main(result, 1L) { advancePlanning(planning, result, done) }
         } catch (error: Exception) {
             fail(result, error)
@@ -150,8 +178,7 @@ class OverworldWorldService internal constructor(
                 world.getChunkAtAsync(x, z, true).whenComplete { chunk, error -> main(result, 1L) {
                     if (error != null) return@main fail(result, error)
                     if (!world.isChunkLoaded(x, z)) { request(); return@main }
-                    chunk.addPluginChunkTicket(plugin)
-                    tickets += chunk
+                    if (chunk.addPluginChunkTicket(plugin)) tickets += chunk
                     next()
                 } }
             }
@@ -193,7 +220,10 @@ class OverworldWorldService internal constructor(
         try {
             val task = Runnable { if (!result.isDone && !closed) try { action() } catch (error: Exception) { fail(result, error) } }
             if (delay == 0L) plugin.server.scheduler.runTask(plugin, task) else plugin.server.scheduler.runTaskLater(plugin, task, delay)
-        } catch (error: Exception) { fail(result, error) }
+        } catch (error: Exception) {
+            // スケジューラ停止中に非同期コールバックが到着しても、そこでBukkitへ触れません。
+            if (Bukkit.isPrimaryThread()) fail(result, error) else result.completeExceptionally(error)
+        }
     }
 
     private fun finish(result: CompletableFuture<OverworldLayout>, value: OverworldLayout) {
@@ -225,6 +255,8 @@ class OverworldWorldService internal constructor(
 
     private companion object {
         const val SITE_RADIUS = 112
+        const val PLANNING_STEPS_PER_TICK = 32
         const val OPERATIONS_PER_TICK = 500
+        val unsafeSpawnFloors = setOf(Material.MAGMA_BLOCK, Material.CACTUS, Material.CAMPFIRE, Material.SOUL_CAMPFIRE)
     }
 }
