@@ -73,3 +73,9 @@ High 0 · Med 2 (M1 perf, M3 real-client check) · Low 11. By lens: Perf 3, Bug/
 6. Shop buy/sell with refresh, full-inventory NPC talk (N1), claim/quit race (N2) where feasible.
 7. `ui.theme.mode: full` title offset screenshots (FIX-26), pack on/off GUI comparison.
 8. TPS/MSPT with several simulated players holding an active collect quest (M1).
+
+## Addendum: quick review of a46cf25 (2026-11-22)
+- `mayNeedPeriodicUpdate` now treats an earlier COLLECT objective as unsatisfied (it uses `EmptyInventory`), so a quest ordered [COLLECT, EXPLORE] would never be pre-selected for the EXPLORE tick (latent: all shipped quests list EXPLORE before COLLECT). Treat earlier COLLECT as satisfied (as f06194c did) or evaluate the pre-check with the counts map. Med-latent, not a blocker.
+- `validatePaperContent` from a non-main thread now does `runTask(...)` + `result.get()` with no timeout: if the plugin is disabled or the server stops before the task runs, the async enable thread blocks forever. Add a timeout/exception path. Low.
+- `smoke-test.ps1:87` `.Count` on a single string (see MANUAL_QA_RESULT). Low.
+- **Real-run High blocker found: class-menu reopen loop hangs the server (see MANUAL_QA_RESULT, "Task 23 final QA").**
