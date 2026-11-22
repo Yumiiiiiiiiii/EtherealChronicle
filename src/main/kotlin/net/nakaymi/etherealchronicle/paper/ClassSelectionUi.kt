@@ -69,7 +69,8 @@ class ClassSelectionUi(
 
     private fun confirm(player: Player, definition: ClassDefinition) {
         if(!confirming.begin(player.uniqueId)) return
-        val options = ClickCallback.Options.builder().uses(1).lifetime(Duration.ofMinutes(2)).build()
+        // Dialogにclose callbackがないためEscを禁止し、操作ボタンの寿命も十分長く取ります。
+        val options = ClickCallback.Options.builder().uses(1).lifetime(Duration.ofHours(24)).build()
         val yes = ActionButton.builder(confirmLabel(player)).width(200)
             .action(DialogAction.customClick({ _, audience ->
                 (audience as? Player)?.let { confirming.finish(it.uniqueId); onSelected(it, definition.id) }
@@ -77,11 +78,11 @@ class ClassSelectionUi(
         val no = ActionButton.builder(cancelLabel(player)).width(200)
             .action(DialogAction.customClick({ _, audience ->
                 (audience as? Player)?.let { confirming.finish(it.uniqueId); onCancel(it) }
-            }, ClickCallback.Options.builder().uses(1).lifetime(Duration.ofMinutes(2)).build())).build()
+            }, ClickCallback.Options.builder().uses(1).lifetime(Duration.ofHours(24)).build())).build()
         val dialog = Dialog.create { entry ->
             entry.empty().base(DialogBase.builder(confirmationTitle(player, definition))
                 .body(listOf(DialogBody.plainMessage(confirmationText(player, definition))))
-                .canCloseWithEscape(true)
+                .canCloseWithEscape(false)
                 .build())
                 .type(DialogType.confirmation(yes, no))
         }

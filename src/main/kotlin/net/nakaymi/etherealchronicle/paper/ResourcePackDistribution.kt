@@ -240,7 +240,7 @@ internal fun resourcePackWriteDeadlineMillis(sizeBytes: Int, minimumDeadlineMill
     return maxOf(minimumDeadlineMillis, expectedMillis.toInt()).coerceAtMost(MAX_PACK_WRITE_DEADLINE_MILLIS)
 }
 
-private const val MINIMUM_PACK_RATE_BYTES_PER_SECOND = 512 * 1024L
+private const val MINIMUM_PACK_RATE_BYTES_PER_SECOND = 128 * 1024L
 private const val MAX_PACK_WRITE_DEADLINE_MILLIS = 180_000
 
 /** 成功ZIPだけを長期キャッシュし、エラー応答の誤キャッシュを避けます。 */

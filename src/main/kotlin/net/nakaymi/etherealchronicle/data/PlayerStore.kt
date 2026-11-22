@@ -54,17 +54,17 @@ class PlayerStore(private val directory: Path): AutoCloseable {
         val p = PlayerProfile(uuid,d["class"] as? String,d.int("level"),d.long("xp"),d.long("currency"),d.num("resource"),d.int("selected_skill"),d["starter_granted"] as Boolean)
         p.bestEnhancementLevel=d["best_enhancement_level"].boundedInt(0..5,"best_enhancement_level",0)
         require(p.level >= 1 && p.xp >= 0 && p.currency >= 0 && p.resource.isFinite() && p.resource >= 0 && p.selectedSkill in 0..3)
-        (d["skill_levels"] as? Map<*,*>)?.forEach { (k,v) -> p.skillLevels[k as String] = (v as Number).toInt().also { require(it >= 1) } }
+        (d["skill_levels"] as? Map<*,*>)?.forEach { (k,v) -> p.skillLevels[k as String] = (v as Number).boundedInt(1..100,"skill_levels.$k") }
         d.mapping("quests").forEach { (id,value) ->
             @Suppress("UNCHECKED_CAST") val q = value as Map<String,Any?>
-            p.quests[id] = QuestProgress(q.int("progress").also { require(it >= 0) },q["completed"] as Boolean,
-                (q["objectives"] ?: emptyMap<String,Any?>()).asMapping().mapValues { (_,n) -> (n as Number).toInt().also { require(it >= 0) } }.toMutableMap(),q.whole("completed_at",0),q.whole("repeat_available_at",Long.MAX_VALUE),q["reset_period"] as? String)
+            p.quests[id] = QuestProgress(q["progress"].boundedInt(0..1_000_000,"quests.$id.progress"),q["completed"] as Boolean,
+                (q["objectives"] ?: emptyMap<String,Any?>()).asMapping().mapValues { (objective,n) -> n.boundedInt(0..1_000_000,"quests.$id.objectives.$objective") }.toMutableMap(),q.whole("completed_at",0),q.whole("repeat_available_at",Long.MAX_VALUE),q["reset_period"] as? String)
         }
         p.flags.addAll(d.strings("flags")); p.transactions.addAll(d.strings("transactions").takeLast(128))
-        (d["daily_purchases"] ?: emptyMap<String,Any?>()).asMapping().forEach { (id,n) -> p.dailyPurchases[id]=(n as Number).toInt().also { require(it >= 0) } }
+        (d["daily_purchases"] ?: emptyMap<String,Any?>()).asMapping().forEach { (id,n) -> p.dailyPurchases[id]=n.boundedInt(0..1_000_000,"daily_purchases.$id") }
         p.accessory=d["accessory"] as? String
-        (d["drop_pity"] ?: emptyMap<String,Any?>()).asMapping().forEach { (id,n) -> p.dropPity[id]=(n as Number).toInt().also { require(it in 0..10000) } }
-        (d["pending_rewards"] ?: emptyMap<String,Any?>()).asMapping().forEach { (id,n) -> p.pendingRewards[id]=(n as Number).toInt().also { require(it in 1..1_000_000) } }
+        (d["drop_pity"] ?: emptyMap<String,Any?>()).asMapping().forEach { (id,n) -> p.dropPity[id]=n.boundedInt(0..10000,"drop_pity.$id") }
+        (d["pending_rewards"] ?: emptyMap<String,Any?>()).asMapping().forEach { (id,n) -> p.pendingRewards[id]=n.boundedInt(1..1_000_000,"pending_rewards.$id") }
         (d["challenge_records"] ?: emptyMap<String,Any?>()).asMapping().forEach { (id,value) ->
             val record=value.asMapping(); val seconds=record.whole("best_seconds",-1)
             val rank=record.string("best_rank"); require(seconds >= 0 && rank in setOf("S","A","B","C"))
@@ -73,7 +73,7 @@ class PlayerStore(private val directory: Path): AutoCloseable {
         p.selectedTitle=d["selected_title"] as? String
         p.resourcePackPreference=d.text("resource_pack_preference","AUTO").also { require(it in setOf("AUTO","ON","OFF")) }
         p.resourcePackStatus=d.text("resource_pack_status","UNKNOWN").also { require(it.matches(Regex("[A-Z_]{1,48}"))) }
-        d.mapping("bestiary").forEach { (id,n) -> p.bestiary[id]=(n as Number).toInt().also { require(it in 0..1_000_000) } }
+        d.mapping("bestiary").forEach { (id,n) -> p.bestiary[id]=n.boundedInt(0..1_000_000,"bestiary.$id") }
         p.discoveredItems.addAll(d.strings("discovered_items"))
         p.fishingBait=d.text("fishing_bait","AUTO").also { require(it=="AUTO" || it=="NONE" || it.matches(Regex("ec:item_bait_[a-z0-9_]+"))) }
         d.mapping("life_skills").forEach { (kind,value) ->
@@ -88,7 +88,7 @@ class PlayerStore(private val directory: Path): AutoCloseable {
             require(count in 0..1_000_000 && size.isFinite() && size in 0.0..10_000.0)
             p.fishRecords[id]=FishRecord(count,size,crown)
         }
-        d.mapping("gathering_records").forEach { (id,n) -> p.gatheringRecords[id]=(n as Number).toInt().also { require(it in 0..1_000_000) } }
+        d.mapping("gathering_records").forEach { (id,n) -> p.gatheringRecords[id]=n.boundedInt(0..1_000_000,"gathering_records.$id") }
         d.mapping("gathering_ready_at").forEach { (id,n) -> p.gatheringReadyAt[id]=(n as Number).toString().toLongOrNull()?.also { require(it >= 0) } ?: error("ec.error.invalid_content: gathering_ready_at.$id") }
         require(p.fishRecords.size <= 500 && p.gatheringRecords.size <= 500 && p.gatheringReadyAt.size <= 2000)
         return p

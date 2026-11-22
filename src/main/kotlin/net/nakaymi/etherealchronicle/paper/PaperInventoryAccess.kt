@@ -7,7 +7,7 @@ import org.bukkit.inventory.ItemStack
 /** メインスレッド上の所持品取引境界です。変更後cloneを検証してから実inventoryへ反映します。 */
 class PaperInventoryAccess(private val player: Player,private val identify: (ItemStack?) -> String?,private val create: (String,Int) -> ItemStack,
     private val persistRemoval: Boolean = true,private val onConsume: () -> Unit = {}): InventoryAccess {
-    private data class Plan(val afterRemoval: Array<ItemStack?>, val finalContents: Array<ItemStack?>)
+    private class Plan(val afterRemoval: Array<ItemStack?>, val finalContents: Array<ItemStack?>)
     override fun count(item: String): Int = player.inventory.storageContents.filterNotNull().filter { identify(it) == item }.sumOf { it.amount }
     private fun plan(remove: Map<String,Int>,add: Map<String,Int>,preferredSlot: Int? = null): Plan? {
         if (preferredSlot != null && preferredSlot !in 0..35) return null
@@ -22,7 +22,7 @@ class PaperInventoryAccess(private val player: Player,private val identify: (Ite
             }
             if(remaining != 0) return null
         }
-        val afterRemoval = slots.map { it?.clone() }.toTypedArray()
+        val afterRemoval = if (remove.isEmpty()) emptyArray() else slots.map { it?.clone() }.toTypedArray()
         for((id,n) in add) {
             if(n < 0) return null
             var remaining=n; val example=create(id,1)
