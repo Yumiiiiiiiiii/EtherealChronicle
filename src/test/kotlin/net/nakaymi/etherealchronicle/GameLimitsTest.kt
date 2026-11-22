@@ -6,6 +6,8 @@ import net.nakaymi.etherealchronicle.core.LifeBalance
 import net.nakaymi.etherealchronicle.core.LifeBalanceDefaults
 import net.nakaymi.etherealchronicle.core.StatDefaults
 import net.nakaymi.etherealchronicle.core.Stats
+import net.nakaymi.etherealchronicle.core.WorldTuning
+import net.nakaymi.etherealchronicle.core.tuning
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
@@ -39,5 +41,6 @@ class GameLimitsTest {
         assertEquals(StatDefaults.ATTACK, Stats().attack)
         assertEquals(LifeBalanceDefaults.LEVEL_CAP, LifeBalance().levelCap)
         assertEquals(LifeBalanceDefaults.CAST_COOLDOWN_MILLIS, LifeBalance().castCooldownMillis)
+        assertEquals(WorldTuning(), emptyMap<String, Any?>().tuning())
     }
 }

@@ -246,11 +246,52 @@ class TradeEngine(private val content: () -> ContentSnapshot) {
     }
 }
 
-data class WorldTuning(val sellRatio: Double,val maxCurrency: Long,val transactionCap: Int,val partyCap: Int,val partyRadius: Double,
-    val enemyCap: Int,val instanceCap: Int,val instanceTimeout: Long,val weakness: Double,val resistance: Double,val playerHpCap: Double,val basicAttackCooldown: Long,val elementResCap: Double,
-    val resetZone: String = "UTC",val dailyResetHour: Int = 0,val weeklyResetDay: String = "MONDAY",val enhancementCap:Int=5,val enhancementRate:Double=.03,val enhancementBaseCurrency:Long=100,val enhancementMaterial:String="ec:item_mat_artisan_whetstone")
-fun Map<String,Any?>.tuning() = WorldTuning(number("sell_ratio",0.3),whole("max_currency",100_000_000),integer("transaction_amount_cap",64),integer("party_size_cap",4),number("party_xp_radius",32.0),integer("global_enemy_cap",100),integer("instance_cap",8),whole("instance_timeout_ticks",36000),number("weakness_multiplier",1.25),number("resistance_multiplier",0.8),number("player_hp_cap",1024.0),whole("basic_attack_cooldown_ms",550),number("element_res_cap",0.5),text("calendar_reset_zone","UTC"),integer("daily_reset_hour",0),text("weekly_reset_day","MONDAY"),integer("enhancement_cap",5),number("enhancement_rate",0.03),whole("enhancement_base_currency",100),text("enhancement_material","ec:item_mat_artisan_whetstone")).also {
-    require(it.sellRatio in 0.0..0.49 && it.maxCurrency in 1..Long.MAX_VALUE/2 && it.transactionCap in 1..64 && it.partyCap in 1..8 && it.partyRadius in 1.0..128.0 && it.enemyCap in 1..1000 && it.instanceCap in 1..32 && it.instanceTimeout > 0 && it.playerHpCap in 1.0..1024.0 && it.basicAttackCooldown in 100..5000 && it.elementResCap in 0.0..0.9 && it.dailyResetHour in 0..23 && it.weeklyResetDay in java.time.DayOfWeek.entries.map { day -> day.name } && it.enhancementCap in 1..5 && it.enhancementRate in 0.0..0.1 && it.enhancementBaseCurrency in 0..1_000_000 && it.enhancementMaterial.startsWith("ec:item_"))
+data class WorldTuning(
+    val sellRatio: Double = WorldTuningDefaults.SELL_RATIO,
+    val maxCurrency: Long = WorldTuningDefaults.MAX_CURRENCY,
+    val transactionCap: Int = WorldTuningDefaults.TRANSACTION_AMOUNT_CAP,
+    val partyCap: Int = WorldTuningDefaults.PARTY_SIZE_CAP,
+    val partyRadius: Double = WorldTuningDefaults.PARTY_XP_RADIUS_BLOCKS,
+    val enemyCap: Int = WorldTuningDefaults.GLOBAL_ENEMY_CAP,
+    val instanceCap: Int = WorldTuningDefaults.DUNGEON_INSTANCE_CAP,
+    val instanceTimeout: Long = WorldTuningDefaults.DUNGEON_INSTANCE_TIMEOUT_TICKS,
+    val weakness: Double = WorldTuningDefaults.WEAKNESS_MULTIPLIER,
+    val resistance: Double = WorldTuningDefaults.RESISTANCE_MULTIPLIER,
+    val playerHpCap: Double = WorldTuningDefaults.PLAYER_HP_CAP,
+    val basicAttackCooldown: Long = WorldTuningDefaults.BASIC_ATTACK_COOLDOWN_MILLIS,
+    val elementResCap: Double = WorldTuningDefaults.ELEMENT_RESISTANCE_CAP,
+    val resetZone: String = WorldTuningDefaults.RESET_ZONE,
+    val dailyResetHour: Int = WorldTuningDefaults.DAILY_RESET_HOUR,
+    val weeklyResetDay: String = WorldTuningDefaults.WEEKLY_RESET_DAY,
+    val enhancementCap: Int = WorldTuningDefaults.ENHANCEMENT_CAP,
+    val enhancementRate: Double = WorldTuningDefaults.ENHANCEMENT_RATE,
+    val enhancementBaseCurrency: Long = WorldTuningDefaults.ENHANCEMENT_BASE_CURRENCY,
+    val enhancementMaterial: String = WorldTuningDefaults.ENHANCEMENT_MATERIAL,
+)
+
+fun Map<String,Any?>.tuning() = WorldTuning(
+    sellRatio = number("sell_ratio", WorldTuningDefaults.SELL_RATIO),
+    maxCurrency = whole("max_currency", WorldTuningDefaults.MAX_CURRENCY),
+    transactionCap = integer("transaction_amount_cap", WorldTuningDefaults.TRANSACTION_AMOUNT_CAP),
+    partyCap = integer("party_size_cap", WorldTuningDefaults.PARTY_SIZE_CAP),
+    partyRadius = number("party_xp_radius", WorldTuningDefaults.PARTY_XP_RADIUS_BLOCKS),
+    enemyCap = integer("global_enemy_cap", WorldTuningDefaults.GLOBAL_ENEMY_CAP),
+    instanceCap = integer("instance_cap", WorldTuningDefaults.DUNGEON_INSTANCE_CAP),
+    instanceTimeout = whole("instance_timeout_ticks", WorldTuningDefaults.DUNGEON_INSTANCE_TIMEOUT_TICKS),
+    weakness = number("weakness_multiplier", WorldTuningDefaults.WEAKNESS_MULTIPLIER),
+    resistance = number("resistance_multiplier", WorldTuningDefaults.RESISTANCE_MULTIPLIER),
+    playerHpCap = number("player_hp_cap", WorldTuningDefaults.PLAYER_HP_CAP),
+    basicAttackCooldown = whole("basic_attack_cooldown_ms", WorldTuningDefaults.BASIC_ATTACK_COOLDOWN_MILLIS),
+    elementResCap = number("element_res_cap", WorldTuningDefaults.ELEMENT_RESISTANCE_CAP),
+    resetZone = text("calendar_reset_zone", WorldTuningDefaults.RESET_ZONE),
+    dailyResetHour = integer("daily_reset_hour", WorldTuningDefaults.DAILY_RESET_HOUR),
+    weeklyResetDay = text("weekly_reset_day", WorldTuningDefaults.WEEKLY_RESET_DAY),
+    enhancementCap = integer("enhancement_cap", WorldTuningDefaults.ENHANCEMENT_CAP),
+    enhancementRate = number("enhancement_rate", WorldTuningDefaults.ENHANCEMENT_RATE),
+    enhancementBaseCurrency = whole("enhancement_base_currency", WorldTuningDefaults.ENHANCEMENT_BASE_CURRENCY),
+    enhancementMaterial = text("enhancement_material", WorldTuningDefaults.ENHANCEMENT_MATERIAL),
+).also {
+    require(it.sellRatio in 0.0..WorldTuningLimits.MAX_SELL_RATIO && it.maxCurrency in 1..WorldTuningLimits.MAX_CURRENCY && it.transactionCap in 1..WorldTuningLimits.MAX_TRANSACTION_AMOUNT && it.partyCap in 1..WorldTuningLimits.MAX_PARTY_SIZE && it.partyRadius in 1.0..WorldTuningLimits.MAX_PARTY_XP_RADIUS_BLOCKS && it.enemyCap in 1..WorldTuningLimits.MAX_GLOBAL_ENEMY_CAP && it.instanceCap in 1..WorldTuningLimits.MAX_DUNGEON_INSTANCES && it.instanceTimeout > 0 && it.playerHpCap in 1.0..WorldTuningLimits.MAX_PLAYER_HP && it.basicAttackCooldown in WorldTuningLimits.MIN_BASIC_ATTACK_COOLDOWN_MILLIS..WorldTuningLimits.MAX_BASIC_ATTACK_COOLDOWN_MILLIS && it.elementResCap in 0.0..WorldTuningLimits.MAX_ELEMENT_RESISTANCE && it.dailyResetHour in 0..WorldTuningLimits.MAX_DAILY_RESET_HOUR && it.weeklyResetDay in java.time.DayOfWeek.entries.map { day -> day.name } && it.enhancementCap in 1..GameLimits.MAX_ENHANCEMENT_LEVEL && it.enhancementRate in 0.0..WorldTuningLimits.MAX_ENHANCEMENT_RATE && it.enhancementBaseCurrency in 0..WorldTuningLimits.MAX_ENHANCEMENT_BASE_CURRENCY && it.enhancementMaterial.startsWith("ec:item_"))
     java.time.ZoneId.of(it.resetZone)
 }
 

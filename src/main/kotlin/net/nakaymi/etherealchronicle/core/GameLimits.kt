@@ -61,6 +61,48 @@ object LifeBalanceDefaults {
     const val MACRO_RARE_WEIGHT_MULTIPLIER = 0.1
 }
 
+/** ワールドtuning YAMLの省略可能項目に対する既存互換値です。 */
+object WorldTuningDefaults {
+    const val SELL_RATIO = 0.3
+    const val MAX_CURRENCY = 100_000_000L
+    const val TRANSACTION_AMOUNT_CAP = 64
+    const val PARTY_SIZE_CAP = 4
+    const val PARTY_XP_RADIUS_BLOCKS = 32.0
+    const val GLOBAL_ENEMY_CAP = 100
+    const val DUNGEON_INSTANCE_CAP = 8
+    const val DUNGEON_INSTANCE_TIMEOUT_TICKS = 36_000L
+    const val WEAKNESS_MULTIPLIER = 1.25
+    const val RESISTANCE_MULTIPLIER = 0.8
+    const val PLAYER_HP_CAP = 1_024.0
+    const val BASIC_ATTACK_COOLDOWN_MILLIS = 550L
+    const val ELEMENT_RESISTANCE_CAP = 0.5
+    const val DAILY_RESET_HOUR = 0
+    const val ENHANCEMENT_CAP = GameLimits.MAX_ENHANCEMENT_LEVEL
+    const val ENHANCEMENT_RATE = 0.03
+    const val ENHANCEMENT_BASE_CURRENCY = 100L
+    const val ENHANCEMENT_MATERIAL = "ec:item_mat_artisan_whetstone"
+    const val RESET_ZONE = "UTC"
+    const val WEEKLY_RESET_DAY = "MONDAY"
+}
+
+/** ワールドtuning値のサーバー安全上限です。 */
+object WorldTuningLimits {
+    const val MAX_SELL_RATIO = 0.49
+    const val MAX_CURRENCY = Long.MAX_VALUE / 2
+    const val MAX_TRANSACTION_AMOUNT = ContentLimits.MAX_ITEM_STACK
+    const val MAX_PARTY_SIZE = 8
+    const val MAX_PARTY_XP_RADIUS_BLOCKS = 128.0
+    const val MAX_GLOBAL_ENEMY_CAP = 1_000
+    const val MAX_DUNGEON_INSTANCES = 32
+    const val MAX_PLAYER_HP = 1_024.0
+    const val MAX_ELEMENT_RESISTANCE = 0.9
+    const val MAX_DAILY_RESET_HOUR = 23
+    const val MIN_BASIC_ATTACK_COOLDOWN_MILLIS = 100L
+    const val MAX_BASIC_ATTACK_COOLDOWN_MILLIS = 5_000L
+    const val MAX_ENHANCEMENT_RATE = 0.1
+    const val MAX_ENHANCEMENT_BASE_CURRENCY = 1_000_000L
+}
+
 /** YAML読込時に適用する構造上の安全上限です。 */
 object ContentLimits {
     const val MAX_YAML_ALIASES = 20
