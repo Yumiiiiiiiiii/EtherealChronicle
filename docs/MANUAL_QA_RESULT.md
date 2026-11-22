@@ -205,3 +205,22 @@ Config (temporary): embedded_http, required=true, debug=true, required_timeout_s
 | OP bypass | PASS | `bypass=true`, `required=false`, class menu with vanilla icons (q5) |
 | Explicit decline path | NOT-RUN | covered by Task 18 (client disconnects) |
 | Log | PASS | 0 ERROR |
+
+## Task 23 final QA (master d0b0ba4 / codex a46cf25, offline QaF1, en_us client, 2026-11-22) - STOPPED at a High blocker
+Shots: `D:\test\mcmmo-client-qa\shots\r1..r10*.png` (not in repo).
+| Item | Result | Evidence |
+|---|---|---|
+| Quick review of a46cf25 | no High from review alone | see below (latent quest pre-check regression, async validation `result.get()`) |
+| Headless smoke `./scripts/smoke-test.ps1 -SkipBuild -Commands 'ec validate','ec reload'` | PASS (script bug) | `EC_CONTENT_VALIDATION_SUCCESS` logged, reload ok, plugin enabled, WARN only the expected default-config loopback warning. The script printed `PropertyNotFoundException ... 'Count'` at smoke-test.ps1:87 (`($Commands | Where-Object {...}).Count` on a single match under StrictMode) so the marker check was skipped; wrap in `@(...)` |
+| Local pack config (`bind_host`/`public_host` 127.0.0.1) | PASS | listener on 25580, no loopback WARN (FIX-07) |
+| Fresh non-op first join, long wait | PASS | request sent, player stayed 75+ s on the prompt at (-9.5,71,1.5), no flying kick, no timeout kick before accept (M3 at this spawn; mid-air spawn untested) |
+| Accept -> loaded | PASS | ACCEPTED/DOWNLOADED/SUCCESSFULLY_LOADED logged, class menu shown |
+| Esc on class confirm dialog | PASS | Esc ignored, dialog stays (r6) |
+| "Go back" returns to class menu | PASS | r7 |
+| `ui.theme.mode: full` title/background | FAIL (FIX-26) | dark pack panel covers only about the left 70 % of the chest window and the title "Choose a class" starts left of the panel (r4, r7, r9): offset/size still wrong |
+| **Server main thread hang** | **FAIL - HIGH BLOCKER** | after Go back -> pick class -> Start as this class -> `/ec class`, the server thread spun for 50+ s ("The server has not responded for N seconds", dump in `scripts/logs/server-host-*.log`), client frozen on the class menu. Stack: `CraftScheduler.mainThreadHeartbeat -> RpgPlugin.sync -> RpgPlugin.menu(RpgPlugin.kt:305) -> ClassSelectionUi.open(ClassSelectionUi.kt:52) -> editMeta/classLore` repeating |
+| Fishing air click, returning-player position, shop refresh sell, full-inventory NPC talk, admin `/ec class`, theme full/icons_only/off comparison | NOT-RUN | stopped at the blocker |
+Processes stopped (server was force-killed), server.properties/ops/whitelist/config restored, ports closed.
+
+### Diagnosis of the hang (needs Codex confirmation)
+`ClassSelectionUi.window.addCloseHandler { if (!isConfirming) onClose(player) }` -> `onClose` = `sync { if (online) menu(p) }` -> `ClassSelectionUi.open()` first calls `confirming.finish(uuid)` and then `window.open()`, which closes the viewer's previous InvUI window and fires its close handler again with `isConfirming == false`; that schedules another `sync { menu(p) }`. `runTask` scheduled from inside the scheduler heartbeat is executed in the same heartbeat, so the cycle never yields to the next tick: infinite loop on the main thread. Fix: track the current window per player and ignore close handlers of replaced windows (`if (window !== current[uuid]) return`), set a "replacing" flag around `window.open()`, and schedule the reopen with `runTaskLater(1)` plus a per-player re-entrancy guard.
