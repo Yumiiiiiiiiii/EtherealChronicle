@@ -4,6 +4,7 @@ import net.nakaymi.etherealchronicle.data.ContentService
 import org.bukkit.Material
 import org.bukkit.NamespacedKey
 import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import net.kyori.adventure.key.Key
 import org.bukkit.inventory.ItemFlag
@@ -51,7 +52,9 @@ class UiQAFixesTest {
         val fullTitle=UiThemeProvider.title(true,title,"enhance",ThemeMode.FULL)
         assertEquals(Key.key("ec", "space"), fullTitle.font())
         assertEquals(Key.key("ec", "ui"), fullTitle.children()[0].font())
+        assertEquals(NamedTextColor.WHITE,fullTitle.children()[0].color())
         assertEquals(Key.key("minecraft","default"),fullTitle.children()[2].font())
+        assertEquals(0xF5E6C8,fullTitle.children()[2].color()?.value())
     }
 
     @Test
@@ -73,6 +76,24 @@ class UiQAFixesTest {
         assertTrue(tracker.isActive(id))
         tracker.finish(id)
         assertFalse(tracker.isActive(id))
+    }
+
+    @Test
+    fun `replacing class menu ignores stale close callback`() {
+        val tracker = ClassSelectionWindowTracker<Any>()
+        val id = UUID.randomUUID()
+        val first = Any()
+        val replacement = Any()
+        tracker.open(id, first) { }
+        assertTrue(tracker.isOpen(id))
+        tracker.open(id, replacement) {
+            assertFalse(tracker.closed(id, first), "closing the replaced window must not trigger a reopen")
+        }
+
+        assertFalse(tracker.closed(id, first), "late close callback from the old window must be ignored")
+        assertTrue(tracker.closed(id, replacement), "the current window close should be handled once")
+        assertFalse(tracker.closed(id, replacement), "the same close callback must not be handled twice")
+        assertFalse(tracker.isOpen(id))
     }
 
     @Test
@@ -174,7 +195,9 @@ class UiQAFixesTest {
             player.performCommand("ec class")
             assertEquals(9, player.openInventory.topInventory.size, "unclassed players should be able to reopen class selection")
             assertTrue("class" in plugin.commandCompletions(player, arrayOf("cl")))
+            assertTrue("reload" !in plugin.commandCompletions(player, arrayOf("re")), "admin commands should not be suggested to regular players")
             val adminPermission = player.addAttachment(plugin, "etherealchronicle.admin", true)
+            assertTrue("reload" in plugin.commandCompletions(player, arrayOf("re")), "admin commands should be suggested to admins")
             assertTrue(player.name in plugin.commandCompletions(player, arrayOf("class", "Cl")))
             assertTrue("ec:class_warrior" in plugin.commandCompletions(player, arrayOf("class", player.name, "ec:class_w")))
 

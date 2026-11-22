@@ -385,3 +385,11 @@
 - Replaced shared mutable empty-inventory delegation with a read-only implementation; class admin command tests now also check tab-completion paths; player-store temp data uses JUnit cleanup.
 - Verification: `./gradlew.bat build test --rerun-tasks --no-daemon` passed 288 tests, 0 failures, 0 errors, 0 skipped; `git diff --check` passed (Git only reports expected CRLF normalization notices).
 - Remaining manual checks: Paper/client validation of pack-gate movement from unusual spawn locations, fishing air-click/reel handling, class dialog persistence, and UI title offset. No client was available for this follow-up.
+
+## Codex-Impl — Task24 client-QA blockers (2026-11-22)
+- Branch `codex/foundation`, merged master `4c16337` before implementation.
+- Class-selection windows now track identity and ignore replaced-window close events. Genuine reopen requests are deferred one tick and deduplicated per player; quit and confirmation paths clear tracking. Added tracker regression coverage.
+- Rebuilt six UI background PNGs to full opaque bounds at actual chest dimensions: class selection `176x132`, remaining screens `176x222`. Updated bitmap font heights, full-theme glyph/title color and one-pixel bitmap advance compensation; expanded asset tests to verify all six bounds.
+- Also closed the three prior Task23 review findings: collect-before-explore quest progression, bounded/cancelled main-thread Paper validation, and Paper BasicCommand suggestions with startup/permission guards. Fixed smoke-test strict-mode single-result counting.
+- Targeted tests passed for UI assets, class window replacement, periodic quest checks and required-pack movement. Full `./gradlew.bat build test --no-daemon` passed 289 tests, 0 failures, 0 errors, 0 skipped; `git diff --check` passed (Git only reports expected CRLF normalization notices). The generated resource pack SHA-1 is `fa6d942d0b8b70086b4f6e63df90c7f2356d5083`.
+- No Paper/client run was performed yet; the class-menu loop and full-theme alignment still need real-client confirmation. Script syntax was checked with the PowerShell parser; independent review is pending.

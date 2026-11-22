@@ -2,7 +2,9 @@ package net.nakaymi.etherealchronicle.paper
 
 import net.kyori.adventure.key.Key
 import net.kyori.adventure.text.Component
+import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
+import net.kyori.adventure.text.format.TextColor
 import org.bukkit.Material
 import org.bukkit.NamespacedKey
 import org.bukkit.entity.Player
@@ -66,10 +68,10 @@ class UiThemeProvider(
             val width = approximateTitleWidth(localizedTitle)
             val sidePadding = ((BACKGROUND_WIDTH - width) / 2).coerceAtLeast(0)
             return Component.text(spaces(TITLE_LEFT_OFFSET)).font(spaceFont)
-                .append(Component.text(glyph).font(uiFont))
-                .append(Component.text(spaces(-BACKGROUND_WIDTH + sidePadding)).font(spaceFont))
+                .append(Component.text(glyph).font(uiFont).color(NamedTextColor.WHITE))
+                .append(Component.text(spaces(-(BACKGROUND_WIDTH + 1) + sidePadding)).font(spaceFont))
                 // 子要素へ背景フォントが継承されると通常のタイトル文字が豆腐になるため標準フォントを明示します。
-                .append(localizedTitle.font(defaultFont))
+                .append(localizedTitle.font(defaultFont).color(TextColor.color(0xF5E6C8)))
                 .append(Component.text(spaces(sidePadding)).font(spaceFont))
         }
 

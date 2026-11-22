@@ -65,6 +65,11 @@ class AdventureServicesTest {
             listOf(Objective("explore",ObjectiveKind.EXPLORE,areaTarget,1),Objective("kill",ObjectiveKind.KILL,killTarget,1)),
             Rewards(), autoComplete=false, repeatable=false, repeatCooldown=0,
         )
+        val collectThenExplore=QuestDefinition(
+            "ec:collect_then_explore", "収集して探索", Condition(),
+            listOf(Objective("collect",ObjectiveKind.COLLECT,collectTarget,1),Objective("explore",ObjectiveKind.EXPLORE,areaTarget,1)),
+            Rewards(), autoComplete=false, repeatable=false, repeatCooldown=0,
+        )
         val wildcardExplore=QuestDefinition(
             "ec:wildcard_explore", "任意探索", Condition(),
             listOf(Objective("explore",ObjectiveKind.EXPLORE,"*",1)),
@@ -89,7 +94,7 @@ class AdventureServicesTest {
             "rewards" to map("xp" to 0, "currency" to 0),
             "auto_complete" to quest.autoComplete,
         )
-        val snapshot=base.copy(documents=base.documents + listOf(ordered,exploredThenKill,wildcardExplore,collect).associate { it.id to questDocument(it) })
+        val snapshot=base.copy(documents=base.documents + listOf(ordered,exploredThenKill,collectThenExplore,wildcardExplore,collect).associate { it.id to questDocument(it) })
         val engine=QuestEngine({ snapshot },Clock { 0 })
         val profile=PlayerProfile(UUID.randomUUID()).apply {
             quests[ordered.id]=QuestProgress()
@@ -110,6 +115,12 @@ class AdventureServicesTest {
             quests[exploredThenKill.id]=QuestProgress(objectives=mutableMapOf("explore" to 1))
         }
         assertFalse(engine.mayNeedPeriodicUpdate(alreadyExplored,setOf(areaTarget)))
+
+        val waitingForExplore=PlayerProfile(UUID.randomUUID()).apply {
+            quests[collectThenExplore.id]=QuestProgress()
+        }
+        assertTrue(engine.mayNeedPeriodicUpdate(waitingForExplore,setOf(areaTarget)))
+        assertTrue(engine.needsPeriodicUpdate(waitingForExplore,MemoryInventory(mutableMapOf(collectTarget to 1)),setOf(areaTarget)))
 
         val wildcard=PlayerProfile(UUID.randomUUID()).apply { quests[wildcardExplore.id]=QuestProgress() }
         assertFalse(engine.mayNeedPeriodicUpdate(wildcard,emptySet()))
