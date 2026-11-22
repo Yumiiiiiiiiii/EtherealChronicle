@@ -161,15 +161,73 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
                     }
                 }
                 "enemy","boss" -> {
-                    val specials = d.maps("specials").map { a -> SpecialAttack(a.string("id"),a.string("name"),a.text("shape","CIRCLE"),a.whole("cooldown_ticks",200),a.whole("telegraph_ticks",26),a.number("radius",3.0),a.number("range",12.0),a.number("multiplier",1.5),a.number("min_hp_ratio",0.0),a.number("max_hp_ratio",1.0),a.text("effect","NONE"),a["element"] as? String,a.integer("effect_duration_ticks",when(a.text("effect","NONE")) { "SLOW" -> 60; "POISON" -> 100; else -> 30 })) }
+                    val specials = d.maps("specials").map { attack ->
+                        val effect = attack.text("effect", "NONE")
+                        val defaultEffectDuration = when (effect) {
+                            "SLOW" -> EnemyContentDefaults.SLOW_EFFECT_TICKS
+                            "POISON" -> EnemyContentDefaults.POISON_EFFECT_TICKS
+                            else -> EnemyContentDefaults.DEFAULT_EFFECT_TICKS
+                        }
+                        SpecialAttack(
+                            id = attack.string("id"),
+                            name = attack.string("name"),
+                            shape = attack.text("shape", "CIRCLE"),
+                            cooldown = attack.whole("cooldown_ticks", EnemyContentDefaults.SPECIAL_COOLDOWN_TICKS),
+                            telegraph = attack.whole("telegraph_ticks", EnemyContentDefaults.SPECIAL_TELEGRAPH_TICKS),
+                            radius = attack.number("radius", EnemyContentDefaults.SPECIAL_RADIUS_BLOCKS),
+                            range = attack.number("range", EnemyContentDefaults.SPECIAL_RANGE_BLOCKS),
+                            multiplier = attack.number("multiplier", EnemyContentDefaults.SPECIAL_DAMAGE_MULTIPLIER),
+                            minHp = attack.number("min_hp_ratio", EnemyContentDefaults.SPECIAL_MIN_HP_RATIO),
+                            maxHp = attack.number("max_hp_ratio", EnemyContentDefaults.SPECIAL_MAX_HP_RATIO),
+                            effect = effect,
+                            element = attack["element"] as? String,
+                            effectDuration = attack.integer("effect_duration_ticks", defaultEffectDuration),
+                        )
+                    }
                     require(specials.all { it.shape in setOf("CIRCLE","LINE","CONE","TARGET") && it.cooldown > 0 && it.telegraph > 0 && it.radius in 0.1..32.0 && it.range in 0.1..128.0 && it.minHp in 0.0..it.maxHp && it.maxHp <= 1.0 && it.effect in setOf("NONE","SLOW","POISON","KNOCKUP","FREEZE") && (it.element == null || it.element in setOf("PHYSICAL","FIRE","ICE","LIGHTNING","AETHER","VOID")) && it.effectDuration in 1..200 })
-                    val spawns = d.maps("spawn_points").map { p -> SpawnPoint(p.string("id"),p.position(),p.integer("cap",1),p.whole("respawn_ticks",200),p.strings("time_windows").toSet().ifEmpty { setOf("ANY") },p.strings("weather").toSet().ifEmpty { setOf("ANY") }).also { require(WorldSchedule.valid(it.timeWindows,it.weather)) { "ec.error.invalid_content" } } }
-                    require(spawns.all { it.cap in 1..100 && it.respawnTicks > 0 } && spawns.map { it.id }.distinct().size == spawns.size)
+                    val spawns = d.maps("spawn_points").map { point ->
+                        SpawnPoint(
+                            id = point.string("id"),
+                            position = point.position(),
+                            cap = point.integer("cap", EnemyContentDefaults.SPAWN_POINT_CAP),
+                            respawnTicks = point.whole("respawn_ticks", EnemyContentDefaults.SPAWN_RESPAWN_TICKS),
+                            timeWindows = point.strings("time_windows").toSet().ifEmpty { setOf("ANY") },
+                            weather = point.strings("weather").toSet().ifEmpty { setOf("ANY") },
+                        ).also { require(WorldSchedule.valid(it.timeWindows, it.weather)) { "ec.error.invalid_content" } }
+                    }
+                    require(spawns.all { it.cap in 1..ContentLimits.MAX_ENEMY_SPAWN_POINT_CAP && it.respawnTicks > 0 } && spawns.map { it.id }.distinct().size == spawns.size)
                     val phases = d.maps("phases").map { p -> BossPhase(p.string("id"),p.num("below_hp_ratio"),p.number("damage_multiplier",1.0),p.number("interval_multiplier",1.0)) }
                     require(phases.all { it.below in 0.0..1.0 && it.damage > 0 && it.interval > 0 } && phases.zipWithNext().all { it.first.below > it.second.below })
                     val variant = d.mappingOrEmpty("visual").text("variant", "").ifBlank { null }
                     require(variant == null || (variant.matches(Regex("[a-z0-9_.-]+:[a-z0-9_./-]+")) && d.string("entity") == "WOLF")) { "ec.error.invalid_content: visual.variant" }
-                    enemies[id] = EnemyDefinition(id,d.string("name"),d.string("entity"),d.int("level"),d.num("hp"),d.num("attack"),d.num("defense"),d.text("element","PHYSICAL"),d.strings("weaknesses").toSet(),d.strings("resistances").toSet(),d.number("speed",0.23),d.integer("size",1),d.number("aggro_range",12.0),d.number("leash_range",24.0),d.whole("attack_interval_ticks",40),d.strings("traits").toSet(),specials,spawns,d.strings("set_flags_on_kill").toSet(),d["type"] == "boss",phases,d.whole("enrage_ticks",7200),d.number("enrage_multiplier",1.5),d.number("coop_hp_per_player",0.75),d.number("coop_damage_per_player",0.04),variant)
+                    enemies[id] = EnemyDefinition(
+                        id = id,
+                        name = d.string("name"),
+                        entity = d.string("entity"),
+                        level = d.int("level"),
+                        hp = d.num("hp"),
+                        attack = d.num("attack"),
+                        defense = d.num("defense"),
+                        element = d.text("element", "PHYSICAL"),
+                        weaknesses = d.strings("weaknesses").toSet(),
+                        resistances = d.strings("resistances").toSet(),
+                        speed = d.number("speed", EnemyContentDefaults.SPEED_BLOCKS_PER_TICK),
+                        size = d.integer("size", EnemyContentDefaults.SIZE),
+                        aggro = d.number("aggro_range", EnemyContentDefaults.AGGRO_RADIUS_BLOCKS),
+                        leash = d.number("leash_range", EnemyContentDefaults.LEASH_RADIUS_BLOCKS),
+                        attackInterval = d.whole("attack_interval_ticks", EnemyContentDefaults.ATTACK_INTERVAL_TICKS),
+                        traits = d.strings("traits").toSet(),
+                        specials = specials,
+                        spawns = spawns,
+                        flags = d.strings("set_flags_on_kill").toSet(),
+                        boss = d["type"] == "boss",
+                        phases = phases,
+                        enrageTicks = d.whole("enrage_ticks", EnemyContentDefaults.ENRAGE_TICKS),
+                        enrageMultiplier = d.number("enrage_multiplier", EnemyContentDefaults.ENRAGE_MULTIPLIER),
+                        coopHp = d.number("coop_hp_per_player", EnemyContentDefaults.COOP_HP_PER_ADDITIONAL_PLAYER),
+                        coopDamage = d.number("coop_damage_per_player", EnemyContentDefaults.COOP_DAMAGE_PER_ADDITIONAL_PLAYER),
+                        visualVariant = variant,
+                    )
                 }
                 "item" -> itemProperties[id] = ItemProperties(d.bool("bound",false),d.bool("quest_item",false),d.whole("price",0),d.number("weapon",0.0),d.text("lore",""),d.maps("effects").map { e ->
                     ItemEffect(e.string("kind"),e.number("amount",0.0),e.whole("cooldown_ms",0),e.integer("duration_ticks",0),e.number("chance",1.0),e.text("element","PHYSICAL")).also { require(it.kind in setOf("HEAL","RESOURCE","CLEANSE","RETURN","REVIVE","ATTACK_PROC","DEFENSE_BUFF") && it.chance in 0.0..1.0) }

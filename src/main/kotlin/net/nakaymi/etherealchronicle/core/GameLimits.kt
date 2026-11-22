@@ -103,6 +103,31 @@ object WorldTuningLimits {
     const val MAX_ENHANCEMENT_BASE_CURRENCY = 1_000_000L
 }
 
+/** 敵のYAMLで省略可能な値を集め、loader間の既定値差を防ぎます。 */
+object EnemyContentDefaults {
+    const val SPECIAL_COOLDOWN_TICKS = 200L
+    const val SPECIAL_TELEGRAPH_TICKS = 26L
+    const val SPECIAL_RADIUS_BLOCKS = 3.0
+    const val SPECIAL_RANGE_BLOCKS = 12.0
+    const val SPECIAL_DAMAGE_MULTIPLIER = 1.5
+    const val SPECIAL_MIN_HP_RATIO = 0.0
+    const val SPECIAL_MAX_HP_RATIO = 1.0
+    const val SPAWN_POINT_CAP = 1
+    const val SPAWN_RESPAWN_TICKS = 200L
+    const val SPEED_BLOCKS_PER_TICK = 0.23
+    const val SIZE = 1
+    const val AGGRO_RADIUS_BLOCKS = 12.0
+    const val LEASH_RADIUS_BLOCKS = 24.0
+    const val ATTACK_INTERVAL_TICKS = 40L
+    const val ENRAGE_TICKS = 7_200L
+    const val ENRAGE_MULTIPLIER = 1.5
+    const val COOP_HP_PER_ADDITIONAL_PLAYER = 0.75
+    const val COOP_DAMAGE_PER_ADDITIONAL_PLAYER = 0.04
+    const val SLOW_EFFECT_TICKS = 60
+    const val POISON_EFFECT_TICKS = 100
+    const val DEFAULT_EFFECT_TICKS = 30
+}
+
 /** YAML読込時に適用する構造上の安全上限です。 */
 object ContentLimits {
     const val MAX_YAML_ALIASES = 20
@@ -126,6 +151,7 @@ object ContentLimits {
     const val MAX_PUBLIC_DESCRIPTION_CHARACTERS = 240
     const val DUNGEON_PALETTE_SIZE = 3
     const val MAX_TACKLE_TIER = 3
+    const val MIN_GATHERING_CHANNEL_MILLIS = 250L
 }
 
 /** 生活系計算式の固定係数を集め、コンテンツ値と実装定数を区別します。 */
