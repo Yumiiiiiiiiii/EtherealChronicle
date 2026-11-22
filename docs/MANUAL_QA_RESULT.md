@@ -281,3 +281,6 @@ Observations (no Task 25 regression, for the lead): (1) the shop menu distance i
 
 Cleanup: client + server stopped, config/ops/whitelist/server.properties restored, ports 25565/25580 closed, 0 `*.qa-orig`.
 
+
+## Task 25 follow-up re-check (master d53b4c9)
+`gradlew build test --no-daemon` BUILD SUCCESSFUL, 298 tests, 0 failures/skipped. `smoke-test.ps1 -SkipBuild -Commands 'ec validate','ec reload'` PASS: `EC_CONTENT_VALIDATION_SUCCESS`, 0 ERROR, Paper process stopped, ports 25565/25580 closed. One non-blocking script glitch after PASS: `smoke-test.ps1:74` PropertyNotFound on `ParentProcessId` (race with a short-lived java process). No real-client rerun (not requested; first real run on b8c91ee). Audit details in docs/reviews/2026-11-22_task25_claude.md.
