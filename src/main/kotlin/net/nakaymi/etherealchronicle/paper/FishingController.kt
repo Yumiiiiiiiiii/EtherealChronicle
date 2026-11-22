@@ -56,7 +56,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
 
     init {
         plugin.server.pluginManager.registerEvents(this,plugin)
-        task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },2,2)
+        task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },PaperTaskIntervals.FISHING_UPDATE_TICKS,PaperTaskIntervals.FISHING_UPDATE_TICKS)
     }
     /** プレイヤーが釣りセッションを保持しているかを返します。 */
     fun active(id:UUID)=id in sessions
@@ -120,7 +120,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         close()
         engine=FishingEngine(plugin.snapshot.world.lifeBalance,random)
         capacity=plugin.snapshot.world.lifeBalance.maxFishingSessions
-        task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },2,2)
+            task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },PaperTaskIntervals.FISHING_UPDATE_TICKS,PaperTaskIntervals.FISHING_UPDATE_TICKS)
     }
     private fun cleanup(session:Session) { session.bar.removeAll(); Bukkit.getEntity(session.bobber)?.remove() }
     private fun plain(component:Component):String = component.plainText()
@@ -179,14 +179,14 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         }
         val target=hit.location.clone().add(0.5,0.85,0.5)
         val distance=player.location.distance(target)
-        if(distance !in 2.0..balance.castRange) { player.sendMessage(plugin.message(player,"ec.fishing.distance")); return }
+        if(distance !in PaperDistance.MIN_FISH_CAST_DISTANCE_BLOCKS..balance.castRange) { player.sendMessage(plugin.message(player,"ec.fishing.distance")); return }
         val spot=selectFishingSpot(plugin.snapshot.world.fishingSpots.values,player.world.name,target.x,target.z,profile.flags)
             ?: run { player.sendMessage(plugin.message(player,"ec.fishing.no_shadow")); return }
         val p=profile.lifeSkills.getValue(LifeSkillKind.FISHING)
         val bait=chooseBait(player,profile)
         val weather=when { player.world.isThundering -> "THUNDER"; player.world.hasStorm() -> "RAIN"; else -> "CLEAR" }
         val eligible=engine.eligible(plugin.snapshot.world.fishSpecies.values,spot,rod.tier,p.level,player.world.time,weather)
-        val recent=catchHistory[player.uniqueId to spot.id]?.count { monotonicMillis()-it<balance.fatigueWindowSeconds*1000 } ?: 0
+        val recent=catchHistory[player.uniqueId to spot.id]?.count { monotonicMillis()-it<MinecraftTicks.secondsToMillis(balance.fatigueWindowSeconds) } ?: 0
         if(monotonicMillis()<(disabledUntil[player.uniqueId to spot.id] ?: 0)) { player.sendMessage(plugin.message(player,"ec.fishing.tired")); return }
         val candidates=if(recent>=balance.fatigueHardThreshold) emptyList() else eligible.filter { fish ->
             if(recent>=balance.fatigueSoftThreshold) fish.rarity !in setOf(Rarity.EPIC,Rarity.LEGENDARY) else true
@@ -203,7 +203,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
             fish.copy(baseWeight=fish.baseWeight*weight)
         }
         val fish=engine.choose(weighted) ?: run { player.sendMessage(plugin.message(player,"ec.fishing.no_eligible_fish")); return }
-        val wait=(2.5+random.nextDouble()*6.0)*(1-(rod.waitReduction+(baitDef?.waitReduction ?: 0.0)).coerceAtMost(0.5))*(if(recent>=balance.fatigueSoftThreshold) 1.4 else 1.0)
+        val wait=(FishingPhysics.MIN_CAST_WAIT_SECONDS+random.nextDouble()*FishingPhysics.CAST_WAIT_VARIANCE_SECONDS)*(1-(rod.waitReduction+(baitDef?.waitReduction ?: 0.0)).coerceAtMost(0.5))*(if(recent>=balance.fatigueSoftThreshold) FishingPhysics.FATIGUE_WAIT_MULTIPLIER else 1.0)
         val state=FishingState(fish,waitSeconds=wait,tensionStability=rod.tensionStability,sweetSpotBonus=rod.sweetSpotBonus)
         val bobber=player.world.spawn(target,ItemDisplay::class.java) { display ->
             display.setItemStack(org.bukkit.inventory.ItemStack(Material.HEART_OF_THE_SEA))
@@ -218,7 +218,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
     }
     private fun pulse(player:org.bukkit.entity.Player,session:Session,input:ReelInput) {
         val now=monotonicMillis()
-        if(now-session.lastInput<150) return
+        if(now-session.lastInput<FishingPhysics.MIN_INPUT_INTERVAL_MILLIS) return
         session.lastInput=now; session.input=input
         val detector=macroDetectors.getOrPut(player.uniqueId) { FishingMacroDetector() }
         detector.pull(now)
@@ -236,7 +236,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
     @EventHandler(ignoreCancelled=true) fun damage(e:EntityDamageEvent) { (e.entity as? org.bukkit.entity.Player)?.let { if(active(it.uniqueId)) cancel(it,"ec.fishing.damage",FishingEndReason.DAMAGE) } }
     @EventHandler fun moved(e:org.bukkit.event.player.PlayerMoveEvent) {
         val session=sessions[e.player.uniqueId] ?: return
-        if(e.from.world!=e.to.world || e.to.distanceSquared(session.castOrigin)>25.0 || e.to.distanceSquared(session.water)>225.0) cancel(e.player,"ec.fishing.line_left",FishingEndReason.LEFT_SPOT)
+        if(e.from.world!=e.to.world || !e.to.isWithinBlocks(session.castOrigin,PaperDistance.FISH_CAST_ORIGIN_BLOCKS) || !e.to.isWithinBlocks(session.water,PaperDistance.FISH_WATER_SPOT_BLOCKS)) cancel(e.player,"ec.fishing.line_left",FishingEndReason.LEFT_SPOT)
     }
     @EventHandler fun chunk(e:ChunkLoadEvent) {
         e.chunk.entities.filter { it.persistentDataContainer.has(bobberKey,PersistentDataType.STRING) }.forEach { ent ->
@@ -269,7 +269,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         val baitItems=plugin.snapshot.world.tackle.values.filter { it.kind==TackleKind.BAIT }.associateBy { it.item }
         val offhand=plugin.identify(player.inventory.itemInOffHand)
         if(offhand in baitItems && inventory.count(offhand!!)>0) return offhand
-        for(slot in 0..8) {
+        for(slot in PlayerInventoryLayout.FIRST_HOTBAR_SLOT..PlayerInventoryLayout.SKILL_HOTBAR_SLOT) {
             val id=plugin.identify(player.inventory.getItem(slot))
             if(id in baitItems && inventory.count(id!!)>0) return id
         }
@@ -283,7 +283,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
     private fun tick() {
         castGate.cleanup(); val now=monotonicMillis()
         disabledUntil.entries.removeIf { it.value<=now }
-        catchHistory.values.forEach { it.removeIf { ts -> now-ts>plugin.snapshot.world.lifeBalance.fatigueWindowSeconds*1000 } }
+        catchHistory.values.forEach { it.removeIf { ts -> now-ts>MinecraftTicks.secondsToMillis(plugin.snapshot.world.lifeBalance.fatigueWindowSeconds) } }
         sessions.toMap().forEach { (id,s) ->
             val player=Bukkit.getPlayer(id)
             if(player==null || !player.isOnline) {
@@ -329,7 +329,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
                 val behaviorKey=when(s.state.behavior) { FishBehavior.CALM -> "ec.fishing.behavior_calm"; FishBehavior.TELEGRAPH -> "ec.fishing.behavior_telegraph"; FishBehavior.THRASH -> "ec.fishing.behavior_thrash"; FishBehavior.DIVE -> "ec.fishing.behavior_dive" }
                 val barTitle=if(s.state.phase==FishingPhase.REELING) plugin.message(player,"ec.fishing.bossbar_reeling","behavior" to plain(plugin.message(player,behaviorKey)),"progress" to s.state.progress.toInt()) else plugin.message(player,"ec.fishing.bossbar_search")
                 s.bar.setTitle(plain(barTitle))
-                s.bar.progress=(s.state.progress/100).coerceIn(0.0,1.0)
+        s.bar.progress=(s.state.progress/FishingPhysics.MAX_TENSION_OR_PROGRESS).coerceIn(0.0,1.0)
                 s.bar.color=when(s.state.behavior) { FishBehavior.DIVE -> BarColor.BLUE; FishBehavior.THRASH -> BarColor.RED; FishBehavior.TELEGRAPH -> BarColor.YELLOW; else -> BarColor.GREEN }
                 val status=plugin.message(player,"ec.fishing.actionbar_status","tension" to s.state.tension.toInt(),"progress" to s.state.progress.toInt())
                 player.sendActionBar(status.append(Component.space()).append(plugin.message(player,fishingReelAdvice(s.state.behavior,s.state.tension))))
@@ -352,7 +352,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
                 val key=player.uniqueId to s.spot.id
                 val history=catchHistory.getOrPut(key) { ArrayDeque() }; history.addLast(monotonicMillis())
                 val fatigue=plugin.snapshot.world.lifeBalance
-                if(history.size>fatigue.fatigueHardThreshold) disabledUntil[key]=monotonicMillis()+fatigue.fatigueCooldownSeconds*1000
+                if(history.size>fatigue.fatigueHardThreshold) disabledUntil[key]=monotonicMillis()+MinecraftTicks.secondsToMillis(fatigue.fatigueCooldownSeconds)
             },success={
                 plugin.syncTitleAdvancements(player,profile)
                 val isNew=profile.fishRecords[catch.species.id]?.count==1

@@ -166,7 +166,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 simStore = PlayerStore(dataFolder.toPath().resolve("simulation"))
                 sync {
                     language = loadedLanguage
-                    game = GameService(content::snapshot,SkillEngine(Clock { System.nanoTime()/1_000_000 },content.snapshot().balance))
+                    game = GameService(content::snapshot,SkillEngine(Clock(::monotonicMillis),content.snapshot().balance))
                     resourcePacks = ResourcePackController(this)
                     if (resourcePacks.shouldRegisterLockListener()) {
                         RequiredPackLockListener(this, resourcePacks::isAwaitingRequiredPack, resourcePacks::hasWaiters)
@@ -205,11 +205,11 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     fishing=FishingController(this)
                     treasures=TreasureController(this).also { it.reload() }
                     runCatching { reloadAdvancementPack() }.onFailure { advancementWarning(it) }
-                    server.scheduler.runTaskTimer(this,Runnable { enemies.tick() },10,10)
+                    server.scheduler.runTaskTimer(this,Runnable { enemies.tick() },PaperTaskIntervals.ENEMY_UPDATE_TICKS,PaperTaskIntervals.ENEMY_UPDATE_TICKS)
                     ready = true
                     server.pluginManager.registerEvents(this,this)
                     if (!paperInventoryUi) getCommand("ec")?.setExecutor(this)
-                    server.scheduler.runTaskTimer(this,Runnable { tick() },20,20)
+                    server.scheduler.runTaskTimer(this,Runnable { tick() },PaperTaskIntervals.PLAYER_UPDATE_TICKS,PaperTaskIntervals.PLAYER_UPDATE_TICKS)
                     server.onlinePlayers.forEach { join(it) }
                     logger.info("Adventure systems are ready.")
                 }
@@ -314,7 +314,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         }
         // MockBukkitはCraftItemStackを提供しないため、イベント回帰テストだけ旧API表示にします。
         val inventory = ClassMenu(message(player,"ec.class.choose")).inventory
-        content.snapshot().classes.all().take(9).forEachIndexed { index, definition ->
+        content.snapshot().classes.all().take(ClassSelectionLayout.MAX_CLASS_OPTIONS).forEachIndexed { index, definition ->
             val icon = definition.icon?.let(Material::valueOf) ?: when (definition.resource) {
                 ResourceKind.RAGE -> Material.IRON_SWORD
                 ResourceKind.FOCUS -> Material.BOW
@@ -342,7 +342,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 ) {
                     menu(player)
                 }
-            }, 1L)
+}, PaperTaskIntervals.NEXT_TICK_DELAY)
         } catch (_: org.bukkit.plugin.IllegalPluginAccessException) {
             pendingClassMenuReopen.remove(id)
         }
@@ -351,16 +351,16 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val p = e.whoClicked as? Player ?: return
         if(e.view.topInventory.holder is ClassMenu) {
             e.isCancelled = true
-            if(e.rawSlot !in 0..8) return
+            if(e.rawSlot !in 0 until ChestLayout.CLASS_MENU_SLOTS) return
             val id = e.currentItem?.itemMeta?.persistentDataContainer?.get(itemKey,PersistentDataType.STRING) ?: return
             val profile = profiles[p.uniqueId] ?: return
             if(profile.classId != null && profile.classId != id) return
             starter(p,profile,id); return
         }
-        if(p.uniqueId in choosing || e.slot == 8 && e.clickedInventory == p.inventory && isSkill(p.inventory.getItem(8)) || e.hotbarButton == 8 || isSkill(e.currentItem)) e.isCancelled = true
+        if(p.uniqueId in choosing || e.slot == PlayerInventoryLayout.SKILL_HOTBAR_SLOT && e.clickedInventory == p.inventory && isSkill(p.inventory.getItem(PlayerInventoryLayout.SKILL_HOTBAR_SLOT)) || e.hotbarButton == PlayerInventoryLayout.SKILL_HOTBAR_SLOT || isSkill(e.currentItem)) e.isCancelled = true
     }
     @EventHandler fun drag(e: InventoryDragEvent) {
-        if(e.view.topInventory.holder is ClassMenu || e.rawSlots.any { e.view.convertSlot(it) == 8 && it >= e.view.topInventory.size }) e.isCancelled = true
+        if(e.view.topInventory.holder is ClassMenu || e.rawSlots.any { e.view.convertSlot(it) == PlayerInventoryLayout.SKILL_HOTBAR_SLOT && it >= e.view.topInventory.size }) e.isCancelled = true
     }
     @EventHandler fun closeMenu(e: InventoryCloseEvent) {
         val p = e.player as? Player ?: return
@@ -371,7 +371,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private fun starter(p: Player, profile: PlayerProfile, id: String) {
         if(!choosing.add(p.uniqueId)) return
         val c = content.snapshot().classes[id]
-        if(c.starterItems.size > p.inventory.storageContents.take(8).count { it == null } ) {
+        if(c.starterItems.size > p.inventory.storageContents.take(PlayerInventoryCapacities.STARTER_HOTBAR).count { it == null } ) {
             choosing.remove(p.uniqueId); p.sendMessage(message(p,"ec.profile.inventory_space")); return
         }
         if(profile.classId == null) game.chooseClass(profile,id)
@@ -381,7 +381,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             choosing.remove(p.uniqueId)
             if(error != null) { profile.starterGranted = false; p.sendMessage(message(p,"ec.profile.save_retry")); return@sync }
             if(!p.isOnline || profiles[p.uniqueId] !== profile) return@sync
-            val deferredToMailbox = c.starterItems.size > (0..7).count { p.inventory.getItem(it) == null }
+            val deferredToMailbox = c.starterItems.size > PlayerInventoryLayout.STARTER_HOTBAR_RANGE.count { p.inventory.getItem(it) == null }
             if(deferredToMailbox) {
                 // 先行保存済みのstarterGrantedを維持し、枠不足分は耐久メールボックスへ戻します。
                 val counts = c.starterItems.groupingBy { it }.eachCount()
@@ -391,7 +391,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 p.sendMessage(message(p,"ec.profile.starter_space"))
             } else {
                 c.starterItems.forEach { item ->
-                    val slot = (0..7).first { p.inventory.getItem(it) == null }
+                    val slot = PlayerInventoryLayout.STARTER_HOTBAR_RANGE.first { p.inventory.getItem(it) == null }
                     p.inventory.setItem(slot,createStarterItem(item,id,p))
                     profile.discoverItem(item)
                 }
@@ -414,7 +414,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         return ItemStack(Material.valueOf(d.material),amount).apply { itemMeta = itemMeta.apply {
             val rarity=language.component(null,d.rarity.displayKey)
             displayName(Component.text(d.name)); lore(listOf(language.component(null,"ec.item.required_level", mapOf("level" to d.minLevel, "rarity" to rarity))))
-            snapshot.world.itemProperties[id]?.lore?.takeIf { it.isNotBlank() }?.let { text -> lore((lore() ?: emptyList())+text.chunked(28).map { Component.text(it) }) }
+        snapshot.world.itemProperties[id]?.lore?.takeIf { it.isNotBlank() }?.let { text -> lore((lore() ?: emptyList())+text.chunked(DialogueLayout.TEXT_WRAP_CHARACTERS).map { Component.text(it) }) }
             persistentDataContainer.set(itemKey,PersistentDataType.STRING,id)
             val hasPack=packRecipient?.let { ::resourcePacks.isInitialized && resourcePacks.hasResourcePack(it.uniqueId) } == true
             UiThemeProvider.modelKey(hasPack,d.itemModel)?.let(::setItemModel)
@@ -431,7 +431,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val inventory=player.inventory
         val heldSlot=inventory.heldItemSlot
         val ownedSlot=(0 until inventory.storageContents.size).firstOrNull { slot ->
-            slot != 8 && identify(inventory.getItem(slot)) == newWeapon
+            !PlayerInventoryLayout.isSkillSlot(slot) && identify(inventory.getItem(slot)) == newWeapon
         }
         if(ownedSlot != null) {
             val held=inventory.getItem(heldSlot)
@@ -449,7 +449,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val oldStarterIds=oldClassId?.let(snapshot.classes::find)?.starterItems.orEmpty().toSet()
         val canReplaceHeld=held == null || heldId in oldStarterIds
         val destination=if(canReplaceHeld) heldSlot else
-            (0 until inventory.storageContents.size).firstOrNull { it != 8 && inventory.getItem(it) == null }
+            PlayerInventoryLayout.STORAGE_SLOT_RANGE.firstOrNull { PlayerInventoryLayout.isUsableStorageSlot(it) && inventory.getItem(it) == null }
         if(destination == null) {
             profile.pendingRewards.merge(newWeapon,1,Int::plus)
             profile.discoverItem(newWeapon)
@@ -457,7 +457,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         }
 
         if(destination == heldSlot && held != null && heldId != null) {
-            val spare=(0 until inventory.storageContents.size).firstOrNull { it != 8 && it != heldSlot && inventory.getItem(it) == null }
+            val spare=PlayerInventoryLayout.STORAGE_SLOT_RANGE.firstOrNull { PlayerInventoryLayout.isUsableStorageSlot(it) && it != heldSlot && inventory.getItem(it) == null }
             if(spare != null) inventory.setItem(spare,held)
             else profile.pendingRewards.merge(heldId,held.amount,Int::plus)
         }
@@ -472,14 +472,14 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         ?: plain(message(player, "ec.content.unknown_name"))
     private fun isSkill(stack: ItemStack?) = stack?.itemMeta?.persistentDataContainer?.has(slotKey,PersistentDataType.BYTE) == true
     private fun skillSlot(p: Player) {
-        if(!isSkill(p.inventory.getItem(8))) {
-            val old = p.inventory.getItem(8)
+        if(!isSkill(p.inventory.getItem(PlayerInventoryLayout.SKILL_HOTBAR_SLOT))) {
+            val old = p.inventory.getItem(PlayerInventoryLayout.SKILL_HOTBAR_SLOT)
             if(old != null && adventure.bound(old)) {
-                val free=(0 until p.inventory.storageContents.size).firstOrNull { it != 8 && p.inventory.getItem(it) == null }
+                val free=PlayerInventoryLayout.STORAGE_SLOT_RANGE.firstOrNull { PlayerInventoryLayout.isUsableStorageSlot(it) && p.inventory.getItem(it) == null }
                 if(free == null) { p.sendMessage(message(p,"ec.profile.skill_slot_space")); return }
                 p.inventory.setItem(free,old)
             } else if(old != null) p.world.dropItemNaturally(p.location,old)
-            p.inventory.setItem(8,ItemStack(Material.NETHER_STAR).apply { itemMeta = itemMeta.apply {
+            p.inventory.setItem(PlayerInventoryLayout.SKILL_HOTBAR_SLOT,ItemStack(Material.NETHER_STAR).apply { itemMeta = itemMeta.apply {
                 displayName(message(p,"ec.profile.skill_slot")); persistentDataContainer.set(slotKey,PersistentDataType.BYTE,1)
             } })
         }
@@ -492,13 +492,13 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     }
     internal fun effectiveStats(p: Player,profile: PlayerProfile): Stats {
         val base=game.stats(profile,equippedDefinitions(p,profile))
-        val buff=defenseBuffs[p.uniqueId]?.takeIf { it.second > System.nanoTime()/1_000_000 }?.first ?: 0.0
+        val buff=defenseBuffs[p.uniqueId]?.takeIf { it.second > monotonicMillis() }?.first ?: 0.0
         return base.copy(defense=(base.defense+buff).coerceAtMost(snapshot.balance.statCap))
     }
     private fun applyStats(p: Player, profile: PlayerProfile, calculated: Stats = effectiveStats(p,profile)) {
         val max = calculated.hp.coerceIn(1.0,content.snapshot().balance.statCap)
         p.getAttribute(Attribute.MAX_HEALTH)?.baseValue = max
-        p.isHealthScaled = true; p.healthScale = 20.0
+        p.isHealthScaled = true; p.healthScale = PaperHealthDisplay.VANILLA_HEARTS_SCALE
         if(p.health > max) p.health = max
     }
     private fun hasEnhancementToken(player:Player,token:String):Boolean = player.inventory.contents.filterNotNull().any { stack ->
@@ -603,12 +603,12 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val level=stack.itemMeta.persistentDataContainer.get(enhancementKey,PersistentDataType.INTEGER) ?: 0
         val tuning=snapshot.world.tuning
         val menu=RpgMenu("enhance",definition.id,level.toString(),message(player,"ec.menu.enhance")).inventory
-        menu.setItem(4,stack.clone())
-        menu.setItem(13,ItemStack(Material.ANVIL).apply { itemMeta=itemMeta.apply {
+        menu.setItem(EnhanceLayout.TARGET_ITEM_SLOT,stack.clone())
+        menu.setItem(EnhanceLayout.CONFIRM_SLOT,ItemStack(Material.ANVIL).apply { itemMeta=itemMeta.apply {
             displayName(message(player,"ec.enhance.button", "level" to (level+1)))
             lore(listOf(message(player,"ec.enhance.material", "item" to contentName(player,tuning.enhancementMaterial)),message(player,"ec.enhance.cost", "cost" to tuning.enhancementBaseCurrency*(level+1)),message(player,"ec.enhance.cap", "level" to tuning.enhancementCap)))
         } })
-        openRpgMenu(player, menu) { slot, _ -> if (slot == 13) runCatching { enhance(player, menu.holder as RpgMenu) }.onFailure { player.sendMessage(message(player,"ec.command.failed", "reason" to diagnostic(player,it.message.orEmpty()))) } }
+        openRpgMenu(player, menu) { slot, _ -> if (slot == EnhanceLayout.CONFIRM_SLOT) runCatching { enhance(player, menu.holder as RpgMenu) }.onFailure { player.sendMessage(message(player,"ec.command.failed", "reason" to diagnostic(player,it.message.orEmpty()))) } }
     }
     internal fun enhance(player:Player,menu:RpgMenu) {
         val p=profiles[player.uniqueId] ?: error("ec.error.profile_loading")
@@ -669,23 +669,23 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         if(!menu.kind.startsWith("codex-") && menu.kind != "enhance") return
         e.isCancelled=true
         if(e.rawSlot !in 0 until e.view.topInventory.size) return
-        if(menu.kind == "enhance") { if(e.rawSlot == 13) runCatching { enhance(player,menu) }.onFailure { player.sendMessage(message(player,"ec.command.failed", "reason" to diagnostic(player,it.message.orEmpty()))) }; return }
+        if(menu.kind == "enhance") { if(e.rawSlot == EnhanceLayout.CONFIRM_SLOT) runCatching { enhance(player,menu) }.onFailure { player.sendMessage(message(player,"ec.command.failed", "reason" to diagnostic(player,it.message.orEmpty()))) }; return }
         codexAction(player,menu.kind,menu.contentId,e.rawSlot)
     }
     private fun codexAction(player: Player, kind: String, contentId:String, slot: Int) {
         when(slot) {
-            45 -> codexController.turnPage(player,kind,contentId,-1)
-            46 -> if(kind!="codex-areas") openCodex(player)
-            47 -> openCodexFish(player)
-            48 -> openCodexGathering(player)
-            49 -> openCodexItems(player)
-            53 -> codexController.turnPage(player,kind,contentId,1)
+            CodexLayout.PREVIOUS_PAGE_SLOT -> codexController.turnPage(player,kind,contentId,-1)
+            CodexLayout.BACK_SLOT -> if(kind!="codex-areas") openCodex(player)
+            CodexLayout.FISH_TAB_SLOT -> openCodexFish(player)
+            CodexLayout.GATHERING_TAB_SLOT -> openCodexGathering(player)
+            CodexLayout.ITEM_TAB_SLOT -> openCodexItems(player)
+            CodexLayout.NEXT_PAGE_SLOT -> codexController.turnPage(player,kind,contentId,1)
             else -> if(kind=="codex-areas") codexController.openAreaFromSlot(player,slot)
         }
     }
     private fun tick() {
         game.skills.cleanup()
-        val now=System.nanoTime()/1_000_000; procReady.entries.removeIf { it.value <= now }; defenseBuffs.entries.removeIf { it.value.second <= now }; basicAttacks.cleanup()
+        val now=monotonicMillis(); procReady.entries.removeIf { it.value <= now }; defenseBuffs.entries.removeIf { it.value.second <= now }; basicAttacks.cleanup()
         if(::adventure.isInitialized) adventure.tick()
         if(::dungeons.isInitialized) dungeons.tick()
         if(::gathering.isInitialized) { /* its bounded 2-tick controller owns the life-skill HUD */ }
@@ -699,14 +699,15 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             val fishingActive=::fishing.isInitialized && fishing.active(p.uniqueId)
             val s = effectiveStats(p,profile); applyStats(p,profile,s); applyTitle(p,profile)
             val beforeResource = profile.resource
-            game.regenerate(profile,s.resource,Bukkit.getCurrentTick()-(lastMoved[p.uniqueId] ?: Int.MIN_VALUE/2) < 20)
+            val movedRecently = lastMoved[p.uniqueId]?.let { Bukkit.getCurrentTick() - it < PaperTaskIntervals.PLAYER_UPDATE_TICKS } ?: false
+            game.regenerate(profile,s.resource,movedRecently)
             if(profile.resource != beforeResource) dirty.add(p.uniqueId)
             profile.selectedSkill = profile.selectedSkill.coerceIn(0,c.skills.lastIndex)
             val skill = c.skills[profile.selectedSkill]
-            if(shouldSendClassHud(gatheringActive,fishingActive)) p.sendActionBar(message(p,"ec.hud.main", "hp" to p.health.toInt(), "max_hp" to s.hp.toInt(), "resource_name" to resourceName(p,c.resource), "resource" to profile.resource.toInt(), "max_resource" to s.resource.toInt(), "skill" to content.snapshot().skills[skill].name, "cooldown" to "%.1f".format(game.skills.remaining(p.uniqueId,skill)/1000.0), "party" to adventure.parties.members(p.uniqueId).size))
+            if(shouldSendClassHud(gatheringActive,fishingActive)) p.sendActionBar(message(p,"ec.hud.main", "hp" to p.health.toInt(), "max_hp" to s.hp.toInt(), "resource_name" to resourceName(p,c.resource), "resource" to profile.resource.toInt(), "max_resource" to s.resource.toInt(), "skill" to content.snapshot().skills[skill].name, "cooldown" to "%.1f".format(MinecraftTicks.millisToSeconds(game.skills.remaining(p.uniqueId,skill))), "party" to adventure.parties.members(p.uniqueId).size))
           } catch(error: Exception) { logger.warning("HUD update failed ${p.uniqueId}: ${error.message}") }
         }
-        if(++autosaveSeconds >= 60) {
+            if(++autosaveSeconds >= PaperTaskIntervals.PROFILE_AUTOSAVE_SECONDS) {
             autosaveSeconds = 0; dirty.toList().forEach { profiles[it]?.let(::save) }; dirty.clear()
         }
     }
@@ -721,7 +722,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     @EventHandler fun interact(e: PlayerInteractEvent) {
         if(e.hand != EquipmentSlot.HAND || !e.action.isRightClick) return
         val p = e.player; val profile = profiles[p.uniqueId] ?: run { e.isCancelled = true; return }
-        if(p.isSneaking && p.inventory.heldItemSlot == 8) { e.isCancelled = true; cycle(p); return }
+        if(p.isSneaking && p.inventory.heldItemSlot == PlayerInventoryLayout.SKILL_HOTBAR_SLOT) { e.isCancelled = true; cycle(p); return }
         if(e.clickedBlock?.type?.isInteractable == true && !p.isSneaking) return
         if(adventure.locked(p.uniqueId)) { e.isCancelled=true; return }
         if(adventure.consume(p,p.inventory.itemInMainHand)) { e.isCancelled=true; return }
@@ -730,7 +731,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         if(!weapon.canEquip(profile)) { p.sendMessage(message(p,"ec.skill.weapon_requirements")); return }
         val c = profile.classId?.let { content.snapshot().classes.find(it) } ?: return
         val skill = content.snapshot().skills[c.skills[profile.selectedSkill.coerceIn(0,c.skills.lastIndex)]]
-        val target = p.world.rayTraceEntities(p.eyeLocation,p.eyeLocation.direction,skill.range,0.8) { it is LivingEntity && it !is Player && it.persistentDataContainer.has(enemyKey) }?.hitEntity as? LivingEntity
+        val target = p.world.rayTraceEntities(p.eyeLocation,p.eyeLocation.direction,skill.range,CombatGeometry.SKILL_TARGET_HITBOX_BLOCKS) { it is LivingEntity && it !is Player && it.persistentDataContainer.has(enemyKey) }?.hitEntity as? LivingEntity
         if(target != null && !p.hasLineOfSight(target)) { p.sendMessage(message(p,"ec.skill.obstructed")); return }
         val result=castSkill(p,target)
         if(result != CastResult.SUCCESS) p.sendMessage(message(p,when(result) { CastResult.RESOURCE -> "ec.skill.resource_low"; CastResult.INVALID_TARGET -> "ec.skill.target_missing"; else -> "ec.skill.cooldown" }))
@@ -743,7 +744,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val c=profile.classId?.let { snapshot.classes.find(it) } ?: return CastResult.INVALID_TARGET
         val skill=snapshot.skills[c.skills[profile.selectedSkill.coerceIn(0,c.skills.lastIndex)]]
         if(target == null && skill.heal <= 0 && skill.defenseBuff <= 0 && skill.tauntTicks <= 0) return CastResult.INVALID_TARGET
-        if(target != null && (target.world != player.world || target.location.distanceSquared(player.location) > skill.range*skill.range || !target.persistentDataContainer.has(enemyKey))) return CastResult.INVALID_TARGET
+        if(target != null && (!target.location.isWithinBlocks(player.location,skill.range) || !target.persistentDataContainer.has(enemyKey))) return CastResult.INVALID_TARGET
         if(target != null && enemies.state(target.uniqueId)?.participants?.let { it.isNotEmpty() && player.uniqueId !in it } == true) return CastResult.INVALID_TARGET
         val result=game.skills.cast(profile,skill)
         if(result != CastResult.SUCCESS) return result
@@ -756,7 +757,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             recipients.forEach { recipient ->
                 val recipientProfile=profiles[recipient.uniqueId] ?: return@forEach
                 if(skill.heal > 0 && (recipient.uniqueId == player.uniqueId || skill.partyHeal)) recipient.health=(recipient.health+effectiveStats(recipient,recipientProfile).hp*skill.heal).coerceAtMost(recipient.getAttribute(Attribute.MAX_HEALTH)!!.value)
-                if(skill.defenseBuff > 0 && (recipient.uniqueId == player.uniqueId || skill.partyDefenseBuff)) defenseBuffs[recipient.uniqueId]=skill.defenseBuff to (System.nanoTime()/1_000_000+skill.buffTicks*50L)
+                if(skill.defenseBuff > 0 && (recipient.uniqueId == player.uniqueId || skill.partyDefenseBuff)) defenseBuffs[recipient.uniqueId]=skill.defenseBuff to (monotonicMillis()+MinecraftTicks.ticksToMillis(skill.buffTicks.toLong()))
             }
         }
         if(skill.tauntTicks > 0) enemies.taunt(player,skill.radius.coerceAtLeast(skill.allyRadius).coerceAtLeast(skill.range),skill.tauntTicks,skill.threatMultiplier)
@@ -774,7 +775,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         }
         dirty.add(player.uniqueId); return result
     }
-    internal fun defenseBuff(player: Player,amount: Double,ticks: Int) { defenseBuffs[player.uniqueId]=amount to (System.nanoTime()/1_000_000+ticks*50L) }
+    internal fun defenseBuff(player: Player,amount: Double,ticks: Int) { defenseBuffs[player.uniqueId]=amount to (monotonicMillis()+MinecraftTicks.ticksToMillis(ticks.toLong())) }
     private val defenseBuffs=mutableMapOf<UUID,Pair<Double,Long>>()
     private val procReady=mutableMapOf<Triple<UUID,String,Int>,Long>()
     internal fun procEffects(player: Player,target: LivingEntity) {
@@ -782,7 +783,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         if(!proccing.add(player.uniqueId)) return
         try {
         val equipped=equippedDefinitions(player,profile).filter { it.canEquip(profile) }
-        val now=System.nanoTime()/1_000_000
+        val now=monotonicMillis()
         equipped.forEach { item -> snapshot.world.itemProperties[item.id]?.effects?.forEachIndexed { index,effect ->
             if(effect.kind !in setOf("ATTACK_PROC","DEFENSE_BUFF","HEAL","RESOURCE")) return@forEachIndexed
             val key=Triple(player.uniqueId,item.id,index)
@@ -797,7 +798,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     }
     private val casting = mutableSetOf<UUID>()
     private val proccing = mutableSetOf<UUID>()
-    private val basicAttacks=ActionGate(Clock { System.nanoTime()/1_000_000 })
+    private val basicAttacks=ActionGate(Clock(::monotonicMillis))
     private fun hit(p: Player,target: LivingEntity,multiplier: Double,element: String = "PHYSICAL",flat: Double? = null,useSkillPower: Boolean = false) {
         val profile = profiles[p.uniqueId] ?: return
         val d = target.persistentDataContainer.get(enemyKey,PersistentDataType.STRING)?.let { content.snapshot().documents[it] } ?: return
@@ -834,7 +835,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val player=e.entity as? Player ?: return
         if(e.finalDamage < player.health) return
         val profile=profiles[player.uniqueId] ?: return
-        val now=System.nanoTime()/1_000_000
+        val now=monotonicMillis()
         for(item in equippedDefinitions(player,profile).filter { it.canEquip(profile) }) {
             for((index,effect) in snapshot.world.itemProperties[item.id]?.effects.orEmpty().withIndex()) {
                 if(effect.kind != "REVIVE") continue
@@ -889,7 +890,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val id=entity.persistentDataContainer.get(enemyKey,PersistentDataType.STRING) ?: return
         val definition=snapshot.documents[id] ?: return
         val eligible=adventure.parties.members(killer.uniqueId).mapNotNull(Bukkit::getPlayer).filter { p ->
-            p.world == entity.world && p.location.distanceSquared(entity.location) <= snapshot.world.tuning.partyRadius*snapshot.world.tuning.partyRadius && p.uniqueId in profiles
+            p.world == entity.world && p.location.isWithinBlocks(entity.location,snapshot.world.tuning.partyRadius) && p.uniqueId in profiles
         }
         val ids=eligible.map { it.uniqueId }.toSet(); val xp=adventure.parties.splitXp(definition.long("xp"),ids); val currency=adventure.parties.splitXp(definition.long("currency"),ids)
         val loot=adventure.parties.lootRecipient(ids,lootSequence++)
@@ -1143,7 +1144,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     val p = server.getPlayerExact(args[1]) ?: error("ec.error.player_missing")
                     val profile = profiles[p.uniqueId] ?: error("ec.error.profile_loading")
                     val amount = args.getOrNull(3)?.toInt() ?: 1
-                    require(amount in 1..64)
+                    require(amount in 1..ContentLimits.MAX_ITEM_STACK)
                     require(!adventure.locked(p.uniqueId))
                     require(inventory(p).exchange(emptyMap(),mapOf(args[2] to amount))) { "ec.error.inventory_full" }
                     profile.discoverItem(args[2]); save(profile)
@@ -1265,7 +1266,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             "shop" -> {
                 val id=args.getOrNull(1) ?: error("ec.error.usage: /ec shop <id>")
                 val npc=snapshot.world.npcs.values.firstOrNull { it.shop == id } ?: error("ec.error.shop_npc_missing")
-                require(npc.position.world == player.world.name && Location(player.world,npc.position.x,npc.position.y,npc.position.z).distanceSquared(player.location) <= 64) { "ec.error.shop_too_far" }
+                require(npc.position.world == player.world.name && player.location.isWithinBlocks(Location(player.world,npc.position.x,npc.position.y,npc.position.z),PaperDistance.SHOP_INTERACTION_BLOCKS)) { "ec.error.shop_too_far" }
                 adventure.showShop(player,id)
             }
             "quest" -> when(args.getOrNull(1)) {

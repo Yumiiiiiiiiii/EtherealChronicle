@@ -16,6 +16,42 @@ import org.bukkit.potion.PotionEffectType
 import java.util.UUID
 import kotlin.math.*
 
+/** 敵AI・telegraphの固定係数を意図ごとにまとめます。 */
+private object EnemyBehaviorTuning {
+    const val SIMULATION_STEP_TICKS = PaperTaskIntervals.ENEMY_UPDATE_TICKS
+    const val BASE_MOB_HEALTH = 20.0
+    const val KNOCKBACK_RESISTANCE = 0.7
+    const val FLEE_HP_RATIO = 0.25
+    const val FLEE_CYCLE_TICKS = 80L
+    const val FLEE_ACTIVE_TICKS = 40L
+    const val MIN_MOVEMENT_DISTANCE_SQUARED = 0.0001
+    const val FLEE_VERTICAL_SPEED = 0.1
+    const val MIN_ATTACK_INTERVAL_TICKS = 10L
+    const val FREEZE_SLOWNESS_AMPLIFIER = 10
+    const val TELEGRAPH_PARTICLE_COUNT = 24
+    val CONE_ANGLE_RADIANS = Math.PI / 2
+    const val CONE_CENTER_OFFSET = 0.5
+    const val TELEGRAPH_HEIGHT_BLOCKS = 0.15
+    const val ATTACK_VERTICAL_TOLERANCE_BLOCKS = 4.0
+    val ATTACK_FACING_HALF_ANGLE_RADIANS = Math.PI / 4
+    const val POISON_EFFECT_TICKS = 60
+    const val SLOW_EFFECT_TICKS = 40
+    val CIRCLE_STEP_RADIANS = Math.PI / 12
+    const val DUST_SIZE = 1.3f
+    const val TAUNT_MAX_RADIUS_BLOCKS = 64.0
+    const val TAUNT_MAX_DURATION_TICKS = 72_000
+    const val TAUNT_MAX_THREAT_MULTIPLIER = 100.0
+
+    val ELEMENT_COLORS = mapOf(
+        "ICE" to Color.fromRGB(150, 235, 255),
+        "VOID" to Color.fromRGB(185, 90, 255),
+        "FIRE" to Color.fromRGB(255, 105, 35),
+        "LIGHTNING" to Color.fromRGB(255, 235, 80),
+        "AETHER" to Color.fromRGB(100, 255, 205),
+    )
+    val DEFAULT_TELEGRAPH_COLOR = Color.fromRGB(255, 65, 65)
+}
+
 /** YAML定義の魔物、virtual HP、脅威、特殊攻撃、出現上限を管理します。 */
 class EnemyController(private val plugin: RpgPlugin,private val adventure: AdventureController): Listener {
     companion object {
@@ -27,14 +63,8 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
             return Registry.WOLF_VARIANT.get(key)
         }
 
-        internal fun telegraphColor(element: String): Color = when(element.uppercase()) {
-            "ICE" -> Color.fromRGB(150,235,255)
-            "VOID" -> Color.fromRGB(185,90,255)
-            "FIRE" -> Color.fromRGB(255,105,35)
-            "LIGHTNING" -> Color.fromRGB(255,235,80)
-            "AETHER" -> Color.fromRGB(100,255,205)
-            else -> Color.fromRGB(255,65,65)
-        }
+        internal fun telegraphColor(element: String): Color = EnemyBehaviorTuning.ELEMENT_COLORS[element.uppercase()]
+            ?: EnemyBehaviorTuning.DEFAULT_TELEGRAPH_COLOR
     }
     data class MobState(val entity: LivingEntity,val home: Location,val point: String,val boss: BossState,val participants: Set<UUID>,val bar: BossBar?,var target: UUID?=null,var nextAttack: Long=0,val specials: MutableMap<String,Long> = mutableMapOf(),val pinned: Boolean=false,val threat: MutableMap<UUID,Double> = mutableMapOf(),var tauntTarget: UUID?=null,var tauntUntil: Long=0)
     private data class Warning(val owner: UUID,val attack: SpecialAttack,val location: Location,val direction: org.bukkit.util.Vector,val due: Long)
@@ -72,10 +102,10 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
         entity.customName(net.kyori.adventure.text.Component.text(d.name)); entity.isCustomNameVisible=true
         if(entity is Slime) entity.size=d.size
         // Slimeサイズ設定後に表示用最大体力を再設定します。setSizeが属性値を変更するためです。
-        entity.getAttribute(Attribute.MAX_HEALTH)?.baseValue=20.0
+        entity.getAttribute(Attribute.MAX_HEALTH)?.baseValue=EnemyBehaviorTuning.BASE_MOB_HEALTH
         entity.health=requireNotNull(entity.getAttribute(Attribute.MAX_HEALTH)).value
         entity.getAttribute(Attribute.MOVEMENT_SPEED)?.baseValue=d.speed
-        if("KNOCKBACK_RESIST" in d.traits) entity.getAttribute(Attribute.KNOCKBACK_RESISTANCE)?.baseValue=0.7
+        if("KNOCKBACK_RESIST" in d.traits) entity.getAttribute(Attribute.KNOCKBACK_RESISTANCE)?.baseValue=EnemyBehaviorTuning.KNOCKBACK_RESISTANCE
         if(entity is PiglinAbstract) entity.isImmuneToZombification=true
         entity.isPersistent=false
         if(pinForSimulation) { entity.removeWhenFarAway=false; entity.setAI(false) }
@@ -86,7 +116,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
         return entity
     }
     fun tick() {
-        tick+=10
+        tick+=EnemyBehaviorTuning.SIMULATION_STEP_TICKS
         states.values.toList().forEach { state ->
             val entity=state.entity
             if(entity.isDead) { remove(entity.uniqueId,false); return@forEach }
@@ -96,7 +126,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
             val eligible=entity.world.players.filter { p -> p.isOnline && !p.isDead &&
                 !plugin.resourcePacks.isAwaitingRequiredPack(p.uniqueId) &&
                 p.gameMode !in setOf(GameMode.CREATIVE,GameMode.SPECTATOR) && !isSafe(p) && plugin.profiles[p.uniqueId]?.classId != null &&
-                (state.participants.isEmpty() || p.uniqueId in state.participants) && p.location.distanceSquared(entity.location) <= d.aggro*d.aggro }
+                (state.participants.isEmpty() || p.uniqueId in state.participants) && p.location.isWithinBlocks(entity.location,d.aggro) }
             if(tick >= state.tauntUntil) state.tauntTarget=null
             val target=eligible.firstOrNull { it.uniqueId == state.tauntTarget }
                 ?: eligible.maxWithOrNull(compareBy<Player> { state.threat[it.uniqueId] ?: 0.0 }.thenByDescending { -it.location.distanceSquared(entity.location) })
@@ -115,13 +145,13 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
             if(target == null) { if(entity is Mob) entity.target=null; return@forEach }
             state.target=target.uniqueId
             if(entity is Mob) entity.target=target
-            if("FLEE" in d.traits && state.boss.hp/state.boss.maximumHp < 0.25 && tick%80 < 40) {
+            if("FLEE" in d.traits && state.boss.hp/state.boss.maximumHp < EnemyBehaviorTuning.FLEE_HP_RATIO && tick%EnemyBehaviorTuning.FLEE_CYCLE_TICKS < EnemyBehaviorTuning.FLEE_ACTIVE_TICKS) {
                 val away=entity.location.toVector().subtract(target.location.toVector())
-                if(away.lengthSquared() > 0.0001) entity.velocity=away.normalize().multiply(d.speed).setY(0.1)
+                if(away.lengthSquared() > EnemyBehaviorTuning.MIN_MOVEMENT_DISTANCE_SQUARED) entity.velocity=away.normalize().multiply(d.speed).setY(EnemyBehaviorTuning.FLEE_VERTICAL_SPEED)
             }
-            if(entity.location.distanceSquared(target.location) <= 8.0 && tick >= state.nextAttack) {
+            if(entity.location.distanceSquared(target.location) <= CombatGeometry.MELEE_ATTACK_DISTANCE_SQUARED && tick >= state.nextAttack) {
                 attack(state,target,1.0)
-                state.nextAttack=tick+(d.attackInterval*(state.boss.phase()?.interval ?: 1.0)).toLong().coerceAtLeast(10)
+                state.nextAttack=tick+(d.attackInterval*(state.boss.phase()?.interval ?: 1.0)).toLong().coerceAtLeast(EnemyBehaviorTuning.MIN_ATTACK_INTERVAL_TICKS)
             }
             for(special in d.specials) {
                 val ratio=state.boss.hp/state.boss.maximumHp
@@ -155,9 +185,11 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
         }
         plugin.snapshot.world.enemies.values.forEach { d -> d.spawns.forEach { point ->
             val id="${d.id}/${point.id}"; val world=Bukkit.getWorld(point.position.world) ?: return@forEach
-            if(world.name != DemoWorld.NAME || tick < nextSpawn.getOrDefault(id,0) || !world.isChunkLoaded(point.position.x.toInt() shr 4,point.position.z.toInt() shr 4)) return@forEach
+            val chunk=ChunkCoordinates.fromPosition(point.position.x,point.position.z)
+            if(world.name != DemoWorld.NAME || tick < nextSpawn.getOrDefault(id,0) || !world.isChunkLoaded(chunk.x,chunk.z)) return@forEach
             if(!WorldSchedule.matches(point.timeWindows,point.weather,world.time,world.hasStorm(),world.isThundering)) return@forEach
-            if(world.players.none { it.location.distanceSquared(Location(world,point.position.x,point.position.y,point.position.z)) < 64*64 }) return@forEach
+            val spawnLocation=Location(world,point.position.x,point.position.y,point.position.z)
+            if(world.players.none { it.location.isWithinBlocks(spawnLocation,PaperDistance.ENEMY_SPAWN_VISIBILITY_BLOCKS) }) return@forEach
             if(budget.count(id) < point.cap) spawn(d.id,Location(world,point.position.x,point.position.y,point.position.z),id,point.cap)
             nextSpawn[id]=tick+point.respawnTicks
         } }
@@ -166,27 +198,27 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
     private fun attack(state: MobState,player: Player,multiplier: Double) {
         dealing[state.entity.uniqueId]=multiplier*state.boss.damageScale(tick)
         try { player.damage(state.boss.definition.attack*multiplier,state.entity) } finally { dealing.remove(state.entity.uniqueId) }
-        if("POISON" in state.boss.definition.traits) player.addPotionEffect(PotionEffect(PotionEffectType.POISON,60,0))
-        if("SLOW" in state.boss.definition.traits) player.addPotionEffect(PotionEffect(PotionEffectType.SLOWNESS,40,0))
+            if("POISON" in state.boss.definition.traits) player.addPotionEffect(PotionEffect(PotionEffectType.POISON,EnemyBehaviorTuning.POISON_EFFECT_TICKS,0))
+            if("SLOW" in state.boss.definition.traits) player.addPotionEffect(PotionEffect(PotionEffectType.SLOWNESS,EnemyBehaviorTuning.SLOW_EFFECT_TICKS,0))
     }
     private fun hits(w: Warning,location: Location): Boolean {
-        if(location.world != w.location.world || abs(location.y-w.location.y) > 4) return false
+            if(location.world != w.location.world || abs(location.y-w.location.y) > EnemyBehaviorTuning.ATTACK_VERTICAL_TOLERANCE_BLOCKS) return false
         val delta=location.toVector().subtract(w.location.toVector()).setY(0.0)
         return when(w.attack.shape) {
             "CIRCLE","TARGET" -> delta.lengthSquared() <= w.attack.radius*w.attack.radius
             "LINE" -> { val forward=delta.dot(w.direction); forward in 0.0..w.attack.range && delta.clone().subtract(w.direction.clone().multiply(forward)).lengthSquared() <= w.attack.radius*w.attack.radius }
-            else -> delta.lengthSquared() <= w.attack.range*w.attack.range && (delta.lengthSquared() == 0.0 || delta.normalize().dot(w.direction) >= cos(Math.PI/4))
+            else -> delta.lengthSquared() <= w.attack.range*w.attack.range && (delta.lengthSquared() == 0.0 || delta.normalize().dot(w.direction) >= cos(EnemyBehaviorTuning.ATTACK_FACING_HALF_ANGLE_RADIANS))
         }
     }
     private fun draw(w: Warning) {
         val world=w.location.world ?: return
         val element=w.attack.element ?: states[w.owner]?.boss?.definition?.element ?: "PHYSICAL"
-        val dust=Particle.DustOptions(telegraphColor(element),1.3f)
-        for(i in 0 until 24) {
+        val dust=Particle.DustOptions(telegraphColor(element),EnemyBehaviorTuning.DUST_SIZE)
+        for(i in 0 until EnemyBehaviorTuning.TELEGRAPH_PARTICLE_COUNT) {
             val point=when(w.attack.shape) {
-                "LINE" -> w.location.clone().add(w.direction.clone().multiply(w.attack.range*i/24))
-                "CONE" -> w.location.clone().add(w.direction.clone().rotateAroundY((i/23.0-0.5)*Math.PI/2).multiply(w.attack.range))
-                else -> w.location.clone().add(cos(i*Math.PI/12)*w.attack.radius,0.15,sin(i*Math.PI/12)*w.attack.radius)
+                "LINE" -> w.location.clone().add(w.direction.clone().multiply(w.attack.range*i/EnemyBehaviorTuning.TELEGRAPH_PARTICLE_COUNT))
+                "CONE" -> w.location.clone().add(w.direction.clone().rotateAroundY((i/(EnemyBehaviorTuning.TELEGRAPH_PARTICLE_COUNT-1.0)-EnemyBehaviorTuning.CONE_CENTER_OFFSET)*EnemyBehaviorTuning.CONE_ANGLE_RADIANS).multiply(w.attack.range))
+                else -> w.location.clone().add(cos(i*EnemyBehaviorTuning.CIRCLE_STEP_RADIANS)*w.attack.radius,EnemyBehaviorTuning.TELEGRAPH_HEIGHT_BLOCKS,sin(i*EnemyBehaviorTuning.CIRCLE_STEP_RADIANS)*w.attack.radius)
             }
             world.spawnParticle(Particle.DUST,point,1,0.0,0.0,0.0,0.0,dust)
         }
@@ -198,13 +230,13 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
             "KNOCKUP" -> player.velocity=player.velocity.setY(0.6)
             "FREEZE" -> {
                 player.freezeTicks=maxOf(player.freezeTicks,attack.effectDuration)
-                player.addPotionEffect(PotionEffect(PotionEffectType.SLOWNESS,attack.effectDuration,10,true,true,true))
+                player.addPotionEffect(PotionEffect(PotionEffectType.SLOWNESS,attack.effectDuration,EnemyBehaviorTuning.FREEZE_SLOWNESS_AMPLIFIER,true,true,true))
             }
         }
     }
     /** 近距離の管理対象魔物へ期限付き挑発を付けます。全ワールドentity走査は行いません。 */
     fun taunt(player: Player,radius: Double,ticks: Int,threatMultiplier: Double): Int {
-        require(radius in 0.1..64.0 && ticks in 1..72000 && threatMultiplier in 1.0..100.0)
+        require(radius in 0.1..EnemyBehaviorTuning.TAUNT_MAX_RADIUS_BLOCKS && ticks in 1..EnemyBehaviorTuning.TAUNT_MAX_DURATION_TICKS && threatMultiplier in 1.0..EnemyBehaviorTuning.TAUNT_MAX_THREAT_MULTIPLIER)
         var affected=0
         states.values.forEach { state ->
             if(state.entity.world != player.world || state.entity.location.distanceSquared(player.location) > radius*radius ||
@@ -228,7 +260,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
         if(attacker == null || state.participants.isNotEmpty() && attacker.uniqueId !in state.participants) return
         if(e.finalDamage <= 0) return
         plugin.profiles[attacker.uniqueId]?.let { plugin.game.onHit(it,plugin.effectiveStats(attacker,it).resource); plugin.markDirty(it.uuid) }
-        if("PACK" in state.boss.definition.traits) states.values.filter { it.boss.definition.id == state.boss.definition.id && it.entity.world == state.entity.world && it.entity.location.distanceSquared(state.entity.location) <= 64 }.forEach { if(it.entity is Mob) it.entity.target=attacker }
+        if("PACK" in state.boss.definition.traits) states.values.filter { it.boss.definition.id == state.boss.definition.id && it.entity.world == state.entity.world && it.entity.location.isWithinBlocks(state.entity.location,PaperDistance.ENEMY_PACK_ASSIST_BLOCKS) }.forEach { if(it.entity is Mob) it.entity.target=attacker }
         applyVirtualDamage(state.entity.uniqueId,attacker.uniqueId,e.finalDamage)
         if(!state.entity.isDead) plugin.procEffects(attacker,state.entity)
     }

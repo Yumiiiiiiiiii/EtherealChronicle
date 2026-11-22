@@ -75,7 +75,8 @@ internal class NpcController(private val plugin: RpgPlugin) : Listener {
                 0f,
             )
             // Chunkを読み込まず、ロード済み地点だけを管理することでTPSとワールド状態を守ります。
-            if (!npcChunkMaySpawn(world.isChunkLoaded(location.blockX shr 4, location.blockZ shr 4))) return@forEach
+            val chunk=ChunkCoordinates.fromBlocks(location.blockX,location.blockZ)
+            if (!npcChunkMaySpawn(world.isChunkLoaded(chunk.x,chunk.z))) return@forEach
             val entity = world.spawn(location, Villager::class.java)
             entity.persistentDataContainer.set(npcKey, PersistentDataType.STRING, definition.id)
             entity.customName(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize(definition.name))

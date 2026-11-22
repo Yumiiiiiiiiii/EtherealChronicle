@@ -14,28 +14,32 @@ import java.util.Random
 class DemoGenerator: ChunkGenerator() {
     companion object {
         fun surfaceAt(wx: Int,wz: Int): Material? {
-            val island=(0..8).firstOrNull { kotlin.math.abs(wx-it*96) <= 36 && kotlin.math.abs(wz) <= 36 }
+            val island=(0 until DemoWorldLayout.ISLAND_COUNT).firstOrNull { kotlin.math.abs(wx-DemoWorldLayout.FIRST_ISLAND_CENTER_X-it*DemoWorldLayout.ISLAND_CENTER_SPACING) <= DemoWorldLayout.ISLAND_HALF_WIDTH && kotlin.math.abs(wz) <= DemoWorldLayout.ISLAND_HALF_WIDTH }
             if(island != null) return when(island) {
-                in 0..4 -> if(wx in 60..132) Material.GRASS_BLOCK else if(wx in 156..228) Material.DEEPSLATE_BRICKS else Material.SMOOTH_STONE
+                in 0 until DemoWorldLayout.FIRST_CHAPTER_ISLAND_COUNT -> when (wx) {
+                    in DemoWorldLayout.GRASS_ISLAND_X_BAND -> Material.GRASS_BLOCK
+                    in DemoWorldLayout.DEEPSLATE_ISLAND_X_BAND -> Material.DEEPSLATE_BRICKS
+                    else -> Material.SMOOTH_STONE
+                }
                 else -> when {
-                    kotlin.math.abs(wx-island*96) <= 2 && kotlin.math.abs(wz) <= 2 -> Material.BLUE_ICE
-                    kotlin.math.abs(wz) <= 3 -> Material.PACKED_ICE
+                    kotlin.math.abs(wx-island*DemoWorldLayout.ISLAND_CENTER_SPACING) <= DemoWorldLayout.ICE_ISLAND_CENTER_RADIUS_BLOCKS && kotlin.math.abs(wz) <= DemoWorldLayout.ICE_ISLAND_CENTER_RADIUS_BLOCKS -> Material.BLUE_ICE
+                    kotlin.math.abs(wz) <= DemoWorldLayout.ICE_ISLAND_OUTER_LANE_HALF_WIDTH -> Material.PACKED_ICE
                     else -> Material.SNOW_BLOCK
                 }
             }
-            if(wx in -36..420 && kotlin.math.abs(wz) <= 3) return Material.SMOOTH_STONE
-            if(wx in 421..804 && kotlin.math.abs(wz) <= 3) return if(kotlin.math.abs(wz)==0 && wx%48==0) Material.BLUE_ICE else Material.PACKED_ICE
+            if(wx in -DemoWorldLayout.ISLAND_HALF_WIDTH..DemoWorldLayout.FIRST_CHAPTER_BRIDGE_END_X && kotlin.math.abs(wz) <= DemoWorldLayout.BRIDGE_HALF_WIDTH) return Material.SMOOTH_STONE
+            if(wx in DemoWorldLayout.SECOND_CHAPTER_BRIDGE_START_X..DemoWorldLayout.SECOND_CHAPTER_BRIDGE_END_X && kotlin.math.abs(wz) <= DemoWorldLayout.BRIDGE_HALF_WIDTH) return if(wz==0 && wx%DemoWorldLayout.BRIDGE_ICE_ACCENT_INTERVAL_BLOCKS==0) Material.BLUE_ICE else Material.PACKED_ICE
             return null
         }
     }
     override fun generateNoise(info: WorldInfo,random: Random,chunkX: Int,chunkZ: Int,data: ChunkData) {
-        for(x in 0..15) for(z in 0..15) {
-            val wx=chunkX*16+x; val wz=chunkZ*16+z
+        for(x in 0 until DemoWorldLayout.CHUNK_SIZE_BLOCKS) for(z in 0 until DemoWorldLayout.CHUNK_SIZE_BLOCKS) {
+            val wx=chunkX*DemoWorldLayout.CHUNK_SIZE_BLOCKS+x; val wz=chunkZ*DemoWorldLayout.CHUNK_SIZE_BLOCKS+z
             val surface=surfaceAt(wx,wz)
             if(surface != null) {
-                data.setBlock(x,62,z,Material.BEDROCK)
-                data.setBlock(x,63,z,if(wx >= 444) Material.PACKED_ICE else Material.STONE)
-                data.setBlock(x,64,z,surface)
+                data.setBlock(x,DemoWorldLayout.UNDERGROUND_Y,z,Material.BEDROCK)
+                data.setBlock(x,DemoWorldLayout.SUPPORT_Y,z,if(wx >= DemoWorldLayout.SECOND_CHAPTER_MATERIAL_START_X) Material.PACKED_ICE else Material.STONE)
+                data.setBlock(x,DemoWorldLayout.GROUND_Y,z,surface)
             }
         }
     }
@@ -45,12 +49,12 @@ class DemoGenerator: ChunkGenerator() {
     override fun shouldGenerateDecorations() = false
     override fun shouldGenerateMobs() = false
     override fun shouldGenerateStructures() = false
-    override fun getFixedSpawnLocation(world: World,random: Random) = Location(world,0.5,65.0,0.5)
+    override fun getFixedSpawnLocation(world: World,random: Random) = Location(world,0.5,DemoWorldLayout.SURFACE_Y.toDouble(),0.5)
 }
 /** 所有マーカー付きec_worldの生成・安全な追補移行・スポーン制御を担当します。 */
 object DemoWorld {
     const val NAME=WorldIds.DEMO
-    fun luminaSpawn(world: World) = Location(world,0.5,65.0,0.5)
+    fun luminaSpawn(world: World) = Location(world,0.5,DemoWorldLayout.SURFACE_Y.toDouble(),0.5)
     fun isOwned(world:World):Boolean = Files.exists(world.worldFolder.toPath().resolve(".etherealchronicle-owned"))
     /** 未所有ワールドを変更せず、管理ワールドのみ必要な地形versionへ進めます。 */
     fun ensure(plugin: RpgPlugin): World? {
@@ -61,7 +65,7 @@ object DemoWorld {
                 plugin.logger.severe("ec_world exists without an ownership marker; leaving terrain unchanged: ${existing.worldFolder}")
                 return null
             }
-            existing.setSpawnLocation(0,65,0)
+            existing.setSpawnLocation(0,DemoWorldLayout.SURFACE_Y,0)
             migrateToV2(plugin,existing,existing.worldFolder.toPath())
             migrateToV3(plugin,existing,existing.worldFolder.toPath())
             migrateToV4(plugin,existing,existing.worldFolder.toPath())
@@ -83,7 +87,7 @@ object DemoWorld {
         Files.createDirectories(folder)
         val marker=folder.resolve(".etherealchronicle-owned")
         Files.writeString(marker,"EtherealChronicle demo world; never delete this marker while the world is in use.\n")
-        world.setSpawnLocation(0,65,0)
+        world.setSpawnLocation(0,DemoWorldLayout.SURFACE_Y,0)
         enforceHubSpawnSafety(plugin,world)
         if(!Files.exists(folder.resolve(".etherealchronicle-built"))) {
             build(world); buildChapter2(world); buildLifeProfessionPools(world); buildSecretSpring(world)
@@ -108,7 +112,7 @@ object DemoWorld {
     fun clearNearbySafeHostiles(plugin:RpgPlugin,world:World,location:Location):Int {
         if(world.name!=NAME || !runCatching { isOwned(world) }.getOrDefault(false)) return 0
         val areas=plugin.snapshot.world.areas.values.filter { it.safe && it.world==world.name }
-        val nearby=world.getNearbyEntities(location,40.0,128.0,40.0)
+        val nearby=world.getNearbyEntities(location,DemoWorldLayout.HOSTILE_SCAN_HORIZONTAL_BLOCKS,DemoWorldLayout.HOSTILE_SCAN_VERTICAL_BLOCKS,DemoWorldLayout.HOSTILE_SCAN_HORIZONTAL_BLOCKS)
         return removeSafeAreaHostiles(world,nearby,areas,NamespacedKey(plugin,"enemy_id")).size
     }
     private fun removeSafeAreaHostiles(world:World,entities:Iterable<org.bukkit.entity.Entity>,areas:Collection<Area>,enemyKey:NamespacedKey):List<Monster> {
@@ -186,7 +190,7 @@ object DemoWorld {
         when(Files.readString(marker).trim()) {
             "v4" -> {
                 try {
-                    val placed=placeStructure(plugin,world,24,65,28)
+                    val placed=placeStructure(plugin,world,DemoWorldLayout.WAYSTONE_X,DemoWorldLayout.WAYSTONE_Y,DemoWorldLayout.WAYSTONE_Z)
                     Files.writeString(marker,"v5\n")
                     plugin.logger.info(if(placed) "Added the Lumina waystone structure (v4->v5)." else "Kept the occupied Lumina waystone area unchanged (v4->v5).")
                     return true
@@ -200,55 +204,81 @@ object DemoWorld {
         }
     }
     internal fun buildSecretSpring(world:World) {
-        val cx=124; val cz=-24
-        for(dx in -3..3) for(dz in -3..3) {
-            val edge=kotlin.math.abs(dx)==3 || kotlin.math.abs(dz)==3
+        val cx=DemoWorldLayout.SECRET_POOL_CENTER_X; val cz=DemoWorldLayout.SECRET_POOL_CENTER_Z
+        for(dx in -DemoWorldLayout.LIFE_POOL_RADIUS..DemoWorldLayout.LIFE_POOL_RADIUS) for(dz in -DemoWorldLayout.LIFE_POOL_RADIUS..DemoWorldLayout.LIFE_POOL_RADIUS) {
+            val edge=kotlin.math.abs(dx)==DemoWorldLayout.LIFE_POOL_RADIUS || kotlin.math.abs(dz)==DemoWorldLayout.LIFE_POOL_RADIUS
         // 既存地形の一段上へ建て、空気ブロックに限ることで稼働中ワールドの建築を保護します。
-            val block=world.getBlockAt(cx+dx,65,cz+dz)
+            val block=world.getBlockAt(cx+dx,DemoWorldLayout.SURFACE_Y,cz+dz)
             if(block.type.isAir) block.setType(if(edge) Material.PACKED_ICE else Material.WATER,false)
         }
     }
     internal fun buildLifeProfessionPools(world:World) {
-        val centers=listOf(10 to 28,92 to 30,190 to 28,280 to 30,380 to 28,480 to 30,570 to 30,670 to 30)
+        val centers=DemoWorldLayout.LIFE_POOL_CENTERS
         fun fillIfAir(x:Int,y:Int,z:Int,material:Material) {
             val block=world.getBlockAt(x,y,z)
             if(block.type.isAir) block.setType(material,false)
         }
-        for((cx,cz) in centers) for(dx in -3..3) for(dz in -3..3) {
-            val edge=kotlin.math.abs(dx)==3 || kotlin.math.abs(dz)==3
-            if(edge) fillIfAir(cx+dx,65,cz+dz,Material.PACKED_ICE)
-            else fillIfAir(cx+dx,65,cz+dz,Material.WATER)
+        for((cx,cz) in centers) for(dx in -DemoWorldLayout.LIFE_POOL_RADIUS..DemoWorldLayout.LIFE_POOL_RADIUS) for(dz in -DemoWorldLayout.LIFE_POOL_RADIUS..DemoWorldLayout.LIFE_POOL_RADIUS) {
+            val edge=kotlin.math.abs(dx)==DemoWorldLayout.LIFE_POOL_RADIUS || kotlin.math.abs(dz)==DemoWorldLayout.LIFE_POOL_RADIUS
+            if(edge) fillIfAir(cx+dx,DemoWorldLayout.SURFACE_Y,cz+dz,Material.PACKED_ICE)
+            else fillIfAir(cx+dx,DemoWorldLayout.SURFACE_Y,cz+dz,Material.WATER)
         }
     }
     private fun build(world: World) {
         // 新規生成島に限定した小規模構造物です。プレイヤーが編集した既存地形は置換しません。
-        for(center in listOf(0,96,192,288,384)) {
-            for(x in center-12..center+12) for(z in -12..12) if((kotlin.math.abs(x-center) == 12 || kotlin.math.abs(z) == 12) && kotlin.math.abs(x-center) > 2 && kotlin.math.abs(z) > 2) {
-                world.getBlockAt(x,65,z).type=if(center == 96) Material.OAK_LEAVES else Material.STONE_BRICK_WALL
+        for(plaza in DemoWorldLayout.HUB_PLAZAS) {
+            val center=plaza.centerX
+            for(x in center-DemoWorldLayout.HUB_EDGE_RADIUS..center+DemoWorldLayout.HUB_EDGE_RADIUS) for(z in -DemoWorldLayout.HUB_EDGE_RADIUS..DemoWorldLayout.HUB_EDGE_RADIUS) if((kotlin.math.abs(x-center) == DemoWorldLayout.HUB_EDGE_RADIUS || kotlin.math.abs(z) == DemoWorldLayout.HUB_EDGE_RADIUS) && kotlin.math.abs(x-center) > DungeonArenaLayout.INNER_FLOOR_RADIUS_BLOCKS && kotlin.math.abs(z) > DungeonArenaLayout.INNER_FLOOR_RADIUS_BLOCKS) {
+                world.getBlockAt(x,DemoWorldLayout.SURFACE_Y,z).type=Material.valueOf(plaza.wallMaterialName)
             }
-            for(x in center-4..center+4) for(z in -4..4) world.getBlockAt(x,64,z).type=if(center == 0) Material.QUARTZ_BRICKS else Material.POLISHED_ANDESITE
-            for(dx in listOf(-8,8)) for(z in listOf(-8,8)) {
-                world.getBlockAt(center+dx,65,z).type=Material.OAK_FENCE
-                world.getBlockAt(center+dx,66,z).type=Material.LANTERN
+            for(x in center-DemoWorldLayout.HUB_FLOOR_RADIUS..center+DemoWorldLayout.HUB_FLOOR_RADIUS) for(z in -DemoWorldLayout.HUB_FLOOR_RADIUS..DemoWorldLayout.HUB_FLOOR_RADIUS) world.getBlockAt(x,DemoWorldLayout.GROUND_Y,z).type=Material.valueOf(plaza.floorMaterialName)
+        for(dx in listOf(-DemoWorldLayout.PILLAR_OFFSET_BLOCKS,DemoWorldLayout.PILLAR_OFFSET_BLOCKS)) for(z in listOf(-DemoWorldLayout.PILLAR_OFFSET_BLOCKS,DemoWorldLayout.PILLAR_OFFSET_BLOCKS)) {
+            world.getBlockAt(center+dx,DemoWorldLayout.SURFACE_Y,z).type=Material.OAK_FENCE
+            world.getBlockAt(center+dx,DemoWorldLayout.SURFACE_Y+1,z).type=Material.LANTERN
             }
         }
-        for(x in -20..20) for(z in 16..26) {
-            world.getBlockAt(x,64,z).type=Material.OAK_PLANKS
-            if(x % 10 == 0 && z in listOf(16,26)) for(y in 65..68) world.getBlockAt(x,y,z).type=Material.OAK_LOG
+        for(x in DemoWorldLayout.BOARDWALK_MIN_X..DemoWorldLayout.BOARDWALK_MAX_X) for(z in DemoWorldLayout.BOARDWALK_MIN_Z..DemoWorldLayout.BOARDWALK_MAX_Z) {
+            world.getBlockAt(x,DemoWorldLayout.GROUND_Y,z).type=Material.OAK_PLANKS
+            if(x % DemoWorldLayout.BOARDWALK_POST_INTERVAL_BLOCKS == 0 && z in listOf(DemoWorldLayout.BOARDWALK_MIN_Z,DemoWorldLayout.BOARDWALK_MAX_Z)) for(y in DemoWorldLayout.SURFACE_Y..DemoWorldLayout.BOARDWALK_POST_TOP_Y) world.getBlockAt(x,y,z).type=Material.OAK_LOG
         }
-        for(center in listOf(88,104)) for(y in 65..69) world.getBlockAt(center,y,20).type=Material.OAK_LOG
-        for(center in listOf(88,104)) for(x in center-2..center+2) for(z in 18..22) world.getBlockAt(x,70,z).type=Material.OAK_LEAVES
-        for(x in 184..200) for(y in 65..70) if(x in listOf(184,200) || y == 70) world.getBlockAt(x,y,-16).type=Material.DEEPSLATE_BRICKS
-        for(x in 282..294) for(z in -6..6) if((x-288)*(x-288)+z*z <= 36) world.getBlockAt(x,64,z).type=Material.CALCITE
-        world.getBlockAt(288,65,0).type=Material.LODESTONE
-        world.getBlockAt(384,65,0).type=Material.CRYING_OBSIDIAN
+        DemoWorldLayout.HUB_TREE_TRUNKS.forEach { trunk ->
+            trunk.yRange.forEach { y -> world.getBlockAt(trunk.x, y, trunk.z).type = trunk.material }
+        }
+        DemoWorldLayout.HUB_TREE_CANOPIES.forEach { canopy ->
+            for (x in canopy.centerX - canopy.halfWidth..canopy.centerX + canopy.halfWidth) {
+                for (z in canopy.centerZ - canopy.halfWidth..canopy.centerZ + canopy.halfWidth) {
+                    world.getBlockAt(x, canopy.y, z).type = canopy.material
+                }
+            }
+        }
+        DemoWorldLayout.LEGACY_LANDMARK_OUTLINES.forEach { outline ->
+            for (x in outline.xRange) for (y in outline.yRange) {
+                if (x == outline.xRange.first || x == outline.xRange.last || y == outline.yRange.last) {
+                    world.getBlockAt(x, y, outline.zRange.first).type = outline.material
+                }
+            }
+        }
+        DemoWorldLayout.LEGACY_LANDMARK_DISKS.forEach { disk ->
+            for (x in disk.centerX - disk.radius..disk.centerX + disk.radius) {
+                for (z in disk.centerZ - disk.radius..disk.centerZ + disk.radius) {
+                    val dx = x - disk.centerX
+                    val dz = z - disk.centerZ
+                    if (dx * dx + dz * dz <= disk.radius * disk.radius) {
+                        world.getBlockAt(x, disk.y, z).type = disk.material
+                    }
+                }
+            }
+        }
+        DemoWorldLayout.LEGACY_LANDMARK_POINTS.forEach { point ->
+            world.getBlockAt(point.x, point.y, point.z).type = point.material
+        }
     }
     private fun buildChapter2(world: World) {
         // 追加範囲の空きだけを橋で埋め、既存ブロックやプレイヤー建築は置き換えません。
-        for(x in 421..804) for(z in -3..3) {
-            val floor=world.getBlockAt(x,64,z)
-            if(floor.type.isAir) floor.type=if(z==0 && x%48==0) Material.BLUE_ICE else Material.PACKED_ICE
-            val support=world.getBlockAt(x,63,z)
+        for(x in DemoWorldLayout.SECOND_CHAPTER_BRIDGE_START_X..DemoWorldLayout.SECOND_CHAPTER_BRIDGE_END_X) for(z in -DemoWorldLayout.BRIDGE_HALF_WIDTH..DemoWorldLayout.BRIDGE_HALF_WIDTH) {
+            val floor=world.getBlockAt(x,DemoWorldLayout.GROUND_Y,z)
+            if(floor.type.isAir) floor.type=if(z==0 && x%DemoWorldLayout.BRIDGE_ICE_ACCENT_INTERVAL_BLOCKS==0) Material.BLUE_ICE else Material.PACKED_ICE
+            val support=world.getBlockAt(x,DemoWorldLayout.SUPPORT_Y,z)
             if(support.type.isAir) support.type=Material.PACKED_ICE
         }
         fun placeIfAir(x: Int,y: Int,z: Int,material: Material) {
@@ -256,12 +286,24 @@ object DemoWorld {
             if(block.type.isAir) block.type=material
         }
         // 小規模な4つの目印を追加します。島の地表より上の空気箇所だけを変更します。
-        for(x in 472..488) for(z in -8..8) if(kotlin.math.abs(x-480)==8 || kotlin.math.abs(z)==8) placeIfAir(x,65,z,Material.PRISMARINE_BRICKS)
-        for(y in 65..72) placeIfAir(576,y,0,Material.BLUE_ICE)
-        for(y in 65..68) { placeIfAir(667,y,0,Material.PACKED_ICE); placeIfAir(677,y,0,Material.PACKED_ICE) }
-        for(x in 667..677) placeIfAir(x,69,0,Material.PRISMARINE_BRICKS)
-        for(cx in listOf(756,780)) for(cz in listOf(-12,12)) for(y in 65..72) placeIfAir(cx,y,cz,Material.PRISMARINE_BRICKS)
+        for (x in DemoWorldLayout.CHAPTER_TWO_SHRINE_CENTER_X - DemoWorldLayout.CHAPTER_TWO_SHRINE_RADIUS_BLOCKS..DemoWorldLayout.CHAPTER_TWO_SHRINE_CENTER_X + DemoWorldLayout.CHAPTER_TWO_SHRINE_RADIUS_BLOCKS) {
+            for (z in DemoWorldLayout.CHAPTER_TWO_SHRINE_CENTER_Z - DemoWorldLayout.CHAPTER_TWO_SHRINE_RADIUS_BLOCKS..DemoWorldLayout.CHAPTER_TWO_SHRINE_CENTER_Z + DemoWorldLayout.CHAPTER_TWO_SHRINE_RADIUS_BLOCKS) {
+                val onEdge = kotlin.math.abs(x - DemoWorldLayout.CHAPTER_TWO_SHRINE_CENTER_X) == DemoWorldLayout.CHAPTER_TWO_SHRINE_RADIUS_BLOCKS || kotlin.math.abs(z - DemoWorldLayout.CHAPTER_TWO_SHRINE_CENTER_Z) == DemoWorldLayout.CHAPTER_TWO_SHRINE_RADIUS_BLOCKS
+                if (onEdge) placeIfAir(x, DemoWorldLayout.SURFACE_Y, z, Material.PRISMARINE_BRICKS)
+            }
+        }
+        DemoWorldLayout.CHAPTER_TWO_COLUMNS.forEach { column ->
+            column.yRange.forEach { y -> placeIfAir(column.x, y, column.z, column.material) }
+        }
+        DemoWorldLayout.CHAPTER_TWO_TOP_BEAMS.forEach { beam ->
+            for (x in beam.xRange) for (z in beam.zRange) for (y in beam.yRange) {
+                placeIfAir(x, y, z, beam.material)
+            }
+        }
+        DemoWorldLayout.CHAPTER_TWO_PYLONS.forEach { (x, z) ->
+            for (y in DemoWorldLayout.SURFACE_Y..DemoWorldLayout.CHAPTER_TWO_PYLON_TOP_Y) {
+                placeIfAir(x, y, z, Material.PRISMARINE_BRICKS)
+            }
+        }
     }
 }
-
-

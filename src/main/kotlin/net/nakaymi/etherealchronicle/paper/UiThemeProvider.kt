@@ -128,15 +128,15 @@ class UiThemeProvider(
             }
         }
 
-        private const val BACKGROUND_WIDTH = 176
+        private const val BACKGROUND_WIDTH = ChestLayout.BACKGROUND_WIDTH_PIXELS
         internal const val TITLE_LEFT_OFFSET = -8
         private val WIDE_SCRIPTS = setOf(Character.UnicodeScript.HAN, Character.UnicodeScript.HIRAGANA, Character.UnicodeScript.KATAKANA)
         private data class UiModelRule(val model: String, val matches: (String,Int,Material) -> Boolean)
         private val UI_MODEL_RULES = listOf(
-            UiModelRule("ec:ui_tab_codex") { kind,slot,_ -> kind.startsWith("codex") && slot in 47..49 },
-            UiModelRule("ec:ui_btn_next") { kind,slot,material -> kind.startsWith("codex") && slot==53 && material==Material.ARROW },
+            UiModelRule("ec:ui_tab_codex") { kind,slot,_ -> kind.startsWith("codex") && slot in CodexLayout.FISH_TAB_SLOT..CodexLayout.ITEM_TAB_SLOT },
+            UiModelRule("ec:ui_btn_next") { kind,slot,material -> kind.startsWith("codex") && slot==CodexLayout.NEXT_PAGE_SLOT && material==Material.ARROW },
             UiModelRule("ec:ui_btn_prev") { kind,_,material -> kind.startsWith("codex") && material==Material.ARROW },
-            UiModelRule("ec:ui_btn_confirm") { kind,slot,_ -> kind=="enhance" && slot==13 },
+            UiModelRule("ec:ui_btn_confirm") { kind,slot,_ -> kind=="enhance" && slot==EnhanceLayout.CONFIRM_SLOT },
         )
     }
 }

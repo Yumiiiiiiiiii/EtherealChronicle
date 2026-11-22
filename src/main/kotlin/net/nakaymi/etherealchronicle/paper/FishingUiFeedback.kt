@@ -4,16 +4,17 @@ import net.nakaymi.etherealchronicle.core.FishBehavior
 import net.nakaymi.etherealchronicle.core.FishingEscapeCause
 import net.nakaymi.etherealchronicle.core.FishSpeciesDefinition
 import net.nakaymi.etherealchronicle.core.FishingSpotDefinition
+import net.nakaymi.etherealchronicle.core.FishingPhysics
 
 internal enum class FishingEndReason { CAUGHT, ESCAPED_BITE, LINE_SNAP, LINE_SLACK, TIMEOUT, CANCELLED, QUIT, DEATH, DAMAGE, ROD_CHANGED, LEFT_SPOT, WORLD_UNLOAD, REWARD_FAILED }
 
 internal fun fishingEndLogLine(subject:String,reason:FishingEndReason,fishId:String,progress:Int,tension:Int):String =
     "FISH $subject: ended reason=${reason.name} fish=$fishId progress=${progress}% tension=${tension}%"
 
-internal fun fishingReelAdvice(behavior:FishBehavior,tension:Double=50.0):String = when(behavior) {
+internal fun fishingReelAdvice(behavior:FishBehavior,tension:Double=FishingPhysics.CALM_ADVICE_TENSION):String = when(behavior) {
     FishBehavior.CALM -> when {
-        tension<=18.0 -> "ec.fishing.low_tension"
-        tension>=70.0 -> "ec.fishing.high_tension"
+        tension<=FishingPhysics.LOW_TENSION_ADVICE_THRESHOLD -> "ec.fishing.low_tension"
+        tension>=FishingPhysics.HIGH_TENSION_ADVICE_THRESHOLD -> "ec.fishing.high_tension"
         else -> "ec.fishing.pull"
     }
     FishBehavior.TELEGRAPH -> "ec.fishing.telegraph"

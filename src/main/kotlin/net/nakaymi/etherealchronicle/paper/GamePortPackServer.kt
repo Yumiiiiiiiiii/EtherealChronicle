@@ -66,9 +66,9 @@ class GamePortPackServer(
     }
 
     init {
-        require(maxHeaderBytes in 256..16_384)
-        require(headerDeadlineMillis in 500..10_000)
-        require(idleReadTimeoutMillis in 100..headerDeadlineMillis)
+        require(maxHeaderBytes in ResourcePackLimits.MIN_HEADER_BYTES..ResourcePackLimits.MAX_HEADER_BYTES)
+        require(headerDeadlineMillis in ResourcePackLimits.MIN_WRITE_DEADLINE_MILLIS..ResourcePackLimits.MAX_IDLE_TIMEOUT_MILLIS)
+        require(idleReadTimeoutMillis in ResourcePackLimits.MIN_TIMEOUT_MILLIS..headerDeadlineMillis)
         val proxies = unsupportedProxies()
         require(proxies.isEmpty()) {
             "Game-port pack delivery is not supported behind proxy plugins: ${proxies.joinToString()}"
@@ -245,7 +245,7 @@ internal class PackRequestSniffer(
         val path = parts.getOrNull(1)
         val httpVersion = parts.getOrNull(2)
         val allowed = method in setOf("GET", "HEAD") && path == "/pack/${artifact.sha1}.zip" && httpVersion in setOf("HTTP/1.0", "HTTP/1.1")
-        val status = if (allowed) 200 else 404
+        val status = if (allowed) HttpStatus.OK else HttpStatus.NOT_FOUND
         val body = if (allowed) artifact.bytes else ByteArray(0)
         val reason = if (allowed) "OK" else "Not Found"
         val contentType = if (allowed) "Content-Type: application/zip\r\n" else ""
@@ -255,7 +255,7 @@ internal class PackRequestSniffer(
             "Content-Length: ${body.size}\r\nConnection: close\r\n\r\n"
         state = State.CLOSED
         context.writeAndFlush(Unpooled.copiedBuffer(headers, StandardCharsets.ISO_8859_1)).addListener { result ->
-            if (!result.isSuccess || method != "GET" || status != 200) {
+            if (!result.isSuccess || method != "GET" || status != HttpStatus.OK) {
                 context.close()
             } else {
                 streamBody(context, body, 0)
@@ -323,15 +323,15 @@ internal class PackConnectionLimiter(
     private val maxPerIp: Int,
     private val bandwidthKbPerSecond: Int,
 ) {
-    private val maxConnections = maxConnections.also { require(it in 1..128) }
+    private val maxConnections = maxConnections.also { require(it in ResourcePackLimits.MIN_CONNECTIONS..ResourcePackLimits.MAX_CONNECTIONS) }
     private var active = 0
     private val perIp = mutableMapOf<String, Int>()
     /** 全接続で共有する帯域予約。IP枠の解放・再取得でも予算をリセットしません。 */
     private val globalNextSendNanos = AtomicLong()
 
     init {
-        require(maxPerIp in 1..maxConnections)
-        require(bandwidthKbPerSecond in 64..16_384)
+        require(maxPerIp in ResourcePackLimits.MIN_CONNECTIONS..maxConnections)
+        require(bandwidthKbPerSecond in ResourcePackLimits.MIN_BANDWIDTH_KB_PER_SECOND..ResourcePackLimits.MAX_BANDWIDTH_KB_PER_SECOND)
     }
 
     @Synchronized
@@ -355,7 +355,7 @@ internal class PackConnectionLimiter(
     }
 
     fun reserveDelayNanos(bytes: Int): Long {
-        val duration = bytes.toLong() * NANOS_PER_SECOND / (bandwidthKbPerSecond.toLong() * 1024)
+        val duration = bytes.toLong() * NANOS_PER_SECOND / (bandwidthKbPerSecond.toLong() * ResourcePackLimits.BYTES_PER_KIB)
         val now = System.nanoTime()
         val start = globalNextSendNanos.getAndUpdate { previous -> maxOf(previous, now) + duration }
         return (start - now).coerceAtLeast(0)

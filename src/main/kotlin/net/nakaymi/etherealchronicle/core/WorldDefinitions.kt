@@ -178,7 +178,7 @@ fun claimTreasure(profile: PlayerProfile, chest: TreasureChestDefinition, curren
     require(chest.currency >= 0 && currencyCap >= 0 && profile.currency <= Long.MAX_VALUE - chest.currency && profile.currency + chest.currency <= currencyCap) {
         "ec.error.currency_cap"
     }
-    require(chest.items.values.all { it in 1..64 }) { "ec.error.invalid_content" }
+    require(chest.items.values.all { it in 1..ContentLimits.MAX_ITEM_STACK }) { "ec.error.invalid_content" }
     chest.items.forEach { (item, amount) -> profile.pendingRewards.merge(item, amount, Int::plus) }
     profile.currency += chest.currency
     profile.flags.add(chest.onceFlag)
@@ -187,24 +187,41 @@ fun claimTreasure(profile: PlayerProfile, chest: TreasureChestDefinition, curren
 
 /** 時刻と天候の宣言条件を検証し、現在のワールド状態との一致を判定します。 */
 object WorldSchedule {
+    const val DAY_LENGTH_TICKS = 24_000L
+    private const val DAY_START_TICK = 1_000L
+    private const val DAY_END_TICK = 11_999L
+    private const val NIGHT_START_TICK = 13_000L
+    private const val NIGHT_END_TICK = 22_999L
+    private const val DAWN_DUSK_DAY_START = 12_000L
+    private const val DAWN_DUSK_DAY_END = 12_999L
+    private const val DAWN_DUSK_NIGHT_START = 23_000L
     private val validTime = setOf("ANY", "DAY", "NIGHT", "DAWN_DUSK")
     private val validWeather = setOf("ANY", "CLEAR", "RAIN", "THUNDER")
 
     fun valid(timeWindows: Set<String>, weather: Set<String>): Boolean =
         timeWindows.isNotEmpty() && timeWindows.all { it in validTime } && weather.isNotEmpty() && weather.all { it in validWeather }
 
-    fun matches(timeWindows: Set<String>, weather: Set<String>, time: Long, hasStorm: Boolean, thundering: Boolean): Boolean {
-        val dayTime = Math.floorMod(time, 24_000L)
-        val timeMatches = "ANY" in timeWindows || timeWindows.any { window ->
+    /** 時刻条件を正規化したMinecraft時刻で判定し、釣り場とスポーンで同じ境界を使います。 */
+    fun matchesTimeWindow(timeWindows: Set<String>, time: Long): Boolean {
+        val dayTime = Math.floorMod(time, DAY_LENGTH_TICKS)
+        return "ANY" in timeWindows || timeWindows.any { window ->
             when (window) {
-                "DAY" -> dayTime in 1_000L..11_999L
-                "NIGHT" -> dayTime in 13_000L..22_999L
-                "DAWN_DUSK" -> dayTime < 1_000L || dayTime in 12_000L..12_999L || dayTime >= 23_000L
+                "DAY" -> dayTime in DAY_START_TICK..DAY_END_TICK
+                "NIGHT" -> dayTime in NIGHT_START_TICK..NIGHT_END_TICK
+                "DAWN_DUSK" -> dayTime < DAY_START_TICK || dayTime in DAWN_DUSK_DAY_START..DAWN_DUSK_DAY_END || dayTime >= DAWN_DUSK_NIGHT_START
                 else -> false
             }
         }
+    }
+
+    /** 既知の天候名と宣言された天候条件を照合します。 */
+    fun matchesWeather(weather: Set<String>, currentWeather: String): Boolean =
+        "ANY" in weather || currentWeather in weather
+
+    /** 昼夜と天候の両条件を一括判定します。 */
+    fun matches(timeWindows: Set<String>, weather: Set<String>, time: Long, hasStorm: Boolean, thundering: Boolean): Boolean {
         val currentWeather = if (thundering) "THUNDER" else if (hasStorm) "RAIN" else "CLEAR"
-        return timeMatches && ("ANY" in weather || currentWeather in weather)
+        return matchesTimeWindow(timeWindows, time) && matchesWeather(weather, currentWeather)
     }
 }
 

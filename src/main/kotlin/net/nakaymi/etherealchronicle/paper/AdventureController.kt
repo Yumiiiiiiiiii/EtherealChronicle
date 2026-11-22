@@ -51,7 +51,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     /** NPCの時間・天候条件とオンライン依頼進行を更新します。 */
     fun tick() {
         npcs.tick()
-        val now=System.nanoTime()/1_000_000
+        val now=monotonicMillis()
         consumableReady.entries.removeIf { it.value <= now }
         plugin.server.onlinePlayers.forEach { player ->
             val p=plugin.profiles[player.uniqueId] ?: return@forEach
@@ -129,10 +129,10 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             return
         }
         val menu=RpgMenu("dialogue",id,at,plugin.message(player,"ec.menu.dialogue")).inventory
-        menu.setItem(4,ItemStack(Material.WRITTEN_BOOK).apply { itemMeta=itemMeta.apply {
-            displayName(plugin.message(player,"ec.dialogue.talk")); lore(definition.text.chunked(28).map { mm.deserialize(it) })
+        menu.setItem(DialogueLayout.TEXT_SLOT,ItemStack(Material.WRITTEN_BOOK).apply { itemMeta=itemMeta.apply {
+            displayName(plugin.message(player,"ec.dialogue.talk")); lore(definition.text.chunked(DialogueLayout.TEXT_WRAP_CHARACTERS).map { mm.deserialize(it) })
         } })
-        definition.choices.take(45).forEachIndexed { index,c -> menu.setItem(9+index,ItemStack(Material.PAPER).apply { itemMeta=itemMeta.apply {
+        definition.choices.take(DialogueLayout.MAX_VISIBLE_CHOICES).forEachIndexed { index,c -> menu.setItem(DialogueLayout.FIRST_CHOICE_SLOT+index,ItemStack(Material.PAPER).apply { itemMeta=itemMeta.apply {
             displayName(mm.deserialize(c.label)); persistentDataContainer.set(entryKey,PersistentDataType.STRING,c.id)
         } }) }
         player.sendMessage(textComponent)
@@ -141,7 +141,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     /** Paper Dialogを主表示にし、選択アクションは既存の取引処理へ戻します。 */
     private fun showDialogueDialog(player: Player,id: String,node: String,definition: DialogueNode,textComponent: Component) {
         val buttons = definition.choices.map { choice ->
-            ActionButton.builder(mm.deserialize(choice.label)).width(200)
+            ActionButton.builder(mm.deserialize(choice.label)).width(DialogueLayout.CHOICE_BUTTON_WIDTH_PIXELS)
                 .action(DialogAction.customClick({ _, audience ->
                     (audience as? Player)?.let { selected ->
                         runCatching { selectDialogueChoice(selected,id,node,choice.id) }
@@ -150,7 +150,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                 }, ClickCallback.Options.builder().uses(1).lifetime(Duration.ofMinutes(2)).build()))
                 .build()
         }
-        val close = ActionButton.builder(plugin.message(player,"ec.dialogue.close")).width(200).build()
+        val close = ActionButton.builder(plugin.message(player,"ec.dialogue.close")).width(DialogueLayout.CHOICE_BUTTON_WIDTH_PIXELS).build()
         val dialog = Dialog.create { builder ->
             builder.empty()
                 .base(DialogBase.builder(plugin.message(player,"ec.menu.dialogue"))
@@ -166,7 +166,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         val p=plugin.profiles[player.uniqueId] ?: return
         val shop=plugin.snapshot.world.shops[id] ?: throw GameException("ec.error.shop_missing")
         val menu=RpgMenu("shop",id,title=plugin.message(player,"ec.menu.shop")).inventory
-        compactVisibleShopEntries(shop.entries) { it.condition.matches(p) }.take(54).forEachIndexed { index,e ->
+        compactVisibleShopEntries(shop.entries) { it.condition.matches(p) }.take(ChestLayout.DOUBLE_CHEST_SLOTS).forEachIndexed { index,e ->
             menu.setItem(index,plugin.createItem(e.item,e.amount).apply { itemMeta=itemMeta.apply {
                 val extra=listOf(plugin.message(player,"ec.shop.price_buy", "price" to e.price),plugin.message(player,"ec.shop.tokens", "items" to e.tokens.joinToString { "${plugin.contentName(player,it.item)} ×${it.amount}" }),plugin.message(player,"ec.shop.sell_hint"))
                 lore((lore() ?: emptyList())+extra); persistentDataContainer.set(entryKey,PersistentDataType.STRING,e.id)
@@ -185,7 +185,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     fun equipment(player: Player) {
         val p=plugin.profiles[player.uniqueId] ?: return
         val menu=RpgMenu("equipment","",title=plugin.message(player,"ec.menu.equipment")).inventory
-        player.inventory.storageContents.filterNotNull().mapNotNull { plugin.item(it) }.filter { it.slot == GearSlot.ACCESSORY && it.canEquip(p) }.distinctBy { it.id }.take(54).forEachIndexed { i,item ->
+        player.inventory.storageContents.filterNotNull().mapNotNull { plugin.item(it) }.filter { it.slot == GearSlot.ACCESSORY && it.canEquip(p) }.distinctBy { it.id }.take(ChestLayout.DOUBLE_CHEST_SLOTS).forEachIndexed { i,item ->
             menu.setItem(i,plugin.createItem(item.id).apply { itemMeta=itemMeta.apply { persistentDataContainer.set(entryKey,PersistentDataType.STRING,item.id) } })
         }
         plugin.openRpgMenu(player, menu) { slot, _ ->
@@ -210,17 +210,17 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             val entry=e.currentItem?.itemMeta?.persistentDataContainer?.get(entryKey,PersistentDataType.STRING)
             when(menu.kind) {
                 "dialogue" -> {
-                    if(e.rawSlot !in 9..53 || entry == null || dialogueSessions[p.uuid] != menu.contentId to menu.nodeId) return
+                    if(e.rawSlot !in DialogueLayout.FIRST_CHOICE_SLOT until ChestLayout.DOUBLE_CHEST_SLOTS || entry == null || dialogueSessions[p.uuid] != menu.contentId to menu.nodeId) return
                     selectDialogueChoice(player,menu.contentId,menu.nodeId,entry)
                 }
                 "shop" -> {
-                    if(e.rawSlot in 0..53 && entry != null && e.isLeftClick) {
+                    if(e.rawSlot in 0 until ChestLayout.DOUBLE_CHEST_SLOTS && entry != null && e.isLeftClick) {
                         buyShopSlot(player,menu.contentId,entry)
                     } else if(e.clickedInventory == player.inventory && e.isRightClick) {
                         sellFromInventory(player,menu.contentId,e.currentItem,e.slot)
                     }
                 }
-                "equipment" -> if(entry != null && e.rawSlot in 0..53) {
+                "equipment" -> if(entry != null && e.rawSlot in 0 until ChestLayout.DOUBLE_CHEST_SLOTS) {
                     equipAccessory(player,entry)
                 }
             }
@@ -374,7 +374,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         val effects=properties.effects.filter { it.kind in setOf("HEAL","RESOURCE","CLEANSE","RETURN","DEFENSE_BUFF") }
         if(effects.isEmpty()) return false
         val p=plugin.profiles[player.uniqueId] ?: return true
-        val now=System.nanoTime()/1_000_000
+        val now=monotonicMillis()
         if(now < consumableReady.getOrDefault(p.uuid to id,0)) { player.sendMessage(plugin.message(player,"ec.error.consumable_cooldown")); return true }
         try {
             transaction(player,{ inventory ->

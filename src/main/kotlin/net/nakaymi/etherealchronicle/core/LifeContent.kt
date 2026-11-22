@@ -13,25 +13,25 @@ data class LifeSkillProgress(var level: Int = 1, var xp: Long = 0)
 data class FishRecord(var count: Int = 0, var maxCm: Double = 0.0, var crown: Crown = Crown.NONE)
 /** 釣り・採取の全体上限、疲労、経験値、pityをまとめた設定です。 */
 data class LifeBalance(
-    val levelCap: Int = 20,
-    val xpBase: Long = 80,
-    val xpExponent: Double = 1.45,
-    val castRange: Double = 12.0,
-    val castCooldownMillis: Long = 1500,
-    val maxFishingSessions: Int = 100,
-    val fatigueWindowSeconds: Long = 600,
-    val fatigueSoftThreshold: Int = 12,
-    val fatigueHardThreshold: Int = 20,
-    val fatigueCooldownSeconds: Long = 300,
-    val reelingTimeoutSeconds: Long = 45,
-    val slackFailSeconds: Double = 2.5,
-    val partyGatherRareBonus: Double = 0.08,
+    val levelCap: Int = LifeBalanceDefaults.LEVEL_CAP,
+    val xpBase: Long = LifeBalanceDefaults.XP_BASE,
+    val xpExponent: Double = LifeBalanceDefaults.XP_EXPONENT,
+    val castRange: Double = LifeBalanceDefaults.CAST_RANGE_BLOCKS,
+    val castCooldownMillis: Long = LifeBalanceDefaults.CAST_COOLDOWN_MILLIS,
+    val maxFishingSessions: Int = LifeBalanceDefaults.MAX_FISHING_SESSIONS,
+    val fatigueWindowSeconds: Long = LifeBalanceDefaults.FATIGUE_WINDOW_SECONDS,
+    val fatigueSoftThreshold: Int = LifeBalanceDefaults.FATIGUE_SOFT_THRESHOLD,
+    val fatigueHardThreshold: Int = LifeBalanceDefaults.FATIGUE_HARD_THRESHOLD,
+    val fatigueCooldownSeconds: Long = LifeBalanceDefaults.FATIGUE_COOLDOWN_SECONDS,
+    val reelingTimeoutSeconds: Long = LifeBalanceDefaults.REELING_TIMEOUT_SECONDS,
+    val slackFailSeconds: Double = LifeBalanceDefaults.SLACK_FAIL_SECONDS,
+    val partyGatherRareBonus: Double = LifeBalanceDefaults.PARTY_GATHER_RARE_BONUS,
     val fishingMilestones: List<LifeMilestone> = emptyList(),
     val gatheringMilestones: List<LifeMilestone> = emptyList(),
-    val macroMinSamples: Int = 8,
-    val macroResponseDeviationMillis: Double = 18.0,
-    val macroCastIntervalDeviationMillis: Double = 120.0,
-    val macroRareWeightMultiplier: Double = 0.1
+    val macroMinSamples: Int = LifeBalanceDefaults.MACRO_MIN_SAMPLES,
+    val macroResponseDeviationMillis: Double = LifeBalanceDefaults.MACRO_RESPONSE_DEVIATION_MILLIS,
+    val macroCastIntervalDeviationMillis: Double = LifeBalanceDefaults.MACRO_CAST_INTERVAL_DEVIATION_MILLIS,
+    val macroRareWeightMultiplier: Double = LifeBalanceDefaults.MACRO_RARE_WEIGHT_MULTIPLIER
 )
 /** 釣具・餌の効果と装備条件を表します。 */
 data class TackleDefinition(
@@ -101,17 +101,18 @@ class GatheringEngine(private val random: kotlin.random.Random = kotlin.random.R
 
     /** 稀少報酬のpityをノード・アイテムごとに保存します。成功時は0へ戻し、パーティ補正は確率のみへ加えて抽選回数を増やしません。 */
     fun roll(node: GatheringNodeDefinition,toolTier: Int,lifeLevel: Int,partyNearby: Boolean,partyBonus: Double,
-             pity: MutableMap<String,Int> = mutableMapOf(),attemptCap: Int = 100): List<GatherResult> {
-        require(toolTier in 1..3 && lifeLevel >= 1 && partyBonus in 0.0..0.25)
-        require(attemptCap in 1..10_000)
+             pity: MutableMap<String,Int> = mutableMapOf(),attemptCap: Int = BalanceDefaults.DROP_PITY_ATTEMPT_CAP): List<GatherResult> {
+        require(toolTier in 1..GatheringFormula.MAX_TOOL_TIER && lifeLevel >= 1 && partyBonus in 0.0..GatheringFormula.MAX_PARTY_BONUS)
+        require(attemptCap in 1..GameLimits.MAX_GATHER_ATTEMPTS)
         val bonus=if(partyNearby) partyBonus else 0.0
         return buildList {
             node.yields.forEach { y -> if(random.nextDouble() < y.chance) add(GatherResult(y.item,random.nextInt(y.min,y.max+1),false)) }
-            val rareBoost=((toolTier-node.minToolTier).coerceAtLeast(0)*0.05+(lifeLevel-1)*0.005+bonus).coerceAtMost(0.45)
+            val rareBoost=((toolTier-node.minToolTier).coerceAtLeast(0)*GatheringFormula.TOOL_TIER_RARE_BONUS+
+                (lifeLevel-1)*GatheringFormula.LIFE_LEVEL_RARE_BONUS+bonus).coerceAtMost(GatheringFormula.MAX_RARE_BONUS)
             node.rareYields.forEach { y ->
                 val key="gathering:${node.id}:${y.item}"
                 val attempts=pity.getOrDefault(key,0).coerceIn(0,attemptCap)
-                val chance=(y.chance+rareBoost).coerceAtMost(0.95)
+                val chance=(y.chance+rareBoost).coerceAtMost(GatheringFormula.MAX_RARE_CHANCE)
                 val guaranteed=y.pityAfter != null && attempts >= y.pityAfter-1
                 val success=guaranteed || random.nextDouble() < chance
                 pity[key]=if(success) 0 else (attempts+1).coerceAtMost(attemptCap)
@@ -123,9 +124,9 @@ class GatheringEngine(private val random: kotlin.random.Random = kotlin.random.R
     fun readyAt(profile: PlayerProfile,nodeId: String,nowMillis: Long) = (profile.gatheringReadyAt[nodeId] ?: 0L) <= nowMillis
     /** 再出現可能な地点を予約し、成功した場合だけ状態を更新します。 */
     fun reserve(profile: PlayerProfile,locationKey: String,respawnSeconds: Long,nowMillis: Long): Boolean {
-        require(respawnSeconds in 1..86_400 && nowMillis >= 0)
+        require(respawnSeconds in 1..GameLimits.MAX_GATHERING_RESPAWN_SECONDS && nowMillis >= 0)
         if(!readyAt(profile,locationKey,nowMillis)) return false
-        profile.gatheringReadyAt[locationKey]=nowMillis+respawnSeconds*1000
+        profile.gatheringReadyAt[locationKey]=nowMillis+respawnSeconds*GameDurations.MILLIS_PER_SECOND
         return true
     }
 }

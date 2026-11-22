@@ -19,8 +19,9 @@ class ResourcePackRequiredPolicyTest {
         assertEquals("icons_only",config.getString("ui.theme.mode"))
         assertEquals("op",plugin.getString("permissions.etherealchronicle.pack.bypass.default"))
         val settings = ResourcePackSettings.from(config)
-        assertEquals(5_000, settings.writeDeadlineMillis)
+        assertEquals(ResourcePackDefaults.HTTP_WRITE_DEADLINE_MILLIS, settings.writeDeadlineMillis)
         assertEquals("game_port", settings.mode)
+        assertEquals(ResourcePackDefaults.HTTP_PORT, ResourcePackSettings.safeDisabled().port)
     }
 
     @Test
@@ -34,6 +35,17 @@ class ResourcePackRequiredPolicyTest {
         assertTrue(warned)
         assertFalse(settings.enabled)
         assertFalse(settings.required)
+    }
+
+    @Test
+    fun `pack settings share validated defaults across loaders and servers`() {
+        val safe = ResourcePackSettings.safeDisabled()
+        assertEquals(ResourcePackDefaults.HTTP_PORT, safe.port)
+        assertEquals(ResourcePackDefaults.HTTP_CONNECTIONS, safe.maxConcurrent)
+        assertEquals(ResourcePackDefaults.HTTP_PER_IP, safe.maxPerIp)
+        assertEquals(ResourcePackDefaults.GAME_PORT_HEADER_BYTES, safe.gamePortMaxHeaderBytes)
+        assertEquals(ResourcePackLimits.MAX_CONNECTIONS, 128)
+        assertEquals(ResourcePackLimits.MIN_PORT, 1_024)
     }
 
     @Test

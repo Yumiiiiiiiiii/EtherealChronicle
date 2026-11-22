@@ -2,6 +2,7 @@ package net.nakaymi.etherealchronicle.paper
 
 import net.nakaymi.etherealchronicle.core.Area
 import net.nakaymi.etherealchronicle.core.PlayerProfile
+import net.nakaymi.etherealchronicle.core.PercentageScale
 import net.kyori.adventure.text.Component
 import org.bukkit.Material
 import org.bukkit.entity.Player
@@ -28,7 +29,7 @@ internal class CodexController(private val plugin: RpgPlugin) {
         page.items.forEachIndexed { slot,area ->
             val (found,total)=areaCodexPercent(profile,area)
             menu.setItem(slot,ItemStack(Material.FILLED_MAP).apply { itemMeta=itemMeta.apply {
-                displayName(Component.text(area.name)); lore(listOf(plugin.message(player,"ec.codex.found_ratio","found" to found,"total" to total,"percent" to if(total==0) 0 else found*100/total)))
+                displayName(Component.text(area.name)); lore(listOf(plugin.message(player,"ec.codex.found_ratio","found" to found,"total" to total,"percent" to if(total==0) 0 else found*PercentageScale.MAX_PERCENT/total)))
             } })
         }
         codexFooter(player,menu,page,false)
@@ -111,13 +112,13 @@ internal class CodexController(private val plugin: RpgPlugin) {
 
     /** 前後ページ・カテゴリ切替・エリア一覧へ戻る操作を下段にまとめます。 */
     private fun codexFooter(player:Player,menu:Inventory,page:CodexPagination.Slice<*>,showBack:Boolean) {
-        if(page.page>0) menu.setItem(45,button(Material.ARROW,plugin.message(player,"ec.codex.previous_page")))
-        if(showBack) menu.setItem(46,button(Material.ARROW,plugin.message(player,"ec.codex.back_areas")))
-        menu.setItem(47,button(Material.FISHING_ROD,plugin.message(player,"ec.codex.tab_fish")))
-        menu.setItem(48,button(Material.IRON_PICKAXE,plugin.message(player,"ec.codex.tab_gathering")))
-        menu.setItem(49,button(Material.BOOK,plugin.message(player,"ec.codex.tab_items")))
-        menu.setItem(50,button(Material.PAPER,plugin.message(player,"ec.codex.page","page" to (page.page+1),"pages" to page.pageCount)))
-        if(page.page+1<page.pageCount) menu.setItem(53,button(Material.ARROW,plugin.message(player,"ec.codex.next_page")))
+        if(page.page>0) menu.setItem(CodexLayout.PREVIOUS_PAGE_SLOT,button(Material.ARROW,plugin.message(player,"ec.codex.previous_page")))
+        if(showBack) menu.setItem(CodexLayout.BACK_SLOT,button(Material.ARROW,plugin.message(player,"ec.codex.back_areas")))
+        menu.setItem(CodexLayout.FISH_TAB_SLOT,button(Material.FISHING_ROD,plugin.message(player,"ec.codex.tab_fish")))
+        menu.setItem(CodexLayout.GATHERING_TAB_SLOT,button(Material.IRON_PICKAXE,plugin.message(player,"ec.codex.tab_gathering")))
+        menu.setItem(CodexLayout.ITEM_TAB_SLOT,button(Material.BOOK,plugin.message(player,"ec.codex.tab_items")))
+        menu.setItem(CodexLayout.PAGE_LABEL_SLOT,button(Material.PAPER,plugin.message(player,"ec.codex.page","page" to (page.page+1),"pages" to page.pageCount)))
+        if(page.page+1<page.pageCount) menu.setItem(CodexLayout.NEXT_PAGE_SLOT,button(Material.ARROW,plugin.message(player,"ec.codex.next_page")))
     }
 
     private fun button(material:Material,label:Component)=ItemStack(material).apply {
