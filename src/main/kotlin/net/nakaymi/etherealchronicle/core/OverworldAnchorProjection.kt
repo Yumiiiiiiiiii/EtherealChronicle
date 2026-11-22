@@ -35,6 +35,12 @@ data class OverworldDungeonPortal(
     val exitX: Int,
     val exitY: Int,
     val exitZ: Int,
+    val minX: Int = centerX,
+    val minY: Int = centerY,
+    val minZ: Int = centerZ,
+    val maxX: Int = centerX,
+    val maxY: Int = centerY,
+    val maxZ: Int = centerZ,
 )
 
 /** 建設実装とゲームプレイを分離する読み取り・復旧ポートです。 */
@@ -47,6 +53,9 @@ interface OverworldSiteRegistry {
     fun portalForDungeon(dungeonId: String): OverworldDungeonPortal?
     fun allPortals(): List<OverworldDungeonPortal>
     fun triggerRepair(): String
+
+    /** 管理者が現地の手動片付けを確認した後だけ、該当拠点の保留状態を解除します。 */
+    fun acknowledgeCleanup(areaId: String): String = "UNAVAILABLE"
 }
 
 /** 建設サービス未登録時は未完成として扱い、推測した座標への配置を防ぎます。 */

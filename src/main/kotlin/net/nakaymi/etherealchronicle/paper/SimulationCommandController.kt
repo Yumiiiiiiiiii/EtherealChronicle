@@ -1,6 +1,7 @@
 package net.nakaymi.etherealchronicle.paper
 
 import net.nakaymi.etherealchronicle.core.*
+import net.nakaymi.etherealchronicle.core.OverworldSiteStatus as GameSiteStatus
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.command.CommandSender
@@ -17,14 +18,32 @@ internal class SimulationCommandController(private val plugin: RpgPlugin) {
         val registry = plugin.activeWorldProjection.registry
         if (args.getOrNull(1) == "repair") {
             require(sender.hasPermission("etherealchronicle.admin")) { "ec.command.no_permission" }
-            sender.sendMessage(plugin.message(sender, "ec.sites.repair_result", "result" to registry.triggerRepair()))
+            require(args.size == 2) { "ec.error.usage: /ec sites repair" }
+            sender.sendMessage(plugin.message(sender,
+                if (registry.triggerRepair() == "STARTED") "ec.sites.repair_started" else "ec.sites.repair_unavailable"))
             return
         }
-        require(args.size == 1) { "ec.error.usage: /ec sites [repair]" }
+        if (args.getOrNull(1) == "acknowledge-cleanup") {
+            require(sender.hasPermission("etherealchronicle.admin")) { "ec.command.no_permission" }
+            require(args.size == 3) { "ec.error.usage: /ec sites acknowledge-cleanup <area_id>" }
+            val areaId = resolveSiteId(args[2]) ?: error("ec.error.area_missing")
+            sender.sendMessage(plugin.message(sender,
+                if (registry.acknowledgeCleanup(areaId) == "ACKNOWLEDGING") "ec.sites.cleanup_acknowledging"
+                else "ec.sites.repair_unavailable"))
+            return
+        }
+        require(args.size == 1) { "ec.error.usage: /ec sites [repair|acknowledge-cleanup <area_id>]" }
         registry.allSites().forEach { site ->
-            val where = if (site.status == OverworldSiteStatus.PENDING) plugin.message(sender, "ec.sites.pending_position") else "${site.centerX}, ${site.surfaceY}, ${site.centerZ}"
+            val where = if (site.status == GameSiteStatus.PENDING) plugin.message(sender, "ec.sites.pending_position") else "${site.centerX}, ${site.surfaceY}, ${site.centerZ}"
             val biome = site.biomeKey.ifBlank { plugin.message(sender, "ec.sites.unknown_biome").plainText() }
-            sender.sendMessage(plugin.message(sender, "ec.sites.site", "id" to site.areaId, "position" to where, "biome" to biome, "status" to site.status))
+            val statusKey = when (site.status) {
+                GameSiteStatus.PENDING -> "ec.sites.status_pending"
+                GameSiteStatus.GENERATING -> "ec.sites.status_generating"
+                GameSiteStatus.READY -> "ec.sites.status_ready"
+                GameSiteStatus.FAILED -> "ec.sites.status_failed"
+            }
+            sender.sendMessage(plugin.message(sender, "ec.sites.site", "id" to site.areaId, "position" to where,
+                "biome" to biome, "status" to plugin.message(sender, statusKey)))
         }
         registry.allPortals().forEach { portal ->
             sender.sendMessage(plugin.message(sender, "ec.sites.portal", "id" to portal.dungeonId,

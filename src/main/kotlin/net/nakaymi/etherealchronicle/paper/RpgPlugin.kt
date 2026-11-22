@@ -1,6 +1,7 @@
 package net.nakaymi.etherealchronicle.paper
 
 import net.nakaymi.etherealchronicle.core.*
+import net.nakaymi.etherealchronicle.core.OverworldSiteStatus as GameSiteStatus
 import net.nakaymi.etherealchronicle.data.*
 import net.kyori.adventure.text.Component
 import org.bukkit.*
@@ -81,9 +82,10 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val mode = config.getString("world.mode", "dedicated_ec_world") ?: "dedicated_ec_world"
         require(mode in setOf("overworld", "dedicated_ec_world")) { "Unknown world.mode: $mode" }
         val registry = if (mode == "overworld") {
-            overworldBootstrap = server.servicesManager.load(OverworldBootstrapPort::class.java)
+            val worldName = config.getString("world.overworld_name", "world") ?: "world"
+            overworldBootstrap = server.getWorld(worldName)?.let { EngineOverworldBootstrap(this, it, snapshot.world.areas.values) }
             overworldBootstrap?.registry ?: PendingOverworldSiteRegistry(
-                config.getString("world.overworld_name", "world") ?: "world", snapshot.world.areas.values,
+                worldName, snapshot.world.areas.values,
             ).also { logger.warning("Overworld construction service is unavailable; sites remain pending.") }
         } else DedicatedWorldSiteRegistry(areas = snapshot.world.areas.values)
         rebuildWorldProjection(registry)
@@ -139,16 +141,13 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal fun luminaSpawn(): Location? {
         val world = server.getWorld(activeWorldProjection.worldName()) ?: return null
         if (!activeWorldProjection.registry.isOverworldMode()) return DemoWorld.luminaSpawn(world)
-        val area = snapshot.world.areas["ec:area_lumina_port"] ?: return null
-        val site = activeWorldProjection.registry.siteForArea(area.id)?.takeIf { it.status == OverworldSiteStatus.READY } ?: return null
-        val source = Position(area.world, (area.minX + area.maxX) / 2, 65.0, (area.minZ + area.maxZ) / 2)
-        val location = if (site.plazaSpawnX != null && site.plazaSpawnY != null && site.plazaSpawnZ != null) {
-            if (!world.isChunkLoaded(site.plazaSpawnX shr 4, site.plazaSpawnZ shr 4)) return null
-            Location(world, site.plazaSpawnX + 0.5, site.plazaSpawnY.toDouble(), site.plazaSpawnZ + 0.5)
-        } else {
-            val target = projectedPosition(source, area.id) ?: return null
-            Location(world, target.x + 0.5, target.y, target.z + 0.5)
-        }
+        val site = activeWorldProjection.registry.siteForArea("ec:area_lumina_port")
+            ?.takeIf { it.status == GameSiteStatus.READY } ?: return null
+        val spawnX = site.plazaSpawnX ?: return null
+        val spawnY = site.plazaSpawnY ?: return null
+        val spawnZ = site.plazaSpawnZ ?: return null
+        if (!world.isChunkLoaded(spawnX shr 4, spawnZ shr 4)) return null
+        val location = Location(world, spawnX + 0.5, spawnY.toDouble(), spawnZ + 0.5)
         val ground = location.clone().subtract(0.0, 1.0, 0.0).block.type
         if (!world.worldBorder.isInside(location) || !location.block.type.isAir ||
             !location.clone().add(0.0, 1.0, 0.0).block.type.isAir || !ground.isSolid ||
@@ -157,7 +156,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     }
 
     /** 初回接続時に広場のチャンクを非同期確保し、準備が整ってから安全な地点へ移します。 */
-    private fun requestHubSpawn(player: Player) {
+    internal fun requestHubSpawn(player: Player) {
         if (!activeWorldProjection.registry.isOverworldMode()) {
             luminaSpawn()?.let(player::teleport)
             return
@@ -165,12 +164,14 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val id = player.uniqueId
         pendingHubSpawns.add(id)
         val site = activeWorldProjection.registry.siteForArea("ec:area_lumina_port")
-            ?.takeIf { it.status == OverworldSiteStatus.READY } ?: return
+            ?.takeIf { it.status == GameSiteStatus.READY } ?: return
+        val spawnX = site.plazaSpawnX ?: return
+        val spawnZ = site.plazaSpawnZ ?: return
         val world = server.getWorld(activeWorldProjection.worldName()) ?: return
         val session = sessions[id] ?: return
         if (hubLoads[id] == session) return
         hubLoads[id] = session
-        world.getChunkAtAsync((site.plazaSpawnX ?: site.centerX) shr 4, (site.plazaSpawnZ ?: site.centerZ) shr 4).whenComplete { _, error -> sync {
+        world.getChunkAtAsync(spawnX shr 4, spawnZ shr 4).whenComplete { _, error -> sync {
             if (hubLoads[id] == session) hubLoads.remove(id)
             if (!player.isOnline || player.isDead || sessions[id] != session || id !in pendingHubSpawns) return@sync
             if (error != null) { logger.warning("Could not load hub spawn chunk: ${error.message}"); return@sync }
@@ -1141,7 +1142,9 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val adminCommands = listOf("reload", "validate")
         val candidates = when {
             args.size <= 1 -> rootCommands + adminCommands.takeIf { sender.hasPermission("etherealchronicle.admin") }.orEmpty()
-            args.firstOrNull() == "sites" && args.size == 2 && sender.hasPermission("etherealchronicle.admin") -> listOf("repair")
+            args.firstOrNull() == "sites" && args.size == 2 && sender.hasPermission("etherealchronicle.admin") -> listOf("repair", "acknowledge-cleanup")
+            args.firstOrNull() == "sites" && args.size == 3 && args[1] == "acknowledge-cleanup" && sender.hasPermission("etherealchronicle.admin") ->
+                snapshot.world.areas.keys.map { it.removePrefix("ec:area_") }
             args.firstOrNull() == "travel" && args.size == 2 -> snapshot.world.areas.keys.map { it.removePrefix("ec:area_") }
             args.firstOrNull() == "class" && sender.hasPermission("etherealchronicle.admin") && args.size == 2 -> server.onlinePlayers.map { it.name }
             args.firstOrNull() == "class" && sender.hasPermission("etherealchronicle.admin") && args.size == 3 -> snapshot.classes.all().map { it.id }

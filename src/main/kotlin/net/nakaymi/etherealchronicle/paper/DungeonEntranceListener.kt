@@ -24,7 +24,7 @@ class DungeonEntranceListener(
     /** 完成済み入口へ外側から入った場合だけ入場処理を呼びます。 */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     fun move(event: PlayerMoveEvent) {
-        if (event is PlayerTeleportEvent || !registry.isOverworldMode()) return
+        if (event is PlayerTeleportEvent || !registry.isOverworldMode() || !registry.isReady()) return
         val from = event.from
         val to = event.to
         if (to.world.name != registry.activeWorldName() || from.world != to.world) return
@@ -40,7 +40,7 @@ class DungeonEntranceListener(
         // 移動イベントの処理中に teleport すると移動先に上書きされ得るため次 tick に入場します。
         plugin.server.scheduler.runTask(plugin, Runnable {
             val location = player.location
-            if (!player.isOnline || location.world.name != registry.activeWorldName() ||
+            if (!player.isOnline || !registry.isReady() || location.world.name != registry.activeWorldName() ||
                 !isInsidePortal(portal, location.x, location.y, location.z) ||
                 registry.siteForArea(portal.areaId)?.status != OverworldSiteStatus.READY ||
                 registry.portalForDungeon(portal.dungeonId) != portal) return@Runnable
@@ -61,10 +61,9 @@ class DungeonEntranceListener(
     private companion object { const val COOLDOWN_MILLIS = 3_000L }
 }
 
-/** 開口部中心から半径 2.75 ブロックの球内かを判定します。 */
+/** 建設ジャーナルの開口部直方体へ足元が入ったかを判定します。 */
 internal fun isInsidePortal(portal: OverworldDungeonPortal, x: Double, y: Double, z: Double): Boolean {
-    val dx = x - portal.centerX
-    val dy = y - portal.centerY
-    val dz = z - portal.centerZ
-    return dx * dx + dy * dy + dz * dz <= 2.75 * 2.75
+    return x >= portal.minX && x < portal.maxX + 1.0 &&
+        y >= portal.minY && y < portal.maxY + 1.0 &&
+        z >= portal.minZ && z < portal.maxZ + 1.0
 }

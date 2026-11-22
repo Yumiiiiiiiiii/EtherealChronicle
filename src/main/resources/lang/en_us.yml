@@ -1,6 +1,12 @@
 ec:
   sites:
-    repair_result: "Site repair: <result>"
+    repair_started: "Site repair started. Use /ec sites to check progress."
+    repair_unavailable: "Site repair could not start. Inspect the interrupted site and clean it up manually if needed."
+    cleanup_acknowledging: "Recording manual cleanup confirmation. Run /ec sites repair after it completes."
+    status_pending: "Pending"
+    status_generating: "Building"
+    status_ready: "Ready"
+    status_failed: "Needs inspection"
     pending_position: "Position pending"
     unknown_biome: "Unknown"
     site: "<id>: <position> / <biome> / <status>"
