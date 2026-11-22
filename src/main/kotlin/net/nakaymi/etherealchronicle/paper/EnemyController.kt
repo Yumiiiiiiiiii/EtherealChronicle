@@ -93,7 +93,9 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
             if(!entity.isValid) return@forEach
             if(state.pinned) return@forEach // console検証対象はプレイヤー不在でもvirtual HPを保ちます。
             val d=state.boss.definition
-            val eligible=entity.world.players.filter { p -> p.isOnline && !p.isDead && p.gameMode !in setOf(GameMode.CREATIVE,GameMode.SPECTATOR) && !isSafe(p) && plugin.profiles[p.uniqueId]?.classId != null &&
+            val eligible=entity.world.players.filter { p -> p.isOnline && !p.isDead &&
+                !plugin.resourcePacks.isAwaitingRequiredPack(p.uniqueId) &&
+                p.gameMode !in setOf(GameMode.CREATIVE,GameMode.SPECTATOR) && !isSafe(p) && plugin.profiles[p.uniqueId]?.classId != null &&
                 (state.participants.isEmpty() || p.uniqueId in state.participants) && p.location.distanceSquared(entity.location) <= d.aggro*d.aggro }
             if(tick >= state.tauntUntil) state.tauntTarget=null
             val target=eligible.firstOrNull { it.uniqueId == state.tauntTarget }
@@ -140,7 +142,11 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
             if(state == null || !state.entity.isValid) { warnings.remove(warning); return@forEach }
             draw(warning)
             if(tick >= warning.due) {
-                warning.location.world!!.players.filter { !it.isDead && it.gameMode !in setOf(GameMode.CREATIVE,GameMode.SPECTATOR) && !isSafe(it) && (state.participants.isEmpty() || it.uniqueId in state.participants) && hits(warning,it.location) }.forEach { p ->
+                warning.location.world!!.players.filter { !it.isDead &&
+                    !plugin.resourcePacks.isAwaitingRequiredPack(it.uniqueId) &&
+                    it.gameMode !in setOf(GameMode.CREATIVE,GameMode.SPECTATOR) && !isSafe(it) &&
+                    (state.participants.isEmpty() || it.uniqueId in state.participants) && hits(warning,it.location)
+                }.forEach { p ->
                     attack(state,p,warning.attack.multiplier)
                     applySpecialEffect(p,warning.attack)
                 }

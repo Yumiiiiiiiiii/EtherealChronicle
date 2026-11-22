@@ -139,7 +139,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         if(e.player.world.name==DemoWorld.NAME && DemoWorld.isOwned(e.player.world) || customRod) e.isCancelled=true
     }
     /** 竿の右・左クリックを釣り開始またはミニゲーム入力へ変換します。 */
-    @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=false)
+    @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true)
     fun interact(e:PlayerInteractEvent) {
         if(e.hand!=EquipmentSlot.HAND) return
         val player=e.player

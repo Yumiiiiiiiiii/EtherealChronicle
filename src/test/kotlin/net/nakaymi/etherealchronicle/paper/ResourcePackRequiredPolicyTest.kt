@@ -74,25 +74,71 @@ class ResourcePackRequiredPolicyTest {
     }
 
     @Test
-    fun `required pack gate blocks gameplay until success and releases exactly once`() {
-        val gate = RequiredPackGate()
-        val player = java.util.UUID.randomUUID()
-
-        assertTrue(gate.begin(player))
-        assertTrue(gate.isWaiting(player))
-        assertFalse(gate.begin(player))
-        assertTrue(gate.release(player))
-        assertFalse(gate.isWaiting(player))
-        assertFalse(gate.release(player))
-    }
-
-    @Test
     fun `first join waits only when a required pack can be delivered`() {
         assertTrue(RequiredPackGatePolicy.shouldWait(true, true, "embedded_http", false))
         assertFalse(RequiredPackGatePolicy.shouldWait(true, false, "embedded_http", false))
         assertFalse(RequiredPackGatePolicy.shouldWait(true, true, "external_managed", false))
         assertFalse(RequiredPackGatePolicy.shouldWait(true, true, "embedded_http", true))
         assertFalse(RequiredPackGatePolicy.shouldWait(false, true, "embedded_http", false))
+    }
+
+    @Test
+    fun `lock listener is only needed for an enforceable locally delivered pack`() {
+        assertTrue(RequiredPackGatePolicy.shouldRegisterLockListener(true, true, "embedded_http"))
+        assertTrue(RequiredPackGatePolicy.shouldRegisterLockListener(true, true, "game_port"))
+        assertFalse(RequiredPackGatePolicy.shouldRegisterLockListener(false, true, "embedded_http"))
+        assertFalse(RequiredPackGatePolicy.shouldRegisterLockListener(true, false, "embedded_http"))
+        assertFalse(RequiredPackGatePolicy.shouldRegisterLockListener(true, true, "external_managed"))
+    }
+
+    @Test
+    fun `required status decision table handles all states and bypass`() {
+        val cases = listOf(
+            org.bukkit.event.player.PlayerResourcePackStatusEvent.Status.ACCEPTED to RequiredPackStatusAction.EXTEND,
+            org.bukkit.event.player.PlayerResourcePackStatusEvent.Status.DOWNLOADED to RequiredPackStatusAction.EXTEND,
+            org.bukkit.event.player.PlayerResourcePackStatusEvent.Status.SUCCESSFULLY_LOADED to RequiredPackStatusAction.COMPLETE,
+            org.bukkit.event.player.PlayerResourcePackStatusEvent.Status.DECLINED to RequiredPackStatusAction.DISCONNECT,
+            org.bukkit.event.player.PlayerResourcePackStatusEvent.Status.FAILED_DOWNLOAD to RequiredPackStatusAction.DISCONNECT,
+            org.bukkit.event.player.PlayerResourcePackStatusEvent.Status.INVALID_URL to RequiredPackStatusAction.DISCONNECT,
+            org.bukkit.event.player.PlayerResourcePackStatusEvent.Status.FAILED_RELOAD to RequiredPackStatusAction.DISCONNECT,
+            org.bukkit.event.player.PlayerResourcePackStatusEvent.Status.DISCARDED to RequiredPackStatusAction.DISCONNECT,
+        )
+        cases.forEach { (eventStatus, expected) ->
+            assertEquals(expected, RequiredPackGatePolicy.statusAction(eventStatus, true, false, true), eventStatus.name)
+            assertEquals(
+                RequiredPackStatusAction.COMPLETE,
+                RequiredPackGatePolicy.statusAction(eventStatus, true, true, true),
+                "bypass: ${eventStatus.name}",
+            )
+            assertEquals(
+                if (eventStatus == org.bukkit.event.player.PlayerResourcePackStatusEvent.Status.SUCCESSFULLY_LOADED ||
+                    eventStatus in RequiredPackGatePolicy.terminalStatuses
+                ) {
+                    RequiredPackStatusAction.COMPLETE
+                } else {
+                    RequiredPackStatusAction.IGNORE
+                },
+                RequiredPackGatePolicy.statusAction(eventStatus, false, false, true),
+                "optional: ${eventStatus.name}",
+            )
+        }
+        assertEquals(
+            RequiredPackStatusAction.IGNORE,
+            RequiredPackGatePolicy.statusAction(
+                org.bukkit.event.player.PlayerResourcePackStatusEvent.Status.ACCEPTED,
+                true,
+                false,
+                false,
+            ),
+        )
+    }
+
+    @Test
+    fun `delayed dispatch belongs only to the current online join session`() {
+        assertTrue(RequiredPackGatePolicy.shouldDispatch(true, true, true))
+        assertFalse(RequiredPackGatePolicy.shouldDispatch(false, true, true))
+        assertFalse(RequiredPackGatePolicy.shouldDispatch(true, false, true))
+        assertFalse(RequiredPackGatePolicy.shouldDispatch(true, true, false))
     }
 
     @Test

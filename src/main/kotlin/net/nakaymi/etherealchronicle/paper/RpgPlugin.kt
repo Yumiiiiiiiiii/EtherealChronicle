@@ -145,6 +145,9 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 sync {
                     game = GameService(content::snapshot,SkillEngine(Clock { System.nanoTime()/1_000_000 },content.snapshot().balance))
                     resourcePacks = ResourcePackController(this)
+                    if (resourcePacks.shouldRegisterLockListener()) {
+                        RequiredPackLockListener(this, resourcePacks::isAwaitingRequiredPack, resourcePacks::hasWaiters)
+                    }
                     uiTheme = UiThemeProvider(
                         this,
                         resourcePacks,
@@ -247,18 +250,18 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 profile.discoverItem(id)
                 if(snapshot.items.find(id) == null) ProfileContentMigration.oldItems[id]?.takeIf { snapshot.items.find(it) != null }?.let { player.inventory.setItem(slot,createItem(it,old!!.amount)) }
             }
-            profiles[player.uniqueId] = profile
             resourcePacks.send(player,runCatching { PackPreference.valueOf(profile.resourcePackPreference) }.getOrDefault(PackPreference.AUTO))
             resourcePacks.applyObservedStatus(player,profile)
             resourcePacks.whenRequiredPackReady(player) {
-                if (!player.isOnline || sessions[player.uniqueId] != token || profiles[player.uniqueId] !== profile) return@whenRequiredPackReady
-                finishLoadedJoin(player,profile,snapshot)
+                if (!player.isOnline || sessions[player.uniqueId] != token) return@whenRequiredPackReady
+                profiles[player.uniqueId] = profile
+                finishLoadedJoin(player,profile)
             }
         } }
     }
 
     /** 必須パック適用後に、ワールド移動・HUD装備・職業メニューを開始します。 */
-    private fun finishLoadedJoin(player: Player, profile: PlayerProfile, snapshot: ContentSnapshot) {
+    private fun finishLoadedJoin(player: Player, profile: PlayerProfile) {
         syncTitleAdvancements(player,profile)
         if(::dungeons.isInitialized) dungeons.recover(player)
         if(!player.hasPlayedBefore() || profile.classId == null) Bukkit.getWorld(DemoWorld.NAME)?.let { player.teleport(DemoWorld.luminaSpawn(it)) }
@@ -269,85 +272,6 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         }
     }
     @EventHandler fun onJoin(e: PlayerJoinEvent) = join(e.player)
-
-    /** 必須パックの応答待ち中に移動や操作を開始させない共通判定です。 */
-    private fun isPackLocked(player: Player): Boolean =
-        ::resourcePacks.isInitialized && resourcePacks.isAwaitingRequiredPack(player.uniqueId)
-
-    /** パック適用が終わるまでワールド移動を止めます。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockMovementUntilPack(event: PlayerMoveEvent) {
-        if (isPackLocked(event.player) && (event.from.blockX != event.to.blockX || event.from.blockY != event.to.blockY || event.from.blockZ != event.to.blockZ)) {
-            event.isCancelled = true
-        }
-    }
-
-    /** パック適用待ち中はコマンドを実行させません。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockCommandsUntilPack(event: PlayerCommandPreprocessEvent) {
-        if (isPackLocked(event.player)) event.isCancelled = true
-    }
-
-    /** パック適用待ち中はインベントリ画面を開かせません。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockInventoryOpenUntilPack(event: InventoryOpenEvent) {
-        if (event.player is Player && isPackLocked(event.player as Player)) event.isCancelled = true
-    }
-
-    /** パック適用待ち中はインベントリ操作を止めます。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockInventoryClickUntilPack(event: InventoryClickEvent) {
-        if (isPackLocked(event.whoClicked as? Player ?: return)) event.isCancelled = true
-    }
-
-    /** パック適用待ち中はドラッグ移動を止めます。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockInventoryDragUntilPack(event: InventoryDragEvent) {
-        if (isPackLocked(event.whoClicked as? Player ?: return)) event.isCancelled = true
-    }
-
-    /** パック適用待ち中はアイテム使用を止めます。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockInteractionUntilPack(event: PlayerInteractEvent) {
-        if (isPackLocked(event.player)) event.isCancelled = true
-    }
-
-    /** パック適用待ち中は持ち替えを止めます。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockHotbarUntilPack(event: PlayerItemHeldEvent) {
-        if (isPackLocked(event.player)) event.isCancelled = true
-    }
-
-    /** パック適用待ち中はオフハンド切替を止めます。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockOffhandUntilPack(event: PlayerSwapHandItemsEvent) {
-        if (isPackLocked(event.player)) event.isCancelled = true
-    }
-
-    /** パック適用待ち中はアイテムのドロップを止めます。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockDropUntilPack(event: PlayerDropItemEvent) {
-        if (isPackLocked(event.player)) event.isCancelled = true
-    }
-
-    /** パック適用待ち中はブロック変更と受ける/与えるダメージを止めます。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockBlockBreakUntilPack(event: BlockBreakEvent) {
-        if (isPackLocked(event.player)) event.isCancelled = true
-    }
-
-    /** パック適用待ち中はブロック設置を止めます。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockBlockPlaceUntilPack(event: BlockPlaceEvent) {
-        if (isPackLocked(event.player)) event.isCancelled = true
-    }
-
-    /** パック適用待ち中は受けるダメージと攻撃を止めます。 */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    fun lockDamageUntilPack(event: EntityDamageEvent) {
-        if (event.entity is Player && isPackLocked(event.entity as Player)) event.isCancelled = true
-        if (event is EntityDamageByEntityEvent && event.damager is Player && isPackLocked(event.damager as Player)) event.isCancelled = true
-    }
 
     @EventHandler fun onQuit(e: PlayerQuitEvent) {
         if(::adventure.isInitialized) adventure.beforeQuit(e.player)
@@ -712,6 +636,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         server.onlinePlayers.forEach { p ->
           try {
             val profile = profiles[p.uniqueId] ?: return@forEach
+            if(resourcePacks.isAwaitingRequiredPack(p.uniqueId)) return@forEach
             syncTitleAdvancements(p,profile)
             val c = profile.classId?.let { content.snapshot().classes.find(it) } ?: return@forEach
             if(adventure.locked(p.uniqueId)) return@forEach

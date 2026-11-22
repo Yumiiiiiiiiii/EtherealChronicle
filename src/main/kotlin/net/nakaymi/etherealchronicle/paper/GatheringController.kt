@@ -204,7 +204,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         return sitesById.values.any { s -> s.location.world==location.world.name && kotlin.math.abs(s.location.x-x)<=1 && kotlin.math.abs(s.location.y-y)<=1 && kotlin.math.abs(s.location.z-z)<=1 }
     }
 
-    @EventHandler(priority=EventPriority.HIGHEST)
+    @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true)
     /** 事前生成した座標indexだけを参照し、採取チャネル開始条件を確認します。 */
     fun interact(e: PlayerInteractEvent) {
         if(e.hand != EquipmentSlot.HAND || e.action != org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK) return
@@ -221,7 +221,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         e.isCancelled=true
         begin(e.player,site)
     }
-    @EventHandler(priority=EventPriority.HIGHEST)
+    @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true)
     /** 可視ノードに重ねたInteraction entityからのクリックを同じ座標経路へ送ります。 */
     fun interactDisplay(e: PlayerInteractEntityEvent) {
         val k=e.rightClicked.persistentDataContainer.get(hitboxKey,PersistentDataType.STRING) ?: return

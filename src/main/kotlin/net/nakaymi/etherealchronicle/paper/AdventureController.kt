@@ -49,6 +49,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         consumableReady.entries.removeIf { it.value <= now }
         plugin.server.onlinePlayers.forEach { player ->
             val p=plugin.profiles[player.uniqueId] ?: return@forEach
+            if(plugin.resourcePacks.isAwaitingRequiredPack(player.uniqueId)) return@forEach
             if(player.uniqueId in locks) return@forEach
             val pos=Position(player.world.name,player.x,player.y,player.z)
             try {
