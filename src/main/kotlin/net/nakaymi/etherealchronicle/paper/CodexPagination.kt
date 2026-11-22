@@ -2,7 +2,7 @@ package net.nakaymi.etherealchronicle.paper
 
 /** 図鑑一覧を45枠単位に分け、ページ移動を範囲内へ制限します。 */
 internal object CodexPagination {
-    const val DEFAULT_PAGE_SIZE = 45
+    const val DEFAULT_PAGE_SIZE = CodexLayout.MAX_VISIBLE_ENTRIES
     internal data class Slice<T>(val items: List<T>, val page: Int, val pageCount: Int)
 
     /** 指定ページの項目を返し、項目数が変わった場合もページ番号を有効範囲へ丸めます。 */

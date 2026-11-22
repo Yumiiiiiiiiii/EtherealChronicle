@@ -13,6 +13,8 @@ internal object ResourcePackLimits {
     const val MAX_HEADER_DEADLINE_MILLIS = 30_000
     const val MIN_WRITE_DEADLINE_MILLIS = 500
     const val MAX_WRITE_DEADLINE_MILLIS = 30_000
+    const val MIN_GAME_PORT_HEADER_DEADLINE_MILLIS = 500
+    const val MAX_GAME_PORT_HEADER_DEADLINE_MILLIS = 10_000
     const val MIN_CONNECTIONS = 1
     const val MAX_CONNECTIONS = 128
     const val MIN_HEADER_BYTES = 256
@@ -84,7 +86,7 @@ internal data class ResourcePackSettings(
         require(writeDeadlineMillis in ResourcePackLimits.MIN_WRITE_DEADLINE_MILLIS..ResourcePackLimits.MAX_WRITE_DEADLINE_MILLIS)
         require(gamePortMaxConnections in ResourcePackLimits.MIN_CONNECTIONS..ResourcePackLimits.MAX_CONNECTIONS && gamePortMaxPerIp in ResourcePackLimits.MIN_CONNECTIONS..gamePortMaxConnections)
         require(gamePortMaxHeaderBytes in ResourcePackLimits.MIN_HEADER_BYTES..ResourcePackLimits.MAX_HEADER_BYTES)
-        require(gamePortHeaderDeadlineMillis in ResourcePackLimits.MIN_WRITE_DEADLINE_MILLIS..ResourcePackLimits.MAX_IDLE_TIMEOUT_MILLIS)
+        require(gamePortHeaderDeadlineMillis in ResourcePackLimits.MIN_GAME_PORT_HEADER_DEADLINE_MILLIS..ResourcePackLimits.MAX_GAME_PORT_HEADER_DEADLINE_MILLIS)
         require(gamePortIdleTimeoutMillis in ResourcePackLimits.MIN_TIMEOUT_MILLIS..gamePortHeaderDeadlineMillis)
         require(gamePortBandwidthKbPerSecond in ResourcePackLimits.MIN_BANDWIDTH_KB_PER_SECOND..ResourcePackLimits.MAX_BANDWIDTH_KB_PER_SECOND)
     }

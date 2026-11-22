@@ -138,7 +138,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
                 bar.progress=(state.boss.hp/state.boss.maximumHp).coerceIn(0.0,1.0)
                 bar.setTitle("${d.name} ${state.boss.hp.toInt()}/${state.boss.maximumHp.toInt()}  Phase ${d.phases.indexOf(state.boss.phase()).coerceAtLeast(0)+1}${if(tick-state.boss.started >= d.enrageTicks) " ENRAGE" else ""}")
             }
-            if(entity.location.distanceSquared(state.home) > d.leash*d.leash) {
+            if(!entity.location.isWithinBlocks(state.home, d.leash)) {
                 entity.teleport(state.home); state.boss.hp=state.boss.maximumHp; state.target=null; if(entity is Mob) entity.target=null
                 warnings.removeIf { it.owner == entity.uniqueId }; return@forEach
             }
@@ -239,7 +239,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
         require(radius in 0.1..EnemyBehaviorTuning.TAUNT_MAX_RADIUS_BLOCKS && ticks in 1..EnemyBehaviorTuning.TAUNT_MAX_DURATION_TICKS && threatMultiplier in 1.0..EnemyBehaviorTuning.TAUNT_MAX_THREAT_MULTIPLIER)
         var affected=0
         states.values.forEach { state ->
-            if(state.entity.world != player.world || state.entity.location.distanceSquared(player.location) > radius*radius ||
+            if(state.entity.world != player.world || !state.entity.location.isWithinBlocks(player.location, radius) ||
                 state.participants.isNotEmpty() && player.uniqueId !in state.participants) return@forEach
             val highest=state.threat.values.maxOrNull() ?: 1.0
             state.threat[player.uniqueId]=maxOf(state.threat[player.uniqueId] ?: 0.0,highest*threatMultiplier)

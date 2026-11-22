@@ -67,7 +67,7 @@ class GamePortPackServer(
 
     init {
         require(maxHeaderBytes in ResourcePackLimits.MIN_HEADER_BYTES..ResourcePackLimits.MAX_HEADER_BYTES)
-        require(headerDeadlineMillis in ResourcePackLimits.MIN_WRITE_DEADLINE_MILLIS..ResourcePackLimits.MAX_IDLE_TIMEOUT_MILLIS)
+        require(headerDeadlineMillis in ResourcePackLimits.MIN_GAME_PORT_HEADER_DEADLINE_MILLIS..ResourcePackLimits.MAX_GAME_PORT_HEADER_DEADLINE_MILLIS)
         require(idleReadTimeoutMillis in ResourcePackLimits.MIN_TIMEOUT_MILLIS..headerDeadlineMillis)
         val proxies = unsupportedProxies()
         require(proxies.isEmpty()) {

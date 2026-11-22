@@ -13,6 +13,24 @@ import kotlin.test.assertTrue
 
 class DemoWorldMigrationTest {
     @Test
+    fun `declared hub and chapter two landmarks retain representative blocks`() {
+        val server = MockBukkit.mock()
+        try {
+            val world = server.addSimpleWorld(DemoWorld.NAME)
+            DemoWorld.build(world)
+            DemoWorld.buildChapter2(world)
+
+            assertEquals(Material.QUARTZ_BRICKS, world.getBlockAt(0, 64, 0).type)
+            assertEquals(Material.OAK_LEAVES, world.getBlockAt(84, 65, 12).type)
+            assertEquals(Material.OAK_LEAVES, world.getBlockAt(108, 65, 3).type)
+            assertEquals(Material.BLUE_ICE, DemoGenerator.surfaceAt(432, 0))
+            assertEquals(Material.PRISMARINE_BRICKS, world.getBlockAt(488, 65, 8).type)
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
     fun `chapter two surface generation and owned v1 migration preserve existing blocks`() {
         assertEquals(Material.SNOW_BLOCK,DemoGenerator.surfaceAt(480,12))
         assertEquals(Material.BLUE_ICE,DemoGenerator.surfaceAt(480,0))

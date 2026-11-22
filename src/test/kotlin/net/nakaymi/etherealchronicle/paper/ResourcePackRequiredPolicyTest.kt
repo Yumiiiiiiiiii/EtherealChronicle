@@ -44,8 +44,8 @@ class ResourcePackRequiredPolicyTest {
         assertEquals(ResourcePackDefaults.HTTP_CONNECTIONS, safe.maxConcurrent)
         assertEquals(ResourcePackDefaults.HTTP_PER_IP, safe.maxPerIp)
         assertEquals(ResourcePackDefaults.GAME_PORT_HEADER_BYTES, safe.gamePortMaxHeaderBytes)
-        assertEquals(ResourcePackLimits.MAX_CONNECTIONS, 128)
-        assertEquals(ResourcePackLimits.MIN_PORT, 1_024)
+        assertEquals(128, ResourcePackLimits.MAX_CONNECTIONS)
+        assertEquals(1_024, ResourcePackLimits.MIN_PORT)
     }
 
     @Test

@@ -699,7 +699,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             val fishingActive=::fishing.isInitialized && fishing.active(p.uniqueId)
             val s = effectiveStats(p,profile); applyStats(p,profile,s); applyTitle(p,profile)
             val beforeResource = profile.resource
-            val movedRecently = lastMoved[p.uniqueId]?.let { Bukkit.getCurrentTick() - it < PaperTaskIntervals.PLAYER_UPDATE_TICKS } ?: false
+            val movedRecently = lastMoved[p.uniqueId]?.let { Bukkit.getCurrentTick() - it < PlayerMovementTuning.MOVED_RECENTLY_TICKS } ?: false
             game.regenerate(profile,s.resource,movedRecently)
             if(profile.resource != beforeResource) dirty.add(p.uniqueId)
             profile.selectedSkill = profile.selectedSkill.coerceIn(0,c.skills.lastIndex)
@@ -752,7 +752,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             val recipientIds=if((skill.partyHeal || skill.partyDefenseBuff) && skill.allyRadius > 0) adventure.parties.members(player.uniqueId) else setOf(player.uniqueId)
             val recipients=player.world.players.filter { recipient ->
                 recipient.uniqueId == player.uniqueId ||
-                    (recipient.uniqueId in recipientIds && recipient.location.distanceSquared(player.location) <= skill.allyRadius*skill.allyRadius)
+                    (recipient.uniqueId in recipientIds && recipient.location.isWithinBlocks(player.location, skill.allyRadius))
             }
             recipients.forEach { recipient ->
                 val recipientProfile=profiles[recipient.uniqueId] ?: return@forEach

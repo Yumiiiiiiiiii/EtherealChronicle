@@ -12,6 +12,15 @@ import java.util.UUID
 
 /** 制限数付きの複数ダンジョンinstance、wave、帰還地点を管理します。 */
 class DungeonController(private val plugin: RpgPlugin,private val adventure: AdventureController,private val enemies: EnemyController): Listener {
+    private data class ArenaPalette(val floor: Material, val wall: Material, val inner: Material) {
+        companion object {
+            fun resolve(names: List<String>) = ArenaPalette(
+                Material.valueOf(names[DungeonArenaLayout.OUTER_FLOOR_PALETTE_INDEX]),
+                Material.valueOf(names[DungeonArenaLayout.WALL_PALETTE_INDEX]),
+                Material.valueOf(names[DungeonArenaLayout.INNER_FLOOR_PALETTE_INDEX]),
+            )
+        }
+    }
     data class Instance(val slot: Int,val definition: net.nakaymi.etherealchronicle.core.DungeonDefinition,val members: MutableSet<UUID>,val returns: Map<UUID,Location>,val started: Long,var boss: UUID?=null,var completed: Boolean=false,var waveIndex: Int=0,val entities: MutableSet<UUID> = mutableSetOf(),val startedAtMillis: Long=monotonicMillis())
     private val instances=mutableMapOf<Int,Instance>()
     private var tick=0L
@@ -34,12 +43,12 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
         val instance=Instance(slot,definition,players.map { it.uniqueId }.toMutableSet(),players.associate { it.uniqueId to it.location.clone() },tick)
         val origin=DungeonArenaLayout.originForSlot(slot); val x=origin.x; val z=origin.z
         if(dungeonPaletteNeedsBuild(builtPalette[slot],definition.palette)) {
+            val palette = ArenaPalette.resolve(definition.palette)
             for(dx in -DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS..DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS) for(dz in -DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS..DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS) {
             val edge=kotlin.math.abs(dx) == DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS || kotlin.math.abs(dz) == DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS
             val center=kotlin.math.abs(dx) <= DungeonArenaLayout.INNER_FLOOR_RADIUS_BLOCKS && kotlin.math.abs(dz) <= DungeonArenaLayout.INNER_FLOOR_RADIUS_BLOCKS
-            val floorPaletteIndex=if(center) DungeonArenaLayout.INNER_FLOOR_PALETTE_INDEX else DungeonArenaLayout.OUTER_FLOOR_PALETTE_INDEX
-            world.getBlockAt(x+dx,DungeonArenaLayout.FLOOR_Y,z+dz).type=Material.valueOf(definition.palette[floorPaletteIndex])
-            if(edge) for(y in DungeonArenaLayout.WALL_BOTTOM_Y..DungeonArenaLayout.WALL_TOP_Y) world.getBlockAt(x+dx,y,z+dz).type=Material.valueOf(definition.palette[DungeonArenaLayout.WALL_PALETTE_INDEX])
+            world.getBlockAt(x+dx,DungeonArenaLayout.FLOOR_Y,z+dz).type=if(center) palette.inner else palette.floor
+            if(edge) for(y in DungeonArenaLayout.WALL_BOTTOM_Y..DungeonArenaLayout.WALL_TOP_Y) world.getBlockAt(x+dx,y,z+dz).type=palette.wall
             }
             builtPalette[slot]=definition.palette.toList()
         }
@@ -58,10 +67,10 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
         val offsets=wave?.guardOffsets ?: definition.guardOffsets
         val spawned=mutableListOf<org.bukkit.entity.LivingEntity>()
         try {
-            val boss=enemies.spawn(bossId,Location(world,(x+bossOffset.first).toDouble(),DungeonArenaLayout.PLAYER_SPAWN_Y.toDouble(),(z+bossOffset.second).toDouble()),"instance:${instance.slot}:wave:${instance.waveIndex}",1,instance.members.toSet()) ?: error("ec.error.spawn_cap")
+            val boss=enemies.spawn(bossId,Location(world,(x+bossOffset.first).toDouble(),DungeonArenaLayout.ENTITY_SPAWN_Y.toDouble(),(z+bossOffset.second).toDouble()),"instance:${instance.slot}:wave:${instance.waveIndex}",1,instance.members.toSet()) ?: error("ec.error.spawn_cap")
             spawned += boss
             guards.zip(offsets).forEach { (guard,offset) ->
-                val entity=enemies.spawn(guard,Location(world,x+offset.first.toDouble(),DungeonArenaLayout.PLAYER_SPAWN_Y.toDouble(),z+offset.second.toDouble()),"instance:${instance.slot}:wave:${instance.waveIndex}:guards",guards.size.coerceAtLeast(1),instance.members.toSet())
+                val entity=enemies.spawn(guard,Location(world,x+offset.first.toDouble(),DungeonArenaLayout.ENTITY_SPAWN_Y.toDouble(),z+offset.second.toDouble()),"instance:${instance.slot}:wave:${instance.waveIndex}:guards",guards.size.coerceAtLeast(1),instance.members.toSet())
                 if(entity == null) error("ec.error.guard_spawn_failed")
                 spawned += entity
             }
