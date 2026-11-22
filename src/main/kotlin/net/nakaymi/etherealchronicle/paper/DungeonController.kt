@@ -3,6 +3,7 @@ package net.nakaymi.etherealchronicle.paper
 import net.kyori.adventure.text.Component
 import net.nakaymi.etherealchronicle.core.recordChallenge
 import net.nakaymi.etherealchronicle.core.firstClearRanks
+import net.nakaymi.etherealchronicle.core.returnToMailbox
 import org.bukkit.*
 import org.bukkit.entity.Player
 import org.bukkit.event.*
@@ -86,27 +87,31 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
         val ranks=instance.definition.scoreRanks
         if(ranks.isNotEmpty()) {
             val rank=net.nakaymi.etherealchronicle.core.challengeRank(seconds,ranks)
-            instance.members.forEach { member -> plugin.profiles[member]?.let { profile ->
-                val (best,updated)=profile.recordChallenge(instance.definition.id,seconds,rank)
-                val firstRewards=firstClearRanks(profile,ranks,seconds)
-                val player=Bukkit.getPlayer(member)
-                if(firstRewards.isNotEmpty()) {
-                    val itemRewards=firstRewards.flatMap { it.firstClearItems.entries }.groupBy({ it.key },{ it.value }).mapValues { (_,amounts) -> amounts.sum() }
+            instance.members.forEach { member ->
+                var best: net.nakaymi.etherealchronicle.core.ChallengeRecord? = null
+                var hasFirstReward=false
+                adventure.profileTransaction(member,{ profile ->
+                    val (updatedBest,_)=profile.recordChallenge(instance.definition.id,seconds,rank)
+                    best=updatedBest
+                    val firstRewards=firstClearRanks(profile,ranks,seconds)
+                    hasFirstReward=firstRewards.isNotEmpty()
+                    val itemRewards=firstRewards.flatMap { it.firstClearItems.entries }
+                        .groupBy({ it.key },{ it.value }).mapValues { (_,amounts) -> amounts.sum() }
                     val flags=firstRewards.mapNotNull { it.firstClearFlag }.toSet()
-            // 初回報酬flagとmailboxを同じプロフィール書込みへ含め、既存取引lock解放後のclaim経路を使います。
-                    itemRewards.forEach { (item,amount) -> profile.pendingRewards.merge(item,amount,Int::plus) }
+                    // 初回報酬flagとmailboxをクリア記録と同じ保存へ含めます。
+                    profile.returnToMailbox(itemRewards)
                     profile.flags.addAll(flags)
-                    plugin.save(profile)
-                    if(player?.isOnline==true) adventure.whenAvailable(member) {
-                        val current=Bukkit.getPlayer(member)
-                        if(current?.isOnline==true) {
-                            adventure.claimPending(current)
-                            current.sendMessage(plugin.message(current,"ec.dungeon.first_rank_reward"))
-                        }
+                }) {
+                    val player=Bukkit.getPlayer(member)?.takeIf { it.isOnline } ?: return@profileTransaction
+                    best?.let { record ->
+                        player.sendMessage(plugin.message(player,"ec.dungeon.result", "message" to instance.definition.clearMessage, "seconds" to seconds, "rank" to rank, "best_seconds" to record.bestSeconds, "best_rank" to record.bestRank))
                     }
-                } else if(updated) plugin.save(profile)
-                player?.sendMessage(plugin.message(player,"ec.dungeon.result", "message" to instance.definition.clearMessage, "seconds" to seconds, "rank" to rank, "best_seconds" to best.bestSeconds, "best_rank" to best.bestRank))
-            } }
+                    if(hasFirstReward) {
+                        adventure.claimPending(player)
+                        player.sendMessage(plugin.message(player,"ec.dungeon.first_rank_reward"))
+                    }
+                }
+            }
         } else instance.members.forEach { member -> Bukkit.getPlayer(member)?.let { it.sendMessage(plugin.message(it,"ec.dungeon.clear", "message" to instance.definition.clearMessage)) } }
     }
     fun leave(player: Player) {

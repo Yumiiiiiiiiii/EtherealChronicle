@@ -405,7 +405,14 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             choosing.remove(p.uniqueId)
             if(error != null) { profile.starterGranted = false; p.sendMessage(message(p,"ec.profile.save_retry")); return@sync }
             if(!p.isOnline || profiles[p.uniqueId] !== profile) return@sync
-            if(c.starterItems.size > (0..7).count { p.inventory.getItem(it) == null }) { p.sendMessage(message(p,"ec.profile.starter_space")); return@sync }
+            if(c.starterItems.size > (0..7).count { p.inventory.getItem(it) == null }) {
+                // 先行保存済みのstarterGrantedを維持し、枠不足分は耐久メールボックスへ戻します。
+                c.starterItems.groupingBy { it }.eachCount().forEach { (item,amount) -> profile.returnToMailbox(mapOf(item to amount)) }
+                save(profile)
+                p.sendMessage(message(p,"ec.profile.starter_space"))
+                adventure.claimPending(p)
+                return@sync
+            }
             c.starterItems.forEach { item -> val slot = (0..7).first { p.inventory.getItem(it) == null }; p.inventory.setItem(slot,createStarterItem(item,id,p)); profile.discoverItem(item) }
             save(profile)
             skillSlot(p); applyStats(p,profile); p.health=p.getAttribute(Attribute.MAX_HEALTH)!!.value

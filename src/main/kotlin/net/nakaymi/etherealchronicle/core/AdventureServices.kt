@@ -10,6 +10,10 @@ interface InventoryAccess {
     fun count(item: String): Int
     fun canExchange(remove: Map<String,Int>, add: Map<String,Int>): Boolean
     fun exchange(remove: Map<String,Int>, add: Map<String,Int>): Boolean
+    /** 指定した所持品スロットを優先して消費できるか調べます。 */
+    fun canExchangeFromSlot(slot: Int?, remove: Map<String,Int>, add: Map<String,Int>): Boolean = canExchange(remove, add)
+    /** 指定スロットを優先して差分交換します。 */
+    fun exchangeFromSlot(slot: Int?, remove: Map<String,Int>, add: Map<String,Int>): Boolean = exchange(remove, add)
 }
 /** ユニットテストとコンソールsim向けの容量制限付き仮想所持品です。 */
 class MemoryInventory(val contents: MutableMap<String,Int> = mutableMapOf(), private val capacity: Int = Int.MAX_VALUE): InventoryAccess {
@@ -76,6 +80,9 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
             }
         }
     }
+    /** 自動完了対象のうち条件を満たした依頼を安定順で返します。 */
+    fun readyAutoComplete(p: PlayerProfile, inventory: InventoryAccess): List<String> =
+        p.quests.keys.filter { id -> content().world.quests[id]?.let { it.autoComplete && ready(p, id, inventory) } == true }
     /** 報酬と消費物を一度だけ反映し、repeat/reset状態を記録します。 */
     fun complete(p: PlayerProfile,id: String,inventory: InventoryAccess) {
         val q = content().world.quests[id] ?: error("ec.error.quest_missing")
@@ -110,7 +117,7 @@ class DialogueEngine(private val content: () -> ContentSnapshot) {
     fun choice(p: PlayerProfile,id: String,node: String,choice: String): DialogueChoice =
         node(p,id,node).second.choices.firstOrNull { it.id == choice } ?: error("ec.error.dialogue_choice")
 }
-data class TradePlan(val id: String,val currencyBefore: Long,val currencyAfter: Long,val remove: Map<String,Int>,val add: Map<String,Int>,val dailyKey: String?,val dailyCount: Int)
+data class TradePlan(val id: String,val currencyBefore: Long,val currencyAfter: Long,val remove: Map<String,Int>,val add: Map<String,Int>,val dailyKey: String?,val dailyCount: Int,val sourceSlot: Int? = null)
 /** 取引計画の成功またはプレイヤーに返す想定内の拒否理由です。 */
 sealed interface TradePlanResult {
     data class Ready(val plan: TradePlan) : TradePlanResult
@@ -123,8 +130,8 @@ class TradeEngine(private val content: () -> ContentSnapshot) {
         planResult { buy(p,shopId,entryId,inventory,transaction,day) }
 
     /** 通常の売却条件不成立を例外ではなく言語キーとして返します。 */
-    fun planSell(p: PlayerProfile,shopId: String,item: String,amount: Int,inventory: InventoryAccess,transaction: String): TradePlanResult =
-        planResult { sell(p,shopId,item,amount,inventory,transaction) }
+    fun planSell(p: PlayerProfile,shopId: String,item: String,amount: Int,inventory: InventoryAccess,transaction: String,sourceSlot: Int? = null): TradePlanResult =
+        planResult { sell(p,shopId,item,amount,inventory,transaction,sourceSlot) }
 
     fun buy(p: PlayerProfile,shopId: String,entryId: String,inventory: InventoryAccess,transaction: String,day: Long): TradePlan {
         require(transaction !in p.transactions) { "ec.error.transaction_replayed" }
@@ -142,7 +149,7 @@ class TradeEngine(private val content: () -> ContentSnapshot) {
         require(inventory.canExchange(remove,add)) { "ec.error.materials_or_space" }
         return TradePlan(transaction,p.currency,p.currency-cost,remove,add,key,purchased+e.amount)
     }
-    fun sell(p: PlayerProfile,shopId: String,item: String,amount: Int,inventory: InventoryAccess,transaction: String): TradePlan {
+    fun sell(p: PlayerProfile,shopId: String,item: String,amount: Int,inventory: InventoryAccess,transaction: String,sourceSlot: Int? = null): TradePlan {
         val c=content()
         require(transaction !in p.transactions) { "ec.error.transaction_replayed" }
         require(amount in 1..c.world.tuning.transactionCap) { "ec.error.quantity_range" }
@@ -151,8 +158,8 @@ class TradeEngine(private val content: () -> ContentSnapshot) {
         require(!properties.bound && !properties.questItem && properties.price > 0) { "ec.error.item_unsellable" }
         val gain=floor(properties.price.toDouble()*c.world.tuning.sellRatio).toLong()*amount
         require(gain <= c.balance.currencyGainCap && p.currency <= c.world.tuning.maxCurrency-gain) { "ec.error.currency_cap" }
-        require(inventory.canExchange(mapOf(item to amount),emptyMap())) { "ec.error.sell_items_missing" }
-        return TradePlan(transaction,p.currency,p.currency+gain,mapOf(item to amount),emptyMap(),null,0)
+        require(inventory.canExchangeFromSlot(sourceSlot,mapOf(item to amount),emptyMap())) { "ec.error.sell_items_missing" }
+        return TradePlan(transaction,p.currency,p.currency+gain,mapOf(item to amount),emptyMap(),null,0,sourceSlot)
     }
     /** 事前計算planが古くないことを確認してprofile側の通貨・日次数を確定します。 */
     fun commit(p: PlayerProfile,plan: TradePlan) {
@@ -206,6 +213,7 @@ object ResetPeriods {
 class StagedInventory(private val base: InventoryAccess): InventoryAccess {
     val remove=mutableMapOf<String,Int>()
     val add=mutableMapOf<String,Int>()
+    var preferredRemovalSlot: Int? = null
     override fun count(item: String) = base.count(item)-remove.getOrDefault(item,0)+add.getOrDefault(item,0)
     private fun proposed(r: Map<String,Int>,a: Map<String,Int>): Pair<Map<String,Int>,Map<String,Int>> {
         require((r.values+a.values).all { it >= 0 })
@@ -217,6 +225,18 @@ class StagedInventory(private val base: InventoryAccess): InventoryAccess {
     override fun canExchange(remove: Map<String,Int>,add: Map<String,Int>): Boolean {
         if(remove.any { (id,n) -> count(id) < n }) return false
         val (r,a)=proposed(remove,add); return base.canExchange(r,a)
+    }
+    override fun canExchangeFromSlot(slot: Int?, remove: Map<String,Int>, add: Map<String,Int>): Boolean {
+        if(remove.any { (id,n) -> count(id) < n }) return false
+        val (r,a)=proposed(remove,add)
+        return base.canExchangeFromSlot(slot,r,a)
+    }
+    override fun exchangeFromSlot(slot: Int?, remove: Map<String,Int>, add: Map<String,Int>): Boolean {
+        if(!canExchangeFromSlot(slot,remove,add)) return false
+        val (r,a)=proposed(remove,add)
+        this.remove.clear(); this.remove.putAll(r); this.add.clear(); this.add.putAll(a)
+        preferredRemovalSlot=slot
+        return true
     }
     override fun exchange(remove: Map<String,Int>,add: Map<String,Int>): Boolean {
         if(!canExchange(remove,add)) return false

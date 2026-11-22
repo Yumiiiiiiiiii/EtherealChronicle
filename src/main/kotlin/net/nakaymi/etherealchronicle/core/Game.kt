@@ -168,6 +168,14 @@ data class PlayerProfile(val uuid: UUID, var classId: String? = null, var level:
 }
 data class QuestProgress(var progress: Int = 0, var completed: Boolean = false, val objectives: MutableMap<String,Int> = mutableMapOf(), var completedAt: Long = 0, var repeatAvailableAt: Long = Long.MAX_VALUE, var resetPeriod: String? = null)
 
+/** 受取中断などで報酬を戻す際、既存メールボックスの数量へ加算します。 */
+fun PlayerProfile.returnToMailbox(output: Map<String, Int>) {
+    output.forEach { (item, amount) ->
+        require(amount >= 0)
+        pendingRewards[item] = Math.addExact(pendingRewards.getOrDefault(item, 0), amount)
+    }
+}
+
 /** ランク閾値を最良から順に評価し、該当がなければ最低ランクを返します。 */
 fun challengeRank(seconds: Long,ranks: List<ScoreRank>): String = ranks.firstOrNull { seconds <= it.maxSeconds }?.rank ?: ranks.lastOrNull()?.rank ?: "C"
 /** ダンジョン記録を更新し、最速記録だったかを返します。 */

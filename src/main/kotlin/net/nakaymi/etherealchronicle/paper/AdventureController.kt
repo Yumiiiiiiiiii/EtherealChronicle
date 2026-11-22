@@ -26,7 +26,9 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     val parties=PartyService({ plugin.snapshot.world.tuning.partyCap },Clock { System.currentTimeMillis() })
     private val dialogues=DialogueEngine { plugin.snapshot }
     private val trades=TradeEngine { plugin.snapshot }
-    private val locks=mutableSetOf<UUID>()
+    private val locks=mutableMapOf<UUID,LockToken>()
+    /** 保存callbackごとの所有権を識別し、古い処理による後続ロック解放を防ぎます。 */
+    internal data class LockToken(val playerId: UUID)
     private val entryKey=NamespacedKey(plugin,"entry_id")
     private val mm=MiniMessage.miniMessage()
     private val npcs=NpcController(plugin)
@@ -49,12 +51,14 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             val p=plugin.profiles[player.uniqueId] ?: return@forEach
             if(player.uniqueId in locks) return@forEach
             val pos=Position(player.world.name,player.x,player.y,player.z)
-            val inventory=plugin.inventory(player)
-            val before=p.snapshot()
             try {
-                plugin.snapshot.world.areas.values.filter { it.contains(pos) }.forEach { area -> plugin.game.quests.event(p,ObjectiveKind.EXPLORE,area.id,1,inventory) }
-                plugin.game.quests.event(p,ObjectiveKind.COLLECT,"",1,inventory)
-                if(before != p) { plugin.markDirty(p.uuid); if(before.quests.values.count { it.completed } != p.quests.values.count { it.completed }) plugin.save(p) }
+                transaction(player,{ staged ->
+                    plugin.snapshot.world.areas.values.filter { it.contains(pos) }.forEach { area ->
+                        plugin.game.quests.event(p,ObjectiveKind.EXPLORE,area.id,1,staged,allowAutoComplete=false)
+                    }
+                    plugin.game.quests.event(p,ObjectiveKind.COLLECT,"",1,staged,allowAutoComplete=false)
+                    plugin.game.quests.readyAutoComplete(p,staged).forEach { quest -> plugin.game.completeQuest(p,quest,staged) }
+                },skipIfUnchanged=true)
             } catch(e: Exception) { plugin.logger.warning("Quest progress update failed ${p.uuid}: ${e.message}") }
         }
     }
@@ -76,9 +80,11 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         e.isCancelled=true
         val p=plugin.profiles[e.player.uniqueId] ?: return
         if(locked(p.uuid)) return
-        plugin.game.quests.event(p,ObjectiveKind.TALK,id,1,plugin.inventory(e.player)); plugin.markDirty(p.uuid)
         val npc=plugin.snapshot.world.npcs[id] ?: return
-        showDialogue(e.player,npc.dialogue)
+        transaction(e.player,{ inventory ->
+            plugin.game.quests.event(p,ObjectiveKind.TALK,id,1,inventory,allowAutoComplete=false)
+            plugin.game.quests.readyAutoComplete(p,inventory).forEach { quest -> plugin.game.completeQuest(p,quest,inventory) }
+        },skipIfUnchanged=true) { showDialogue(e.player,npc.dialogue) }
     }
     /** 条件付き会話選択肢をGUIとして表示します。 */
     fun showDialogue(player: Player,id: String,node: String? = null) {
@@ -152,7 +158,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         val invUiShopId = invUiShops[player.uniqueId]
         if (invUiShopId != null && e.clickedInventory == player.inventory && e.isRightClick) {
             e.isCancelled = true
-            runCatching { sellFromInventory(player, invUiShopId, e.currentItem) }
+            runCatching { sellFromInventory(player, invUiShopId, e.currentItem, e.slot) }
                 .onFailure { player.sendMessage(plugin.message(player,"ec.command.failed", "reason" to plugin.diagnostic(player,it.message.orEmpty()))) }
             return
         }
@@ -171,7 +177,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                         val shopEntry = plugin.snapshot.world.shops[menu.contentId]?.entries?.indexOfFirst { it.id == entry } ?: -1
                         if (shopEntry >= 0) buyShopSlot(player,menu.contentId,shopEntry)
                     } else if(e.clickedInventory == player.inventory && e.isRightClick) {
-                        sellFromInventory(player,menu.contentId,e.currentItem)
+                        sellFromInventory(player,menu.contentId,e.currentItem,e.slot)
                     }
                 }
                 "equipment" -> if(entry != null && e.rawSlot in 0..53) {
@@ -240,10 +246,10 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             plugin.ensureStarter(player)
         }
     }
-    private fun sellFromInventory(player: Player, shopId: String, stack: ItemStack?) {
+    private fun sellFromInventory(player: Player, shopId: String, stack: ItemStack?, sourceSlot: Int) {
         val profile = plugin.profiles[player.uniqueId] ?: return
         val id = plugin.identify(stack) ?: return
-        val plan = when (val result = trades.planSell(profile,shopId,id,1,plugin.inventory(player),UUID.randomUUID().toString())) {
+        val plan = when (val result = trades.planSell(profile,shopId,id,1,plugin.inventory(player),UUID.randomUUID().toString(),sourceSlot)) {
             is TradePlanResult.Ready -> result.plan
             is TradePlanResult.Rejected -> {
                 player.sendMessage(plugin.diagnostic(player,result.messageKey))
@@ -252,7 +258,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         }
         runExpectedTrade(player) {
             transaction(player,{ inventory ->
-                require(inventory.exchange(plan.remove,plan.add)) { "ec.error.sell_items_missing" }
+                require(inventory.exchangeFromSlot(plan.sourceSlot,plan.remove,plan.add)) { "ec.error.sell_items_missing" }
                 trades.commit(profile,plan)
             }) { showShop(player,shopId) }
         }
@@ -359,27 +365,61 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             if(!locked(id)) resume(id)
         }
     }
-    private fun unlock(id: UUID) { locks.remove(id); resume(id) }
+    private fun acquireLock(id: UUID): LockToken? = if (id in locks) null else LockToken(id).also { locks[id]=it }
+    private fun releaseLock(token: LockToken, resumeQueue: Boolean = true) {
+        if (locks[token.playerId] !== token) return
+        locks.remove(token.playerId)
+        if (resumeQueue) resume(token.playerId)
+    }
+    /** 取引ロックを所有者単位で扱い、例外時だけ自動解放します。 */
+    internal fun <T> withTxLock(id: UUID, action: (LockToken) -> T): T? {
+        val token=acquireLock(id) ?: return null
+        return try { action(token) } catch(error: Throwable) { releaseLock(token); throw error }
+    }
+    /** inventoryを伴わない報酬・記録更新も同じプロフィールロックと永続化境界で確定します。 */
+    fun profileTransaction(id: UUID, mutate: (PlayerProfile) -> Unit, success: () -> Unit = {}) {
+        val profile=plugin.profiles[id] ?: return
+        if (locked(id)) { whenAvailable(id) { profileTransaction(id,mutate,success) }; return }
+        val token=acquireLock(id) ?: return
+        val before=profile.snapshot()
+        try {
+            mutate(profile)
+            plugin.persist(profile).whenComplete { _,error -> plugin.sync {
+                try {
+                    if (error != null) {
+                        profile.restore(before)
+                        plugin.save(profile)
+                        plugin.logger.severe("Profile transaction failed $id: ${error.message}")
+                    } else success()
+                } finally { releaseLock(token) }
+            } }
+        } catch (error: Throwable) {
+            profile.restore(before)
+            releaseLock(token)
+            throw error
+        }
+    }
     /** shutdown前に残っているロックまたは保留callbackを検出します。 */
     fun hasTransactions() = locks.isNotEmpty() || scheduled.isNotEmpty() || waiting.values.any { it.isNotEmpty() } || delivering.isNotEmpty()
     /** ID付きアイテムのbound / quest_item状態を調べます。 */
     fun bound(stack: ItemStack?): Boolean = plugin.identify(stack)?.let { plugin.snapshot.world.itemProperties[it]?.let { p -> p.bound || p.questItem } } == true
     private val delivering=mutableSetOf<UUID>()
-    private data class Delivery(val profile: PlayerProfile,val output: Map<String,Int>)
+    private data class Delivery(val profile: PlayerProfile,val output: Map<String,Int>,val token: LockToken)
     private val deliveries=mutableMapOf<UUID,Delivery>()
     /** 切断前に受取途中の出力をメールボックスへ戻します。 */
     fun beforeQuit(player: Player) {
         deliveries.remove(player.uniqueId)?.let { claim ->
-            claim.profile.pendingRewards.putAll(claim.output)
+            claim.profile.returnToMailbox(claim.output)
             // 同一IOキュー上のクリア保存より後へ戻し保存を積み、切断時の二重配布を防ぎます。
             plugin.persist(claim.profile)
+            releaseLock(claim.token)
         }
         delivering.remove(player.uniqueId)
     }
     /** disable時に受取途中の報酬をprofiles上へ戻してから保存させます。 */
     fun prepareShutdown() {
-        deliveries.values.forEach { claim -> claim.profile.pendingRewards.putAll(claim.output) }
-        deliveries.clear(); delivering.clear()
+        deliveries.values.forEach { claim -> claim.profile.returnToMailbox(claim.output); releaseLock(claim.token,false) }
+        deliveries.clear(); delivering.clear(); locks.clear()
     }
     /** 永続メールボックスをロック付きで一度だけ受け取ります。 */
     fun claimPending(player: Player) {
@@ -390,47 +430,49 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             whenAvailable(p.uuid) { if(player.isOnline && plugin.profiles[p.uuid] === p) claimPending(player) }
             return
         }
-        if(!locks.add(p.uuid)) return
-        deliverLocked(player,p) {}
+        withTxLock(p.uuid) { token -> deliverLocked(player,p,token) {} }
     }
-    private fun deliverLocked(player: Player,p: PlayerProfile,success: () -> Unit) {
-        if(p.pendingRewards.isEmpty()) { plugin.syncTitleAdvancements(player,p); unlock(p.uuid); success(); return }
+    private fun deliverLocked(player: Player,p: PlayerProfile,token: LockToken,success: () -> Unit) {
+        if(p.pendingRewards.isEmpty()) { plugin.syncTitleAdvancements(player,p); releaseLock(token); success(); return }
         val output=p.pendingRewards.toMap(); val inventory=plugin.inventory(player)
         if(!inventory.canExchange(emptyMap(),output)) {
             message(player,plugin.message(player,"ec.mailbox.inventory_full"))
-            plugin.syncTitleAdvancements(player,p); unlock(p.uuid); success(); return
+            plugin.syncTitleAdvancements(player,p); releaseLock(token); success(); return
         }
         // Paperアイテムを配る前に永続メールボックス権利を消費し、クラッシュ窓を損失側へ寄せます。
-        val claim=Delivery(p,output); deliveries[p.uuid]=claim
+        val claim=Delivery(p,output,token); deliveries[p.uuid]=claim
         delivering.add(p.uuid); p.pendingRewards.clear()
         plugin.persist(p).whenComplete { _,error -> plugin.sync {
             try {
                 // quitでメールボックスへ戻されたclaimは配布しません。二重発行を防ぐ判定です。
                 if(deliveries[p.uuid] !== claim) return@sync
                 if(error != null) {
-                    if(plugin.profiles[p.uuid] === p) { p.pendingRewards.putAll(output); plugin.save(p) }
+                    if(plugin.profiles[p.uuid] === p) { p.returnToMailbox(output); plugin.save(p) }
                     if(player.isOnline) message(player,plugin.message(player,"ec.mailbox.save_retry"))
                 } else if(player.isOnline && plugin.profiles[p.uuid] === p) {
                     if(!inventory.exchange(emptyMap(),output)) {
-                        p.pendingRewards.putAll(output); plugin.save(p); message(player,plugin.message(player,"ec.mailbox.inventory_full"))
+                        p.returnToMailbox(output); plugin.save(p); message(player,plugin.message(player,"ec.mailbox.inventory_full"))
                     }
                     plugin.syncTitleAdvancements(player,p)
                     success()
                 } else plugin.logger.warning("Player disconnected immediately after reward claim persistence: ${p.uuid} $output; admin recovery may be required.")
-            } finally { deliveries.remove(p.uuid); delivering.remove(p.uuid); unlock(p.uuid) }
+            } finally { deliveries.remove(p.uuid); delivering.remove(p.uuid); releaseLock(token) }
         } }
     }
     /** 消費物を先に保存し、プロフィール状態を永続化してから出力報酬を配布します。 */
-    fun transaction(player: Player,mutate: (InventoryAccess) -> Unit,persistConsumption: Boolean = true,beforePersist: () -> Unit = {},success: () -> Unit = {}) {
+    fun transaction(player: Player,mutate: (InventoryAccess) -> Unit,persistConsumption: Boolean = true,beforePersist: () -> Unit = {},skipIfUnchanged: Boolean = false,failure: (Throwable) -> Unit = {},success: () -> Unit = {}) {
         val p=plugin.profiles[player.uniqueId] ?: return
-        require(locks.add(p.uuid)) { "ec.error.transaction_busy" }
+        val token=acquireLock(p.uuid) ?: error("ec.error.transaction_busy")
         val before=p.snapshot(); val inventory=plugin.inventory(player,persistConsumption); val staged=StagedInventory(inventory)
         val beforeStorage: Array<ItemStack?> = player.inventory.storageContents.map { it?.clone() }.toTypedArray()
         try {
             mutate(staged)
+            if(skipIfUnchanged && before == p && staged.remove.isEmpty() && staged.add.isEmpty()) {
+                releaseLock(token); success(); return
+            }
             staged.add.keys.forEach(p::discoverItem)
             require(inventory.canExchange(staged.remove,staged.add)) { "ec.error.inventory_full" }
-            require(inventory.exchange(staged.remove,emptyMap()))
+            require(inventory.exchangeFromSlot(staged.preferredRemovalSlot,staged.remove,emptyMap()))
             staged.add.forEach { (id,n) -> p.pendingRewards.merge(id,n,Int::plus) }
             beforePersist()
             plugin.persist(p).whenComplete { _,error -> plugin.sync {
@@ -446,16 +488,20 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                             if(player.isOnline) player.sendMessage(plugin.message(player,"ec.error.transaction_rolled_back"))
                         }
                         plugin.logger.severe("Transaction persistence failed ${p.uuid}: ${error.message}")
+                        if (player.isOnline) failure(error)
                     } else if(player.isOnline && plugin.profiles[p.uuid] === p) {
-                        deliverLocked(player,p,success)
+                        deliverLocked(player,p,token,success)
                         return@sync
                     } // Offline output remains in the durable pending reward mailbox.
-                } finally { if(player.uniqueId !in delivering) unlock(p.uuid) }            } }
+                } finally {
+                    if (deliveries[p.uuid]?.token !== token) releaseLock(token)
+                }
+            } }
         } catch(error: Exception) {
             plugin.rollbackEnhancement(p.uuid)
             p.restore(before); player.inventory.storageContents=beforeStorage
             runCatching { player.saveData() }
-            unlock(p.uuid); throw error
+            releaseLock(token); throw error
         }
     }
 }

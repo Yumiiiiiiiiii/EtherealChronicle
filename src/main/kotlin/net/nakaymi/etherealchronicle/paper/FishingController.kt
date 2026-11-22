@@ -244,10 +244,14 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         if(bait==null) { s.state.phase=FishingPhase.BITE_ALERT; showBite(player); return }
         s.bait=bait; s.baitCountBefore=plugin.inventory(player).count(bait); s.bitePending=true
         try {
-            plugin.adventure.transaction(player,{ inventory -> require(inventory.exchange(mapOf(bait to 1),emptyMap())) { "ec.error.fishing_bait_missing" } }) {
+            plugin.adventure.transaction(player,{ inventory -> require(inventory.exchange(mapOf(bait to 1),emptyMap())) { "ec.error.fishing_bait_missing" } },success={
                 if(sessions[player.uniqueId]===s) { s.bitePending=false; s.state.phase=FishingPhase.BITE_ALERT; showBite(player) }
-            }
-        } catch(error:Exception) { s.bitePending=false; s.state.phase=FishingPhase.BITE_ALERT; player.sendMessage(plugin.message(player,"ec.fishing.bait_failed")); showBite(player) }
+            }, failure={ _ ->
+                if(sessions[player.uniqueId]===s) cancel(player,"ec.fishing.bait_failed",FishingEndReason.CANCELLED)
+            })
+        } catch(error:Exception) {
+            if(sessions[player.uniqueId]===s) cancel(player,"ec.fishing.bait_failed",FishingEndReason.CANCELLED)
+        }
     }
     private fun chooseBait(player:org.bukkit.entity.Player,profile:PlayerProfile):String? {
         if(profile.fishingBait=="NONE") return null
