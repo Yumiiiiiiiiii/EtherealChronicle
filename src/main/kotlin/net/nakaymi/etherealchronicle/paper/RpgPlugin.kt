@@ -18,10 +18,14 @@ import org.bukkit.persistence.PersistentDataType
 import org.bukkit.plugin.java.JavaPlugin
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.TimeUnit
 
 /** Paper APIとpure core/dataサービスを初期化し、プレイヤーイベントを接続するプラグイン入口です。 */
 open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private var ready = false
+    private val paperValidationWaiters = ConcurrentHashMap.newKeySet<CompletableFuture<Unit>>()
     private val paperInventoryUi by lazy { !server.javaClass.name.startsWith("org.mockbukkit.") }
     internal val paperUiEnabled get() = paperInventoryUi
     internal val isReadyForGameplay: Boolean get() = ready
@@ -44,6 +48,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal val profiles = mutableMapOf<UUID,PlayerProfile>()
     private val sessions = mutableMapOf<UUID,UUID>()
     private val choosing = mutableSetOf<UUID>()
+    private val pendingClassMenuReopen = mutableSetOf<UUID>()
     private val lastMoved = mutableMapOf<UUID,Int>()
     private val dirty = mutableSetOf<UUID>()
     private var autosaveSeconds = 0
@@ -188,7 +193,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                         cancelLabel={ p -> message(p,"ec.class.confirm_cancel") },
                         onSelected={ p,id -> profiles[p.uniqueId]?.let { starter(p,it,id) } },
                         onCancel={ p -> menu(p) },
-                        onClose={ p -> if(profiles[p.uniqueId]?.classId == null && p.uniqueId !in choosing && !classSelectionUi.isConfirming(p.uniqueId)) sync { if(p.isOnline) menu(p) } },
+                        onClose={ p -> scheduleClassMenuReopen(p) },
                     )
                     if (paperInventoryUi) xyz.xenondevs.invui.InvUI.getInstance().setPlugin(this)
                     adventure=AdventureController(this)
@@ -217,6 +222,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     /** Controllerを停止してから保留状態を直列保存し、タスクとプロフィールを閉じます。 */
     override fun onDisable() {
         ready = false
+        paperValidationWaiters.forEach { it.completeExceptionally(IllegalStateException("Plugin disabled during Paper content validation")) }
         enhancementFlights.keys.toList().forEach { id ->
             val player=server.getPlayer(id)
             val profile=profiles[id]
@@ -295,6 +301,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         if(::adventure.isInitialized) adventure.beforeQuit(e.player)
         if(ready) codexController.clear(e.player.uniqueId)
         sessions.remove(e.player.uniqueId); choosing.remove(e.player.uniqueId)
+        pendingClassMenuReopen.remove(e.player.uniqueId)
         if(ready) classSelectionUi.clear(e.player.uniqueId)
         profiles.remove(e.player.uniqueId)?.let { profile -> settleEnhancement(e.player,profile); save(profile) }
         lastMoved.remove(e.player.uniqueId); dirty.remove(e.player.uniqueId)
@@ -322,6 +329,24 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         }
         player.openInventory(inventory)
     }
+
+    /** クラス画面のclose通知を次tickへ遅らせ、InvUI差し替え中の同tick再入を防ぎます。 */
+    private fun scheduleClassMenuReopen(player: Player) {
+        val id = player.uniqueId
+        if (!pendingClassMenuReopen.add(id)) return
+        try {
+            server.scheduler.runTaskLater(this, Runnable {
+                pendingClassMenuReopen.remove(id)
+                if (player.isOnline && profiles[id]?.classId == null && id !in choosing &&
+                    !classSelectionUi.isConfirming(id) && !classSelectionUi.isOpen(id)
+                ) {
+                    menu(player)
+                }
+            }, 1L)
+        } catch (_: org.bukkit.plugin.IllegalPluginAccessException) {
+            pendingClassMenuReopen.remove(id)
+        }
+    }
     @EventHandler fun click(e: InventoryClickEvent) {
         val p = e.whoClicked as? Player ?: return
         if(e.view.topInventory.holder is ClassMenu) {
@@ -339,7 +364,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     }
     @EventHandler fun closeMenu(e: InventoryCloseEvent) {
         val p = e.player as? Player ?: return
-        if(e.inventory.holder is ClassMenu && profiles[p.uniqueId]?.starterGranted == false && p.uniqueId !in choosing) sync { if(p.isOnline) menu(p) }
+        if(e.inventory.holder is ClassMenu && profiles[p.uniqueId]?.starterGranted == false && p.uniqueId !in choosing) scheduleClassMenuReopen(p)
         else if(profiles[p.uniqueId]?.starterGranted == true) sync { if(p.isOnline) skillSlot(p) }
     }
     internal fun ensureStarter(player: Player) { profiles[player.uniqueId]?.takeIf { it.classId != null && !it.starterGranted }?.let { starter(player,it,it.classId!!) } }
@@ -904,13 +929,28 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             validatePaperContentNow(c)
             return
         }
+        check(isEnabled) { "Plugin disabled before Paper content validation" }
         val result = CompletableFuture<Unit>()
-        server.scheduler.runTask(this, Runnable {
-            runCatching { validatePaperContentNow(c) }
-                .onSuccess { result.complete(Unit) }
-                .onFailure(result::completeExceptionally)
-        })
-        result.get()
+        paperValidationWaiters.add(result)
+        try {
+            check(isEnabled) { "Plugin disabled before Paper content validation" }
+            server.scheduler.runTask(this, Runnable {
+                if (!isEnabled) {
+                    result.completeExceptionally(IllegalStateException("Plugin disabled before Paper content validation"))
+                } else {
+                    runCatching { validatePaperContentNow(c) }
+                        .onSuccess { result.complete(Unit) }
+                        .onFailure(result::completeExceptionally)
+                }
+            })
+            try {
+                result.get(15, TimeUnit.SECONDS)
+            } catch (error: ExecutionException) {
+                throw (error.cause ?: error)
+            }
+        } finally {
+            paperValidationWaiters.remove(result)
+        }
     }
 
     /** Bukkit/Paperのenum・Registry定義を現在のスレッドで検証します。 */
@@ -939,8 +979,15 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     /** Paperのコマンドライフサイクルへ、Bukkitコマンドと同じ処理を登録します。 */
     private fun registerPaperCommand() {
         lifecycleManager.registerEventHandler(io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents.COMMANDS) { event ->
-            event.registrar().register("ec", io.papermc.paper.command.brigadier.BasicCommand { source, args ->
-                executeCommand(source.sender, args)
+            event.registrar().register("ec", object : io.papermc.paper.command.brigadier.BasicCommand {
+                override fun execute(source: io.papermc.paper.command.brigadier.CommandSourceStack, args: Array<out String>) {
+                    executeCommand(source.sender, args)
+                }
+
+                override fun suggest(
+                    source: io.papermc.paper.command.brigadier.CommandSourceStack,
+                    args: Array<out String>,
+                ): Collection<String> = commandCompletions(source.sender, args)
             })
         }
     }
@@ -957,9 +1004,12 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
 
     /** ECコマンドの利用者向け操作と管理対象を補完します。 */
     internal fun commandCompletions(sender: CommandSender, args: Array<out String>): List<String> {
+        if (!ready) return emptyList()
         val prefix = args.lastOrNull().orEmpty()
+        val rootCommands = listOf("class", "quest", "party", "equipment", "dungeon", "shop", "claim", "title", "codex", "enhance", "fish", "gather", "ui")
+        val adminCommands = listOf("reload", "validate")
         val candidates = when {
-            args.size <= 1 -> listOf("class", "quest", "party", "equipment", "dungeon", "shop", "claim", "title", "codex", "enhance", "fish", "gather", "ui", "reload", "validate")
+            args.size <= 1 -> rootCommands + adminCommands.takeIf { sender.hasPermission("etherealchronicle.admin") }.orEmpty()
             args.firstOrNull() == "class" && sender.hasPermission("etherealchronicle.admin") && args.size == 2 -> server.onlinePlayers.map { it.name }
             args.firstOrNull() == "class" && sender.hasPermission("etherealchronicle.admin") && args.size == 3 -> snapshot.classes.all().map { it.id }
             else -> emptyList()

@@ -59,7 +59,8 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
                     (objective.target in areaIds || objective.target == "*" || objective.target == "ANY") &&
                     progress(p, quest, objective, EmptyInventory) < objective.amount &&
                     quest.objectives.take(index).all { earlier ->
-                        progress(p, quest, earlier, EmptyInventory) >= earlier.amount
+                        earlier.kind == ObjectiveKind.COLLECT ||
+                            progress(p, quest, earlier, EmptyInventory) >= earlier.amount
                     }
             }
             hasPendingExploration || quest.autoComplete && quest.objectives

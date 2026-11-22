@@ -32,16 +32,29 @@ class UiPackAssetsTest {
         expected.forEach { (kind,codepoint) -> assertEquals(codepoint,UiThemeProvider.backgroundCodepoint(kind)) }
 
         val expectedSizes=mapOf(
-            "bg_class_select.png" to (176 to 166),
+            "bg_class_select.png" to (176 to 132),
             "bg_status.png" to (176 to 222),
             "bg_codex.png" to (176 to 222),
-            "bg_upgrade.png" to (176 to 204),
+            "bg_upgrade.png" to (176 to 222),
             "bg_shop.png" to (176 to 222),
             "bg_generic.png" to (176 to 222),
         )
         expectedSizes.forEach { (name,size) ->
             val image=ImageIO.read(File(root,"textures/gui/$name"))
             assertEquals(size, image.width to image.height, name)
+            var minX=image.width
+            var maxX=-1
+            var minY=image.height
+            var maxY=-1
+            for (y in 0 until image.height) for (x in 0 until image.width) {
+                if (image.getRGB(x,y) ushr 24 == 0) continue
+                minX=minOf(minX,x)
+                maxX=maxOf(maxX,x)
+                minY=minOf(minY,y)
+                maxY=maxOf(maxY,y)
+            }
+            assertEquals(0 to (image.width-1),minX to maxX,"$name opaque horizontal extent")
+            assertEquals(0 to (image.height-1),minY to maxY,"$name opaque vertical extent")
             val provider=bitmapProviders.single { (it["file"] as? String)=="ec:gui/$name" }
             assertEquals(size.second,provider["height"],name)
         }
