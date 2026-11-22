@@ -155,6 +155,11 @@ internal object DungeonArenaLayout {
     const val FLOOR_Y = 64
     const val PLAYER_SPAWN_Y = 65
     const val ENTITY_SPAWN_Y = 65
+    const val SCHEMATIC_ORIGIN_OFFSET_BLOCKS = 27
+    const val SCHEMATIC_ORIGIN_Y = 54
+    const val SCHEMATIC_WIDTH_BLOCKS = 55
+    const val SCHEMATIC_HEIGHT_BLOCKS = 34
+    const val SCHEMATIC_LENGTH_BLOCKS = 55
     const val WALL_BOTTOM_Y = 65
     const val WALL_TOP_Y = 68
     const val PLAYER_SPAWN_Z_OFFSET = -12
@@ -261,6 +266,37 @@ internal object DemoWorldLayout {
     const val CHAPTER_TWO_SHRINE_CENTER_Z = 0
     const val CHAPTER_TWO_SHRINE_RADIUS_BLOCKS = 8
 }
+
+/** 同梱島・橋Schematicの配置原点を一箇所で定義します。 */
+internal object WorldSchematicLayout {
+    const val ISLAND_SPACING_BLOCKS = 96
+    const val ISLAND_HALF_WIDTH_BLOCKS = 42
+    const val ISLAND_ORIGIN_Y = 34
+    const val ISLAND_HALF_LENGTH_BLOCKS = 42
+    const val BRIDGE_X_OFFSET_BLOCKS = 38
+    const val BRIDGE_ORIGIN_Y = 48
+    const val BRIDGE_Z_ORIGIN = -6
+    val ISLANDS = listOf(
+        "00_lumina_port", "01_ashwood_forest", "02_weeping_mine", "03_stargazer_hill",
+        "04_void_sanctum", "05_frostpeak_outpost", "06_glacier_ridge", "07_crystalline_cavern", "08_glacial_citadel",
+    ).mapIndexed { index, name -> SchematicPlacement("schematics/islands/$name.schem", index * ISLAND_SPACING_BLOCKS - ISLAND_HALF_WIDTH_BLOCKS, ISLAND_ORIGIN_Y, -ISLAND_HALF_LENGTH_BLOCKS) }
+    val BRIDGES = (0..7).map { index ->
+        val chapter = if (index < 4) "bridge_ch1" else "bridge_ch2"
+        SchematicPlacement("schematics/bridges/$chapter.schem", index * ISLAND_SPACING_BLOCKS + BRIDGE_X_OFFSET_BLOCKS, BRIDGE_ORIGIN_Y, BRIDGE_Z_ORIGIN, skipAir = true)
+    }
+
+    /** Dungeon IDから対応するアリーナresourceを引きます。 */
+    fun dungeonPath(id: String): String? = when (id) {
+        "ec:dungeon_novice_arena" -> "schematics/dungeons/dungeon_novice_arena.schem"
+        "ec:dungeon_void_sanctum" -> "schematics/dungeons/dungeon_void_sanctum.schem"
+        "ec:dungeon_aether_crucible" -> "schematics/dungeons/dungeon_aether_crucible.schem"
+        "ec:dungeon_glacial_citadel" -> "schematics/dungeons/dungeon_glacial_citadel.schem"
+        else -> null
+    }
+}
+
+/** クラスパスSchematicと配置原点、およびair上書き方針を表します。 */
+internal data class SchematicPlacement(val path: String, val x: Int, val y: Int, val z: Int, val skipAir: Boolean = false)
 
 /** 職業選択の枠と確認ボタンを同じ定義から組み立てます。 */
 internal object ClassSelectionLayout {
