@@ -37,7 +37,7 @@ class ContentService(private val root: Path, private val migration: ContentMigra
         val errors = mutableListOf<String>()
         val docs = linkedMapOf<String,Map<String,Any?>>()
         val sources = linkedMapOf<String,Path>()
-        val yaml = Yaml(SafeConstructor(LoaderOptions().apply { isAllowDuplicateKeys = false; maxAliasesForCollections = 20 }))
+        val yaml = Yaml(SafeConstructor(LoaderOptions().apply { isAllowDuplicateKeys = false; maxAliasesForCollections = ContentLimits.MAX_YAML_ALIASES }))
         Files.walk(root).use { paths -> paths.filter { Files.isRegularFile(it) && it.toString().endsWith(".yml") }.sorted().forEach { path ->
             try {
                 val raw = Files.newBufferedReader(path).use { yaml.load<Any>(it) } as? Map<*,*> ?: error("ec.error.invalid_content")
@@ -104,7 +104,7 @@ class ContentService(private val root: Path, private val migration: ContentMigra
             val b = balances.single()
             parsingId=b.string("id")
             val balance = Balance(b.int("level_cap"),b.num("xp_base"),b.num("xp_exponent"),b.long("xp_gain_cap"),b.long("currency_gain_cap"),b.num("damage_cap"),b.num("stat_cap"),b.num("crit_cap"),b.num("defense_scale"),b.int("skill_level_cap"),b.num("skill_growth"),b.num("crit_damage_cap"),b.num("element_cap"),b.text("xp_curve","POWER"),b.number("xp_linear",45.0),b.number("xp_quadratic",18.0),b.whole("xp_rounding",10),b.whole("skill_gcd_ms",800),b.integer("drop_pity_attempt_cap",100))
-            require(balance.levelCap in 1..1000 && balance.xpBase > 0 && balance.xpExponent in 0.0..10.0 && balance.defenseScale > 0 && balance.statCap >= 1 && balance.damageCap > 0 && balance.skillLevelCap in 1..100 && balance.critDamageCap >= 1 && balance.elementCap >= 1 && balance.xpGainCap > 0 && balance.currencyGainCap > 0 && balance.xpCurve in setOf("POWER","POLYNOMIAL") && balance.xpRounding > 0 && balance.dropPityAttemptCap in 1..10000)
+            require(balance.levelCap in 1..ContentLimits.MAX_DECLARED_LEVEL && balance.xpBase > 0 && balance.xpExponent in 0.0..10.0 && balance.defenseScale > 0 && balance.statCap >= 1 && balance.damageCap > 0 && balance.skillLevelCap in 1..GameLimits.MAX_SKILL_LEVEL && balance.critDamageCap >= 1 && balance.elementCap >= 1 && balance.xpGainCap > 0 && balance.currencyGainCap > 0 && balance.xpCurve in setOf("POWER","POLYNOMIAL") && balance.xpRounding > 0 && balance.dropPityAttemptCap in 1..GameLimits.MAX_DROP_PITY_ATTEMPTS)
             val supported = setOf("balance","class","skill","item","enemy","boss","npc","quest","dialogue","chapter","droptable","shop","title","life_balance","tackle","fishing_spot","fish_species","gathering_node","treasure_chest")
             require(docs.values.all { it.string("type") in supported }) { "Unknown content type" }
             val skills = typed("skill").associate { d -> parsingId=d.string("id"); d.string("id") to SkillDefinition(d.string("id"),d.string("name"),d.num("cost"),d.long("cooldown_ms"),d.num("multiplier"),d.num("range"),d.text("element","PHYSICAL"),d.number("radius",0.0),d.number("heal",0.0),d.number("defense_buff",0.0),d.integer("buff_ticks",0),d.bool("party_heal",false),d.bool("party_defense_buff",false),d.number("ally_radius",0.0),d.integer("taunt_ticks",0),d.number("threat_multiplier",1.0)) }
