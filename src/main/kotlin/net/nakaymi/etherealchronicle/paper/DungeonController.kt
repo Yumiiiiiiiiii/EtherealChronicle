@@ -37,8 +37,9 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
             for(dx in -DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS..DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS) for(dz in -DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS..DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS) {
             val edge=kotlin.math.abs(dx) == DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS || kotlin.math.abs(dz) == DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS
             val center=kotlin.math.abs(dx) <= DungeonArenaLayout.INNER_FLOOR_RADIUS_BLOCKS && kotlin.math.abs(dz) <= DungeonArenaLayout.INNER_FLOOR_RADIUS_BLOCKS
-            world.getBlockAt(x+dx,DungeonArenaLayout.FLOOR_Y,z+dz).type=Material.valueOf(definition.palette[if(center) 2 else 0])
-            if(edge) for(y in DungeonArenaLayout.WALL_BOTTOM_Y..DungeonArenaLayout.WALL_TOP_Y) world.getBlockAt(x+dx,y,z+dz).type=Material.valueOf(definition.palette[1])
+            val floorPaletteIndex=if(center) DungeonArenaLayout.INNER_FLOOR_PALETTE_INDEX else DungeonArenaLayout.OUTER_FLOOR_PALETTE_INDEX
+            world.getBlockAt(x+dx,DungeonArenaLayout.FLOOR_Y,z+dz).type=Material.valueOf(definition.palette[floorPaletteIndex])
+            if(edge) for(y in DungeonArenaLayout.WALL_BOTTOM_Y..DungeonArenaLayout.WALL_TOP_Y) world.getBlockAt(x+dx,y,z+dz).type=Material.valueOf(definition.palette[DungeonArenaLayout.WALL_PALETTE_INDEX])
             }
             builtPalette[slot]=definition.palette.toList()
         }

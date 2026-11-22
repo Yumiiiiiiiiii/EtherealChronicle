@@ -179,7 +179,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         }
         val target=hit.location.clone().add(0.5,0.85,0.5)
         val distance=player.location.distance(target)
-        if(distance !in 2.0..balance.castRange) { player.sendMessage(plugin.message(player,"ec.fishing.distance")); return }
+        if(distance !in PaperDistance.MIN_FISH_CAST_DISTANCE_BLOCKS..balance.castRange) { player.sendMessage(plugin.message(player,"ec.fishing.distance")); return }
         val spot=selectFishingSpot(plugin.snapshot.world.fishingSpots.values,player.world.name,target.x,target.z,profile.flags)
             ?: run { player.sendMessage(plugin.message(player,"ec.fishing.no_shadow")); return }
         val p=profile.lifeSkills.getValue(LifeSkillKind.FISHING)
@@ -203,7 +203,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
             fish.copy(baseWeight=fish.baseWeight*weight)
         }
         val fish=engine.choose(weighted) ?: run { player.sendMessage(plugin.message(player,"ec.fishing.no_eligible_fish")); return }
-        val wait=(2.5+random.nextDouble()*6.0)*(1-(rod.waitReduction+(baitDef?.waitReduction ?: 0.0)).coerceAtMost(0.5))*(if(recent>=balance.fatigueSoftThreshold) 1.4 else 1.0)
+        val wait=(FishingPhysics.MIN_CAST_WAIT_SECONDS+random.nextDouble()*FishingPhysics.CAST_WAIT_VARIANCE_SECONDS)*(1-(rod.waitReduction+(baitDef?.waitReduction ?: 0.0)).coerceAtMost(0.5))*(if(recent>=balance.fatigueSoftThreshold) FishingPhysics.FATIGUE_WAIT_MULTIPLIER else 1.0)
         val state=FishingState(fish,waitSeconds=wait,tensionStability=rod.tensionStability,sweetSpotBonus=rod.sweetSpotBonus)
         val bobber=player.world.spawn(target,ItemDisplay::class.java) { display ->
             display.setItemStack(org.bukkit.inventory.ItemStack(Material.HEART_OF_THE_SEA))
@@ -218,7 +218,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
     }
     private fun pulse(player:org.bukkit.entity.Player,session:Session,input:ReelInput) {
         val now=monotonicMillis()
-        if(now-session.lastInput<150) return
+        if(now-session.lastInput<FishingPhysics.MIN_INPUT_INTERVAL_MILLIS) return
         session.lastInput=now; session.input=input
         val detector=macroDetectors.getOrPut(player.uniqueId) { FishingMacroDetector() }
         detector.pull(now)

@@ -32,6 +32,10 @@ private object EnemyBehaviorTuning {
     val CONE_ANGLE_RADIANS = Math.PI / 2
     const val CONE_CENTER_OFFSET = 0.5
     const val TELEGRAPH_HEIGHT_BLOCKS = 0.15
+    const val ATTACK_VERTICAL_TOLERANCE_BLOCKS = 4.0
+    val ATTACK_FACING_HALF_ANGLE_RADIANS = Math.PI / 4
+    const val POISON_EFFECT_TICKS = 60
+    const val SLOW_EFFECT_TICKS = 40
     val CIRCLE_STEP_RADIANS = Math.PI / 12
     const val DUST_SIZE = 1.3f
     const val TAUNT_MAX_RADIUS_BLOCKS = 64.0
@@ -194,16 +198,16 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
     private fun attack(state: MobState,player: Player,multiplier: Double) {
         dealing[state.entity.uniqueId]=multiplier*state.boss.damageScale(tick)
         try { player.damage(state.boss.definition.attack*multiplier,state.entity) } finally { dealing.remove(state.entity.uniqueId) }
-        if("POISON" in state.boss.definition.traits) player.addPotionEffect(PotionEffect(PotionEffectType.POISON,60,0))
-        if("SLOW" in state.boss.definition.traits) player.addPotionEffect(PotionEffect(PotionEffectType.SLOWNESS,40,0))
+            if("POISON" in state.boss.definition.traits) player.addPotionEffect(PotionEffect(PotionEffectType.POISON,EnemyBehaviorTuning.POISON_EFFECT_TICKS,0))
+            if("SLOW" in state.boss.definition.traits) player.addPotionEffect(PotionEffect(PotionEffectType.SLOWNESS,EnemyBehaviorTuning.SLOW_EFFECT_TICKS,0))
     }
     private fun hits(w: Warning,location: Location): Boolean {
-        if(location.world != w.location.world || abs(location.y-w.location.y) > 4) return false
+            if(location.world != w.location.world || abs(location.y-w.location.y) > EnemyBehaviorTuning.ATTACK_VERTICAL_TOLERANCE_BLOCKS) return false
         val delta=location.toVector().subtract(w.location.toVector()).setY(0.0)
         return when(w.attack.shape) {
             "CIRCLE","TARGET" -> delta.lengthSquared() <= w.attack.radius*w.attack.radius
             "LINE" -> { val forward=delta.dot(w.direction); forward in 0.0..w.attack.range && delta.clone().subtract(w.direction.clone().multiply(forward)).lengthSquared() <= w.attack.radius*w.attack.radius }
-            else -> delta.lengthSquared() <= w.attack.range*w.attack.range && (delta.lengthSquared() == 0.0 || delta.normalize().dot(w.direction) >= cos(Math.PI/4))
+            else -> delta.lengthSquared() <= w.attack.range*w.attack.range && (delta.lengthSquared() == 0.0 || delta.normalize().dot(w.direction) >= cos(EnemyBehaviorTuning.ATTACK_FACING_HALF_ANGLE_RADIANS))
         }
     }
     private fun draw(w: Warning) {

@@ -2,6 +2,7 @@ package net.nakaymi.etherealchronicle.paper
 
 import net.nakaymi.etherealchronicle.core.Area
 import net.nakaymi.etherealchronicle.core.PlayerProfile
+import net.nakaymi.etherealchronicle.core.PercentageScale
 import net.kyori.adventure.text.Component
 import org.bukkit.Material
 import org.bukkit.entity.Player
@@ -28,7 +29,7 @@ internal class CodexController(private val plugin: RpgPlugin) {
         page.items.forEachIndexed { slot,area ->
             val (found,total)=areaCodexPercent(profile,area)
             menu.setItem(slot,ItemStack(Material.FILLED_MAP).apply { itemMeta=itemMeta.apply {
-                displayName(Component.text(area.name)); lore(listOf(plugin.message(player,"ec.codex.found_ratio","found" to found,"total" to total,"percent" to if(total==0) 0 else found*100/total)))
+                displayName(Component.text(area.name)); lore(listOf(plugin.message(player,"ec.codex.found_ratio","found" to found,"total" to total,"percent" to if(total==0) 0 else found*PercentageScale.MAX_PERCENT/total)))
             } })
         }
         codexFooter(player,menu,page,false)

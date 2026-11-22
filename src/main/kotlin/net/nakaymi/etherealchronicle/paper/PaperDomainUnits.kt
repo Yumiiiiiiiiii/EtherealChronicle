@@ -43,11 +43,6 @@ object PlayerInventoryCapacities {
     const val STARTER_HOTBAR = PlayerInventoryLayout.LAST_STARTER_HOTBAR_SLOT + 1
 }
 
-/** HUD・ミニゲームの百分率は共通の0..100尺度を使います。 */
-object PercentageScale {
-    const val MAX_PERCENT = 100
-}
-
 /** 採取表示entityの寸法と高さを揃え、当たり判定と見た目のずれを防ぎます。 */
 object GatheringDisplayGeometry {
     const val TEXT_HEIGHT_BLOCKS = 1.15
@@ -75,6 +70,7 @@ fun Location.isWithinBlocks(other: Location, blocks: Double): Boolean =
 
 /** ゲーム内で距離の意味が定まっている半径をまとめます。 */
 object PaperDistance {
+    const val MIN_FISH_CAST_DISTANCE_BLOCKS = 2.0
     const val SHOP_INTERACTION_BLOCKS = 8.0
     const val DUNGEON_PARTY_GATHER_BLOCKS = 32.0
     const val ENEMY_SPAWN_VISIBILITY_BLOCKS = 64.0
@@ -131,6 +127,9 @@ object DungeonArenaLayout {
     const val SLOT_SPACING_BLOCKS = 192
     const val PLATFORM_RADIUS_BLOCKS = 24
     const val INNER_FLOOR_RADIUS_BLOCKS = 2
+    const val OUTER_FLOOR_PALETTE_INDEX = 0
+    const val WALL_PALETTE_INDEX = 1
+    const val INNER_FLOOR_PALETTE_INDEX = 2
     const val FLOOR_Y = 64
     const val PLAYER_SPAWN_Y = 65
     const val WALL_BOTTOM_Y = 65
