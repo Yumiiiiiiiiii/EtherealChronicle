@@ -40,6 +40,27 @@ object StatDefaults {
     const val CRITICAL_DAMAGE = 1.5
 }
 
+/** 釣り・採取バランスYAMLの省略可能項目に使う互換既定値です。 */
+object LifeBalanceDefaults {
+    const val LEVEL_CAP = 20
+    const val XP_BASE = 80L
+    const val XP_EXPONENT = 1.45
+    const val CAST_RANGE_BLOCKS = 12.0
+    const val CAST_COOLDOWN_MILLIS = 1_500L
+    const val MAX_FISHING_SESSIONS = 100
+    const val FATIGUE_WINDOW_SECONDS = 600L
+    const val FATIGUE_SOFT_THRESHOLD = 12
+    const val FATIGUE_HARD_THRESHOLD = 20
+    const val FATIGUE_COOLDOWN_SECONDS = 300L
+    const val REELING_TIMEOUT_SECONDS = 45L
+    const val SLACK_FAIL_SECONDS = 2.5
+    const val PARTY_GATHER_RARE_BONUS = 0.08
+    const val MACRO_MIN_SAMPLES = 8
+    const val MACRO_RESPONSE_DEVIATION_MILLIS = 18.0
+    const val MACRO_CAST_INTERVAL_DEVIATION_MILLIS = 120.0
+    const val MACRO_RARE_WEIGHT_MULTIPLIER = 0.1
+}
+
 /** YAML読込時に適用する構造上の安全上限です。 */
 object ContentLimits {
     const val MAX_YAML_ALIASES = 20

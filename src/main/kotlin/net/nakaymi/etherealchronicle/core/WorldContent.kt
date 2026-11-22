@@ -28,7 +28,27 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
         lifeBalance=lifeBalances.single().let { d ->
             val fishing=d.maps("fishing_score_milestones").map { LifeMilestone(it.int("score"),0,it.string("flag")) }
             val gathering=d.maps("gathering_milestones").map { LifeMilestone(it.int("total_harvests"),it.integer("unique_nodes",0),it.string("flag")) }
-            LifeBalance(d.integer("life_level_cap",20),d.whole("life_xp_base",80),d.number("life_xp_exponent",1.45),d.number("cast_range_blocks",12.0),d.whole("cast_cooldown_ms",1500),d.integer("max_concurrent_fishing_sessions",100),d.whole("fatigue_window_seconds",600),d.integer("fatigue_soft_threshold",12),d.integer("fatigue_hard_threshold",20),d.whole("fatigue_cooldown_seconds",300),d.whole("reeling_timeout_seconds",45),d.number("slack_fail_seconds",2.5),d.number("party_gather_rare_bonus",0.08),fishing,gathering,d.integer("macro_min_samples",8),d.number("macro_response_deviation_ms",18.0),d.number("macro_cast_interval_deviation_ms",120.0),d.number("macro_rare_weight_multiplier",0.1)).also { balance ->
+            LifeBalance(
+                levelCap = d.integer("life_level_cap", LifeBalanceDefaults.LEVEL_CAP),
+                xpBase = d.whole("life_xp_base", LifeBalanceDefaults.XP_BASE),
+                xpExponent = d.number("life_xp_exponent", LifeBalanceDefaults.XP_EXPONENT),
+                castRange = d.number("cast_range_blocks", LifeBalanceDefaults.CAST_RANGE_BLOCKS),
+                castCooldownMillis = d.whole("cast_cooldown_ms", LifeBalanceDefaults.CAST_COOLDOWN_MILLIS),
+                maxFishingSessions = d.integer("max_concurrent_fishing_sessions", LifeBalanceDefaults.MAX_FISHING_SESSIONS),
+                fatigueWindowSeconds = d.whole("fatigue_window_seconds", LifeBalanceDefaults.FATIGUE_WINDOW_SECONDS),
+                fatigueSoftThreshold = d.integer("fatigue_soft_threshold", LifeBalanceDefaults.FATIGUE_SOFT_THRESHOLD),
+                fatigueHardThreshold = d.integer("fatigue_hard_threshold", LifeBalanceDefaults.FATIGUE_HARD_THRESHOLD),
+                fatigueCooldownSeconds = d.whole("fatigue_cooldown_seconds", LifeBalanceDefaults.FATIGUE_COOLDOWN_SECONDS),
+                reelingTimeoutSeconds = d.whole("reeling_timeout_seconds", LifeBalanceDefaults.REELING_TIMEOUT_SECONDS),
+                slackFailSeconds = d.number("slack_fail_seconds", LifeBalanceDefaults.SLACK_FAIL_SECONDS),
+                partyGatherRareBonus = d.number("party_gather_rare_bonus", LifeBalanceDefaults.PARTY_GATHER_RARE_BONUS),
+                fishingMilestones = fishing,
+                gatheringMilestones = gathering,
+                macroMinSamples = d.integer("macro_min_samples", LifeBalanceDefaults.MACRO_MIN_SAMPLES),
+                macroResponseDeviationMillis = d.number("macro_response_deviation_ms", LifeBalanceDefaults.MACRO_RESPONSE_DEVIATION_MILLIS),
+                macroCastIntervalDeviationMillis = d.number("macro_cast_interval_deviation_ms", LifeBalanceDefaults.MACRO_CAST_INTERVAL_DEVIATION_MILLIS),
+                macroRareWeightMultiplier = d.number("macro_rare_weight_multiplier", LifeBalanceDefaults.MACRO_RARE_WEIGHT_MULTIPLIER),
+            ).also { balance ->
                 require(balance.levelCap in 1..100 && balance.xpBase > 0 && balance.xpExponent in 1.0..3.0 && balance.castRange in 2.0..32.0 && balance.castCooldownMillis in 250..60_000 && balance.maxFishingSessions in 1..1000 && balance.fatigueWindowSeconds in 30..86_400 && balance.fatigueSoftThreshold in 1..1000 && balance.fatigueHardThreshold in balance.fatigueSoftThreshold..2000 && balance.fatigueCooldownSeconds in 1..86_400 && balance.reelingTimeoutSeconds in 5..180 && balance.slackFailSeconds in 0.5..10.0 && balance.partyGatherRareBonus in 0.0..0.25 && balance.macroMinSamples in 6..12 && balance.macroResponseDeviationMillis in 1.0..100.0 && balance.macroCastIntervalDeviationMillis in 10.0..1000.0 && balance.macroRareWeightMultiplier in 0.01..1.0) { "ec.error.invalid_content" }
                 require((fishing+gathering).all { it.threshold in 1..1_000_000 && it.uniqueNodes in 0..1000 && it.flag.matches(Regex("ec:flag_[a-z0-9_]+")) } && fishing.map { it.threshold }.distinct().size == fishing.size && gathering.map { it.threshold to it.uniqueNodes }.distinct().size == gathering.size) { "ec.error.invalid_content" }
             }

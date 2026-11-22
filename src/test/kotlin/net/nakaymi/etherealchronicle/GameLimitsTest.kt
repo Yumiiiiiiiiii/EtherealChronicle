@@ -2,6 +2,8 @@ package net.nakaymi.etherealchronicle
 
 import net.nakaymi.etherealchronicle.core.Balance
 import net.nakaymi.etherealchronicle.core.BalanceDefaults
+import net.nakaymi.etherealchronicle.core.LifeBalance
+import net.nakaymi.etherealchronicle.core.LifeBalanceDefaults
 import net.nakaymi.etherealchronicle.core.StatDefaults
 import net.nakaymi.etherealchronicle.core.Stats
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -27,7 +29,7 @@ class GameLimitsTest {
             elementCap = 1.0,
         )
 
-        assertEquals(45.0, balance.xpLinear)
+        assertEquals(BalanceDefaults.XP_LINEAR, balance.xpLinear)
         assertEquals(BalanceDefaults.XP_QUADRATIC, balance.xpQuadratic)
         assertEquals(BalanceDefaults.XP_ROUNDING, balance.xpRounding)
         assertEquals(BalanceDefaults.SKILL_GCD_MILLIS, balance.skillGcdMillis)
@@ -35,5 +37,7 @@ class GameLimitsTest {
         assertEquals(StatDefaults.HP, Stats().hp)
         assertEquals(StatDefaults.RESOURCE, Stats().resource)
         assertEquals(StatDefaults.ATTACK, Stats().attack)
+        assertEquals(LifeBalanceDefaults.LEVEL_CAP, LifeBalance().levelCap)
+        assertEquals(LifeBalanceDefaults.CAST_COOLDOWN_MILLIS, LifeBalance().castCooldownMillis)
     }
 }
