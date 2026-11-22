@@ -242,3 +242,17 @@ Shots: `D:\test\mcmmo-client-qa\shots\s1..s5, t_*, u1..u3, v1,v2, w1, x1, y1, y2
 | M3 mid-air/uneven spawn during long wait | NOT RUN (earlier run: 75 s wait OK at a ground spawn) | |
 | Server log | PASS | 0 ERROR, TPS 20.0 |
 Processes stopped; server.properties/ops/whitelist/config restored; ports closed.
+
+## Task 24 follow-up: remaining scenarios (master 4572ef4, offline client, real Paper)
+
+Setup note / correction: all 69 shipped quests have `auto_complete: false`, so no shipped quest can exercise the auto-complete path. A synthetic dev-server-only quest `ec:quest_qa_auto_full` (EXPLORE `ec:area_lumina_port`, `auto_complete: true`, item reward) was added to the dev server content (not the repo) and removed afterwards. Scripts: `scripts/client/qa-fullinv.ps1`, `qa-leftclick3.ps1`, `qa-midair.ps1`, `qa-gatefish.ps1`, `qa-cleanup.ps1`.
+
+| Scenario | Result | Evidence / limits |
+|---|---|---|
+| Full-inventory NPC talk with a ready auto-complete quest | PASS | 2300 dirt (all slots full), `/ec quest start ec:quest_qa_auto_full` while standing in the port area: profile showed `progress: 1, completed: false` (ready but blocked). Right-click on the NPC opened the Dialogue normally; log had no ERROR/WARN. After `clear`, within ~5 s the quest became `completed: true` and the reward potions appeared in the hotbar (z1_*). |
+| Mid-air saved position during the required-pack wait (M3) | PASS (limited) | Saved at y=137.3 (killed client 0.7 s after tp to y=140), non-op, pack prompt left unanswered ~48 s: no "Flying is not enabled" kick or disconnect, player fell and landed (in pier water, so fall damage was NOT exercised). Uneven/cave terrain not tried. |
+| LEFT_CLICK_AIR reel input | PASS (behavioural) | `ec debug fish start` (REELING). Right-click pull only: progress rises (~14% in 14 s, 2 trials). Right+left-click alternating: progress stays 0-1% and the session ends `LINE_SLACK` (2 trials). Left-click only: `LINE_SLACK` within ~3 s, same as no input. So left-click air is received and acts as BRACE (suppresses the pull); exact tension numbers were not characterised. |
+| Gate-locked fishing rejection | NOT VERIFIED | The pack prompt screen is modal, so no game input is possible before "Proceed", and the pack loaded ~1 s after Proceed; right-click spam after Proceed only produced the normal "Aim at the water"/cooldown messages (crosshair was not on water), which cannot be told apart from the gate. Covered by unit tests only (`FishingInteractRoutingTest`, lock listener). Blocker: no way to inject input into the ~1 s window. |
+
+Cleanup: client/server stopped, `chapter_1.yml` and the synthetic quest reverted, `server.properties`/`ops.json`/`whitelist.json`/`config.yml` restored, ports 25565/25580 closed, 0 `*.qa-orig` left.
+
