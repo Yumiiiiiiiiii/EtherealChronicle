@@ -96,7 +96,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
             val eligible=entity.world.players.filter { p -> p.isOnline && !p.isDead &&
                 !plugin.resourcePacks.isAwaitingRequiredPack(p.uniqueId) &&
                 p.gameMode !in setOf(GameMode.CREATIVE,GameMode.SPECTATOR) && !isSafe(p) && plugin.profiles[p.uniqueId]?.classId != null &&
-                (state.participants.isEmpty() || p.uniqueId in state.participants) && p.location.distanceSquared(entity.location) <= d.aggro*d.aggro }
+                (state.participants.isEmpty() || p.uniqueId in state.participants) && p.location.isWithinBlocks(entity.location,d.aggro) }
             if(tick >= state.tauntUntil) state.tauntTarget=null
             val target=eligible.firstOrNull { it.uniqueId == state.tauntTarget }
                 ?: eligible.maxWithOrNull(compareBy<Player> { state.threat[it.uniqueId] ?: 0.0 }.thenByDescending { -it.location.distanceSquared(entity.location) })
@@ -119,7 +119,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
                 val away=entity.location.toVector().subtract(target.location.toVector())
                 if(away.lengthSquared() > 0.0001) entity.velocity=away.normalize().multiply(d.speed).setY(0.1)
             }
-            if(entity.location.distanceSquared(target.location) <= 8.0 && tick >= state.nextAttack) {
+            if(entity.location.distanceSquared(target.location) <= CombatGeometry.MELEE_ATTACK_DISTANCE_SQUARED && tick >= state.nextAttack) {
                 attack(state,target,1.0)
                 state.nextAttack=tick+(d.attackInterval*(state.boss.phase()?.interval ?: 1.0)).toLong().coerceAtLeast(10)
             }
@@ -155,9 +155,11 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
         }
         plugin.snapshot.world.enemies.values.forEach { d -> d.spawns.forEach { point ->
             val id="${d.id}/${point.id}"; val world=Bukkit.getWorld(point.position.world) ?: return@forEach
-            if(world.name != DemoWorld.NAME || tick < nextSpawn.getOrDefault(id,0) || !world.isChunkLoaded(point.position.x.toInt() shr 4,point.position.z.toInt() shr 4)) return@forEach
+            val chunk=ChunkCoordinates.fromPosition(point.position.x,point.position.z)
+            if(world.name != DemoWorld.NAME || tick < nextSpawn.getOrDefault(id,0) || !world.isChunkLoaded(chunk.x,chunk.z)) return@forEach
             if(!WorldSchedule.matches(point.timeWindows,point.weather,world.time,world.hasStorm(),world.isThundering)) return@forEach
-            if(world.players.none { it.location.distanceSquared(Location(world,point.position.x,point.position.y,point.position.z)) < 64*64 }) return@forEach
+            val spawnLocation=Location(world,point.position.x,point.position.y,point.position.z)
+            if(world.players.none { it.location.isWithinBlocks(spawnLocation,PaperDistance.ENEMY_SPAWN_VISIBILITY_BLOCKS) }) return@forEach
             if(budget.count(id) < point.cap) spawn(d.id,Location(world,point.position.x,point.position.y,point.position.z),id,point.cap)
             nextSpawn[id]=tick+point.respawnTicks
         } }
@@ -228,7 +230,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
         if(attacker == null || state.participants.isNotEmpty() && attacker.uniqueId !in state.participants) return
         if(e.finalDamage <= 0) return
         plugin.profiles[attacker.uniqueId]?.let { plugin.game.onHit(it,plugin.effectiveStats(attacker,it).resource); plugin.markDirty(it.uuid) }
-        if("PACK" in state.boss.definition.traits) states.values.filter { it.boss.definition.id == state.boss.definition.id && it.entity.world == state.entity.world && it.entity.location.distanceSquared(state.entity.location) <= 64 }.forEach { if(it.entity is Mob) it.entity.target=attacker }
+        if("PACK" in state.boss.definition.traits) states.values.filter { it.boss.definition.id == state.boss.definition.id && it.entity.world == state.entity.world && it.entity.location.isWithinBlocks(state.entity.location,PaperDistance.ENEMY_PACK_ASSIST_BLOCKS) }.forEach { if(it.entity is Mob) it.entity.target=attacker }
         applyVirtualDamage(state.entity.uniqueId,attacker.uniqueId,e.finalDamage)
         if(!state.entity.isDead) plugin.procEffects(attacker,state.entity)
     }

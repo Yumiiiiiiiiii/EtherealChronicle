@@ -27,7 +27,7 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
         val party=adventure.parties.party(player.uniqueId)
         require(party == null || party.leader == player.uniqueId) { "ec.error.party_leader_required" }
         val players=adventure.parties.members(player.uniqueId).map { Bukkit.getPlayer(it) ?: error("ec.error.party_not_online") }
-        require(players.all { p -> p.world == player.world && p.location.distanceSquared(player.location) <= 32*32 && plugin.profiles[p.uniqueId]?.classId != null }) { "ec.error.party_gather" }
+        require(players.all { p -> p.world == player.world && p.location.isWithinBlocks(player.location,PaperDistance.DUNGEON_PARTY_GATHER_BLOCKS) && plugin.profiles[p.uniqueId]?.classId != null }) { "ec.error.party_gather" }
         require(players.all { definition.unlockFlag in plugin.profiles.getValue(it.uniqueId).flags }) { "ec.error.dungeon_unlock_required" }
         val world=Bukkit.getWorld(DemoWorld.NAME) ?: error("ec.error.world_unavailable")
         val slot=(0 until plugin.snapshot.world.tuning.instanceCap).firstOrNull { it !in instances } ?: error("ec.error.dungeon_full")
@@ -86,7 +86,7 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
         }
         instance.completed=true
         instance.entities.forEach { Bukkit.getEntity(it)?.remove() }
-        val seconds=((monotonicMillis()-instance.startedAtMillis)/1000).coerceAtLeast(0)
+        val seconds = MinecraftTicks.millisToWholeSeconds(monotonicMillis() - instance.startedAtMillis)
         val ranks=instance.definition.scoreRanks
         if(ranks.isNotEmpty()) {
             val rank=net.nakaymi.etherealchronicle.core.challengeRank(seconds,ranks)

@@ -85,4 +85,4 @@ class TreasureController(private val plugin:RpgPlugin):Listener {
 
 /** 負の小数座標もMinecraftと同じ床関数でchunkへ割り当てます。 */
 internal fun chunkCoordinates(x: Double, z: Double): Pair<Int, Int> =
-    (floor(x).toInt() shr 4) to (floor(z).toInt() shr 4)
+    ChunkCoordinates.fromPosition(x,z).let { it.x to it.z }

@@ -44,7 +44,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
     private val engine=GatheringEngine()
     private var sites=buildSites()
     private var sitesById=sites.values.distinctBy(::siteKey).associateBy(::siteKey)
-    private var sitesByChunk=sitesById.values.groupBy { (it.location.x shr 4) to (it.location.z shr 4) }
+    private var sitesByChunk=sitesById.values.groupBy { ChunkCoordinates.fromBlocks(it.location.x,it.location.z) }
     private val channels=mutableMapOf<UUID,Channel>()
     private val lastAttempt=mutableMapOf<UUID,String>()
     private val displays=mutableMapOf<String,List<UUID>>()
@@ -122,7 +122,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         close()
         sites=buildSites()
         sitesById=sites.values.distinctBy(::siteKey).associateBy(::siteKey)
-        sitesByChunk=sitesById.values.groupBy { (it.location.x shr 4) to (it.location.z shr 4) }
+        sitesByChunk=sitesById.values.groupBy { ChunkCoordinates.fromBlocks(it.location.x,it.location.z) }
         renderAll()
         task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },2,2)
     }
@@ -198,7 +198,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         }.forEach { entity ->
             if(displays.values.flatten().none { it == entity.uniqueId }) entity.remove()
         }
-        sitesByChunk[e.chunk.x to e.chunk.z].orEmpty().filter { it.location.world==e.world.name }.forEach(::renderSite)
+        sitesByChunk[ChunkCoordinates(e.chunk.x, e.chunk.z)].orEmpty().filter { it.location.world==e.world.name }.forEach(::renderSite)
     }
     private fun isProtected(location: Location): Boolean {
         if(location.world.name != WorldIds.DEMO) return false
@@ -250,7 +250,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
             reject(player,"ec.gathering.requirements"); return
         }
         val now=System.currentTimeMillis(); val k=siteKey(site)
-        if(!engine.readyAt(profile,k,now)) { reject(player,"ec.gathering.respawning", "seconds" to (profile.gatheringReadyAt[k]!!-now+999)/1000); return }
+        if(!engine.readyAt(profile,k,now)) { reject(player,"ec.gathering.respawning", "seconds" to MinecraftTicks.millisToSecondsCeil(profile.gatheringReadyAt.getValue(k)-now)); return }
         val origin=player.location.clone(); val duration=(def.channelMillis*(1-tool.channelSpeedBonus)).toLong().coerceAtLeast(250)
         val barTitle=net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
             .serialize(plugin.message(player,"ec.gathering.bossbar", "name" to def.name))
@@ -264,7 +264,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
     @EventHandler fun moved(e: PlayerMoveEvent) {
         val channel=channels[e.player.uniqueId] ?: return
         val to=e.to
-        if(e.from.world != to.world || e.from.distanceSquared(to) > 0.09) cancel(e.player,"ec.gathering.cancel_move")
+        if(e.from.world != to.world || !e.from.isWithinBlocks(to,PaperDistance.GATHER_CANCEL_MOVE_BLOCKS)) cancel(e.player,"ec.gathering.cancel_move")
     }
     @EventHandler fun quit(e: PlayerQuitEvent) { cancel(e.player,null); lastAttempt.remove(e.player.uniqueId) }
     @EventHandler fun death(e: PlayerDeathEvent) { cancel(e.entity,"ec.gathering.cancel_death") }
@@ -298,7 +298,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
     }
     private fun nearbyParty(player: org.bukkit.entity.Player): Boolean {
         val members=plugin.adventure.parties.members(player.uniqueId)
-        return members.any { it!=player.uniqueId && Bukkit.getPlayer(it)?.let { other -> other.isOnline && other.world==player.world && other.location.distanceSquared(player.location)<=256.0 }==true }
+        return members.any { it!=player.uniqueId && Bukkit.getPlayer(it)?.let { other -> other.isOnline && other.world==player.world && other.location.isWithinBlocks(player.location,PaperDistance.PARTY_GATHER_BONUS_BLOCKS) }==true }
     }
     private fun complete(player: org.bukkit.entity.Player,channel: Channel) {
         cancel(player,null)

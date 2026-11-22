@@ -44,9 +44,9 @@ internal data class InventoryGrid(val width: Int, val height: Int) {
     companion object {
         /** Bukkitの9列インベントリをInvUIの幅・高さ順へ変換します。 */
         fun forInventorySize(size: Int): InventoryGrid {
-            require(size in 9..54 && size % 9 == 0) { "Inventory size must be a chest multiple between 9 and 54." }
-            val height = size / 9
-            return InventoryGrid(width = 9, height = height)
+            require(size in ChestLayout.COLUMNS..ChestLayout.DOUBLE_CHEST_SLOTS && size % ChestLayout.COLUMNS == 0) { "Inventory size must be a chest multiple between 9 and 54." }
+            val height = size / ChestLayout.COLUMNS
+            return InventoryGrid(width = ChestLayout.COLUMNS, height = height)
         }
     }
 }

@@ -128,7 +128,7 @@ class UiThemeProvider(
             }
         }
 
-        private const val BACKGROUND_WIDTH = 176
+        private const val BACKGROUND_WIDTH = ChestLayout.BACKGROUND_WIDTH_PIXELS
         internal const val TITLE_LEFT_OFFSET = -8
         private val WIDE_SCRIPTS = setOf(Character.UnicodeScript.HAN, Character.UnicodeScript.HIRAGANA, Character.UnicodeScript.KATAKANA)
         private data class UiModelRule(val model: String, val matches: (String,Int,Material) -> Boolean)
