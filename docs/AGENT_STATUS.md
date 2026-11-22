@@ -412,3 +412,11 @@
 - Added synthetic v2/v3 fixtures, loader and MockBukkit placer tests, layout checks, conditional bundled-world integrity checks, and a v5 migration non-rewrite regression.
 - Verification: targeted schematic/layout/migration tests passed. Full `./gradlew.bat build test --no-daemon` passed 309 tests, 0 failures, 0 errors, 0 skipped; `git diff --check` passed (Git reported only CRLF normalization notices).
 - Assets not yet supplied: the real island/bridge/dungeon `.schem` files are absent from `src/main/resources/schematics/`, so bundled-asset integrity checks take the explicit fallback branch. No live Paper world/dungeon placement test was run; builders’ assets must be added before the complete geometry validation can pass against production schematics.
+
+## Codex — Task25 follow-up (2026-11-22)
+- Branch `codex/foundation`; requested master `3032504` was already an ancestor of the worktree base.
+- Tightened Paper domain helpers: a distance check now rejects null worlds, negative and NaN radii; whole-second conversion clamps negative durations to zero. Preferred inventory removal slots remain restricted to the same 36-slot storage range used by the removal planner.
+- Refactored profile migrations into an explicit one-version-at-a-time pipeline from schemas 0 through 13. Existing defaults and legacy tutorial conversion are preserved; regression tests cover every supported source schema and tutorial completion.
+- Clarified the shared fishing/world schedule contract: normalized 24,000-tick day, DAY `1000..11999`, NIGHT `13000..22999`, DAWN_DUSK `<1000`, `12000..12999`, and `>=23000`. This is the intentional Task25 behavior change for the 14 affected fish species.
+- Added Paper domain tests for null/different worlds, invalid radii, negative time, storage-slot counts and dungeon bounds, plus representative DemoWorld landmark block assertions.
+- Verification: targeted follow-up suite passed. Full build/test and final commit are pending.

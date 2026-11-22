@@ -113,35 +113,72 @@ class PlayerStore(private val directory: Path): AutoCloseable {
     }
     /** 旧schemaを順に現行schemaへ変換し、不足fieldを初期化します。 */
     fun migrate(raw: Map<String,Any?>): Map<String,Any?> {
-        val version=(raw["schema_version"] as? Number)?.toInt() ?: 0
+        var version=(raw["schema_version"] as? Number)?.toInt() ?: PlayerSchema.INITIAL
         if(version !in PlayerSchema.INITIAL..PlayerSchema.CURRENT) throw FutureSchema("Unsupported player schema $version")
         if(version == PlayerSchema.CURRENT) return raw
-        val migrated=if(version == PlayerSchema.PACK_PREFERENCES) raw else migrateToSchema11(raw)
+        var migrated = raw
+        while (version < PlayerSchema.CURRENT) {
+            migrated = migrateStep(version, migrated)
+            version++
+        }
         return migrated + mapOf("schema_version" to PlayerSchema.CURRENT,
             "resource_pack_preference" to (migrated["resource_pack_preference"] ?: "AUTO"),
             "resource_pack_status" to (migrated["resource_pack_status"] ?: "UNKNOWN"))
     }
 
-    /** schema 11以前の個別移行をそのまま順に適用します。 */
-    private fun migrateToSchema11(raw: Map<String,Any?>): Map<String,Any?> {
-        val version = (raw["schema_version"] as? Number)?.toInt() ?: 0
-        if(version !in PlayerSchema.INITIAL..PlayerSchema.ENHANCEMENT) throw FutureSchema("Unsupported player schema $version")
-        val lifeDefaults=mapOf("life_skills" to mapOf("FISHING" to mapOf("level" to 1,"xp" to 0),"GATHERING" to mapOf("level" to 1,"xp" to 0)),"fish_records" to emptyMap<String,Any?>(),"gathering_records" to emptyMap<String,Int>(),"gathering_ready_at" to emptyMap<String,Long>(),"fishing_bait" to "AUTO")
-        if(version == PlayerSchema.ENHANCEMENT) return raw
-        if(version == PlayerSchema.LIFE_SKILLS) return raw + mapOf("best_enhancement_level" to 0,"schema_version" to PlayerSchema.ENHANCEMENT)
-        if(version == PlayerSchema.CODEX) return (raw + lifeDefaults + mapOf("schema_version" to PlayerSchema.LIFE_SKILLS)) + mapOf("best_enhancement_level" to 0,"schema_version" to PlayerSchema.ENHANCEMENT)
-        if(version == PlayerSchema.V8) return ((raw + mapOf("schema_version" to PlayerSchema.CODEX,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())) + lifeDefaults + mapOf("schema_version" to PlayerSchema.LIFE_SKILLS)) + mapOf("best_enhancement_level" to 0,"schema_version" to PlayerSchema.ENHANCEMENT)
-        if(version == PlayerSchema.V7) return ((raw + mapOf("schema_version" to PlayerSchema.CODEX,"selected_title" to null,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())) + lifeDefaults + mapOf("schema_version" to PlayerSchema.LIFE_SKILLS)) + mapOf("best_enhancement_level" to 0,"schema_version" to PlayerSchema.ENHANCEMENT)
-        if(version == PlayerSchema.V6) return ((raw + mapOf("schema_version" to PlayerSchema.CODEX,"challenge_records" to emptyMap<String,Any?>(),"selected_title" to null,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())) + lifeDefaults + mapOf("schema_version" to PlayerSchema.LIFE_SKILLS)) + mapOf("best_enhancement_level" to 0,"schema_version" to PlayerSchema.ENHANCEMENT)
-        if(version == PlayerSchema.V5) return ((raw + mapOf("schema_version" to PlayerSchema.CODEX,"challenge_records" to emptyMap<String,Any?>(),"selected_title" to null,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())) + lifeDefaults + mapOf("schema_version" to PlayerSchema.LIFE_SKILLS)) + mapOf("best_enhancement_level" to 0,"schema_version" to PlayerSchema.ENHANCEMENT)
-        if(version == PlayerSchema.V4) return ((raw + mapOf("schema_version" to PlayerSchema.CODEX,"drop_pity" to emptyMap<String,Int>(),"challenge_records" to emptyMap<String,Any?>(),"selected_title" to null,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())) + lifeDefaults + mapOf("schema_version" to PlayerSchema.LIFE_SKILLS)) + mapOf("best_enhancement_level" to 0,"schema_version" to PlayerSchema.ENHANCEMENT)
-        if(version == PlayerSchema.V3) return ((raw + mapOf("schema_version" to PlayerSchema.CODEX,"pending_rewards" to emptyMap<String,Int>(),"drop_pity" to emptyMap<String,Int>(),"challenge_records" to emptyMap<String,Any?>(),"selected_title" to null,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())) + lifeDefaults + mapOf("schema_version" to PlayerSchema.LIFE_SKILLS)) + mapOf("best_enhancement_level" to 0,"schema_version" to PlayerSchema.ENHANCEMENT)
-        if(version == PlayerSchema.V2) return ((raw + mapOf("schema_version" to PlayerSchema.CODEX,"flags" to emptyList<String>(),"transactions" to emptyList<String>(),"daily_purchases" to emptyMap<String,Int>(),"drop_pity" to emptyMap<String,Int>(),"challenge_records" to emptyMap<String,Any?>(),"selected_title" to null,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())) + lifeDefaults + mapOf("schema_version" to PlayerSchema.LIFE_SKILLS)) + mapOf("best_enhancement_level" to 0,"schema_version" to PlayerSchema.ENHANCEMENT)
-        val v1 = if (version == PlayerSchema.V1) raw else mapOf("level" to 1,"xp" to 0,"currency" to 0,
-            "resource" to 0,"selected_skill" to 0,"starter_granted" to false,"skill_levels" to emptyMap<String,Int>()) + raw
-        val tutorial = v1["tutorial_quest"] as? String
-        val quests = if(tutorial == null) emptyMap() else mapOf("ec:tutorial" to mapOf("progress" to (if(tutorial == "ec:tutorial_complete") 1 else 0),"completed" to (tutorial == "ec:tutorial_complete")))
-        return ((v1.filterKeys { it != "tutorial_quest" } + mapOf("schema_version" to PlayerSchema.CODEX,"quests" to quests,"flags" to emptyList<String>(),"transactions" to emptyList<String>(),"daily_purchases" to emptyMap<String,Int>(),"drop_pity" to emptyMap<String,Int>(),"challenge_records" to emptyMap<String,Any?>(),"selected_title" to null,"bestiary" to emptyMap<String,Int>(),"discovered_items" to emptyList<String>())) + lifeDefaults + mapOf("schema_version" to PlayerSchema.LIFE_SKILLS)) + mapOf("best_enhancement_level" to 0,"schema_version" to PlayerSchema.ENHANCEMENT)
+    /** 一世代ずつ移行し、世代ごとのフィールド追加を読みやすく保ちます。 */
+    private fun migrateStep(version: Int, raw: Map<String, Any?>): Map<String, Any?> = when (version) {
+        PlayerSchema.INITIAL -> raw.withDefaults(
+            "level" to 1, "xp" to 0, "currency" to 0, "resource" to 0,
+            "selected_skill" to 0, "starter_granted" to false, "skill_levels" to emptyMap<String, Int>(),
+        ).withSchema(PlayerSchema.V1)
+        PlayerSchema.V1 -> migrateLegacyTutorial(raw).withSchema(PlayerSchema.V2)
+        PlayerSchema.V2 -> raw.withDefaults(
+            "flags" to emptyList<String>(), "transactions" to emptyList<String>(), "daily_purchases" to emptyMap<String, Int>(),
+        ).withSchema(PlayerSchema.V3)
+        PlayerSchema.V3 -> raw.withDefaults("pending_rewards" to emptyMap<String, Int>()).withSchema(PlayerSchema.V4)
+        PlayerSchema.V4 -> raw.withDefaults("drop_pity" to emptyMap<String, Int>()).withSchema(PlayerSchema.V5)
+        PlayerSchema.V5 -> raw.withDefaults("challenge_records" to emptyMap<String, Any?>()).withSchema(PlayerSchema.V6)
+        PlayerSchema.V6 -> raw.withDefaults(
+            "selected_title" to null, "bestiary" to emptyMap<String, Int>(), "discovered_items" to emptyList<String>(),
+        ).withSchema(PlayerSchema.V7)
+        PlayerSchema.V7 -> raw.withSchema(PlayerSchema.V8)
+        PlayerSchema.V8 -> raw.withDefaults(
+            "bestiary" to emptyMap<String, Int>(), "discovered_items" to emptyList<String>(),
+        ).withSchema(PlayerSchema.CODEX)
+        PlayerSchema.CODEX -> raw.withDefaults(
+            "life_skills" to DEFAULT_LIFE_SKILLS,
+            "fish_records" to emptyMap<String, Any?>(),
+            "gathering_records" to emptyMap<String, Int>(),
+            "gathering_ready_at" to emptyMap<String, Long>(),
+            "fishing_bait" to "AUTO",
+        ).withSchema(PlayerSchema.LIFE_SKILLS)
+        PlayerSchema.LIFE_SKILLS -> raw.withDefaults("best_enhancement_level" to 0).withSchema(PlayerSchema.ENHANCEMENT)
+        PlayerSchema.ENHANCEMENT -> raw.withDefaults("resource_pack_preference" to "AUTO").withSchema(PlayerSchema.PACK_PREFERENCES)
+        PlayerSchema.PACK_PREFERENCES -> raw.withDefaults("resource_pack_status" to "UNKNOWN").withSchema(PlayerSchema.CURRENT)
+        else -> throw FutureSchema("Unsupported player schema $version")
+    }
+
+    /** 旧tutorial_quest文字列だけを、現在のquest進捗recordへ変換します。 */
+    private fun migrateLegacyTutorial(raw: Map<String, Any?>): Map<String, Any?> {
+        val quests = raw["quests"] as? Map<*, *> ?: emptyMap<Any?, Any?>()
+        val state = raw["tutorial_quest"] as? String
+        val updated = if (state == null) quests else {
+            val completed = state == "ec:tutorial_complete"
+            quests + ("ec:tutorial" to mapOf("progress" to if (completed) 1 else 0, "completed" to completed))
+        }
+        return (raw - "tutorial_quest") + ("quests" to updated)
+    }
+
+    private fun Map<String, Any?>.withDefaults(vararg defaults: Pair<String, Any?>): Map<String, Any?> = defaults.toMap() + this
+
+    private fun Map<String, Any?>.withSchema(version: Int): Map<String, Any?> = this + ("schema_version" to version)
+
+    private companion object {
+        val DEFAULT_LIFE_SKILLS = mapOf(
+            "FISHING" to mapOf("level" to 1, "xp" to 0),
+            "GATHERING" to mapOf("level" to 1, "xp" to 0),
+        )
     }
     private fun write(p: PlayerProfile) {
         Files.createDirectories(directory)

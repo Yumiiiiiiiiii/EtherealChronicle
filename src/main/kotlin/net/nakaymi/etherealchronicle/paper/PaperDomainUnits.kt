@@ -16,7 +16,7 @@ internal object MinecraftTicks {
     fun millisToSeconds(millis: Long): Double = millis / MILLIS_PER_SECOND.toDouble()
 
     /** 経過時間を切り捨てて整数秒へ変換し、既存の順位判定を保ちます。 */
-    fun millisToWholeSeconds(millis: Long): Long = (millis / MILLIS_PER_SECOND).coerceAtLeast(0)
+    fun millisToWholeSeconds(millis: Long): Long = if (millis <= 0) 0 else millis / MILLIS_PER_SECOND
 
     /** 残り時間を切り上げて秒表示にし、表示上の早期ゼロを防ぎます。 */
     fun millisToSecondsCeil(millis: Long): Long =
@@ -82,7 +82,7 @@ internal object PaperHealthDisplay {
 /** 同一ワールド内の距離を平方根なしで判定するPaper拡張です。 */
 internal fun Location.isWithinBlocks(other: Location, blocks: Double): Boolean {
     val currentWorld = world ?: return false
-    if (blocks < 0.0 || currentWorld != other.world) return false
+    if (!(blocks >= 0.0) || other.world == null || currentWorld != other.world) return false
     return distanceSquared(other) <= blocks * blocks
 }
 
