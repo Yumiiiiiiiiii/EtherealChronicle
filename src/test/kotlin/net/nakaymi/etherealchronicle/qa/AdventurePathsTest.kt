@@ -178,9 +178,10 @@ class AdventurePathsTest {
                 val had = potions()
                 val shopEntry = entrySlot("minor_hp_potion_convenience")
                 while(player.nextMessage()!=null) { }
-                val buySlot = adv.javaClass.getDeclaredMethod("buyShopSlot",Player::class.java,String::class.java,Int::class.javaPrimitiveType!!)
+                val buySlot = adv.javaClass.getDeclaredMethod("buyShopSlot",Player::class.java,String::class.java,String::class.java)
                     .also { it.isAccessible=true }
-                plugin.handleInvUiAction(player) { buySlot.invoke(adv,player,"ec:shop_lumina_general",shopEntry) }
+                val entryId=player.openInventory.topInventory.getItem(shopEntry)!!.itemMeta.persistentDataContainer.get(entryKey,PersistentDataType.STRING)
+                plugin.handleInvUiAction(player) { buySlot.invoke(adv,player,"ec:shop_lumina_general",entryId) }
                 server.pump(1000) { false }
                 assertEquals(had, potions()); assertEquals(5, profile.currency)
                 val message=player.nextMessage()?.toString().orEmpty()

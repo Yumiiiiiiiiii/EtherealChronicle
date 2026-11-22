@@ -15,7 +15,7 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
     data class Instance(val slot: Int,val definition: net.nakaymi.etherealchronicle.core.DungeonDefinition,val members: MutableSet<UUID>,val returns: Map<UUID,Location>,val started: Long,var boss: UUID?=null,var completed: Boolean=false,var waveIndex: Int=0,val entities: MutableSet<UUID> = mutableSetOf(),val startedAtMillis: Long=System.currentTimeMillis())
     private val instances=mutableMapOf<Int,Instance>()
     private var tick=0L
-    private val built=mutableSetOf<Int>()
+    private val builtPalette=mutableMapOf<Int,List<String>>()
     init { plugin.server.pluginManager.registerEvents(this,plugin); adventure.enterDungeon={ player,id -> enter(player,id) } }
     fun activeCount() = instances.size
     internal fun currentWave(slot:Int) = instances[slot]?.waveIndex
@@ -33,11 +33,14 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
         val slot=(0 until plugin.snapshot.world.tuning.instanceCap).firstOrNull { it !in instances } ?: error("ec.error.dungeon_full")
         val instance=Instance(slot,definition,players.map { it.uniqueId }.toMutableSet(),players.associate { it.uniqueId to it.location.clone() },tick)
         val x=1024+slot*192; val z=1024
-        if(built.add(slot)) for(dx in -24..24) for(dz in -24..24) {
+        if(dungeonPaletteNeedsBuild(builtPalette[slot],definition.palette)) {
+            for(dx in -24..24) for(dz in -24..24) {
             val edge=kotlin.math.abs(dx) == 24 || kotlin.math.abs(dz) == 24
             val center=kotlin.math.abs(dx) <= 2 && kotlin.math.abs(dz) <= 2
             world.getBlockAt(x+dx,64,z+dz).type=Material.valueOf(definition.palette[if(center) 2 else 0])
             if(edge) for(y in 65..68) world.getBlockAt(x+dx,y,z+dz).type=Material.valueOf(definition.palette[1])
+            }
+            builtPalette[slot]=definition.palette.toList()
         }
         instances[slot]=instance
         try { spawnWave(instance,world,x,z) }

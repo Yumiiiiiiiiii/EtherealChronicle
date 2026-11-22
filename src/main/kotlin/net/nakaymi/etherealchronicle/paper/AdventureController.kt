@@ -99,7 +99,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             displayName(mm.deserialize(c.label)); persistentDataContainer.set(entryKey,PersistentDataType.STRING,c.id)
         } }) }
         player.sendMessage(mm.deserialize(definition.text))
-        if (plugin.paperUiEnabled) showDialogueDialog(player,id,at,definition)
+        if (plugin.paperUiEnabled && paperDialogueHasChoices(definition.choices.size)) showDialogueDialog(player,id,at,definition)
         else player.openInventory(menu)
     }
     /** Paper Dialogを主表示にし、選択アクションは既存の取引処理へ戻します。 */
@@ -130,13 +130,18 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         val p=plugin.profiles[player.uniqueId] ?: return
         val shop=plugin.snapshot.world.shops[id] ?: error("ec.error.shop_missing")
         val menu=RpgMenu("shop",id,title=plugin.message(player,"ec.menu.shop")).inventory
-        shop.entries.forEachIndexed { index,e ->
-            if(e.condition.matches(p)) menu.setItem(index,plugin.createItem(e.item,e.amount).apply { itemMeta=itemMeta.apply {
-                val extra=listOf(plugin.message(player,"ec.shop.price_buy", "price" to e.price),plugin.message(player,"ec.shop.tokens", "items" to e.tokens.joinToString { "${it.item} ×${it.amount}" }),plugin.message(player,"ec.shop.sell_hint"))
+        compactVisibleShopEntries(shop.entries) { it.condition.matches(p) }.forEachIndexed { index,e ->
+            menu.setItem(index,plugin.createItem(e.item,e.amount).apply { itemMeta=itemMeta.apply {
+                val extra=listOf(plugin.message(player,"ec.shop.price_buy", "price" to e.price),plugin.message(player,"ec.shop.tokens", "items" to e.tokens.joinToString { "${plugin.contentName(player,it.item)} ×${it.amount}" }),plugin.message(player,"ec.shop.sell_hint"))
                 lore((lore() ?: emptyList())+extra); persistentDataContainer.set(entryKey,PersistentDataType.STRING,e.id)
             } })
         }
-        val migrated = plugin.openRpgMenu(player, menu) { slot, click -> if (click.isLeftClick) buyShopSlot(player,id,slot) }
+        val migrated = plugin.openRpgMenu(player, menu, onClose = { invUiShops.remove(player.uniqueId) }) { slot, click ->
+            if (click.isLeftClick) {
+                val entryId=menu.getItem(slot)?.itemMeta?.persistentDataContainer?.get(entryKey,PersistentDataType.STRING)
+                if(entryId!=null) buyShopSlot(player,id,entryId)
+            }
+        }
         if (migrated) invUiShops[player.uniqueId] = id else invUiShops.remove(player.uniqueId)
         player.sendMessage(plugin.message(player,"ec.shop.currency", "currency" to p.currency))
     }
@@ -174,8 +179,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                 }
                 "shop" -> {
                     if(e.rawSlot in 0..53 && entry != null && e.isLeftClick) {
-                        val shopEntry = plugin.snapshot.world.shops[menu.contentId]?.entries?.indexOfFirst { it.id == entry } ?: -1
-                        if (shopEntry >= 0) buyShopSlot(player,menu.contentId,shopEntry)
+                        buyShopSlot(player,menu.contentId,entry)
                     } else if(e.clickedInventory == player.inventory && e.isRightClick) {
                         sellFromInventory(player,menu.contentId,e.currentItem,e.slot)
                     }
@@ -195,10 +199,10 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     @EventHandler fun quitInvUiShop(event: PlayerQuitEvent) {
         invUiShops.remove(event.player.uniqueId)
     }
-    private fun buyShopSlot(player: Player, shopId: String, slot: Int) {
+    private fun buyShopSlot(player: Player, shopId: String, entryId: String) {
         val profile = plugin.profiles[player.uniqueId] ?: return
         val shop = plugin.snapshot.world.shops[shopId] ?: return
-        val entry = shop.entries.getOrNull(slot)?.takeIf { it.condition.matches(profile) } ?: return
+        val entry = shop.entries.firstOrNull { it.id == entryId }?.takeIf { it.condition.matches(profile) } ?: return
         val plan = when (val result = trades.planBuy(profile,shopId,entry.id,plugin.inventory(player),UUID.randomUUID().toString(),System.currentTimeMillis())) {
             is TradePlanResult.Ready -> result.plan
             is TradePlanResult.Rejected -> {

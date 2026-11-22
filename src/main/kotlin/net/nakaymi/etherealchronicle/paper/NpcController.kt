@@ -64,7 +64,6 @@ internal class NpcController(private val plugin: RpgPlugin) : Listener {
             if (existing?.isValid == true) return@forEach
 
             entities.remove(definition.id)
-            world ?: return@forEach
             require(world.name == "ec_world") { "ec.error.world_owned_only" }
             val location = Location(
                 world,
@@ -74,11 +73,13 @@ internal class NpcController(private val plugin: RpgPlugin) : Listener {
                 definition.position.yaw,
                 0f,
             )
+            // Chunkを読み込まず、ロード済み地点だけを管理することでTPSとワールド状態を守ります。
+            if (!npcChunkMaySpawn(world.isChunkLoaded(location.blockX shr 4, location.blockZ shr 4))) return@forEach
             val entity = world.spawn(location, Villager::class.java)
             entity.persistentDataContainer.set(npcKey, PersistentDataType.STRING, definition.id)
             entity.customName(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize(definition.name))
             entity.isCustomNameVisible = true
-            entity.isPersistent = true
+            entity.isPersistent = false
             entity.isInvulnerable = true
             entity.setAI(false)
             entity.isCollidable = false

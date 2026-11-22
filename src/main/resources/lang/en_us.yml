@@ -123,7 +123,7 @@ ec:
     validation_failed: "Validation failed: <reason>"
     reload_busy: "Content cannot reload during a transaction, class selection, or trial."
     reload_content_in_use: "Reload cannot remove a class or quest currently in use."
-    reload_success: "Content reloaded."
+    reload_success: "Content reloaded. Changes to resource_pack.* settings require a restart."
     validate_success: "Content validation succeeded."
     currency_set: "Currency updated."
     item_given: "Item granted."
@@ -279,6 +279,10 @@ ec:
     confirm_start: "Start as this class"
     confirm_cancel: "Go back"
     weapon_queued: "Your new class starter weapon was sent to your mailbox. Use <gold>/ec claim</gold> to receive it."
+    selection:
+      role: "Resource: <resource>"
+      stats: "HP <hp> / Attack <attack> / Defense <defense>"
+      skills: "Skills: <skills>"
   menu:
     dialogue: "Dialogue"
     shop: "Shop"

@@ -19,6 +19,9 @@
 | `ec.class.confirm_cancel` | 戻る | Go back | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.class.confirm_start` | この職業で始める | Start as this class | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.class.confirm_title` | <class> で冒険を始めますか？ | Begin your adventure as <class>? | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<class>` |
+| `ec.class.selection.role` | 資源: <resource> | Resource: <resource> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<resource>` |
+| `ec.class.selection.skills` | スキル: <skills> | Skills: <skills> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<skills>` |
+| `ec.class.selection.stats` | HP <hp> / 攻撃 <attack> / 防御 <defense> | HP <hp> / Attack <attack> / Defense <defense> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<attack>`, `<defense>`, `<hp>` |
 | `ec.class.weapon_queued` | 新しい職業の初期武器は持ち物に送られました。<gold>/ec claim</gold> で受け取れます。 | Your new class starter weapon was sent to your mailbox. Use <gold>/ec claim</gold> to receive it. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.codex.back_areas` | エリア一覧へ戻る | Back to Areas | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.codex.catch_count` | 釣果: <count>匹 | Caught: <count> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<count>` |
@@ -60,7 +63,7 @@
 | `ec.command.no_permission` | 権限がありません。 | You do not have permission to use this command. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.reload_busy` | 取引・職業選択・聖堂攻略中は再読み込みできません。 | Content cannot reload during a transaction, class selection, or trial. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.reload_content_in_use` | 使用中の職業または依頼を削除する変更は再読み込みできません。 | Reload cannot remove a class or quest currently in use. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
-| `ec.command.reload_success` | コンテンツを再読み込みしました。 | Content reloaded. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.command.reload_success` | コンテンツを再読み込みしました。resource_pack.* の設定変更は再起動後に反映されます。 | Content reloaded. Changes to resource_pack.* settings require a restart. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.validate_success` | コンテンツ検証成功。 | Content validation succeeded. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.validation_failed` | 検証失敗: <reason> | Validation failed: <reason> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<reason>` |
 | `ec.content.unknown_name` | 名称不明 | Unknown content | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |

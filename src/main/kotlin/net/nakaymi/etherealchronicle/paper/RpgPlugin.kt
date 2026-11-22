@@ -37,7 +37,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private lateinit var uiTheme: UiThemeProvider
     private lateinit var classSelectionUi: ClassSelectionUi
     private lateinit var content: ContentService
-    private lateinit var language: LangCatalog
+    @Volatile private lateinit var language: LangCatalog
     private lateinit var store: PlayerStore
     internal lateinit var game: GameService
     internal val profiles = mutableMapOf<UUID,PlayerProfile>()
@@ -155,11 +155,19 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                         title={ p -> message(p,"ec.class.choose") },
                         confirmationTitle={ p,c -> message(p,"ec.class.confirm_title","class" to c.name) },
                         confirmationText={ p,c -> message(p,"ec.class.confirm_body","class" to c.name) },
+                        classLore={ p,c ->
+                            val skills=c.skills.mapNotNull(content.snapshot().skills::find).joinToString(" / ") { it.name }
+                            listOf(
+                                message(p,"ec.class.selection.role","resource" to resourceName(p,c.resource)),
+                                message(p,"ec.class.selection.stats","hp" to c.stats.hp.toInt(),"attack" to c.stats.attack.toInt(),"defense" to c.stats.defense.toInt()),
+                                message(p,"ec.class.selection.skills","skills" to skills),
+                            )
+                        },
                         confirmLabel={ p -> message(p,"ec.class.confirm_start") },
                         cancelLabel={ p -> message(p,"ec.class.confirm_cancel") },
                         onSelected={ p,id -> profiles[p.uniqueId]?.let { starter(p,it,id) } },
-                        onCancel={},
-                        onClose={ p -> if(profiles[p.uniqueId]?.classId == null && p.uniqueId !in choosing) sync { if(p.isOnline) menu(p) } },
+                        onCancel={ p -> menu(p) },
+                        onClose={ p -> if(profiles[p.uniqueId]?.classId == null && p.uniqueId !in choosing && !classSelectionUi.isConfirming(p.uniqueId)) sync { if(p.isOnline) menu(p) } },
                     )
                     if (paperInventoryUi) xyz.xenondevs.invui.InvUI.getInstance().setPlugin(this)
                     adventure=AdventureController(this)
@@ -591,15 +599,15 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal fun openCodexFish(player: Player) = codexController.openCodexFish(player)
     internal fun openCodexGathering(player: Player) = codexController.openCodexGathering(player)
     /** MockBukkitでは旧Inventory経路を残し、Paperでは同じ内容をInvUIへ描画します。 */
-    internal fun openRpgMenu(player: Player, inventory: Inventory, onClick: (Int, org.bukkit.event.inventory.ClickType) -> Unit = { _, _ -> }): Boolean {
+    internal fun openRpgMenu(player: Player, inventory: Inventory, onClose: () -> Unit = {}, onClick: (Int, org.bukkit.event.inventory.ClickType) -> Unit = { _, _ -> }): Boolean {
         if (!paperInventoryUi) {
             player.openInventory(inventory)
             return false
         }
         val holder = inventory.holder as? RpgMenu ?: return false
-        invUiInventoryAdapter.open(player, inventory, holder.title, holder.kind) { slot, click ->
+        invUiInventoryAdapter.open(player, inventory, holder.title, holder.kind, { slot, click ->
             handleInvUiAction(player) { onClick(slot,click) }
-        }
+        }, onClose)
         return true
     }
     /** InvUIのコールバック例外を画面操作の失敗として処理し、PaperのERRORログへ漏らしません。 */
@@ -692,7 +700,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             48 -> openCodexGathering(player)
             49 -> openCodexItems(player)
             53 -> codexController.turnPage(player,kind,contentId,1)
-            else -> if(kind=="codex-areas") snapshot.world.areas.values.sortedBy { it.name }.getOrNull(slot)?.let { openCodexArea(player,it.id) }
+            else -> if(kind=="codex-areas") codexController.openAreaFromSlot(player,slot)
         }
     }
     private fun tick() {
@@ -761,7 +769,10 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         if(result != CastResult.SUCCESS) return result
         if(skill.heal > 0 || skill.defenseBuff > 0) {
             val recipientIds=if((skill.partyHeal || skill.partyDefenseBuff) && skill.allyRadius > 0) adventure.parties.members(player.uniqueId) else setOf(player.uniqueId)
-            val recipients=player.world.players.filter { it.uniqueId in recipientIds && it.location.distanceSquared(player.location) <= skill.allyRadius*skill.allyRadius || it.uniqueId == player.uniqueId }
+            val recipients=player.world.players.filter { recipient ->
+                recipient.uniqueId == player.uniqueId ||
+                    (recipient.uniqueId in recipientIds && recipient.location.distanceSquared(player.location) <= skill.allyRadius*skill.allyRadius)
+            }
             recipients.forEach { recipient ->
                 val recipientProfile=profiles[recipient.uniqueId] ?: return@forEach
                 if(skill.heal > 0 && (recipient.uniqueId == player.uniqueId || skill.partyHeal)) recipient.health=(recipient.health+effectiveStats(recipient,recipientProfile).hp*skill.heal).coerceAtMost(recipient.getAttribute(Attribute.MAX_HEALTH)!!.value)
@@ -770,8 +781,16 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         }
         if(skill.tauntTicks > 0) enemies.taunt(player,skill.radius.coerceAtLeast(skill.allyRadius).coerceAtLeast(skill.range),skill.tauntTicks,skill.threatMultiplier)
         if(target != null) {
-            val targets=if(skill.radius > 0) target.getNearbyEntities(skill.radius,skill.radius,skill.radius).filterIsInstance<LivingEntity>().filter { it.persistentDataContainer.has(enemyKey) }+target else listOf(target)
-            targets.forEach { hit(player,it,game.skills.multiplier(profile,skill),skill.element,useSkillPower=true) }
+            val targets=if(skill.radius > 0) {
+                target.getNearbyEntities(skill.radius,skill.radius,skill.radius)
+                    .filterIsInstance<LivingEntity>()
+                    .filter { candidate ->
+                        candidate.persistentDataContainer.has(enemyKey) &&
+                            enemyAllowsPlayer(player.uniqueId,enemies.state(candidate.uniqueId)?.participants.orEmpty())
+                    } + target
+            } else listOf(target)
+            val uniqueTargets=targets.distinctBy { it.uniqueId }
+            uniqueTargets.forEach { hit(player,it,game.skills.multiplier(profile,skill),skill.element,useSkillPower=true) }
         }
         dirty.add(player.uniqueId); return result
     }
@@ -906,7 +925,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     drops.forEach { (item,amount) -> profile.pendingRewards.merge(item,amount,Int::plus) }
                 }) {
                     player.sendMessage(message(player,"ec.combat.enemy_defeated", "level" to profile.level, "xp" to profile.xp))
-                    if(codexUnlocks.isNotEmpty()) player.sendMessage(message(player,"ec.codex.new_discoveries", "items" to codexUnlocks.joinToString()))
+                    if(codexUnlocks.isNotEmpty()) player.sendMessage(message(player,"ec.codex.new_discoveries", "items" to codexUnlocks.joinToString { contentName(player,it) }))
                 }
             }
         }
@@ -978,6 +997,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                                 }
                                 content.install(snapshot); game.skills.updateBalance(snapshot.balance)
                                 reloadConfig()
+                                language=LangCatalog.load(dataFolder.toPath(),config.getString("language","auto") ?: "auto",logger)
                                 uiTheme.updateMode(UiThemeProvider.mode(config.getString("ui.theme.mode", "icons_only")))
                                 all.forEach { p -> p.level=p.level.coerceAtMost(snapshot.balance.levelCap); if(p.level == snapshot.balance.levelCap) p.xp=0; p.skillLevels.replaceAll { _,level -> level.coerceIn(1,snapshot.balance.skillLevelCap) } }
                                 dirty.addAll(profiles.keys)
@@ -1192,7 +1212,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 }
                 "accept" -> { adventure.parties.accept(p.uuid); player.sendMessage(message(player,"ec.party.joined")) }
                 "leave" -> { dungeons.leave(player); adventure.parties.leave(p.uuid); player.sendMessage(message(player,"ec.party.left")) }
-                else -> player.sendMessage(message(player,"ec.party.members", "members" to adventure.parties.members(p.uuid).joinToString { Bukkit.getPlayer(it)?.name ?: message(player,"ec.party.offline").toString() }))
+                else -> player.sendMessage(message(player,"ec.party.members", "members" to adventure.parties.members(p.uuid).joinToString { Bukkit.getPlayer(it)?.name ?: plain(message(player,"ec.party.offline")) }))
             }
         }
     }
@@ -1204,7 +1224,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             val message=when(action) {
                 "start" -> fishing.debugStart(player,args.getOrNull(3))
                 "status" -> fishing.debugStatus(player.uniqueId)
-                "cancel" -> message(player,if(fishing.debugCancel(player)) "ec.fishing.debug_cancel" else "ec.fishing.no_session").toString()
+                "cancel" -> plain(message(player,if(fishing.debugCancel(player)) "ec.fishing.debug_cancel" else "ec.fishing.no_session"))
                 else -> error("ec.error.usage: /ec debug fish <start|status|cancel> <player> [species-id]")
             }
             sender.sendMessage(message(sender,"ec.debug.fish_prefix","name" to player.name,"detail" to message)); return
