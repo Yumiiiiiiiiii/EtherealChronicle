@@ -93,18 +93,38 @@ class AdventurePathsTest {
             }
             rec("claim requested during a locked delivery waits and runs once after unlock") {
                 val claims=adv.javaClass.getMethod("claimPending",Player::class.java)
-                val unlock=adv.javaClass.getDeclaredMethod("unlock",UUID::class.java).also { it.isAccessible=true }
+                val lockType=Class.forName("net.nakaymi.etherealchronicle.paper.AdventureController\$LockToken")
+                val constructor=lockType.getDeclaredConstructor(UUID::class.java).also { it.isAccessible=true }
+                val release=adv.javaClass.getDeclaredMethod("releaseLock",lockType,Boolean::class.javaPrimitiveType).also { it.isAccessible=true }
                 profile.pendingRewards["ec:item_con_minor_hp_potion"]=1
-                val lock=adv.javaClass.getDeclaredField("locks").also { it.isAccessible=true }.get(adv) as MutableSet<UUID>
-                lock.add(uuid)
+                val lock=adv.javaClass.getDeclaredField("locks").also { it.isAccessible=true }.get(adv) as MutableMap<UUID,Any>
+                val token=constructor.newInstance(uuid)
+                lock[uuid]=token
                 claims.invoke(adv,player)
                 assertEquals(0,potions())
-                unlock.invoke(adv,uuid)
+                val newerToken=constructor.newInstance(uuid)
+                lock[uuid]=newerToken
+                release.invoke(adv,token,true)
+                assertTrue(adv.javaClass.getMethod("locked",UUID::class.java).invoke(adv,uuid) as Boolean,"stale token released a newer transaction")
+                release.invoke(adv,newerToken,true)
                 assertTrue(server.pump { potions()==1 },"queued claim did not deliver")
                 assertTrue(server.pump { profile.pendingRewards.isEmpty() },"claim persistence did not finish")
                 claims.invoke(adv,player); server.pump(500) { false }
                 assertEquals(1,potions(),"queued claim duplicated")
                 "pending claim queued during lock, delivered exactly once after unlock"
+            }
+            rec("preferred sell source slot does not consume an earlier duplicate stack") {
+                val id="ec:item_mat_aether_gel"
+                player.inventory.clear()
+                player.inventory.setItem(0,plugin.createItem(id,3).apply { itemMeta=itemMeta.apply {
+                    persistentDataContainer.set(NamespacedKey(plugin,"enhancement_level"),PersistentDataType.INTEGER,4)
+                } })
+                player.inventory.setItem(1,plugin.createItem(id,2))
+                val inventory=net.nakaymi.etherealchronicle.paper.PaperInventoryAccess(player,plugin::identify,plugin::createItem,persistRemoval=false)
+                assertTrue(inventory.exchangeFromSlot(1,mapOf(id to 1),emptyMap()))
+                assertEquals(3,player.inventory.getItem(0)?.amount,"the earlier, enhanced copy was consumed")
+                assertEquals(1,player.inventory.getItem(1)?.amount,"the clicked source stack was not consumed")
+                "consumed from clicked slot 1 only"
             }
             fun entrySlot(id: String) = (0..53).first { player.openInventory.topInventory.getItem(it)?.persistentDataContainer?.get(entryKey, PersistentDataType.STRING) == id }
             fun openShop() { showShop.invoke(adv, player, "ec:shop_lumina_general") }
@@ -158,9 +178,10 @@ class AdventurePathsTest {
                 val had = potions()
                 val shopEntry = entrySlot("minor_hp_potion_convenience")
                 while(player.nextMessage()!=null) { }
-                val buySlot = adv.javaClass.getDeclaredMethod("buyShopSlot",Player::class.java,String::class.java,Int::class.javaPrimitiveType!!)
+                val buySlot = adv.javaClass.getDeclaredMethod("buyShopSlot",Player::class.java,String::class.java,String::class.java)
                     .also { it.isAccessible=true }
-                plugin.handleInvUiAction(player) { buySlot.invoke(adv,player,"ec:shop_lumina_general",shopEntry) }
+                val entryId=player.openInventory.topInventory.getItem(shopEntry)!!.itemMeta.persistentDataContainer.get(entryKey,PersistentDataType.STRING)
+                plugin.handleInvUiAction(player) { buySlot.invoke(adv,player,"ec:shop_lumina_general",entryId) }
                 server.pump(1000) { false }
                 assertEquals(had, potions()); assertEquals(5, profile.currency)
                 val message=player.nextMessage()?.toString().orEmpty()

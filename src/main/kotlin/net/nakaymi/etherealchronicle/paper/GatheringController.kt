@@ -42,13 +42,8 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
     private data class Site(val node: GatheringNodeDefinition,val location: GatheringLocation)
     private data class Channel(val site: Site,val started: Long,val duration: Long,val origin: Location,val bar: BossBar)
     private val engine=GatheringEngine()
-    private val sites=plugin.snapshot.world.gatheringNodes.values.flatMap { node -> node.locations.map { Site(node,it) } }
-        // 地面または表示ブロックのどちらを押しても、設定済み座標だけを引ける有界indexを使います。
-        .flatMap { site -> listOf(
-            key(site.location.world,site.location.x,site.location.y-1,site.location.z) to site,
-            key(site.location.world,site.location.x,site.location.y,site.location.z) to site
-        ) }.toMap()
-    private val sitesById=sites.values.distinctBy(::siteKey).associateBy(::siteKey)
+    private var sites=buildSites()
+    private var sitesById=sites.values.distinctBy(::siteKey).associateBy(::siteKey)
     private val channels=mutableMapOf<UUID,Channel>()
     private val lastAttempt=mutableMapOf<UUID,String>()
     private val displays=mutableMapOf<String,List<UUID>>()
@@ -90,7 +85,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         val profile=plugin.profiles[player.uniqueId]
         val held=plugin.identify(player.inventory.itemInMainHand) ?: "vanilla:${player.inventory.itemInMainHand.type}"
         val tackle=plugin.snapshot.world.tackle.values.firstOrNull { it.item==held }
-        val nearest=sites.values.distinctBy(::siteKey).filter { it.location.world==player.world.name }.minByOrNull { site ->
+        val nearest=sitesById.values.filter { it.location.world==player.world.name }.minByOrNull { site ->
             player.location.distanceSquared(Location(player.world,site.location.x+0.5,site.location.y.toDouble(),site.location.z+0.5))
         }
         val nearestText=nearest?.let { site ->
@@ -122,15 +117,26 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         displays.clear()
     }
     /** コンテンツ再読込後に表示と短周期タスクを作り直します。 */
-    fun reload() { close(); renderAll(); task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },2,2) }
+    fun reload() {
+        close()
+        sites=buildSites()
+        sitesById=sites.values.distinctBy(::siteKey).associateBy(::siteKey)
+        renderAll()
+        task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },2,2)
+    }
 
     private fun key(world:String,x:Int,y:Int,z:Int)="$world:$x,$y,$z"
     private fun siteKey(site: Site)="${site.node.id}/${site.location.id}"
+    private fun buildSites() = plugin.snapshot.world.gatheringNodes.values.flatMap { node -> node.locations.map { Site(node,it) } }
+        .flatMap { site -> listOf(
+            key(site.location.world,site.location.x,site.location.y-1,site.location.z) to site,
+            key(site.location.world,site.location.x,site.location.y,site.location.z) to site
+        ) }.toMap()
     private fun location(site: Site)=Bukkit.getWorld(site.location.world)?.let { Location(it,site.location.x+0.5,site.location.y.toDouble(),site.location.z+0.5) }
 
     private fun renderAll() {
         // 一地点のワールド・表示失敗を局所化し、起動やプロフィール読込を巻き込みません。
-        sites.values.forEach { site ->
+        sitesById.values.forEach { site ->
             runCatching { renderSite(site) }.onFailure { error ->
                 plugin.logger.warning("Could not render gathering node ${site.node.id}/${site.location.id}: ${error.message}")
             }
@@ -184,15 +190,18 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
     fun pistonRetract(e: BlockPistonRetractEvent) { if(e.blocks.any { isProtected(it.location) }) e.isCancelled=true }
     /** チャンク単位で管理表示を除去・復元します。ワールド全体は走査しません。 */
     @EventHandler fun chunk(e: ChunkLoadEvent) {
-        e.chunk.entities.filter { it.persistentDataContainer.has(displayKey,PersistentDataType.STRING) }.forEach { entity ->
+        e.chunk.entities.filter {
+            it.persistentDataContainer.has(displayKey,PersistentDataType.STRING) ||
+                it.persistentDataContainer.has(hitboxKey,PersistentDataType.STRING)
+        }.forEach { entity ->
             if(displays.values.flatten().none { it == entity.uniqueId }) entity.remove()
         }
-        sites.values.filter { it.location.world==e.world.name && it.location.x shr 4==e.chunk.x && it.location.z shr 4==e.chunk.z }.forEach(::renderSite)
+        sitesById.values.filter { it.location.world==e.world.name && it.location.x shr 4==e.chunk.x && it.location.z shr 4==e.chunk.z }.forEach(::renderSite)
     }
     private fun isProtected(location: Location): Boolean {
         if(location.world.name != "ec_world") return false
         val x=location.blockX; val y=location.blockY; val z=location.blockZ
-        return sites.values.any { s -> s.location.world==location.world.name && kotlin.math.abs(s.location.x-x)<=1 && kotlin.math.abs(s.location.y-y)<=1 && kotlin.math.abs(s.location.z-z)<=1 }
+        return sitesById.values.any { s -> s.location.world==location.world.name && kotlin.math.abs(s.location.x-x)<=1 && kotlin.math.abs(s.location.y-y)<=1 && kotlin.math.abs(s.location.z-z)<=1 }
     }
 
     @EventHandler(priority=EventPriority.HIGHEST)
@@ -202,7 +211,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         val block=e.clickedBlock ?: return
         val site=sites[key(block.world.name,block.x,block.y,block.z)]
         if(site==null) {
-            val nearby=sites.values.distinctBy(::siteKey).filter { it.location.world==block.world.name }.minByOrNull { (it.location.x-block.x)*(it.location.x-block.x)+(it.location.z-block.z)*(it.location.z-block.z) }
+            val nearby=sitesById.values.filter { it.location.world==block.world.name }.minByOrNull { (it.location.x-block.x)*(it.location.x-block.x)+(it.location.z-block.z)*(it.location.z-block.z) }
             if(nearby!=null && kotlin.math.abs(nearby.location.y-block.y)<=2 && (nearby.location.x-block.x)*(nearby.location.x-block.x)+(nearby.location.z-block.z)*(nearby.location.z-block.z)<=4) {
                 e.isCancelled=true
                 reject(e.player,"ec.gathering.click_site", "name" to nearby.node.name)
@@ -311,12 +320,12 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
                 plugin.snapshot.world.lifeBalance.gatheringMilestones.filter { total>=it.threshold && profile.gatheringRecords.size>=it.uniqueNodes }.forEach { profile.flags.add(it.flag) }
             },success={
                 plugin.syncTitleAdvancements(player,profile)
-                val items=result.joinToString { "${it.item} ×${it.amount}" }.ifEmpty { plugin.message(player,"ec.gathering.reward_empty").toString() }
+                val items=result.joinToString { "${plugin.contentName(player,it.item)} ×${it.amount}" }.ifEmpty { plain(plugin.message(player,"ec.gathering.reward_empty")) }
                 player.sendMessage(plugin.message(player,"ec.gathering.reward", "items" to items, "xp" to node.lifeXp))
                 plugin.markDirty(profile.uuid)
             })
         } catch(error: Exception) {
-            val reason=if(error.message=="ec.gathering.respawned") plugin.message(player,"ec.gathering.respawned").toString() else error.message.orEmpty()
+            val reason=if(error.message=="ec.gathering.respawned") plain(plugin.message(player,"ec.gathering.respawned")) else error.message.orEmpty()
             player.sendMessage(plugin.message(player,"ec.gathering.reward_failed", "reason" to reason))
         }
     }

@@ -47,8 +47,10 @@ class LangCatalog internal constructor(
                 if (warnedMissing.add(key)) logger.warning("Missing language key: $key")
             }
             val detail = match.groups[2]?.value?.takeIf(String::isNotBlank) ?: return@replace template
-            val placeholder = Regex("<(\\w+)>")
-            if (placeholder.containsMatchIn(template)) placeholder.replace(template, detail) else "$template: $detail"
+            if (DETAIL_PLACEHOLDER.containsMatchIn(template)) {
+                // replacement callback keeps '$' and '\\' in diagnostic details literal.
+                DETAIL_PLACEHOLDER.replace(template) { detail }
+            } else "$template: $detail"
         }
         return Component.text(translated)
     }
@@ -64,6 +66,7 @@ class LangCatalog internal constructor(
 
     companion object {
         private val ERROR_KEY = Regex("(ec(?:\\.[a-z0-9_]+)+)(?::\\s*([^\\n]+))?")
+        private val DETAIL_PLACEHOLDER = Regex("<(?!/?(?:aqua|black|blue|dark_aqua|dark_blue|dark_gray|dark_green|dark_purple|dark_red|gold|gray|green|italic|light_purple|red|reset|white|yellow|bold|underlined|strikethrough|obfuscated|newline|#)[^>]*)([a-zA-Z][a-zA-Z0-9_]*)>")
         /** 言語ファイルを読み込みます。既存サーバー編集は初期化側のhash管理で保護します。 */
         fun load(
             dataFolder: Path,

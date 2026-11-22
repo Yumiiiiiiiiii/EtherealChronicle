@@ -6,6 +6,8 @@ ec:
     prompt: "<gold>EtherealChronicle 専用リソースパックを適用しますか？<newline><gray>未適用でもプレイ可能です。"
     required_prompt: "<gold>このサーバーでは専用リソースパックが必須です。<newline><yellow>サーバーリストの設定で「サーバーリソースパック」を有効にして再接続してください。"
     required_declined: "このサーバーはリソースパックが必須です。サーバーリストの設定で「サーバーリソースパック: 有効」にして再接続してください。"
+    required_download_failed: "リソースパックを取得できませんでした。サーバーリストの設定と通信環境を確認して再接続してください。"
+    required_apply_failed: "リソースパックを適用できませんでした。クライアントを再起動して再接続してください。"
     waiting: "必須リソースパックを適用しています。完了するまでゲーム操作をお待ちください。"
     required_timeout: "制限時間内にリソースパックを適用できなかったため、接続を終了しました。サーバーリストの設定を確認して再接続してください。"
     required_unavailable: "必須リソースパックを配信できないため、必須設定を一時的に無効化しました。配信設定と起動ログを確認してください。"
@@ -121,7 +123,7 @@ ec:
     validation_failed: "検証失敗: <reason>"
     reload_busy: "取引・職業選択・聖堂攻略中は再読み込みできません。"
     reload_content_in_use: "使用中の職業または依頼を削除する変更は再読み込みできません。"
-    reload_success: "コンテンツを再読み込みしました。"
+    reload_success: "コンテンツを再読み込みしました。resource_pack.* の設定変更は再起動後に反映されます。"
     validate_success: "コンテンツ検証成功。"
     currency_set: "所持金を設定しました。"
     item_given: "アイテムを付与しました。"
@@ -258,6 +260,10 @@ ec:
     confirm_start: "この職業で始める"
     confirm_cancel: "戻る"
     weapon_queued: "新しい職業の初期武器は持ち物に送られました。<gold>/ec claim</gold> で受け取れます。"
+    selection:
+      role: "資源: <resource>"
+      stats: "HP <hp> / 攻撃 <attack> / 防御 <defense>"
+      skills: "スキル: <skills>"
   menu:
     dialogue: "会話"
     shop: "お店"

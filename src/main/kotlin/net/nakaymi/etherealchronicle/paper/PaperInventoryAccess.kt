@@ -8,12 +8,13 @@ import org.bukkit.inventory.ItemStack
 class PaperInventoryAccess(private val player: Player,private val identify: (ItemStack?) -> String?,private val create: (String,Int) -> ItemStack,
     private val persistRemoval: Boolean = true,private val onConsume: () -> Unit = {}): InventoryAccess {
     override fun count(item: String): Int = player.inventory.storageContents.filterNotNull().filter { identify(it) == item }.sumOf { it.amount }
-    private fun preview(remove: Map<String,Int>,add: Map<String,Int>): Array<ItemStack?>? {
+    private fun preview(remove: Map<String,Int>,add: Map<String,Int>,preferredSlot: Int? = null): Array<ItemStack?>? {
         val slots: Array<ItemStack?> = player.inventory.storageContents.map { it?.clone() }.toTypedArray()
         for((id,n) in remove) {
             if(n < 0) return null
             var remaining=n
-            for(i in slots.indices) {
+            val order = if (preferredSlot != null && preferredSlot in slots.indices) listOf(preferredSlot) + slots.indices.filter { it != preferredSlot } else slots.indices.toList()
+            for(i in order) {
                 val stack=slots[i] ?: continue
                 if(identify(stack) == id) { val take=minOf(remaining,stack.amount); stack.amount-=take; remaining-=take; if(stack.amount == 0) slots[i]=null }
             }
@@ -35,6 +36,7 @@ class PaperInventoryAccess(private val player: Player,private val identify: (Ite
         return slots
     }
     override fun canExchange(remove: Map<String,Int>,add: Map<String,Int>) = preview(remove,add) != null
+    override fun canExchangeFromSlot(slot: Int?,remove: Map<String,Int>,add: Map<String,Int>) = preview(remove,add,slot) != null
     override fun exchange(remove: Map<String,Int>,add: Map<String,Int>): Boolean {
         val after=preview(remove,add) ?: return false
         if(remove.isNotEmpty()) {
@@ -42,6 +44,19 @@ class PaperInventoryAccess(private val player: Player,private val identify: (Ite
             if(persistRemoval) {
             // 支払い前に消費状態をプレイヤーデータへ保存し、通常切断時の素材復活を抑えます。
             player.saveData()
+                onConsume()
+            }
+        }
+        player.inventory.storageContents=after
+        return true
+    }
+    override fun exchangeFromSlot(slot: Int?,remove: Map<String,Int>,add: Map<String,Int>): Boolean {
+        val after=preview(remove,add,slot) ?: return false
+        if(remove.isNotEmpty()) {
+            player.inventory.storageContents=preview(remove,emptyMap(),slot) ?: return false
+            if(persistRemoval) {
+                // 支払い前に消費状態をプレイヤーデータへ保存し、通常切断時の素材復活を抑えます。
+                player.saveData()
                 onConsume()
             }
         }

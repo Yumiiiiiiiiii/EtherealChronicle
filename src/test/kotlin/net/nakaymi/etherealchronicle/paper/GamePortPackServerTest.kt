@@ -8,6 +8,10 @@ import org.junit.jupiter.api.Test
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
+import java.net.Socket
+import java.io.IOException
+import java.io.OutputStream
+import java.util.concurrent.TimeUnit
 
 class GamePortPackServerTest {
     @Test
@@ -63,6 +67,34 @@ class GamePortPackServerTest {
     }
 
     @Test
+    fun `one byte get prefix is timed out and non-http prefix cancels that timeout`() {
+        val artifact = ResourcePackArtifact.from("pack".toByteArray())
+        val slowloris = sniffer(artifact, idleTimeoutMillis = 100)
+        slowloris.writeInbound(Unpooled.copiedBuffer("G", StandardCharsets.US_ASCII))
+        Thread.sleep(140)
+        slowloris.runScheduledPendingTasks()
+        assertFalse(slowloris.isOpen)
+        slowloris.finishAndReleaseAll()
+
+        val minecraft = sniffer(artifact, idleTimeoutMillis = 100)
+        val packet = byteArrayOf('G'.code.toByte(), 'X'.code.toByte(), 0x01)
+        minecraft.writeInbound(Unpooled.wrappedBuffer(packet))
+        Thread.sleep(140)
+        minecraft.runScheduledPendingTasks()
+        assertTrue(minecraft.isOpen)
+        val forwardedBytes = java.io.ByteArrayOutputStream()
+        while (true) {
+            val forwarded = minecraft.readInbound<ByteBuf>() ?: break
+            val bytes = ByteArray(forwarded.readableBytes())
+            forwarded.readBytes(bytes)
+            forwarded.release()
+            forwardedBytes.write(bytes)
+        }
+        assertArrayEquals(packet, forwardedBytes.toByteArray())
+        minecraft.finishAndReleaseAll()
+    }
+
+    @Test
     fun `per ip connection cap rejects excess leases`() {
         val limiter = PackConnectionLimiter(maxConnections = 2, maxPerIp = 1, bandwidthKbPerSecond = 1024)
 
@@ -85,6 +117,66 @@ class GamePortPackServerTest {
             limiter.release("198.51.100.7")
         } finally {
             pool.shutdownNow()
+        }
+    }
+
+    @Test
+    fun `bandwidth reservation stays global after an ip lease is released`() {
+        val limiter = PackConnectionLimiter(maxConnections = 4, maxPerIp = 2, bandwidthKbPerSecond = 64)
+        assertTrue(limiter.acquire("198.51.100.8"))
+        limiter.reserveDelayNanos(65_536)
+        limiter.release("198.51.100.8")
+        assertTrue(limiter.acquire("198.51.100.9"))
+
+        assertTrue(limiter.reserveDelayNanos(65_536) > TimeUnit.MILLISECONDS.toNanos(500))
+        limiter.release("198.51.100.9")
+    }
+
+    @Test
+    fun `proxy detection uses configured backend modes`() {
+        assertEquals(emptyList<String>(), detectUnsupportedProxies(false, false, false))
+        assertEquals(listOf("BungeeCord/Waterfall"), detectUnsupportedProxies(true, false, false))
+        assertEquals(listOf("Velocity"), detectUnsupportedProxies(false, true, false))
+        assertEquals(listOf("TCPShield"), detectUnsupportedProxies(false, false, true))
+        assertEquals(3, detectUnsupportedProxies(true, true, true).size)
+    }
+
+    @Test
+    fun `write watchdog closes a stalled socket`() {
+        val socket = BlockingSocket()
+        val writer = Executors.newSingleThreadExecutor()
+        try {
+            val result = writer.submit {
+                withSocketWriteDeadline(socket, 100) { output -> output.write(1) }
+            }
+            assertThrows(java.util.concurrent.ExecutionException::class.java) { result.get(2, TimeUnit.SECONDS) }
+            assertTrue(socket.closed)
+        } finally {
+            writer.shutdownNow()
+        }
+    }
+
+    @Test
+    fun `non-success responses are not cached`() {
+        assertEquals("Cache-Control: public, max-age=3600, immutable\r\n", cacheControlHeader(200))
+        assertEquals("Cache-Control: no-store\r\n", cacheControlHeader(404))
+    }
+
+    private class BlockingSocket : Socket() {
+        @Volatile var closed = false
+            private set
+        private val closeSignal = java.util.concurrent.CountDownLatch(1)
+
+        override fun getOutputStream(): OutputStream = object : OutputStream() {
+            override fun write(value: Int) {
+                closeSignal.await()
+                throw IOException("socket closed during write")
+            }
+        }
+
+        override fun close() {
+            closed = true
+            closeSignal.countDown()
         }
     }
 

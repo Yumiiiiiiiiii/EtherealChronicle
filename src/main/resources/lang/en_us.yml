@@ -6,6 +6,8 @@ ec:
     prompt: "<gold>Apply the EtherealChronicle resource pack?<newline><gray>You can play without it."
     required_prompt: "<gold>This server requires the EtherealChronicle resource pack.<newline><yellow>Enable Server Resource Packs in the server list settings, then reconnect."
     required_declined: "This server requires its resource pack. Enable Server Resource Packs in the server list settings, then reconnect."
+    required_download_failed: "The resource pack could not be downloaded. Check the server list setting and network connection, then reconnect."
+    required_apply_failed: "The resource pack could not be applied. Restart your client and reconnect."
     waiting: "Applying the required resource pack. Gameplay is paused until it finishes."
     required_timeout: "The resource pack was not applied in time, so the connection was closed. Check the server list setting and reconnect."
     required_unavailable: "The required resource pack has no working delivery endpoint, so enforcement is temporarily disabled. Check the distribution settings and startup log."
@@ -121,7 +123,7 @@ ec:
     validation_failed: "Validation failed: <reason>"
     reload_busy: "Content cannot reload during a transaction, class selection, or trial."
     reload_content_in_use: "Reload cannot remove a class or quest currently in use."
-    reload_success: "Content reloaded."
+    reload_success: "Content reloaded. Changes to resource_pack.* settings require a restart."
     validate_success: "Content validation succeeded."
     currency_set: "Currency updated."
     item_given: "Item granted."
@@ -277,6 +279,10 @@ ec:
     confirm_start: "Start as this class"
     confirm_cancel: "Go back"
     weapon_queued: "Your new class starter weapon was sent to your mailbox. Use <gold>/ec claim</gold> to receive it."
+    selection:
+      role: "Resource: <resource>"
+      stats: "HP <hp> / Attack <attack> / Defense <defense>"
+      skills: "Skills: <skills>"
   menu:
     dialogue: "Dialogue"
     shop: "Shop"

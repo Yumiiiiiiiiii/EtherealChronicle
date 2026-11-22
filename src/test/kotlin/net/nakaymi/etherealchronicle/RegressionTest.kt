@@ -79,6 +79,53 @@ class RegressionTest {
         time+=550; assertTrue(gate.accept(p.uuid,550))
         assertTrue(c.balance.damage(Stats.ZERO,85.0,0.0,115.0,false,1.25) < 100.0)
     }
+    @Test fun `returning a delivery merges mailbox quantities without replacing existing rewards`() {
+        val profile=PlayerProfile(UUID.randomUUID())
+        profile.pendingRewards["ec:item_mat_aether_gel"]=3
+        profile.returnToMailbox(mapOf("ec:item_mat_aether_gel" to 2,"ec:item_con_minor_hp_potion" to 1))
+        assertEquals(5,profile.pendingRewards["ec:item_mat_aether_gel"])
+        assertEquals(1,profile.pendingRewards["ec:item_con_minor_hp_potion"])
+        assertFailsWith<ArithmeticException> { profile.returnToMailbox(mapOf("ec:item_mat_aether_gel" to Int.MAX_VALUE)) }
+        assertEquals(5,profile.pendingRewards["ec:item_mat_aether_gel"],"overflow must not mutate the stored amount")
+    }
+    @Test fun `automatic quest completion can be deferred until its transaction boundary`() {
+        val base=ContentService(Path.of("src/main/resources/content")).load()
+        val id="ec:quest_transaction_test"
+        val document=mapOf<String,Any?>(
+            "schema_version" to 1,"id" to id,"type" to "quest","name" to "transaction test",
+            "objectives" to listOf(mapOf("id" to "upgrade","kind" to "ENHANCE_GEAR","target" to "1","amount" to 1)),
+            "rewards" to mapOf("xp" to 10,"currency" to 5),"auto_complete" to true
+        )
+        val snapshot=base.copy(documents=base.documents+mapOf(id to document))
+        val engine=QuestEngine({ snapshot },Clock { 100L })
+        val profile=PlayerProfile(UUID.randomUUID())
+        profile.quests[id]=QuestProgress()
+        val inventory=MemoryInventory()
+        engine.event(profile,ObjectiveKind.ENHANCE_GEAR,"1",1,inventory,allowAutoComplete=false)
+        assertFalse(profile.quests.getValue(id).completed,"event must not award before the caller's transaction commits")
+        assertEquals(listOf(id),engine.readyAutoComplete(profile,inventory))
+        engine.complete(profile,id,inventory)
+        assertTrue(profile.quests.getValue(id).completed)
+        assertEquals(5,profile.currency)
+        assertEquals(10,profile.xp)
+    }
+    @Test fun `sell plan preserves the clicked source slot for duplicate item ids`() {
+        val snapshot=ContentService(Path.of("src/main/resources/content")).load()
+        val shop=snapshot.world.shops.values.first { it.buyback }
+        val item=snapshot.world.itemProperties.entries.first { (_,properties) -> !properties.bound && !properties.questItem && properties.price>0 }
+        var chosenSlot:Int?=null
+        val inventory=object: InventoryAccess {
+            override fun count(item:String)=10
+            override fun canExchange(remove:Map<String,Int>,add:Map<String,Int>)=true
+            override fun exchange(remove:Map<String,Int>,add:Map<String,Int>)=true
+            override fun canExchangeFromSlot(slot:Int?,remove:Map<String,Int>,add:Map<String,Int>):Boolean { chosenSlot=slot; return slot==23 }
+        }
+        val profile=PlayerProfile(UUID.randomUUID(),currency=100)
+        val result=TradeEngine({ snapshot }).planSell(profile,shop.id,item.key,1,inventory,"source-slot",23)
+        assertIs<TradePlanResult.Ready>(result)
+        assertEquals(23,chosenSlot)
+        assertEquals(23,result.plan.sourceSlot)
+    }
     @Test fun `schema four mailbox and alias migrations round trip with quit restoration ordered after clearing`() {
         val c=ContentService(Path.of("src/main/resources/content")).load(); val p=PlayerProfile(UUID.randomUUID(),classId="ec:mage",starterGranted=true)
         p.quests["ec:tutorial"]=QuestProgress(1,true)

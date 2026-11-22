@@ -45,11 +45,11 @@ internal class CodexController(private val plugin: RpgPlugin) {
             val count=profile.bestiary[enemy.id] ?: 0
             val discovered=count > 0
             val drops=plugin.snapshot.documents[enemy.id]?.get("droptable") as? String
-            val dropIds=drops?.let(plugin.snapshot.drops::find)?.entries?.map { it.item }.orEmpty()
+            val dropNames=drops?.let(plugin.snapshot.drops::find)?.entries?.map { plugin.contentName(player,it.item) }.orEmpty()
             menu.setItem(slot,ItemStack(if(discovered) Material.BLAZE_POWDER else Material.GRAY_DYE).apply { itemMeta=itemMeta.apply {
                 displayName(if(discovered) Component.text(enemy.name) else plugin.message(player,"ec.codex.undiscovered_enemy"))
                 val weaknesses=enemy.weaknesses.joinToString().ifEmpty { plain(plugin.message(player,"ec.codex.no_weakness")) }
-                lore(if(discovered) listOf(plugin.message(player,"ec.codex.defeated_count","count" to count),plugin.message(player,"ec.codex.weaknesses","values" to weaknesses),plugin.message(player,"ec.codex.drops","values" to dropIds.joinToString())) else listOf(plugin.message(player,"ec.codex.search_area")))
+                lore(if(discovered) listOf(plugin.message(player,"ec.codex.defeated_count","count" to count),plugin.message(player,"ec.codex.weaknesses","values" to weaknesses),plugin.message(player,"ec.codex.drops","values" to dropNames.joinToString())) else listOf(plugin.message(player,"ec.codex.search_area")))
             } })
         }
         codexFooter(player,menu,page,true)
@@ -70,13 +70,6 @@ internal class CodexController(private val plugin: RpgPlugin) {
         }
         codexFooter(player,menu,page,true)
         plugin.openCodexMenu(player, menu)
-    }
-    private fun codexTabs(player:Player,menu:Inventory) {
-        val holder=menu.holder as? RpgMenu
-        if(holder?.kind in setOf("codex-area","codex-items","codex-fish","codex-gathering")) menu.setItem(50,ItemStack(Material.ARROW).apply { itemMeta=itemMeta.apply { displayName(plugin.message(player,"ec.codex.back_areas")) } })
-        menu.setItem(51,ItemStack(Material.FISHING_ROD).apply { itemMeta=itemMeta.apply { displayName(plugin.message(player,"ec.codex.tab_fish")) } })
-        menu.setItem(52,ItemStack(Material.IRON_PICKAXE).apply { itemMeta=itemMeta.apply { displayName(plugin.message(player,"ec.codex.tab_gathering")) } })
-        menu.setItem(53,ItemStack(Material.BOOK).apply { itemMeta=itemMeta.apply { displayName(plugin.message(player,"ec.codex.tab_items")) } })
     }
     /** 魚種の発見数とサイズ記録を表示します。 */
     fun openCodexFish(player:Player) {
@@ -142,6 +135,14 @@ internal class CodexController(private val plugin: RpgPlugin) {
             "codex-fish" -> openCodexFish(player)
             "codex-gathering" -> openCodexGathering(player)
         }
+    }
+
+    /** 現在表示中のエリア一覧ページから、スロット位置をエリアIDへ解決します。 */
+    fun openAreaFromSlot(player: Player, slot: Int) {
+        val state = pageStates[player.uniqueId]?.takeIf { it.key == "codex-areas:" } ?: return
+        val index = CodexPagination.itemIndex(state.page,slot) ?: return
+        val area = plugin.snapshot.world.areas.values.sortedBy { it.name }.getOrNull(index) ?: return
+        openCodexArea(player, area.id)
     }
 
     /** 切断時に図鑑の一時ページ状態を破棄します。 */

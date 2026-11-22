@@ -66,7 +66,7 @@ class UiThemeProvider(
             val width = approximateTitleWidth(localizedTitle)
             val sidePadding = ((BACKGROUND_WIDTH - width) / 2).coerceAtLeast(0)
             return Component.text(glyph).font(uiFont)
-                .append(Component.text(spaces(-BACKGROUND_WIDTH + sidePadding)).font(spaceFont))
+                .append(Component.text(spaces(-BACKGROUND_WIDTH + sidePadding + TITLE_LEFT_OFFSET)).font(spaceFont))
                 // 子要素へ背景フォントが継承されると通常のタイトル文字が豆腐になるため標準フォントを明示します。
                 .append(localizedTitle.font(defaultFont))
                 .append(Component.text(spaces(sidePadding)).font(spaceFont))
@@ -82,12 +82,8 @@ class UiThemeProvider(
             mode: ThemeMode = ThemeMode.FULL,
         ): NamespacedKey? {
             if (!hasPack || mode == ThemeMode.OFF) return null
-            val model = contentModel ?: when {
-                menuKind.startsWith("codex") && slot in 47..49 -> "ec:ui_tab_codex"
-                menuKind.startsWith("codex") && slot == 53 && material == Material.ARROW -> "ec:ui_btn_next"
-                menuKind.startsWith("codex") && material == Material.ARROW -> "ec:ui_btn_prev"
-                menuKind == "enhance" && slot == 13 -> "ec:ui_btn_confirm"
-                else -> null
+            val model = contentModel ?: UI_MODEL_RULES.firstNotNullOfOrNull { rule ->
+                rule.model.takeIf { rule.matches(menuKind,slot,material) }
             }
             return modelKey(true,model)
         }
@@ -130,7 +126,15 @@ class UiThemeProvider(
         }
 
         private const val BACKGROUND_WIDTH = 176
+        internal const val TITLE_LEFT_OFFSET = -8
         private val WIDE_SCRIPTS = setOf(Character.UnicodeScript.HAN, Character.UnicodeScript.HIRAGANA, Character.UnicodeScript.KATAKANA)
+        private data class UiModelRule(val model: String, val matches: (String,Int,Material) -> Boolean)
+        private val UI_MODEL_RULES = listOf(
+            UiModelRule("ec:ui_tab_codex") { kind,slot,_ -> kind.startsWith("codex") && slot in 47..49 },
+            UiModelRule("ec:ui_btn_next") { kind,slot,material -> kind.startsWith("codex") && slot==53 && material==Material.ARROW },
+            UiModelRule("ec:ui_btn_prev") { kind,_,material -> kind.startsWith("codex") && material==Material.ARROW },
+            UiModelRule("ec:ui_btn_confirm") { kind,slot,_ -> kind=="enhance" && slot==13 },
+        )
     }
 }
 

@@ -4,6 +4,7 @@ import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.io.OutputStream
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
@@ -12,6 +13,7 @@ import java.security.MessageDigest
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -56,12 +58,14 @@ class EmbeddedPackServer(
     private val maxPerIp: Int = maxConcurrent.coerceAtMost(4),
     private val idleReadTimeoutMillis: Int = 500,
     private val headerDeadlineMillis: Int = 1_500,
+    private val writeDeadlineMillis: Int = 5_000,
 ) : AutoCloseable {
     init {
         require(maxConcurrent in 1..128)
         require(maxPerIp in 1..maxConcurrent)
         require(idleReadTimeoutMillis in 100..10_000)
         require(headerDeadlineMillis in idleReadTimeoutMillis..30_000)
+        require(writeDeadlineMillis in 500..30_000)
     }
 
     private val running = AtomicInteger(1)
@@ -92,7 +96,14 @@ class EmbeddedPackServer(
             val socket = try {
                 serverSocket.accept()
             } catch (_: IOException) {
-                if (running.get() == 1) continue else return
+                if (running.get() != 1) return
+                try {
+                    Thread.sleep(ACCEPT_ERROR_BACKOFF_MILLIS)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    return
+                }
+                continue
             }
             val ip = socket.inetAddress.hostAddress ?: "unknown"
             val ipCounter = perIpConnections.computeIfAbsent(ip) { AtomicInteger() }
@@ -169,14 +180,17 @@ class EmbeddedPackServer(
     /** HTTP応答に必要な最小ヘッダーだけを書き、本文はGETにだけ付けます。 */
     private fun writeResponse(socket: Socket, status: Int, reason: String, body: ByteArray?, headOnly: Boolean) {
         val bytes = body ?: ByteArray(0)
-        val output = BufferedOutputStream(socket.getOutputStream())
-        val contentType = if (status == 200) "Content-Type: application/zip\r\n" else ""
-        output.write("HTTP/1.1 $status $reason\r\n$contentType".toByteArray(Charsets.ISO_8859_1))
-        output.write("Cache-Control: public, max-age=3600, immutable\r\n".toByteArray(Charsets.ISO_8859_1))
-        output.write("X-Content-Type-Options: nosniff\r\n".toByteArray(Charsets.ISO_8859_1))
-        output.write("Content-Length: ${bytes.size}\r\nConnection: close\r\n\r\n".toByteArray(Charsets.ISO_8859_1))
-        if (!headOnly && bytes.isNotEmpty()) output.write(bytes)
-        output.flush()
+        withSocketWriteDeadline(socket, writeDeadlineMillis) { socketOutput ->
+            val output = BufferedOutputStream(socketOutput)
+            val contentType = if (status == 200) "Content-Type: application/zip\r\n" else ""
+            val cacheControl = cacheControlHeader(status)
+            output.write("HTTP/1.1 $status $reason\r\n$contentType".toByteArray(Charsets.ISO_8859_1))
+            output.write(cacheControl.toByteArray(Charsets.ISO_8859_1))
+            output.write("X-Content-Type-Options: nosniff\r\n".toByteArray(Charsets.ISO_8859_1))
+            output.write("Content-Length: ${bytes.size}\r\nConnection: close\r\n\r\n".toByteArray(Charsets.ISO_8859_1))
+            if (!headOnly && bytes.isNotEmpty()) output.write(bytes)
+            output.flush()
+        }
     }
 
     /** ソケット・グローバル枠・送信元IP枠を必ず同時に解放します。 */
@@ -197,5 +211,28 @@ class EmbeddedPackServer(
     private companion object {
         const val MAX_HEADER_BYTES = 4_096
         const val MAX_HEADERS = 64
+        const val ACCEPT_ERROR_BACKOFF_MILLIS = 25L
     }
 }
+
+/** 応答書き込みが期限を超えたらソケットを閉じ、HTTPワーカー枠を解放します。 */
+internal fun withSocketWriteDeadline(
+    socket: Socket,
+    timeoutMillis: Int,
+    write: (OutputStream) -> Unit,
+) {
+    val timeout = socketWriteWatchdog.schedule({ runCatching { socket.close() } }, timeoutMillis.toLong(), TimeUnit.MILLISECONDS)
+    try {
+        write(socket.getOutputStream())
+    } finally {
+        timeout.cancel(false)
+    }
+}
+
+private val socketWriteWatchdog: ScheduledExecutorService = java.util.concurrent.Executors.newSingleThreadScheduledExecutor { task ->
+    Thread(task, "ec-resource-pack-write-watchdog").apply { isDaemon = true }
+}
+
+/** 成功ZIPだけを長期キャッシュし、エラー応答の誤キャッシュを避けます。 */
+internal fun cacheControlHeader(status: Int): String =
+    if (status == 200) "Cache-Control: public, max-age=3600, immutable\r\n" else "Cache-Control: no-store\r\n"

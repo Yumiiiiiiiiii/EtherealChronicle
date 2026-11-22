@@ -38,10 +38,10 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         val water:Location,val bobber:UUID,val bar:BossBar,var input:ReelInput=ReelInput.IDLE,var lastInput:Long=0,
         var bitePending:Boolean=false,var bait:String?=null,var baitCountBefore:Int=0,var softThrottle:Boolean=false,var pullRemaining:Double=0.0
     )
-    private val engine=FishingEngine(plugin.snapshot.world.lifeBalance,random)
+    private var engine=FishingEngine(plugin.snapshot.world.lifeBalance,random)
     private val sessions=mutableMapOf<UUID,Session>()
     private val bobberKey=NamespacedKey(plugin,"fish_bobber")
-    private val capacity=plugin.snapshot.world.lifeBalance.maxFishingSessions
+    private var capacity=plugin.snapshot.world.lifeBalance.maxFishingSessions
     private val castGate=ActionGate(Clock { System.currentTimeMillis() })
     private val catchHistory=mutableMapOf<Pair<UUID,String>,ArrayDeque<Long>>()
     private val disabledUntil=mutableMapOf<Pair<UUID,String>,Long>()
@@ -115,7 +115,12 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         sessions.clear(); catchHistory.clear(); disabledUntil.clear(); macroDetectors.clear()
     }
     /** コンテンツ変更に合わせて釣りタスクを再生成します。 */
-    fun reload() { close(); task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },2,2) }
+    fun reload() {
+        close()
+        engine=FishingEngine(plugin.snapshot.world.lifeBalance,random)
+        capacity=plugin.snapshot.world.lifeBalance.maxFishingSessions
+        task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },2,2)
+    }
     private fun cleanup(session:Session) { session.bar.removeAll(); Bukkit.getEntity(session.bobber)?.remove() }
     private fun plain(component:Component):String =
         net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(component)
@@ -244,10 +249,14 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         if(bait==null) { s.state.phase=FishingPhase.BITE_ALERT; showBite(player); return }
         s.bait=bait; s.baitCountBefore=plugin.inventory(player).count(bait); s.bitePending=true
         try {
-            plugin.adventure.transaction(player,{ inventory -> require(inventory.exchange(mapOf(bait to 1),emptyMap())) { "ec.error.fishing_bait_missing" } }) {
+            plugin.adventure.transaction(player,{ inventory -> require(inventory.exchange(mapOf(bait to 1),emptyMap())) { "ec.error.fishing_bait_missing" } },success={
                 if(sessions[player.uniqueId]===s) { s.bitePending=false; s.state.phase=FishingPhase.BITE_ALERT; showBite(player) }
-            }
-        } catch(error:Exception) { s.bitePending=false; s.state.phase=FishingPhase.BITE_ALERT; player.sendMessage(plugin.message(player,"ec.fishing.bait_failed")); showBite(player) }
+            }, failure={ _ ->
+                if(sessions[player.uniqueId]===s) cancel(player,"ec.fishing.bait_failed",FishingEndReason.CANCELLED)
+            })
+        } catch(error:Exception) {
+            if(sessions[player.uniqueId]===s) cancel(player,"ec.fishing.bait_failed",FishingEndReason.CANCELLED)
+        }
     }
     private fun chooseBait(player:org.bukkit.entity.Player,profile:PlayerProfile):String? {
         if(profile.fishingBait=="NONE") return null

@@ -18,6 +18,9 @@ class ResourcePackRequiredPolicyTest {
         assertEquals(120, config.getInt("resource_pack.required_timeout_seconds"))
         assertEquals("icons_only",config.getString("ui.theme.mode"))
         assertEquals("op",plugin.getString("permissions.etherealchronicle.pack.bypass.default"))
+        val settings = ResourcePackSettings.from(config)
+        assertEquals(5_000, settings.writeDeadlineMillis)
+        assertEquals("game_port", settings.mode)
     }
 
     @Test
@@ -105,5 +108,55 @@ class ResourcePackRequiredPolicyTest {
         val next=advertisedPackSha1("","b".repeat(40))
         assertNotEquals(first,next)
         assertEquals("c".repeat(40),advertisedPackSha1("c".repeat(40),"a".repeat(40)))
+    }
+
+    @Test
+    fun `embedded endpoint rejects a loopback public fallback for a public bind`() {
+        assertFalse(ResourcePackEndpointPolicy.canAdvertise("0.0.0.0", "127.0.0.1"))
+        assertFalse(ResourcePackEndpointPolicy.canAdvertise("0.0.0.0", "localhost"))
+        assertTrue(ResourcePackEndpointPolicy.canAdvertise("127.0.0.1", "127.0.0.1"))
+        assertTrue(ResourcePackEndpointPolicy.canAdvertise("0.0.0.0", "packs.example.test"))
+    }
+
+    @Test
+    fun `turning pack off overrides an existing applied state`() {
+        val off = ResourcePackPolicy.decide(
+            configuredRequired = false,
+            deliveryAvailable = true,
+            preference = PackPreference.OFF,
+            bypass = false,
+        )
+
+        assertFalse(off.send)
+        assertFalse(off.required)
+    }
+
+    @Test
+    fun `external pack intermediate statuses preserve applied visuals`() {
+        assertEquals(PackVisualTransition.LOADED, ManagedPackPolicy.visualTransition("SUCCESSFULLY_LOADED"))
+        assertEquals(PackVisualTransition.KEEP, ManagedPackPolicy.visualTransition("ACCEPTED"))
+        assertEquals(PackVisualTransition.KEEP, ManagedPackPolicy.visualTransition("DOWNLOADED"))
+        assertEquals(PackVisualTransition.UNLOADED, ManagedPackPolicy.visualTransition("FAILED_RELOAD"))
+        assertEquals(PackVisualTransition.UNLOADED, ManagedPackPolicy.visualTransition("DECLINED"))
+    }
+
+    @Test
+    fun `required pack failure messages distinguish decline download and apply`() {
+        assertEquals(
+            "ec.resource_pack.required_declined",
+            requiredFailureMessageKey(org.bukkit.event.player.PlayerResourcePackStatusEvent.Status.DECLINED),
+        )
+        assertEquals(
+            "ec.resource_pack.required_download_failed",
+            requiredFailureMessageKey(org.bukkit.event.player.PlayerResourcePackStatusEvent.Status.FAILED_DOWNLOAD),
+        )
+        assertEquals(
+            "ec.resource_pack.required_download_failed",
+            requiredFailureMessageKey(org.bukkit.event.player.PlayerResourcePackStatusEvent.Status.INVALID_URL),
+        )
+        assertEquals(
+            "ec.resource_pack.required_apply_failed",
+            requiredFailureMessageKey(org.bukkit.event.player.PlayerResourcePackStatusEvent.Status.FAILED_RELOAD),
+        )
     }
 }
