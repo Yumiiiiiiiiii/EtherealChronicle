@@ -213,7 +213,7 @@ fun PlayerProfile.recordEnemyKillIndexed(enemy:String,areas:Map<String,Area>,ene
         val all=enemiesByArea[areaId].orEmpty().map { it.id }.toSet()
         if(all.isEmpty()) return@forEach
         val found=all.count { (bestiary[it] ?: 0) > 0 }
-        val percent=found*100/all.size
+        val percent=found*PercentageScale.MAX_PERCENT/all.size
         CodexMilestones.completionPercentages.filter { percent >= it }.forEach { milestone ->
             val flag="ec:flag_codex_${areaId.removePrefix("ec:area_")}_$milestone"
             if(flags.add(flag)) unlocked+=flag

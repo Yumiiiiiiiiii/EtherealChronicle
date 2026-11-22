@@ -101,8 +101,8 @@ class GatheringEngine(private val random: kotlin.random.Random = kotlin.random.R
 
     /** 稀少報酬のpityをノード・アイテムごとに保存します。成功時は0へ戻し、パーティ補正は確率のみへ加えて抽選回数を増やしません。 */
     fun roll(node: GatheringNodeDefinition,toolTier: Int,lifeLevel: Int,partyNearby: Boolean,partyBonus: Double,
-             pity: MutableMap<String,Int> = mutableMapOf(),attemptCap: Int = 100): List<GatherResult> {
-        require(toolTier in 1..3 && lifeLevel >= 1 && partyBonus in 0.0..0.25)
+             pity: MutableMap<String,Int> = mutableMapOf(),attemptCap: Int = BalanceDefaults.DROP_PITY_ATTEMPT_CAP): List<GatherResult> {
+        require(toolTier in 1..GatheringFormula.MAX_TOOL_TIER && lifeLevel >= 1 && partyBonus in 0.0..GatheringFormula.MAX_PARTY_BONUS)
         require(attemptCap in 1..GameLimits.MAX_GATHER_ATTEMPTS)
         val bonus=if(partyNearby) partyBonus else 0.0
         return buildList {

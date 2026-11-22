@@ -6,6 +6,19 @@ import kotlin.random.Random
 
 /** 釣りミニゲームの固定物理係数です。魚種ごとの難度はYAML定義を優先します。 */
 object FishingPhysics {
+    const val CALM_BEHAVIOR_MIN_SECONDS = 2.5
+    const val CALM_BEHAVIOR_VARIANCE_SECONDS = 1.5
+    const val TELEGRAPH_BEHAVIOR_SECONDS = 0.4
+    const val THRASH_BEHAVIOR_MIN_SECONDS = 1.2
+    const val THRASH_BEHAVIOR_VARIANCE_SECONDS = 1.0
+    const val DIVE_BEHAVIOR_MIN_SECONDS = 1.0
+    const val DIVE_BEHAVIOR_VARIANCE_SECONDS = 0.6
+    const val DIVE_COOLDOWN_SECONDS = 4.0
+    const val DIVE_BRACE_RECOVERY_SECONDS = 2.0
+    const val MIN_CAST_WAIT_SECONDS = 2.5
+    const val CAST_WAIT_VARIANCE_SECONDS = 6.0
+    const val FATIGUE_WAIT_MULTIPLIER = 1.4
+    const val MIN_INPUT_INTERVAL_MILLIS = 150L
     const val START_TENSION = 32.0
     const val START_SWEET_CENTER = 50.0
     const val CALM_ADVICE_TENSION = START_SWEET_CENTER
@@ -179,13 +192,18 @@ class FishingEngine(private val balance: LifeBalance,private val random: Random 
                 random.nextDouble()<mini.thrashChancePerSecond -> FishBehavior.TELEGRAPH
                 else -> FishBehavior.CALM
             }
-            state.behaviorSeconds=when(state.behavior) { FishBehavior.CALM -> 2.5+random.nextDouble()*1.5; FishBehavior.TELEGRAPH -> 0.4; FishBehavior.THRASH -> 1.2+random.nextDouble(); FishBehavior.DIVE -> 1.0+random.nextDouble()*0.6 }
-            if(state.behavior==FishBehavior.DIVE) state.diveCooldownSeconds=4.0
+        state.behaviorSeconds=when(state.behavior) {
+            FishBehavior.CALM -> FishingPhysics.CALM_BEHAVIOR_MIN_SECONDS + random.nextDouble() * FishingPhysics.CALM_BEHAVIOR_VARIANCE_SECONDS
+            FishBehavior.TELEGRAPH -> FishingPhysics.TELEGRAPH_BEHAVIOR_SECONDS
+            FishBehavior.THRASH -> FishingPhysics.THRASH_BEHAVIOR_MIN_SECONDS + random.nextDouble() * FishingPhysics.THRASH_BEHAVIOR_VARIANCE_SECONDS
+            FishBehavior.DIVE -> FishingPhysics.DIVE_BEHAVIOR_MIN_SECONDS + random.nextDouble() * FishingPhysics.DIVE_BEHAVIOR_VARIANCE_SECONDS
+        }
+        if(state.behavior==FishBehavior.DIVE) state.diveCooldownSeconds=FishingPhysics.DIVE_COOLDOWN_SECONDS
         }
         state.sweetCenter=(state.sweetCenter+(random.nextDouble()-0.5)*mini.difficulty*dt*FishingPhysics.SWEET_CENTER_WANDER_PER_SECOND)
             .coerceIn(FishingPhysics.MIN_SWEET_CENTER,FishingPhysics.MAX_SWEET_CENTER)
         when {
-            input==ReelInput.BRACE && state.behavior==FishBehavior.DIVE -> { state.tension-=FishingPhysics.BRACE_TENSION_REDUCTION; state.progress+=FishingPhysics.BRACE_PROGRESS_GAIN; state.behavior=FishBehavior.CALM; state.behaviorSeconds=2.0 }
+            input==ReelInput.BRACE && state.behavior==FishBehavior.DIVE -> { state.tension-=FishingPhysics.BRACE_TENSION_REDUCTION; state.progress+=FishingPhysics.BRACE_PROGRESS_GAIN; state.behavior=FishBehavior.CALM; state.behaviorSeconds=FishingPhysics.DIVE_BRACE_RECOVERY_SECONDS }
             state.behavior==FishBehavior.DIVE -> { state.tension+=FishingPhysics.DIVE_TENSION_PER_SECOND*state.tensionStability*dt; state.progress-=FishingPhysics.DIVE_PROGRESS_LOSS_PER_SECOND*dt }
             input==ReelInput.PULL -> {
                 val wild=if(state.behavior==FishBehavior.THRASH) FishingPhysics.THRASH_TENSION_MULTIPLIER else 1.0

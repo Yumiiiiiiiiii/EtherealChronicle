@@ -25,7 +25,7 @@ class SimulationSession(private val content: () -> ContentSnapshot, private val 
             "give" -> {
                 val id=arg(0); require(content().items.find(id) != null) { "ec.error.item_missing: $id" }
                 val amount=args.getOrNull(1)?.toIntOrNull() ?: if(args.size > 1) error("ec.error.quantity_range") else 1
-                require(amount in 1..64) { "ec.error.quantity_range" }
+        require(amount in 1..ContentLimits.MAX_ITEM_STACK) { "ec.error.quantity_range" }
                 require(inventory.exchange(emptyMap(),mapOf(id to amount))) { "ec.error.inventory_full" }; inventory.contents.toString()
             }
             "currency" -> { val n=arg(0).toLong(); require(n in 0..content().world.tuning.maxCurrency); p.currency=n; "ec.sim.currency|amount=$n" }

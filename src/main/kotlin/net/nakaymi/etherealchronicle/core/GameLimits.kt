@@ -67,10 +67,28 @@ object ContentLimits {
     const val MAX_DECLARED_LEVEL = 1_000
     const val MAX_ITEM_STACK = 64
     const val MAX_ITEM_AFFIXES = 4
+    const val MAX_CLASS_SKILLS = 4
+    const val MAX_STARTER_ITEMS = 8
+    const val MAX_SHOP_ENTRIES = 45
+    const val MAX_ENEMY_SPAWN_POINT_CAP = 100
+    const val MAX_ENEMY_SIZE = 16
+    const val MAX_SKILL_COOLDOWN_MILLIS = 3_600_000L
+    const val MAX_EFFECT_DURATION_TICKS = 72_000
+    const val MAX_SPECIAL_ATTACK_DURATION_TICKS = 200
+    const val MAX_SPECIAL_ATTACK_RADIUS_BLOCKS = 32.0
+    const val MAX_SPECIAL_ATTACK_RANGE_BLOCKS = 128.0
+    const val MAX_SKILL_RANGE_BLOCKS = 128.0
+    const val MAX_SKILL_RADIUS_BLOCKS = 32.0
+    const val MAX_SKILL_ALLY_RADIUS_BLOCKS = 64.0
+    const val MAX_PUBLIC_TITLE_CHARACTERS = 80
+    const val MAX_PUBLIC_DESCRIPTION_CHARACTERS = 240
+    const val DUNGEON_PALETTE_SIZE = 3
+    const val MAX_TACKLE_TIER = 3
 }
 
 /** 生活系計算式の固定係数を集め、コンテンツ値と実装定数を区別します。 */
 object GatheringFormula {
+    const val MAX_TOOL_TIER = 3
     const val TOOL_TIER_RARE_BONUS = 0.05
     const val LIFE_LEVEL_RARE_BONUS = 0.005
     const val MAX_RARE_BONUS = 0.45
@@ -91,6 +109,11 @@ object ItemBudgetWeights {
 /** 図鑑称号を解除する進捗率の基準です。 */
 object CodexMilestones {
     val completionPercentages = listOf(25, 50, 75, 100)
+}
+
+/** 進捗率を計算・表示するときの共通尺度です。 */
+object PercentageScale {
+    const val MAX_PERCENT = 100
 }
 
 /** ゲーム内の固定暦期間です。暦日リセットは別途ゾーン付きResetPeriodsを使います。 */
