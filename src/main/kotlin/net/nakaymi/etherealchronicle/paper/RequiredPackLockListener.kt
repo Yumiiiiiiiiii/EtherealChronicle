@@ -55,7 +55,9 @@ internal class RequiredPackLockListener(
         }
         if (destination.y < event.from.y) {
             // Bukkitの飛行検査を起こさないよう、操作待ち中でも重力による落下だけ許可します。
-            event.to = event.from.clone().apply { y = destination.y }
+            if (destination.x != event.from.x || destination.z != event.from.z) {
+                event.to = destination.clone().apply { x = event.from.x; z = event.from.z }
+            }
             return
         }
         if (event.from.blockX != destination.blockX ||

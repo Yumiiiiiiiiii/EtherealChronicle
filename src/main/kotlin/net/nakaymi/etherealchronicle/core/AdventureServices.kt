@@ -55,10 +55,11 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
             val quest = content().world.quests[id] ?: return@any false
             val hasPendingExploration = quest.objectives.withIndex().any { (index, objective) ->
                 objective.kind == ObjectiveKind.EXPLORE &&
+                    areaIds.isNotEmpty() &&
                     (objective.target in areaIds || objective.target == "*" || objective.target == "ANY") &&
+                    progress(p, quest, objective, EmptyInventory) < objective.amount &&
                     quest.objectives.take(index).all { earlier ->
-                        earlier.kind == ObjectiveKind.COLLECT ||
-                            progress(p, quest, earlier, EmptyInventory) >= earlier.amount
+                        progress(p, quest, earlier, EmptyInventory) >= earlier.amount
                     }
             }
             hasPendingExploration || quest.autoComplete && quest.objectives
@@ -75,11 +76,18 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
             val nextObjective = quest.objectives.firstOrNull { progress(p, quest, it, inventory) < it.amount }
             (quest.autoComplete && ready(p, id, inventory)) || nextObjective?.let { objective ->
                 objective.kind == ObjectiveKind.EXPLORE &&
+                    areaIds.isNotEmpty() &&
                     (objective.target in areaIds || objective.target == "*" || objective.target == "ANY")
             } == true
         }
     }
-    private object EmptyInventory : InventoryAccess by MemoryInventory()
+    private object EmptyInventory : InventoryAccess {
+        override fun count(item: String): Int = 0
+        override fun canExchange(remove: Map<String, Int>, add: Map<String, Int>): Boolean = false
+        override fun exchange(remove: Map<String, Int>, add: Map<String, Int>): Boolean = false
+        override fun canExchangeFromSlot(slot: Int?, remove: Map<String, Int>, add: Map<String, Int>): Boolean = false
+        override fun exchangeFromSlot(slot: Int?, remove: Map<String, Int>, add: Map<String, Int>): Boolean = false
+    }
     /** 全objectiveが揃ったかを所持品状態と合わせて確認します。 */
     fun ready(p: PlayerProfile,id: String,inventory: InventoryAccess): Boolean {
         val q = content().world.quests[id] ?: return false

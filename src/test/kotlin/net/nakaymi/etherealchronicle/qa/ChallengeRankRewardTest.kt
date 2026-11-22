@@ -15,7 +15,7 @@ import kotlin.test.*
 class ChallengeRankRewardTest {
     private fun ServerMock.pump(timeout:Long=5000,ready:()->Boolean):Boolean {
         val until=System.currentTimeMillis()+timeout
-        while(System.currentTimeMillis()<until) { scheduler.waitAsyncTasksFinished(); scheduler.performOneTick(); if(ready()) return true; Thread.sleep(20) }
+        while(System.currentTimeMillis()<until) { scheduler.performOneTick(); if(ready()) return true; Thread.sleep(20) }
         return ready()
     }
 

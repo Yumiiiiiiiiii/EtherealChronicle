@@ -17,7 +17,7 @@ class ElementalTelegraphTest {
     private fun ServerMock.pump(timeoutMs: Long = 5000,cond: () -> Boolean): Boolean {
         val end=System.currentTimeMillis()+timeoutMs
         while(System.currentTimeMillis()<end) {
-            scheduler.waitAsyncTasksFinished(); scheduler.performOneTick()
+            scheduler.performOneTick()
             if(cond()) return true
             Thread.sleep(20)
         }
@@ -32,7 +32,7 @@ class ElementalTelegraphTest {
         val server=MockBukkit.mock()
         try {
             val plugin=MockBukkit.load(RpgPlugin::class.java)
-            assertTrue(server.pump { plugin.isEnabled })
+            assertTrue(server.pump { plugin.isReadyForGameplay })
             val player=PlayerMock(server,"Frozen",UUID.randomUUID())
             server.addPlayer(player)
             val prison=plugin.snapshot.world.enemies.getValue("ec:boss_cryo_archon").specials.single { it.id=="cryo_prison" }

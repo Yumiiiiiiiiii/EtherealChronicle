@@ -898,7 +898,23 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         Bukkit.getWorld(DemoWorld.NAME)?.let { e.respawnLocation=DemoWorld.luminaSpawn(it) }
         sync { skillSlot(e.player); profiles[e.player.uniqueId]?.let { applyStats(e.player,it); e.player.health=e.player.getAttribute(Attribute.MAX_HEALTH)!!.value } }
     }
+    /** Paper Registry参照をメインスレッドへ集約し、起動時とreloadの安全性を揃えます。 */
     private fun validatePaperContent(c: ContentSnapshot) {
+        if (server.isPrimaryThread()) {
+            validatePaperContentNow(c)
+            return
+        }
+        val result = CompletableFuture<Unit>()
+        server.scheduler.runTask(this, Runnable {
+            runCatching { validatePaperContentNow(c) }
+                .onSuccess { result.complete(Unit) }
+                .onFailure(result::completeExceptionally)
+        })
+        result.get()
+    }
+
+    /** Bukkit/Paperのenum・Registry定義を現在のスレッドで検証します。 */
+    private fun validatePaperContentNow(c: ContentSnapshot) {
         fun validate(id: String, action: () -> Unit) { try { action() } catch(e: Exception) { throw IllegalArgumentException("${c.sources[id]} [$id]: ${e.message}",e) } }
         fun validateEnum(action: () -> Unit) {
             try { action() } catch(error: Exception) {
@@ -933,19 +949,36 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val commandMap = server.javaClass.getMethod("getCommandMap").invoke(server) as org.bukkit.command.CommandMap
         val command = object : Command("ec") {
             override fun execute(sender: CommandSender, label: String, args: Array<out String>): Boolean = executeCommand(sender, args)
-            override fun tabComplete(sender: CommandSender, alias: String, args: Array<out String>): List<String> = onTabComplete(sender, this, alias, args).orEmpty()
+            override fun tabComplete(sender: CommandSender, alias: String, args: Array<out String>): List<String> = commandCompletions(sender, args)
         }
         command.setDescription("EtherealChronicle commands")
         commandMap.register(name, command)
     }
+
+    /** ECコマンドの利用者向け操作と管理対象を補完します。 */
+    internal fun commandCompletions(sender: CommandSender, args: Array<out String>): List<String> {
+        val prefix = args.lastOrNull().orEmpty()
+        val candidates = when {
+            args.size <= 1 -> listOf("class", "quest", "party", "equipment", "dungeon", "shop", "claim", "title", "codex", "enhance", "fish", "gather", "ui", "reload", "validate")
+            args.firstOrNull() == "class" && sender.hasPermission("etherealchronicle.admin") && args.size == 2 -> server.onlinePlayers.map { it.name }
+            args.firstOrNull() == "class" && sender.hasPermission("etherealchronicle.admin") && args.size == 3 -> snapshot.classes.all().map { it.id }
+            else -> emptyList()
+        }
+        return candidates.filter { it.startsWith(prefix, ignoreCase = true) }
+    }
+
     private fun executeCommand(sender: CommandSender, args: Array<out String>): Boolean {
         if(!ready) {
             sender.sendMessage(message(sender,"ec.startup.starting"))
             return true
         }
-        val playerCommand = args.firstOrNull() in setOf("quest","party","equipment","dungeon","shop","claim","title","codex","enhance","fish","gather","ui") ||
+        val isPlayerCommand = args.firstOrNull() in setOf("quest","party","equipment","dungeon","shop","claim","title","codex","enhance","fish","gather","ui") ||
             args.firstOrNull() == "class" && args.size == 1
-        if(sender is Player && playerCommand) {
+        if (args.firstOrNull() == "class" && args.size == 1 && sender !is Player) {
+            sender.sendMessage(message(sender, "ec.error.player_required"))
+            return true
+        }
+        if(sender is Player && isPlayerCommand) {
             try { playerCommand(sender,args.toList()) } catch(error: Exception) {
                 val reason=error.message?.let { diagnostic(sender,it) } ?: Component.empty()
                 sender.sendMessage(message(sender,"ec.command.failed", "reason" to reason))
@@ -1077,7 +1110,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     sender.sendMessage(message(sender,"ec.command.level_set"))
                 }
                 "class" -> {
-                    require(args.size == 3)
+                    require(args.size == 3) { "ec.error.usage: /ec class <player> <classId>" }
                     val p = server.getPlayerExact(args[1]) ?: error("ec.error.player_missing")
                     val profile = profiles[p.uniqueId] ?: error("ec.error.profile_loading")
                     val c = content.snapshot().classes[args[2]]

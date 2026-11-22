@@ -66,7 +66,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                 .mapNotNull { stack -> plugin.identify(stack)?.let { it to stack.amount } }
                 .groupingBy { it.first }
                 .fold(0) { total, entry -> total + entry.second }
-            val inventory=CountSnapshotInventory(plugin.inventory(player,persistRemoval=false),counts)
+            val inventory=CountSnapshotInventory(counts)
             if(!plugin.game.quests.needsPeriodicUpdate(p,inventory,areaIds)) return@forEach
             try {
                 transaction(player,{ staged ->
@@ -80,10 +80,13 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     }
     /** 毎秒の依頼判定用に、単一所持品走査の集計countを再利用します。 */
     private class CountSnapshotInventory(
-        delegate: InventoryAccess,
         private val counts: Map<String, Int>,
-    ) : InventoryAccess by delegate {
+    ) : InventoryAccess {
         override fun count(item: String): Int = counts[item] ?: 0
+        override fun canExchange(remove: Map<String, Int>, add: Map<String, Int>): Boolean = false
+        override fun exchange(remove: Map<String, Int>, add: Map<String, Int>): Boolean = false
+        override fun canExchangeFromSlot(slot: Int?, remove: Map<String, Int>, add: Map<String, Int>): Boolean = false
+        override fun exchangeFromSlot(slot: Int?, remove: Map<String, Int>, add: Map<String, Int>): Boolean = false
     }
     private fun message(player: Player,text: String) = player.sendMessage(Component.text(text))
     private fun message(player: Player,component: Component) = player.sendMessage(component)

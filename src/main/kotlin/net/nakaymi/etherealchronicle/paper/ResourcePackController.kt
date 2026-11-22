@@ -236,6 +236,9 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
     /** 実イベント結合テストで要求送信待ちと状態応答を区別します。 */
     internal fun hasPendingRequest(playerId: UUID): Boolean = playerId in pendingRequests
 
+    /** 実参加フローのプロフィール反映継続がゲートへ登録済みか確認します。 */
+    internal fun hasJoinContinuation(playerId: UUID): Boolean = joins[playerId]?.waiters?.isNotEmpty() == true
+
     /** 待機中プレイヤーがいない高頻度イベントを O(1) で短絡します。 */
     fun hasWaiters(): Boolean = joins.isNotEmpty()
 

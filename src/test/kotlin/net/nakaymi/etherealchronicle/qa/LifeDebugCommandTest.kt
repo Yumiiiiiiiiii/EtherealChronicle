@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 class LifeDebugCommandTest {
     private fun ServerMock.pump(timeoutMs:Long=4000,condition:()->Boolean):Boolean {
         val end=System.currentTimeMillis()+timeoutMs
-        while(System.currentTimeMillis()<end) { scheduler.waitAsyncTasksFinished(); scheduler.performOneTick(); if(condition()) return true; Thread.sleep(20) }
+        while(System.currentTimeMillis()<end) { scheduler.performOneTick(); if(condition()) return true; Thread.sleep(20) }
         return condition()
     }
 

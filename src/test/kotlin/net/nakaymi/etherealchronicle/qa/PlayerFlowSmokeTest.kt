@@ -41,7 +41,7 @@ class PlayerFlowSmokeTest {
     private fun ServerMock.pump(timeoutMs: Long = 5000, cond: () -> Boolean): Boolean {
         val end = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < end) {
-            scheduler.waitAsyncTasksFinished(); scheduler.performOneTick()
+            scheduler.performOneTick()
             if (cond()) return true
             Thread.sleep(20)
         }
@@ -61,7 +61,7 @@ class PlayerFlowSmokeTest {
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             val player = PlayerMock(server, "QaBare", UUID.nameUUIDFromBytes("qa-bare".toByteArray()))
-            server.pump { plugin.isEnabled }
+            server.pump { plugin.isReadyForGameplay }
             server.addPlayer(player)
             server.pump { plain.serialize(player.openInventory.title()).contains("職業") }
             val slot = (0..8).first { player.openInventory.topInventory.getItem(it)?.persistentDataContainer?.get(NamespacedKey(plugin, "item_id"), PersistentDataType.STRING)?.contains("mage") == true }
@@ -82,7 +82,7 @@ class PlayerFlowSmokeTest {
             var player = PlayerMock(server, "QaPlayer", uuid)
 
             step("0 plugin enabled (content load, async startup)") {
-                assertTrue(server.pump { plugin.isEnabled && server.pluginManager.isPluginEnabled("EtherealChronicle") }, "plugin not enabled")
+                assertTrue(server.pump { plugin.isReadyForGameplay && server.pluginManager.isPluginEnabled("EtherealChronicle") }, "plugin not enabled")
                 null
             }
             step("1 join -> profile loads, class menu opens") {

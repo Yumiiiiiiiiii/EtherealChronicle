@@ -3,7 +3,8 @@ package net.nakaymi.etherealchronicle
 import net.nakaymi.etherealchronicle.data.PlayerStore
 import net.nakaymi.etherealchronicle.data.boundedInt
 import org.junit.jupiter.api.Test
-import java.nio.file.Files
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Path
 import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -20,8 +21,7 @@ class PlayerStoreValidationTest {
     }
 
     @Test
-    fun `stored skill levels above the former hardcoded cap load successfully`() {
-        val directory = Files.createTempDirectory("ec-player-store-skill-cap")
+    fun `stored skill levels above the former hardcoded cap load successfully`(@TempDir directory: Path) {
         val uuid = UUID.randomUUID()
         PlayerStore(directory).use { store ->
             val profile = net.nakaymi.etherealchronicle.core.PlayerProfile(uuid)

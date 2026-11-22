@@ -32,7 +32,7 @@ class FlagReviveReconnectTest {
     }
     private fun ServerMock.pump(timeoutMs: Long = 4000, cond: () -> Boolean): Boolean {
         val end = System.currentTimeMillis() + timeoutMs
-        while (System.currentTimeMillis() < end) { scheduler.waitAsyncTasksFinished(); scheduler.performOneTick(); if (cond()) return true; Thread.sleep(20) }
+        while (System.currentTimeMillis() < end) { scheduler.performOneTick(); if (cond()) return true; Thread.sleep(20) }
         return cond()
     }
     private fun filler(p: PlayerMock) {
@@ -54,7 +54,7 @@ class FlagReviveReconnectTest {
         val server = MockBukkit.mock()
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
-            server.pump { plugin.isEnabled }
+            server.pump { plugin.isReadyForGameplay }
             val world = server.addSimpleWorld(DemoWorld.NAME)
             val enemyKey = NamespacedKey(plugin, "enemy_id"); val itemKey = NamespacedKey(plugin, "item_id")
             val a = join(server, plugin, "FrrA"); val b = join(server, plugin, "FrrB")

@@ -22,7 +22,7 @@ internal fun WorldContent.validateWorldReferences(documents: Map<String,Map<Stri
             ObjectiveKind.KILL -> if(o.target != "*") ref(o.target,setOf("enemy","boss"),"objectives.KILL")
             ObjectiveKind.COLLECT -> ref(o.target,setOf("item"),"objectives.COLLECT")
             ObjectiveKind.TALK -> ref(o.target,setOf("npc"),"objectives.TALK")
-            ObjectiveKind.EXPLORE -> require(o.target in areas) { "objectives.EXPLORE -> ${o.target}: ec.error.invalid_content" }
+            ObjectiveKind.EXPLORE -> require(o.target in setOf("ANY", "*") || o.target in areas) { "objectives.EXPLORE -> ${o.target}: ec.error.invalid_content" }
             ObjectiveKind.CATCH_FISH -> if(o.target !in setOf("ANY","*")) ref(o.target,setOf("fish_species"),"objectives.CATCH_FISH")
             ObjectiveKind.GATHER_NODE -> if(o.target !in setOf("ANY","*","HERB","ORE","WOOD","CRYSTAL")) ref(o.target,setOf("gathering_node"),"objectives.GATHER_NODE")
             ObjectiveKind.ENHANCE_GEAR -> require(o.target in setOf("ANY","*") || (o.target.toIntOrNull() ?: -1) in 1..tuning.enhancementCap) { "objectives.ENHANCE_GEAR: ec.error.invalid_content" }

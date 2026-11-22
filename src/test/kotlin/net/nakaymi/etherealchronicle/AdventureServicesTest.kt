@@ -60,6 +60,16 @@ class AdventureServicesTest {
             listOf(Objective("kill",ObjectiveKind.KILL,killTarget,1),Objective("explore",ObjectiveKind.EXPLORE,areaTarget,1)),
             Rewards(), autoComplete=false, repeatable=false, repeatCooldown=0,
         )
+        val exploredThenKill=QuestDefinition(
+            "ec:explored_then_kill", "探索済み", Condition(),
+            listOf(Objective("explore",ObjectiveKind.EXPLORE,areaTarget,1),Objective("kill",ObjectiveKind.KILL,killTarget,1)),
+            Rewards(), autoComplete=false, repeatable=false, repeatCooldown=0,
+        )
+        val wildcardExplore=QuestDefinition(
+            "ec:wildcard_explore", "任意探索", Condition(),
+            listOf(Objective("explore",ObjectiveKind.EXPLORE,"*",1)),
+            Rewards(), autoComplete=false, repeatable=false, repeatCooldown=0,
+        )
         val collect=QuestDefinition(
             "ec:collect_auto", "収集", Condition(),
             listOf(Objective("ration",ObjectiveKind.COLLECT,collectTarget,2)),
@@ -79,7 +89,7 @@ class AdventureServicesTest {
             "rewards" to map("xp" to 0, "currency" to 0),
             "auto_complete" to quest.autoComplete,
         )
-        val snapshot=base.copy(documents=base.documents + mapOf(ordered.id to questDocument(ordered),collect.id to questDocument(collect)))
+        val snapshot=base.copy(documents=base.documents + listOf(ordered,exploredThenKill,wildcardExplore,collect).associate { it.id to questDocument(it) })
         val engine=QuestEngine({ snapshot },Clock { 0 })
         val profile=PlayerProfile(UUID.randomUUID()).apply {
             quests[ordered.id]=QuestProgress()
@@ -95,6 +105,15 @@ class AdventureServicesTest {
         assertTrue(engine.needsPeriodicUpdate(profile,ration,setOf(areaTarget)))
         assertTrue(engine.mayNeedPeriodicUpdate(profile,emptySet()))
         assertTrue(engine.needsPeriodicUpdate(profile,empty,setOf(areaTarget)))
+
+        val alreadyExplored=PlayerProfile(UUID.randomUUID()).apply {
+            quests[exploredThenKill.id]=QuestProgress(objectives=mutableMapOf("explore" to 1))
+        }
+        assertFalse(engine.mayNeedPeriodicUpdate(alreadyExplored,setOf(areaTarget)))
+
+        val wildcard=PlayerProfile(UUID.randomUUID()).apply { quests[wildcardExplore.id]=QuestProgress() }
+        assertFalse(engine.mayNeedPeriodicUpdate(wildcard,emptySet()))
+        assertFalse(engine.needsPeriodicUpdate(wildcard,empty,emptySet()))
     }
     @Test fun `dialogue conditions filter choices and redirect flags without mutating state`() {
         val c=chapterContent(); val d=DialogueEngine { c }; val p=PlayerProfile(UUID.randomUUID())

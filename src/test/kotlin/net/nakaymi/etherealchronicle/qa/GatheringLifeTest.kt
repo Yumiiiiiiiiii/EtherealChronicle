@@ -36,7 +36,7 @@ class GatheringLifeTest {
     }
     private fun ServerMock.pump(timeoutMs: Long = 4000, cond: () -> Boolean): Boolean {
         val end = System.currentTimeMillis() + timeoutMs
-        while (System.currentTimeMillis() < end) { scheduler.waitAsyncTasksFinished(); scheduler.performOneTick(); if (cond()) return true; Thread.sleep(20) }
+        while (System.currentTimeMillis() < end) { scheduler.performOneTick(); if (cond()) return true; Thread.sleep(20) }
         return cond()
     }
     private fun join(server: ServerMock, plugin: RpgPlugin, name: String): QaPlayerMock {
@@ -123,7 +123,7 @@ class GatheringLifeTest {
                 assertTrue(plugin.gathering.debugStatus(a.uniqueId).contains("bossbar=true", ignoreCase = true),"BossBar was not attached")
                 var tickErr: Throwable? = null
                 val end = System.currentTimeMillis() + 6000
-                while (plugin.gathering.active(a.uniqueId) && System.currentTimeMillis() < end) { try { server.scheduler.waitAsyncTasksFinished(); server.scheduler.performOneTick() } catch (t: Throwable) { tickErr = tickErr ?: t }; Thread.sleep(20) }
+                while (plugin.gathering.active(a.uniqueId) && System.currentTimeMillis() < end) { try { server.scheduler.performOneTick() } catch (t: Throwable) { tickErr = tickErr ?: t }; Thread.sleep(20) }
                 if (plugin.gathering.active(a.uniqueId)) { // diagnostic: is the scheduler the problem or the logic?
                     val m = plugin.gathering.javaClass.getDeclaredMethod("tick").also { it.isAccessible = true }; runCatching { m.invoke(plugin.gathering) }.onFailure { tickErr = it.cause ?: it }
                     out += "DIAG  direct tick() -> active=${plugin.gathering.active(a.uniqueId)} err=${tickErr}"

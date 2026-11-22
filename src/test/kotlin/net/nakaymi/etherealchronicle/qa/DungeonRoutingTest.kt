@@ -19,7 +19,7 @@ class DungeonRoutingTest {
     private fun ServerMock.pump(timeoutMs: Long = 5000, cond: () -> Boolean): Boolean {
         val end=System.currentTimeMillis()+timeoutMs
         while(System.currentTimeMillis()<end) {
-            scheduler.waitAsyncTasksFinished(); scheduler.performOneTick()
+            scheduler.performOneTick()
             if(cond()) return true
             Thread.sleep(20)
         }
@@ -31,7 +31,7 @@ class DungeonRoutingTest {
         val server=MockBukkit.mock()
         try {
             val plugin=MockBukkit.load(RpgPlugin::class.java)
-            assertTrue(server.pump { plugin.isEnabled })
+            assertTrue(server.pump { plugin.isReadyForGameplay })
             val world=server.addSimpleWorld(DemoWorld.NAME)
             val player=PlayerMock(server,"DungeonRoute",UUID.nameUUIDFromBytes("dungeon-route".toByteArray()))
             server.addPlayer(player)

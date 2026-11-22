@@ -92,7 +92,6 @@ class FishingInteractRoutingTest {
 
     private fun await(server: ServerMock, condition: () -> Boolean): Boolean {
         repeat(300) {
-            server.scheduler.waitAsyncTasksFinished()
             server.scheduler.performOneTick()
             if (condition()) return true
             Thread.sleep(10)

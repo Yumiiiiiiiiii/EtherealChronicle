@@ -89,6 +89,16 @@ class RequiredPackLockListenerTest {
             assertFalse(fallEvent.isCancelled)
             assertEquals(from.x, fallEvent.to.x)
             assertEquals(fall.y, fallEvent.to.y)
+            assertEquals(from.yaw, fallEvent.to.yaw)
+
+            val diagonalFall = from.clone().apply { x += 1.0; y -= 2.0; yaw += 30f }
+            val diagonalFallEvent = PlayerMoveEvent(player, from, diagonalFall)
+            server.pluginManager.callEvent(diagonalFallEvent)
+            assertFalse(diagonalFallEvent.isCancelled)
+            assertEquals(from.x, diagonalFallEvent.to.x)
+            assertEquals(from.z, diagonalFallEvent.to.z)
+            assertEquals(diagonalFall.y, diagonalFallEvent.to.y)
+            assertEquals(diagonalFall.yaw, diagonalFallEvent.to.yaw)
 
             val horizontal = from.clone().apply { x += 1.0 }
             val horizontalEvent = PlayerMoveEvent(player, from, horizontal)

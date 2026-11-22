@@ -17,7 +17,7 @@ class IceFreezeTest {
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             val end = System.currentTimeMillis() + 5000
-            while (runCatching { plugin.snapshot; plugin.enemies }.isFailure && System.currentTimeMillis() < end) { server.scheduler.waitAsyncTasksFinished(); server.scheduler.performOneTick(); Thread.sleep(20) }
+            while (runCatching { plugin.snapshot; plugin.enemies }.isFailure && System.currentTimeMillis() < end) { server.scheduler.performOneTick(); Thread.sleep(20) }
             val archon = plugin.snapshot.world.enemies.getValue("ec:boss_cryo_archon")
             val specials = archon.specials
             val freeze = specials.firstOrNull { it.effect == "FREEZE" } ?: error("Cryo Archon has no FREEZE special")

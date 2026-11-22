@@ -173,7 +173,10 @@ class UiQAFixesTest {
             player.closeInventory()
             player.performCommand("ec class")
             assertEquals(9, player.openInventory.topInventory.size, "unclassed players should be able to reopen class selection")
+            assertTrue("class" in plugin.commandCompletions(player, arrayOf("cl")))
             val adminPermission = player.addAttachment(plugin, "etherealchronicle.admin", true)
+            assertTrue(player.name in plugin.commandCompletions(player, arrayOf("class", "Cl")))
+            assertTrue("ec:class_warrior" in plugin.commandCompletions(player, arrayOf("class", player.name, "ec:class_w")))
 
             assertTrue(player.performCommand("ec class ${player.name} ec:class_warrior"))
             val warriorWeapon = "ec:item_wpn_rusty_broadsword"

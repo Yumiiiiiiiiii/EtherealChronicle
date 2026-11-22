@@ -17,7 +17,7 @@ class SchemaNineToTenTest {
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             val end = System.currentTimeMillis() + 5000
-            while (runCatching { plugin.snapshot; true }.getOrDefault(false).not() && System.currentTimeMillis() < end) { server.scheduler.waitAsyncTasksFinished(); server.scheduler.performOneTick(); Thread.sleep(20) }
+            while (runCatching { plugin.snapshot; true }.getOrDefault(false).not() && System.currentTimeMillis() < end) { server.scheduler.performOneTick(); Thread.sleep(20) }
             val uuid = UUID.nameUUIDFromBytes("legacy-9".toByteArray())
             val dir = File(plugin.dataFolder, "playerdata").also { it.mkdirs() }
             val nl = System.lineSeparator()
@@ -37,5 +37,5 @@ class SchemaNineToTenTest {
             assertTrue(ver >= 11, "file not rewritten with schema >= 11 (is $ver)"); assertTrue(saved.contains("currency: 4242") && saved.contains("aether_gel"), "progress lost in rewrite")
         } finally { MockBukkit.unmock() }
     }
-    private fun org.mockbukkit.mockbukkit.ServerMock.pump(ms: Long, c: () -> Boolean): Boolean { val e = System.currentTimeMillis() + ms; while (System.currentTimeMillis() < e) { scheduler.waitAsyncTasksFinished(); scheduler.performOneTick(); if (c()) return true; Thread.sleep(20) }; return c() }
+    private fun org.mockbukkit.mockbukkit.ServerMock.pump(ms: Long, c: () -> Boolean): Boolean { val e = System.currentTimeMillis() + ms; while (System.currentTimeMillis() < e) { scheduler.performOneTick(); if (c()) return true; Thread.sleep(20) }; return c() }
 }
