@@ -256,3 +256,28 @@ Setup note / correction: all 69 shipped quests have `auto_complete: false`, so n
 
 Cleanup: client/server stopped, `chapter_1.yml` and the synthetic quest reverted, `server.properties`/`ops.json`/`whitelist.json`/`config.yml` restored, ports 25565/25580 closed, 0 `*.qa-orig` left.
 
+
+## Task 25 (master b8c91ee, `0b1e470..b8c91ee`): build, smoke, real Paper 26.3 + real client
+
+Automated: `gradlew build test --no-daemon` BUILD SUCCESSFUL, 297 tests, 0 failures/skipped. Headless smoke (`smoke-test.ps1 -SkipBuild -Commands 'ec validate','ec reload'`) PASS: `EC_CONTENT_VALIDATION_SUCCESS`, 0 ERROR, no StrictMode error (the only WARN is the expected default-config pack-host warning).
+
+Real run: fresh non-op player `QaT25`, offline client, `ui.theme.mode: full`, embedded_http pack, world was night + rain during the whole run (so night/rain spawn windows were live). Scripts: `scripts/client/qa-t25-*.ps1`.
+
+| Area | Result | Evidence / limits |
+|---|---|---|
+| Pack gate + class menu (`ClassSelectionUi`) | PASS | prompt -> Proceed -> "Choose a class" 9-slot menu (6 classes) -> confirm dialog -> Start; no hang |
+| Starter slots / skill slot | PASS | warrior: sword in slot 0, skill star in slot 8, rest empty (only one starter item, so the 0..7 overflow-to-mailbox branch was NOT exercised) |
+| Codex (45/46/47-49/50/53) | PASS (limited) | Areas screen, fish/gathering/items tabs switch via slots 47/48/49, back arrow at 46, page label at 50. Previous/next page (45/53) not exercised: too few entries for a second page |
+| Enhance (slots 4/13) | PASS | target item in 4, confirm in 13; click gives "Could not complete that action ... currency" (no crash) |
+| NPC dialogue + shop | PASS | Pip dialogue -> shop choice; `/ec shop` 24 blocks away: "Move closer to the shop."; 2 blocks away: opens (distance guard = `SHOP_INTERACTION_BLOCKS`) |
+| Fishing (night/rain, `WorldSchedule`) | PASS | real cast -> BITE_ALERT -> hook -> `ended reason=CAUGHT fish=harbor_goby progress=100%`. Note: 100 ms taps at 300 ms spacing did not reel (TIMEOUT, no progress); 600 ms held clicks did. Not compared against the previous build, so treat as harness input behaviour, not a regression |
+| Gathering | PASS (complete) / NOT VERIFIED (move-cancel) | dew-moss node with sickle: "Gathering ... Stay still", "Gathered: x2 / Gathering XP 18". The move-cancel (`GATHER_CANCEL_MOVE_BLOCKS`) attempt was inconclusive (first channel start not confirmed), so unverified |
+| Combat / enemy AI | PASS | Ashwood spiders/goblins telegraph ("Telegraph: ... Move away"), dealt damage, killed the player ("was slain by 胞子グモ"), respawn at hub with full HP, sword + skill star re-present; no ERROR. Enemy kill XP/drop not checked. Night+rain `moonshower_rare` goblin (WorldSchedule) not located |
+| Dungeon (`DungeonArenaLayout`) | PASS (limited) | `/ec dungeon ec:dungeon_novice_arena` after setting the unlock flag: spawn exactly (1024, 65, 1012) = centre x, z-12; oak-plank floor, slimes/wolf spawned at floor level; `/ec dungeon leave` -> (0.5, 65, 0.5). Arena boundary (+-30) push-back, void recovery and a wave clear were not exercised |
+| DemoWorld terrain/landmarks | PASS (visual, limited) | hub plaza with walls/lanterns/gate gaps, boardwalk and pier water pool, hub trees, ashwood grass, Lumina quartz floor look intact; the world already existed (v5), so fresh-generation of the new `DemoWorldLayout` code was only checked by reading (see review L8) |
+| Server log | PASS | 0 ERROR, 0 "not responding", TPS 20.0/20.0/20.0 |
+
+Observations (no Task 25 regression, for the lead): (1) the shop menu distance is only checked when opening (`/ec shop`); an already-open menu can still be used after walking/teleporting away (a purchase attempt 24 blocks away reached the currency check). (2) The gathering-codex tab button (iron pickaxe) shows vanilla "4 Attack Damage / 1.2 Attack Speed" attribute tooltip. (3) Death removes the non-class items (rod, tools, fish) from the hotbar (drops); sword + skill star are re-granted.
+
+Cleanup: client + server stopped, config/ops/whitelist/server.properties restored, ports 25565/25580 closed, 0 `*.qa-orig`.
+
