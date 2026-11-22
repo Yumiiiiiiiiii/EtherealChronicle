@@ -28,7 +28,6 @@ object FishingPhysics {
     const val START_WAIT_SECONDS = 4.0
     const val CASTING_SECONDS = 0.4
     const val MAX_STEP_SECONDS = 1.0
-    const val MILLIS_PER_SECOND = 1_000.0
     const val MIN_STABILITY = 0.5
     const val MAX_STABILITY = 1.2
     const val MAX_SWEET_BONUS = 15.0
@@ -94,7 +93,7 @@ data class FishingState(
     var phase: FishingPhase = FishingPhase.CASTING,
     var escapeCause: FishingEscapeCause? = null,
     var elapsedSeconds: Double = 0.0,
-        var biteWindowLeft: Double = fish.minigame.biteWindowMillis/FishingPhysics.MILLIS_PER_SECOND,
+        var biteWindowLeft: Double = fish.minigame.biteWindowMillis/GameDurations.MILLIS_PER_SECOND.toDouble(),
     var progress: Double = 0.0,
     var tension: Double = FishingPhysics.START_TENSION,
     var sweetCenter: Double = FishingPhysics.START_SWEET_CENTER,
@@ -171,7 +170,7 @@ class FishingEngine(private val balance: LifeBalance,private val random: Random 
         if(state.phase in setOf(FishingPhase.CAUGHT,FishingPhase.ESCAPED,FishingPhase.CANCELLED)) return state.phase
         when(state.phase) {
             FishingPhase.CASTING -> { state.elapsedSeconds+=dt; if(state.elapsedSeconds>=FishingPhysics.CASTING_SECONDS) { state.phase=FishingPhase.WAITING; state.elapsedSeconds=0.0 } }
-            FishingPhase.WAITING -> { state.elapsedSeconds+=dt; if(state.elapsedSeconds>=state.waitSeconds) { state.phase=FishingPhase.BITE_ALERT; state.biteWindowLeft=state.fish.minigame.biteWindowMillis/FishingPhysics.MILLIS_PER_SECOND } }
+            FishingPhase.WAITING -> { state.elapsedSeconds+=dt; if(state.elapsedSeconds>=state.waitSeconds) { state.phase=FishingPhase.BITE_ALERT; state.biteWindowLeft=state.fish.minigame.biteWindowMillis/GameDurations.MILLIS_PER_SECOND.toDouble() } }
             FishingPhase.BITE_ALERT -> {
                 if(input==ReelInput.PULL) { state.phase=FishingPhase.REELING; state.elapsedSeconds=0.0 }
                 else { state.biteWindowLeft-=dt; if(state.biteWindowLeft<=0) { state.escapeCause=FishingEscapeCause.BITE_MISSED; state.phase=FishingPhase.ESCAPED } }
