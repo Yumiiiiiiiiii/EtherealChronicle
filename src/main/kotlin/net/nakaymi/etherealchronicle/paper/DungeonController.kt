@@ -25,6 +25,8 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
     private val instances=mutableMapOf<Int,Instance>()
     private var tick=0L
     private val builtPalette=mutableMapOf<Int,List<String>>()
+    private val loadedSchematics=mutableMapOf<String,SchematicData>()
+    private val schematicSlots=mutableSetOf<Int>()
     init { plugin.server.pluginManager.registerEvents(this,plugin); adventure.enterDungeon={ player,id -> enter(player,id) } }
     fun activeCount() = instances.size
     internal fun currentWave(slot:Int) = instances[slot]?.waveIndex
@@ -42,7 +44,8 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
         val slot=(0 until plugin.snapshot.world.tuning.instanceCap).firstOrNull { it !in instances } ?: error("ec.error.dungeon_full")
         val instance=Instance(slot,definition,players.map { it.uniqueId }.toMutableSet(),players.associate { it.uniqueId to it.location.clone() },tick)
         val origin=DungeonArenaLayout.originForSlot(slot); val x=origin.x; val z=origin.z
-        if(dungeonPaletteNeedsBuild(builtPalette[slot],definition.palette)) {
+        val schematicPlaced = placeDungeonSchematic(world, definition.id, x, z)
+        if(!schematicPlaced && dungeonPaletteNeedsBuild(builtPalette[slot],definition.palette)) {
             val palette = ArenaPalette.resolve(definition.palette)
             for(dx in -DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS..DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS) for(dz in -DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS..DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS) {
             val edge=kotlin.math.abs(dx) == DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS || kotlin.math.abs(dz) == DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS
@@ -57,6 +60,47 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
         catch(error:Exception) { close(instance); throw error }
         players.forEach { p -> plugin.profiles[p.uniqueId]?.let { profile -> plugin.game.quests.event(profile,net.nakaymi.etherealchronicle.core.ObjectiveKind.EXPLORE,definition.area,1,plugin.inventory(p),false); plugin.markDirty(profile.uuid) } }
         players.forEach { it.teleport(Location(world,x.toDouble(),DungeonArenaLayout.PLAYER_SPAWN_Y.toDouble(),(z+DungeonArenaLayout.PLAYER_SPAWN_Z_OFFSET).toDouble())); it.sendMessage(plugin.message(it,"ec.dungeon.entry", "message" to definition.entryMessage)) }
+    }
+
+    /** 対応する同梱アリーナがあればslot区画を初期化して配置します。 */
+    private fun placeDungeonSchematic(world: World, dungeonId: String, centerX: Int, centerZ: Int): Boolean {
+        val path = WorldSchematicLayout.dungeonPath(dungeonId) ?: return false
+        val schematic = loadedSchematics[path] ?: runCatching { SchematicResources.load(path) }
+            .onFailure { plugin.logger.warning("Could not read dungeon schematic $path: ${it.message}") }
+            .getOrNull()?.also { loadedSchematics[path] = it } ?: return false
+        if (schematic.width != DungeonArenaLayout.SCHEMATIC_WIDTH_BLOCKS ||
+            schematic.height != DungeonArenaLayout.SCHEMATIC_HEIGHT_BLOCKS ||
+            schematic.length != DungeonArenaLayout.SCHEMATIC_LENGTH_BLOCKS
+        ) {
+            plugin.logger.warning("Dungeon schematic has unexpected dimensions: $path (${schematic.width}x${schematic.height}x${schematic.length})")
+            return false
+        }
+        val x = centerX - DungeonArenaLayout.SCHEMATIC_ORIGIN_OFFSET_BLOCKS
+        val y = DungeonArenaLayout.SCHEMATIC_ORIGIN_Y
+        val z = centerZ - DungeonArenaLayout.SCHEMATIC_ORIGIN_OFFSET_BLOCKS
+        clearSchematicArena(world, x, y, z)
+        return runCatching {
+            SchematicPlacer.place(schematic, world, x, y, z, skipAir = false) { message, error ->
+                plugin.logger.warning(if (error == null) message else "$message: ${error.message}")
+            }
+            schematicSlots += (centerX - DungeonArenaLayout.FIRST_CENTER_X) / DungeonArenaLayout.SLOT_SPACING_BLOCKS
+            true
+        }.getOrElse { error ->
+            clearSchematicArena(world, x, y, z)
+            plugin.logger.warning("Could not place dungeon schematic $path; using procedural fallback: ${error.message}")
+            false
+        }
+    }
+
+    /** インスタンス専用の立方領域を空にして、前回の内容を残しません。 */
+    private fun clearSchematicArena(world: World, originX: Int, originY: Int, originZ: Int) {
+        for (y in 0 until DungeonArenaLayout.SCHEMATIC_HEIGHT_BLOCKS) {
+            for (z in 0 until DungeonArenaLayout.SCHEMATIC_LENGTH_BLOCKS) {
+                for (x in 0 until DungeonArenaLayout.SCHEMATIC_WIDTH_BLOCKS) {
+                    world.getBlockAt(originX + x, originY + y, originZ + z).setType(Material.AIR, false)
+                }
+            }
+        }
     }
     private fun spawnWave(instance:Instance,world:World,x:Int,z:Int) {
         val definition=instance.definition
@@ -135,6 +179,18 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
     }
     private fun close(instance: Instance) {
         enemies.removeParticipants(instance.returns.keys)
+        if (instance.slot in schematicSlots) {
+            val origin = DungeonArenaLayout.originForSlot(instance.slot)
+            Bukkit.getWorld(DemoWorld.NAME)?.let { world ->
+                clearSchematicArena(
+                    world,
+                    origin.x - DungeonArenaLayout.SCHEMATIC_ORIGIN_OFFSET_BLOCKS,
+                    DungeonArenaLayout.SCHEMATIC_ORIGIN_Y,
+                    origin.z - DungeonArenaLayout.SCHEMATIC_ORIGIN_OFFSET_BLOCKS,
+                )
+            }
+            schematicSlots.remove(instance.slot)
+        }
         instances.remove(instance.slot)
     }
     fun recover(player: Player) {

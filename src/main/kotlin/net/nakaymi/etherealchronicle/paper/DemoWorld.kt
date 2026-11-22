@@ -33,6 +33,7 @@ class DemoGenerator: ChunkGenerator() {
         }
     }
     override fun generateNoise(info: WorldInfo,random: Random,chunkX: Int,chunkZ: Int,data: ChunkData) {
+        if (SchematicResources.hasCompleteWorldSet()) return
         for(x in 0 until DemoWorldLayout.CHUNK_SIZE_BLOCKS) for(z in 0 until DemoWorldLayout.CHUNK_SIZE_BLOCKS) {
             val wx=chunkX*DemoWorldLayout.CHUNK_SIZE_BLOCKS+x; val wz=chunkZ*DemoWorldLayout.CHUNK_SIZE_BLOCKS+z
             val surface=surfaceAt(wx,wz)
@@ -90,15 +91,36 @@ object DemoWorld {
         world.setSpawnLocation(0,DemoWorldLayout.SURFACE_Y,0)
         enforceHubSpawnSafety(plugin,world)
         if(!Files.exists(folder.resolve(".etherealchronicle-built"))) {
-            build(world); buildChapter2(world); buildLifeProfessionPools(world); buildSecretSpring(world)
-            markFreshBuild(folder,"v4")
-        plugin.logger.info("Created ec_world (terrain v4).")
+            if (SchematicResources.hasCompleteWorldSet() && buildSchematicWorld(plugin, world)) {
+                markFreshBuild(folder, "v6")
+                plugin.logger.info("Created ec_world from bundled schematics (terrain v6).")
+            } else {
+                build(world); buildChapter2(world); buildLifeProfessionPools(world); buildSecretSpring(world)
+                markFreshBuild(folder,"v4")
+                plugin.logger.info("Created ec_world (terrain v4 fallback).")
+            }
         }
         migrateToV2(plugin,world,world.worldFolder.toPath())
         migrateToV3(plugin,world,world.worldFolder.toPath())
         migrateToV4(plugin,world,world.worldFolder.toPath())
         migrateToV5(plugin,world,world.worldFolder.toPath())
         return world
+    }
+
+    /** 新規ワールドに島を先に置き、続けて空気を飛ばす橋を接続します。 */
+    private fun buildSchematicWorld(plugin: RpgPlugin, world: World): Boolean = runCatching {
+        val schematics = (WorldSchematicLayout.ISLANDS + WorldSchematicLayout.BRIDGES).map { placement ->
+            placement to (SchematicResources.load(placement.path) ?: error("Missing schematic ${placement.path}"))
+        }
+        schematics.forEach { (placement, schematic) ->
+            SchematicPlacer.place(schematic, world, placement.x, placement.y, placement.z, placement.skipAir) { message, error ->
+                plugin.logger.warning(if (error == null) message else "$message: ${error.message}")
+            }
+        }
+        true
+    }.getOrElse { error ->
+        plugin.logger.warning("Could not build ec_world from schematics; using procedural fallback: ${error.message}")
+        false
     }
     private fun enforceHubSpawnSafety(plugin:RpgPlugin,world:World) {
         // Bukkitの自然spawn抑止はワールド全体へ適用します。動物設定は変えず、RPG敵のCUSTOM spawnは維持します。
@@ -136,7 +158,7 @@ object DemoWorld {
                 plugin.logger.info("Migrated ec_world terrain v1 to v2; Chapter 1 terrain was preserved.")
                 return true
             }
-            "v2", "v3", "v4", "v5" -> return true
+            "v2", "v3", "v4", "v5", "v6" -> return true
             else -> { plugin.logger.warning("Unknown ec_world terrain version; no changes made: $marker"); return false }
         }
     }
@@ -144,7 +166,7 @@ object DemoWorld {
         Files.writeString(folder.resolve(".etherealchronicle-built"),"v2\n")
     }
     internal fun markFreshBuild(folder: java.nio.file.Path,version:String) {
-        require(version in setOf("v2","v3","v4","v5"))
+        require(version in setOf("v2","v3","v4","v5","v6"))
         Files.writeString(folder.resolve(".etherealchronicle-built"),"$version\n")
     }
     internal fun migrateToV3(plugin:RpgPlugin,world:World,folder:java.nio.file.Path):Boolean {
@@ -158,7 +180,7 @@ object DemoWorld {
                 plugin.logger.info("Added fishing spots to ec_world (v2->v3); existing blocks were preserved.")
                 return true
             }
-            "v3", "v4", "v5" -> return false
+            "v3", "v4", "v5", "v6" -> return false
             else -> { plugin.logger.warning("ec_world v2 is required before upgrading terrain to v3: $marker"); return false }
         }
     }
@@ -173,7 +195,7 @@ object DemoWorld {
                 plugin.logger.info("Added hidden fishing pools to ec_world (v3->v4); existing blocks were preserved.")
                 return true
             }
-            "v4", "v5" -> return false
+            "v4", "v5", "v6" -> return false
             else -> { plugin.logger.warning("ec_world v3 is required before upgrading terrain to v4: $marker"); return false }
         }
     }
@@ -199,7 +221,7 @@ object DemoWorld {
                     return false
                 }
             }
-            "v5" -> return false
+            "v5", "v6" -> return false
             else -> { plugin.logger.warning("ec_world v4 is required before upgrading terrain to v5: $marker"); return false }
         }
     }

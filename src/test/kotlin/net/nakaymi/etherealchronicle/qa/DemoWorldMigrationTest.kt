@@ -173,4 +173,23 @@ class DemoWorldMigrationTest {
             assertEquals(Material.STONE_BRICKS,world.getBlockAt(24,65,28).type)
         } finally { MockBukkit.unmock() }
     }
+
+    @Test
+    fun `existing v5 marker remains untouched by legacy migrations`() {
+        val server = MockBukkit.mock()
+        try {
+            val plugin = MockBukkit.load(RpgPlugin::class.java)
+            val world = server.addSimpleWorld(DemoWorld.NAME)
+            val folder = Files.createTempDirectory("ec-owned-v5")
+            Files.writeString(folder.resolve(".etherealchronicle-owned"), "test-owned\n")
+            val marker = folder.resolve(".etherealchronicle-built")
+            Files.writeString(marker, "v5\n")
+
+            assertTrue(DemoWorld.migrateToV2(plugin, world, folder))
+            assertTrue(!DemoWorld.migrateToV3(plugin, world, folder))
+            assertTrue(!DemoWorld.migrateToV4(plugin, world, folder))
+            assertTrue(!DemoWorld.migrateToV5(plugin, world, folder))
+            assertEquals("v5", Files.readString(marker).trim())
+        } finally { MockBukkit.unmock() }
+    }
 }

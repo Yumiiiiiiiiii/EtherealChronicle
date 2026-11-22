@@ -188,13 +188,11 @@ fun claimTreasure(profile: PlayerProfile, chest: TreasureChestDefinition, curren
 /** 時刻と天候の宣言条件を検証し、現在のワールド状態との一致を判定します。 */
 object WorldSchedule {
     const val DAY_LENGTH_TICKS = 24_000L
-    private const val DAY_START_TICK = 1_000L
-    private const val DAY_END_TICK = 11_999L
-    private const val NIGHT_START_TICK = 13_000L
-    private const val NIGHT_END_TICK = 22_999L
-    private const val DAWN_DUSK_DAY_START = 12_000L
-    private const val DAWN_DUSK_DAY_END = 12_999L
-    private const val DAWN_DUSK_NIGHT_START = 23_000L
+    private val DAY_TIME_RANGE = 1_000L..11_999L
+    private val NIGHT_TIME_RANGE = 13_000L..22_999L
+    private val DUSK_TIME_RANGE = 12_000L..12_999L
+    private const val DAWN_END_TICK = 999L
+    private const val NIGHT_DAWN_START_TICK = 23_000L
     private val validTime = setOf("ANY", "DAY", "NIGHT", "DAWN_DUSK")
     private val validWeather = setOf("ANY", "CLEAR", "RAIN", "THUNDER")
 
@@ -206,9 +204,9 @@ object WorldSchedule {
         val dayTime = Math.floorMod(time, DAY_LENGTH_TICKS)
         return "ANY" in timeWindows || timeWindows.any { window ->
             when (window) {
-                "DAY" -> dayTime in DAY_START_TICK..DAY_END_TICK
-                "NIGHT" -> dayTime in NIGHT_START_TICK..NIGHT_END_TICK
-                "DAWN_DUSK" -> dayTime < DAY_START_TICK || dayTime in DAWN_DUSK_DAY_START..DAWN_DUSK_DAY_END || dayTime >= DAWN_DUSK_NIGHT_START
+                "DAY" -> dayTime in DAY_TIME_RANGE
+                "NIGHT" -> dayTime in NIGHT_TIME_RANGE
+                "DAWN_DUSK" -> dayTime <= DAWN_END_TICK || dayTime in DUSK_TIME_RANGE || dayTime >= NIGHT_DAWN_START_TICK
                 else -> false
             }
         }

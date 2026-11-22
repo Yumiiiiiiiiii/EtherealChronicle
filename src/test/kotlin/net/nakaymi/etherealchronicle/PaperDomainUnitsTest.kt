@@ -32,6 +32,8 @@ class PaperDomainUnitsTest {
             assertFalse(origin.isWithinBlocks(Location(server.addSimpleWorld("other"), 0.0, 0.0, 0.0), 5.0))
             val noWorld = Location(null, 0.0, 0.0, 0.0)
             assertFalse(noWorld.isWithinBlocks(noWorld, 5.0))
+            assertFalse(origin.isWithinBlocks(noWorld, 5.0))
+            assertFalse(origin.isWithinBlocks(Location(world, 1.0, 0.0, 0.0), Double.NaN))
         } finally {
             MockBukkit.unmock()
         }
@@ -48,6 +50,7 @@ class PaperDomainUnitsTest {
         assertFalse(PlayerInventoryLayout.isUsableStorageSlot(PlayerInventoryLayout.SKILL_HOTBAR_SLOT))
         assertFalse(PlayerInventoryLayout.isUsableStorageSlot(PlayerInventoryLayout.LAST_STORAGE_SLOT+1))
         assertEquals(36, PlayerInventoryLayout.STORAGE_SLOT_RANGE.count())
+        assertEquals(35, PlayerInventoryLayout.USABLE_STORAGE_SLOTS.size)
     }
 
     @Test
@@ -68,6 +71,14 @@ class PaperDomainUnitsTest {
         assertTrue(DungeonArenaLayout.contains(1_054.0, 1_054.0, 0))
         assertFalse(DungeonArenaLayout.contains(1_054.01, 1_024.0, 0))
         assertFalse(DungeonArenaLayout.contains(1_216.0, 1_024.0, 0))
+        val server = MockBukkit.mock()
+        try {
+            val world = server.addSimpleWorld("arena-bounds")
+            assertTrue(DungeonArenaLayout.isInsideBounds(Location(world, 1_054.0, 65.0, 1_054.0), 0))
+            assertFalse(DungeonArenaLayout.isInsideBounds(Location(world, 1_054.01, 65.0, 1_024.0), 0))
+        } finally {
+            MockBukkit.unmock()
+        }
         assertEquals(listOf(0, 96, 192, 288, 384), DemoWorldLayout.HUB_PLAZAS.map { it.centerX })
         assertEquals(65, DemoWorldLayout.SURFACE_Y)
     }
