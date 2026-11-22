@@ -3,11 +3,16 @@
 Target: Paper 26.3 (build 257 STABLE), Java 25, Kotlin 2.4.21, Gradle 9.9.2 (wrapper). Plugin id `EtherealChronicle`, base package `net.nakaymi.etherealchronicle`.
 Build: `./gradlew build` -> `build/libs/EtherealChronicle-<ver>.jar`. Test server: `dev/server` (Paper jar present; EULA NOT auto-accepted).
 
-## Roles
-- Claude (lead): design, integration, balance, release judgement. Owns docs/*.
-- Codex (gpt-6-luna, low): main implementation.
-- Antigravity (gemini-4-neon, medium): QA, tests, server integration scripts, independent review.
-Implementer != reviewer. Work on separate git branches/worktrees; merge via lead. Never edit files owned by another active task.
+## Roles & Balanced Harness Rotation
+- Distribute work evenly across **`codex`**, **`claude`**, and **`antigravity`** so no single harness dominates.
+  - **All three harnesses** share implementation, refactoring, test writing, QA, and review via rotation rather than pinning all implementation to one harness.
+  - When running parallel tasks, assign each concurrent task to a **different harness** (`codex`, `claude`, `antigravity`) and check rate-limit headroom before choosing.
+  - Typical balanced model configs:
+    - `codex`: `gpt-6-sol` (`low`/`medium`), `gpt-6-luna` (`high` for tests), or `gpt-6.1-terra` / `gpt-6.1-sol` for heavy work.
+    - `claude`: `sonnet` (`medium`/`high`), or `opus` for heavy work.
+    - `antigravity`: `gemini-4-neon` (`medium`/`high`), `gemini-4-hydrogen` (`high`), or `gemini-3.8-flash` for light tasks.
+- Lead coordinates integration, balance, release judgement, and `docs/*` consolidation.
+- `Implementer != Reviewer` (mandatory). Work on separate git branches/worktrees; merge via lead. Never edit files owned by another active task.
 
 ## Architecture rules
 - Data-driven: items, classes, skills, enemies, bosses, NPCs, quests, dialogues, chapters, drop tables, shops, balance all live as YAML under `src/main/resources/content/<type>/*.yml` (copied to plugin data folder `content/` on first run; server-side files override). Each file has `schema_version` and stable `id`s (snake_case, namespaced `ec:xxx`). Validator checks duplicate ids, dangling references, ranges.
