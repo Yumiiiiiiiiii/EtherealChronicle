@@ -55,10 +55,10 @@ class EmbeddedPackServer(
     private val endpoint: ResourcePackEndpoint,
     private val artifact: ResourcePackArtifact,
     private val maxConcurrent: Int,
-    private val maxPerIp: Int = maxConcurrent.coerceAtMost(4),
-    private val idleReadTimeoutMillis: Int = 500,
-    private val headerDeadlineMillis: Int = 1_500,
-    private val writeDeadlineMillis: Int = 5_000,
+    private val maxPerIp: Int = maxConcurrent.coerceAtMost(ResourcePackDefaults.HTTP_PER_IP),
+    private val idleReadTimeoutMillis: Int = ResourcePackDefaults.HTTP_IDLE_TIMEOUT_MILLIS,
+    private val headerDeadlineMillis: Int = ResourcePackDefaults.HTTP_HEADER_DEADLINE_MILLIS,
+    private val writeDeadlineMillis: Int = ResourcePackDefaults.HTTP_WRITE_DEADLINE_MILLIS,
 ) : AutoCloseable {
     init {
         require(maxConcurrent in ResourcePackLimits.MIN_CONNECTIONS..ResourcePackLimits.MAX_CONNECTIONS)
@@ -236,7 +236,7 @@ internal fun withSocketWriteDeadline(
 
 /** パック容量に応じて通常回線の書込み猶予を増やし、上限時間で低速接続を切ります。 */
 internal fun resourcePackWriteDeadlineMillis(sizeBytes: Int, minimumDeadlineMillis: Int): Int {
-    val expectedMillis = sizeBytes.coerceAtLeast(0).toLong() * TimeUnit.SECONDS.toMillis(1) / MINIMUM_PACK_RATE_BYTES_PER_SECOND
+    val expectedMillis = sizeBytes.coerceAtLeast(0).toLong() * MinecraftTicks.MILLIS_PER_SECOND / MINIMUM_PACK_RATE_BYTES_PER_SECOND
     return maxOf(minimumDeadlineMillis, expectedMillis.toInt()).coerceAtMost(MAX_PACK_WRITE_DEADLINE_MILLIS)
 }
 

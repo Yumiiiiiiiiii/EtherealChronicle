@@ -15,6 +15,8 @@ class PaperDomainUnitsTest {
         assertEquals(2L,MinecraftTicks.millisToSecondsCeil(1_001))
         assertEquals(0L,MinecraftTicks.millisToSecondsCeil(0))
         assertEquals(1L,MinecraftTicks.millisToWholeSeconds(1_999))
+        assertEquals(0L, MinecraftTicks.millisToWholeSeconds(0))
+        assertEquals(0L, MinecraftTicks.millisToWholeSeconds(-1))
     }
 
     @Test
@@ -26,6 +28,10 @@ class PaperDomainUnitsTest {
             assertTrue(origin.isWithinBlocks(Location(world, 3.0, 4.0, 0.0), 5.0))
             assertFalse(origin.isWithinBlocks(Location(world, 3.0, 4.01, 0.0), 5.0))
             assertFalse(origin.isWithinBlocks(Location(world, 6.0, 0.0, 0.0), 5.0))
+            assertFalse(origin.isWithinBlocks(Location(world, 0.0, 0.0, 0.0), -1.0))
+            assertFalse(origin.isWithinBlocks(Location(server.addSimpleWorld("other"), 0.0, 0.0, 0.0), 5.0))
+            val noWorld = Location(null, 0.0, 0.0, 0.0)
+            assertFalse(noWorld.isWithinBlocks(noWorld, 5.0))
         } finally {
             MockBukkit.unmock()
         }
@@ -41,6 +47,7 @@ class PaperDomainUnitsTest {
         assertTrue(PlayerInventoryLayout.isSkillSlot(PlayerInventoryLayout.SKILL_HOTBAR_SLOT))
         assertFalse(PlayerInventoryLayout.isUsableStorageSlot(PlayerInventoryLayout.SKILL_HOTBAR_SLOT))
         assertFalse(PlayerInventoryLayout.isUsableStorageSlot(PlayerInventoryLayout.LAST_STORAGE_SLOT+1))
+        assertEquals(36, PlayerInventoryLayout.STORAGE_SLOT_RANGE.count())
     }
 
     @Test

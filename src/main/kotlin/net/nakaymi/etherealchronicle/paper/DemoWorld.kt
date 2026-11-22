@@ -224,14 +224,14 @@ object DemoWorld {
             else fillIfAir(cx+dx,DemoWorldLayout.SURFACE_Y,cz+dz,Material.WATER)
         }
     }
-    private fun build(world: World) {
+    internal fun build(world: World) {
         // 新規生成島に限定した小規模構造物です。プレイヤーが編集した既存地形は置換しません。
         for(plaza in DemoWorldLayout.HUB_PLAZAS) {
             val center=plaza.centerX
-            for(x in center-DemoWorldLayout.HUB_EDGE_RADIUS..center+DemoWorldLayout.HUB_EDGE_RADIUS) for(z in -DemoWorldLayout.HUB_EDGE_RADIUS..DemoWorldLayout.HUB_EDGE_RADIUS) if((kotlin.math.abs(x-center) == DemoWorldLayout.HUB_EDGE_RADIUS || kotlin.math.abs(z) == DemoWorldLayout.HUB_EDGE_RADIUS) && kotlin.math.abs(x-center) > DungeonArenaLayout.INNER_FLOOR_RADIUS_BLOCKS && kotlin.math.abs(z) > DungeonArenaLayout.INNER_FLOOR_RADIUS_BLOCKS) {
-                world.getBlockAt(x,DemoWorldLayout.SURFACE_Y,z).type=Material.valueOf(plaza.wallMaterialName)
+            for(x in center-DemoWorldLayout.HUB_EDGE_RADIUS..center+DemoWorldLayout.HUB_EDGE_RADIUS) for(z in -DemoWorldLayout.HUB_EDGE_RADIUS..DemoWorldLayout.HUB_EDGE_RADIUS) if((kotlin.math.abs(x-center) == DemoWorldLayout.HUB_EDGE_RADIUS || kotlin.math.abs(z) == DemoWorldLayout.HUB_EDGE_RADIUS) && kotlin.math.abs(x-center) > DemoWorldLayout.HUB_GATE_HALF_WIDTH_BLOCKS && kotlin.math.abs(z) > DemoWorldLayout.HUB_GATE_HALF_WIDTH_BLOCKS) {
+                world.getBlockAt(x,DemoWorldLayout.SURFACE_Y,z).type=plaza.wallMaterial
             }
-            for(x in center-DemoWorldLayout.HUB_FLOOR_RADIUS..center+DemoWorldLayout.HUB_FLOOR_RADIUS) for(z in -DemoWorldLayout.HUB_FLOOR_RADIUS..DemoWorldLayout.HUB_FLOOR_RADIUS) world.getBlockAt(x,DemoWorldLayout.GROUND_Y,z).type=Material.valueOf(plaza.floorMaterialName)
+            for(x in center-DemoWorldLayout.HUB_FLOOR_RADIUS..center+DemoWorldLayout.HUB_FLOOR_RADIUS) for(z in -DemoWorldLayout.HUB_FLOOR_RADIUS..DemoWorldLayout.HUB_FLOOR_RADIUS) world.getBlockAt(x,DemoWorldLayout.GROUND_Y,z).type=plaza.floorMaterial
         for(dx in listOf(-DemoWorldLayout.PILLAR_OFFSET_BLOCKS,DemoWorldLayout.PILLAR_OFFSET_BLOCKS)) for(z in listOf(-DemoWorldLayout.PILLAR_OFFSET_BLOCKS,DemoWorldLayout.PILLAR_OFFSET_BLOCKS)) {
             world.getBlockAt(center+dx,DemoWorldLayout.SURFACE_Y,z).type=Material.OAK_FENCE
             world.getBlockAt(center+dx,DemoWorldLayout.SURFACE_Y+1,z).type=Material.LANTERN
@@ -273,7 +273,7 @@ object DemoWorld {
             world.getBlockAt(point.x, point.y, point.z).type = point.material
         }
     }
-    private fun buildChapter2(world: World) {
+    internal fun buildChapter2(world: World) {
         // 追加範囲の空きだけを橋で埋め、既存ブロックやプレイヤー建築は置き換えません。
         for(x in DemoWorldLayout.SECOND_CHAPTER_BRIDGE_START_X..DemoWorldLayout.SECOND_CHAPTER_BRIDGE_END_X) for(z in -DemoWorldLayout.BRIDGE_HALF_WIDTH..DemoWorldLayout.BRIDGE_HALF_WIDTH) {
             val floor=world.getBlockAt(x,DemoWorldLayout.GROUND_Y,z)
@@ -295,9 +295,9 @@ object DemoWorld {
         DemoWorldLayout.CHAPTER_TWO_COLUMNS.forEach { column ->
             column.yRange.forEach { y -> placeIfAir(column.x, y, column.z, column.material) }
         }
-        DemoWorldLayout.CHAPTER_TWO_TOP_BEAMS.forEach { beam ->
-            for (x in beam.xRange) for (z in beam.zRange) for (y in beam.yRange) {
-                placeIfAir(x, y, z, beam.material)
+        DemoWorldLayout.CHAPTER_TWO_TOP_BEAMS.forEach { box ->
+            for (x in box.xRange) for (z in box.zRange) for (y in box.yRange) {
+                placeIfAir(x, y, z, box.material)
             }
         }
         DemoWorldLayout.CHAPTER_TWO_PYLONS.forEach { (x, z) ->

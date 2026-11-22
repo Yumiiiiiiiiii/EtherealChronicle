@@ -10,7 +10,7 @@ class PaperInventoryAccess(private val player: Player,private val identify: (Ite
     private class Plan(val afterRemoval: Array<ItemStack?>, val finalContents: Array<ItemStack?>)
     override fun count(item: String): Int = player.inventory.storageContents.filterNotNull().filter { identify(it) == item }.sumOf { it.amount }
     private fun plan(remove: Map<String,Int>,add: Map<String,Int>,preferredSlot: Int? = null): Plan? {
-        if (preferredSlot != null && !PlayerInventoryLayout.isUsableStorageSlot(preferredSlot)) return null
+        if (preferredSlot != null && preferredSlot !in PlayerInventoryLayout.STORAGE_SLOT_RANGE) return null
         val slots: Array<ItemStack?> = player.inventory.storageContents.map { it?.clone() }.toTypedArray()
         for((id,n) in remove) {
             if(n < 0) return null
@@ -30,9 +30,9 @@ class PaperInventoryAccess(private val player: Player,private val identify: (Ite
                 val stack=slots[i] ?: continue
                 if(stack.isSimilar(example)) { val amount=minOf(remaining,stack.maxStackSize-stack.amount); stack.amount+=amount; remaining-=amount }
             }
-            for(i in slots.indices) {
+            for(i in PlayerInventoryLayout.USABLE_STORAGE_SLOTS) {
                 if(remaining == 0) break
-                if(PlayerInventoryLayout.isUsableStorageSlot(i) && (slots[i] == null || slots[i]!!.type.isAir)) { val amount=minOf(remaining,example.maxStackSize); slots[i]=create(id,amount); remaining-=amount }
+                if(slots[i] == null || slots[i]!!.type.isAir) { val amount=minOf(remaining,example.maxStackSize); slots[i]=create(id,amount); remaining-=amount }
             }
             if(remaining != 0) return null
         }

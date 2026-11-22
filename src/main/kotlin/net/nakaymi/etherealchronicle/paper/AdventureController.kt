@@ -147,7 +147,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                         runCatching { selectDialogueChoice(selected,id,node,choice.id) }
                             .onFailure { selected.sendMessage(plugin.message(selected,"ec.command.failed", "reason" to plugin.diagnostic(selected,it.message.orEmpty()))) }
                     }
-                }, ClickCallback.Options.builder().uses(1).lifetime(Duration.ofMinutes(2)).build()))
+                }, ClickCallback.Options.builder().uses(1).lifetime(UiCallbackLifetimes.DIALOGUE_CHOICE).build()))
                 .build()
         }
         val close = ActionButton.builder(plugin.message(player,"ec.dialogue.close")).width(DialogueLayout.CHOICE_BUTTON_WIDTH_PIXELS).build()

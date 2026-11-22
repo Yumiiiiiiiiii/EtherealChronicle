@@ -254,7 +254,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         val origin=player.location.clone(); val duration=(def.channelMillis*(1-tool.channelSpeedBonus)).toLong().coerceAtLeast(ContentLimits.MIN_GATHERING_CHANNEL_MILLIS)
         val barTitle=net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
             .serialize(plugin.message(player,"ec.gathering.bossbar", "name" to def.name))
-        val bar=Bukkit.createBossBar(barTitle,BarColor.GREEN,BarStyle.SOLID).apply { addPlayer(player); progress=GatheringDisplayGeometry.CHANNEL_BOSSBAR_START_PROGRESS }
+        val bar=Bukkit.createBossBar(barTitle,BarColor.GREEN,BarStyle.SOLID).apply { addPlayer(player); progress=GatheringSessionTuning.CHANNEL_BOSSBAR_START_PROGRESS }
         channels[player.uniqueId]=Channel(site,monotonicMillis(),duration,origin,bar)
         lastAttempt[player.uniqueId]="ec.gathering.channel_started"
         player.sendActionBar(plugin.message(player,"ec.gathering.actionbar_start"))
@@ -281,7 +281,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         // 診断表示にもその時点のプレースホルダーを反映し、未展開のキーを残しません。
         val rendered = plain(plugin.message(player, key, *values))
         lastAttempt[player.uniqueId]=rendered
-        if(lastAttempt.size>GatheringDisplayGeometry.MAX_ACTIVE_ATTEMPT_RECORDS) lastAttempt.keys.firstOrNull()?.let(lastAttempt::remove)
+        if(lastAttempt.size>GatheringSessionTuning.MAX_ACTIVE_ATTEMPT_RECORDS) lastAttempt.keys.firstOrNull()?.let(lastAttempt::remove)
         plugin.logger.fine("GATHER ${player.name}: $key")
         if(player.isOnline) player.sendMessage(net.kyori.adventure.text.Component.text(rendered))
     }

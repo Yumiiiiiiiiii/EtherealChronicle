@@ -269,7 +269,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         val baitItems=plugin.snapshot.world.tackle.values.filter { it.kind==TackleKind.BAIT }.associateBy { it.item }
         val offhand=plugin.identify(player.inventory.itemInOffHand)
         if(offhand in baitItems && inventory.count(offhand!!)>0) return offhand
-        for(slot in PlayerInventoryLayout.FIRST_HOTBAR_SLOT..PlayerInventoryLayout.SKILL_HOTBAR_SLOT) {
+        for(slot in PlayerInventoryLayout.HOTBAR_SLOT_RANGE) {
             val id=plugin.identify(player.inventory.getItem(slot))
             if(id in baitItems && inventory.count(id!!)>0) return id
         }
@@ -300,10 +300,10 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
             val input=when {
                 buffered==ReelInput.BRACE -> { s.pullRemaining=0.0; ReelInput.BRACE }
                 buffered==ReelInput.PULL -> { s.pullRemaining=pullBufferSeconds; ReelInput.PULL }
-                s.pullRemaining>0.0 -> { s.pullRemaining=(s.pullRemaining-0.1).coerceAtLeast(0.0); ReelInput.PULL }
+                s.pullRemaining>0.0 -> { s.pullRemaining=(s.pullRemaining-FishingStepTuning.SECONDS_PER_UPDATE).coerceAtLeast(0.0); ReelInput.PULL }
                 else -> ReelInput.IDLE
             }
-            val phase=engine.tick(s.state,0.1,input)
+            val phase=engine.tick(s.state,FishingStepTuning.SECONDS_PER_UPDATE,input)
             if(phase==FishingPhase.BITE_ALERT && phaseBefore==FishingPhase.WAITING) beginBite(player,s)
             if(phase!=phaseBefore) {
                 when(phase) {
@@ -329,7 +329,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
                 val behaviorKey=when(s.state.behavior) { FishBehavior.CALM -> "ec.fishing.behavior_calm"; FishBehavior.TELEGRAPH -> "ec.fishing.behavior_telegraph"; FishBehavior.THRASH -> "ec.fishing.behavior_thrash"; FishBehavior.DIVE -> "ec.fishing.behavior_dive" }
                 val barTitle=if(s.state.phase==FishingPhase.REELING) plugin.message(player,"ec.fishing.bossbar_reeling","behavior" to plain(plugin.message(player,behaviorKey)),"progress" to s.state.progress.toInt()) else plugin.message(player,"ec.fishing.bossbar_search")
                 s.bar.setTitle(plain(barTitle))
-        s.bar.progress=(s.state.progress/FishingPhysics.MAX_TENSION_OR_PROGRESS).coerceIn(0.0,1.0)
+        s.bar.progress=(s.state.progress/FishingPhysics.MAX_PROGRESS).coerceIn(0.0,1.0)
                 s.bar.color=when(s.state.behavior) { FishBehavior.DIVE -> BarColor.BLUE; FishBehavior.THRASH -> BarColor.RED; FishBehavior.TELEGRAPH -> BarColor.YELLOW; else -> BarColor.GREEN }
                 val status=plugin.message(player,"ec.fishing.actionbar_status","tension" to s.state.tension.toInt(),"progress" to s.state.progress.toInt())
                 player.sendActionBar(status.append(Component.space()).append(plugin.message(player,fishingReelAdvice(s.state.behavior,s.state.tension))))
