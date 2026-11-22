@@ -46,7 +46,7 @@ class DungeonRoutingTest {
             profile.flags += "ec:flag_ch2_citadel_unlocked"
             player.performCommand("ec dungeon enter ec:dungeon_glacial_citadel")
             assertTrue(server.pump { player.x in 1023.0..1025.0 && player.z in 1011.0..1013.0 },"did not enter the glacial instance")
-            assertEquals(Material.PRISMARINE_BRICKS,world.getBlockAt(1024,64,1024).type,"glacial accent palette")
+            assertEquals(Material.CALCITE,world.getBlockAt(1024,64,1024).type,"glacial schematic center floor")
             val spawned=world.livingEntities.filterIsInstance<LivingEntity>().mapNotNull { entity -> plugin.enemies.state(entity.uniqueId)?.boss?.definition?.id }
             assertEquals(1,spawned.count { it=="ec:boss_cryo_archon" },"Cryo Archon count")
             assertEquals(2,spawned.count { it=="ec:enemy_glacial_knight" },"glacial guard count")

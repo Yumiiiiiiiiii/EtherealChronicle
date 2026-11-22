@@ -21,16 +21,23 @@ object SchematicPlacer {
         val structureVoid = states.map { it.substringBefore('[') == "minecraft:structure_void" }
         val air = states.map(::isAir)
         val blockData = states.map { state ->
-            runCatching { Bukkit.createBlockData(state) }.onFailure { warning("Unknown schematic blockstate: $state", it) }.getOrNull()
+            runCatching { Bukkit.createBlockData(state) }.recoverCatching { error ->
+                warning("Unknown schematic blockstate: $state", error)
+                val baseId = state.substringBefore('[')
+                if (baseId != state) Bukkit.createBlockData(baseId) else throw error
+            }.getOrNull()
         }
         for (y in 0 until schematic.height) {
             for (z in 0 until schematic.length) {
                 for (x in 0 until schematic.width) {
                     val paletteIndex = schematic.paletteIndexAt(y * schematic.length * schematic.width + z * schematic.width + x)
                     if (structureVoid[paletteIndex]) continue
-                    if (skipAir && air[paletteIndex]) continue
+                    val targetIsAir = air[paletteIndex]
+                    if (skipAir && targetIsAir) continue
                     val data = blockData[paletteIndex] ?: continue
-                    world.getBlockAt(originX + x, originY + y, originZ + z).setBlockData(data, false)
+                    val block = world.getBlockAt(originX + x, originY + y, originZ + z)
+                    if (targetIsAir && block.type.isAir) continue
+                    block.setBlockData(data, false)
                 }
             }
         }
