@@ -46,11 +46,15 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private val lastMoved = mutableMapOf<UUID,Int>()
     private val dirty = mutableSetOf<UUID>()
     private var autosaveSeconds = 0
+    private var safeAreaSnapshot: ContentSnapshot? = null
+    private var safeAreasByWorld: Map<String, List<Area>> = emptyMap()
     internal lateinit var simStore: PlayerStore
     internal val simulated = mutableMapOf<String,PlayerProfile>()
     internal val simSessions = mutableMapOf<String,SimulationSession>()
     private data class EnhancementFlight(val token:String,val material:String,val currency:Long)
     private val enhancementFlights=mutableMapOf<UUID,EnhancementFlight>()
+    private var enhancementLoreLanguage: LangCatalog? = null
+    private var enhancementLoreLines: Set<String> = emptySet()
     private var advancementWarningLogged=false
     private lateinit var itemKey: NamespacedKey
     private lateinit var enhancementKey: NamespacedKey
@@ -60,6 +64,15 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private lateinit var starterClassKey: NamespacedKey
     /** 現在の不変コンテンツSnapshotをControllerへ公開します。 */
     internal val snapshot get() = content.snapshot()
+    /** コンテンツ版ごとに安全地帯をワールド別へ索引化します。 */
+    internal fun safeAreas(world: String): List<Area> {
+        val current = snapshot
+        if (safeAreaSnapshot !== current) {
+            safeAreasByWorld = current.world.areas.values.filter { it.safe }.groupBy { it.world }
+            safeAreaSnapshot = current
+        }
+        return safeAreasByWorld[world].orEmpty()
+    }
     /** クライアントlocaleに合わせて翻訳済みComponentを生成します。 */
     internal fun message(player: Player, key: String, vararg values: Pair<String, Any?>): Component =
         language.component(player.locale().toString(), key, values.toMap())
@@ -453,8 +466,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val buff=defenseBuffs[p.uniqueId]?.takeIf { it.second > System.nanoTime()/1_000_000 }?.first ?: 0.0
         return base.copy(defense=(base.defense+buff).coerceAtMost(snapshot.balance.statCap))
     }
-    private fun applyStats(p: Player, profile: PlayerProfile) {
-        val max = effectiveStats(p,profile).hp.coerceIn(1.0,content.snapshot().balance.statCap)
+    private fun applyStats(p: Player, profile: PlayerProfile, calculated: Stats = effectiveStats(p,profile)) {
+        val max = calculated.hp.coerceIn(1.0,content.snapshot().balance.statCap)
         p.getAttribute(Attribute.MAX_HEALTH)?.baseValue = max
         p.isHealthScaled = true; p.healthScale = 20.0
         if(p.health > max) p.health = max
@@ -599,11 +612,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             val meta=held.itemMeta
             meta.persistentDataContainer.set(enhancementKey,PersistentDataType.INTEGER,current+1)
             meta.persistentDataContainer.set(enhancementTransactionKey,PersistentDataType.STRING,flight.token)
-            val enhancementLore = (1..tuning.enhancementCap).flatMap { level ->
-                listOf("ja_jp", "en_us").map { locale ->
-                    plain(language.component(locale, "ec.enhance.level_lore", mapOf("level" to level)))
-                }
-            }.toSet()
+            val enhancementLore = enhancementLoreLines(language, tuning.enhancementCap)
             val lore = meta.lore() ?: emptyList()
             meta.lore(lore.filterNot { plain(it) in enhancementLore } + message(player,"ec.enhance.level_lore", "level" to (current+1)))
             held.itemMeta=meta; player.inventory.setItemInMainHand(held)
@@ -616,6 +625,18 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 player.sendMessage(message(player,"ec.enhance.success", "level" to (current+1)))
             } else player.sendMessage(message(player,"ec.enhance.refunded"))
         })
+    }
+    /** 言語・強化上限が変わった時だけ既存強化loreを再生成します。 */
+    private fun enhancementLoreLines(catalog: LangCatalog, cap: Int): Set<String> {
+        if (enhancementLoreLanguage !== catalog || enhancementLoreLines.size != cap * 2) {
+            enhancementLoreLines = (1..cap).flatMap { level ->
+                listOf("ja_jp", "en_us").map { locale ->
+                    plain(catalog.component(locale, "ec.enhance.level_lore", mapOf("level" to level)))
+                }
+            }.toSet()
+            enhancementLoreLanguage = catalog
+        }
+        return enhancementLoreLines
     }
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=false) fun codexClick(e:InventoryClickEvent) {
         val player=e.whoClicked as? Player ?: return
@@ -647,12 +668,11 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
           try {
             val profile = profiles[p.uniqueId] ?: return@forEach
             if(resourcePacks.isAwaitingRequiredPack(p.uniqueId)) return@forEach
-            syncTitleAdvancements(p,profile)
             val c = profile.classId?.let { content.snapshot().classes.find(it) } ?: return@forEach
             if(adventure.locked(p.uniqueId)) return@forEach
             val gatheringActive=::gathering.isInitialized && gathering.active(p.uniqueId)
             val fishingActive=::fishing.isInitialized && fishing.active(p.uniqueId)
-            val s = effectiveStats(p,profile); applyStats(p,profile); applyTitle(p,profile)
+            val s = effectiveStats(p,profile); applyStats(p,profile,s); applyTitle(p,profile)
             val beforeResource = profile.resource
             game.regenerate(profile,s.resource,Bukkit.getCurrentTick()-(lastMoved[p.uniqueId] ?: Int.MIN_VALUE/2) < 20)
             if(profile.resource != beforeResource) dirty.add(p.uniqueId)
@@ -814,7 +834,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     }
     @EventHandler fun move(e: PlayerMoveEvent) {
         if(e.from.world != e.to.world || e.from.distanceSquared(e.to) > 0.0) lastMoved[e.player.uniqueId] = Bukkit.getCurrentTick()
-        val safeAreas=snapshot.world.areas.values
+        if (e.from.world == e.to.world && e.from.blockX == e.to.blockX && e.from.blockY == e.to.blockY && e.from.blockZ == e.to.blockZ) return
+        val safeAreas=safeAreas(e.to.world.name)
         val to=e.to
         if(enteredSafeArea(Position(e.from.world.name,e.from.x,e.from.y,e.from.z),Position(to.world.name,to.x,to.y,to.z),safeAreas)) {
             DemoWorld.clearNearbySafeHostiles(this,to.world,to)
@@ -855,7 +876,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 var codexUnlocks=emptySet<String>()
                 var drops=emptyMap<String,Int>()
                 adventure.transaction(player,{ inv ->
-                    codexUnlocks=profile.recordEnemyKill(id,snapshot.world.areas,snapshot.world.enemies)
+                    codexUnlocks=profile.recordEnemyKillIndexed(id,snapshot.world.areas,snapshot.world.enemiesByArea)
                     drops=game.kill(profile,id,inv,xp[playerId] ?: 0,currency[playerId] ?: 0,playerId == loot)
                     drops.forEach { (item,amount) -> profile.pendingRewards.merge(item,amount,Int::plus) }
                 }) {

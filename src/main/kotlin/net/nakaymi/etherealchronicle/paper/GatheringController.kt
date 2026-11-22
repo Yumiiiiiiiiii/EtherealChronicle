@@ -44,6 +44,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
     private val engine=GatheringEngine()
     private var sites=buildSites()
     private var sitesById=sites.values.distinctBy(::siteKey).associateBy(::siteKey)
+    private var sitesByChunk=sitesById.values.groupBy { (it.location.x shr 4) to (it.location.z shr 4) }
     private val channels=mutableMapOf<UUID,Channel>()
     private val lastAttempt=mutableMapOf<UUID,String>()
     private val displays=mutableMapOf<String,List<UUID>>()
@@ -121,6 +122,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         close()
         sites=buildSites()
         sitesById=sites.values.distinctBy(::siteKey).associateBy(::siteKey)
+        sitesByChunk=sitesById.values.groupBy { (it.location.x shr 4) to (it.location.z shr 4) }
         renderAll()
         task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },2,2)
     }
@@ -196,7 +198,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         }.forEach { entity ->
             if(displays.values.flatten().none { it == entity.uniqueId }) entity.remove()
         }
-        sitesById.values.filter { it.location.world==e.world.name && it.location.x shr 4==e.chunk.x && it.location.z shr 4==e.chunk.z }.forEach(::renderSite)
+        sitesByChunk[e.chunk.x to e.chunk.z].orEmpty().filter { it.location.world==e.world.name }.forEach(::renderSite)
     }
     private fun isProtected(location: Location): Boolean {
         if(location.world.name != "ec_world") return false

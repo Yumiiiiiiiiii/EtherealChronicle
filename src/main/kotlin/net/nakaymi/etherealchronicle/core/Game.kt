@@ -197,16 +197,22 @@ fun PlayerProfile.syncTitleUnlockFlags(titles:Map<String,TitleDefinition>):Set<S
     val newlyUnlocked=titles.values.filter { it.unlocked(this) }.map { it.unlockFlag }.filter(flags::add).toSet()
     return newlyUnlocked
 }
-fun PlayerProfile.recordEnemyKill(enemy:String,areas:Map<String,Area>,definitions:Map<String,EnemyDefinition>):Set<String> {
+fun PlayerProfile.recordEnemyKill(enemy:String,areas:Map<String,Area>,definitions:Map<String,EnemyDefinition>):Set<String> =
+    recordEnemyKillIndexed(enemy,areas,areas.mapValues { (_,area) ->
+        definitions.values.filter { it.spawns.any { spawn -> area.contains(spawn.position) } }
+    })
+
+/** 事前構築済みのエリア別魔物一覧を使い、kill処理で配置点を再走査しません。 */
+fun PlayerProfile.recordEnemyKillIndexed(enemy:String,areas:Map<String,Area>,enemiesByArea:Map<String,List<EnemyDefinition>>):Set<String> {
     bestiary[enemy]=(bestiary.getOrDefault(enemy,0)+1).coerceAtMost(1_000_000)
     val unlocked=mutableSetOf<String>()
-    areas.values.forEach { area ->
-        val all=definitions.values.filter { e -> e.spawns.any { s -> area.contains(Position(s.position.world,s.position.x,s.position.y,s.position.z)) } }.map { it.id }.toSet()
+    areas.keys.forEach { areaId ->
+        val all=enemiesByArea[areaId].orEmpty().map { it.id }.toSet()
         if(all.isEmpty()) return@forEach
         val found=all.count { (bestiary[it] ?: 0) > 0 }
         val percent=found*100/all.size
         listOf(25,50,75,100).filter { percent >= it }.forEach { milestone ->
-            val flag="ec:flag_codex_${area.id.removePrefix("ec:area_")}_$milestone"
+            val flag="ec:flag_codex_${areaId.removePrefix("ec:area_")}_$milestone"
             if(flags.add(flag)) unlocked+=flag
         }
     }

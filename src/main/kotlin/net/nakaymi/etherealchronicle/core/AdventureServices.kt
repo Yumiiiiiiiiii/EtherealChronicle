@@ -56,8 +56,9 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
         return !state.completed && consume.all { (item,n) -> inventory.count(item).toLong() >= n } && q.objectives.all { progress(p,q,it,inventory) >= it.amount }
     }
     /** 対象イベントを一致するobjectiveへ加算し、必要なら自動完了させます。 */
-    fun event(p: PlayerProfile,kind: ObjectiveKind,target: String,amount: Int,inventory: InventoryAccess,allowAutoComplete: Boolean = true,alsoTargets:Set<String> = emptySet()) {
+    fun event(p: PlayerProfile,kind: ObjectiveKind,target: String,amount: Int,inventory: InventoryAccess,allowAutoComplete: Boolean = true,alsoTargets:Set<String> = emptySet()): Boolean {
         require(amount > 0)
+        var changed = false
         p.quests.filterValues { !it.completed }.keys.toList().forEach { id ->
             val q = content().world.quests[id] ?: return@forEach
             val o = q.objectives.firstOrNull { progress(p,q,it,inventory) < it.amount }
@@ -74,11 +75,14 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
                 val state = p.quests.getValue(id)
                 state.objectives[o.id] = (state.objectives.getOrDefault(o.id,0).toLong()+amount).coerceAtMost(o.amount.toLong()).toInt()
                 state.progress = state.objectives.values.sum()
+                changed = true
             }
             if(allowAutoComplete && q.autoComplete && ready(p,id,inventory)) {
                 try { complete(p,id,inventory) } catch(_: IllegalArgumentException) { /* ready quests remain claimable when storage is full */ }
+                if(p.quests[id]?.completed == true) changed = true
             }
         }
+        return changed
     }
     /** 自動完了対象のうち条件を満たした依頼を安定順で返します。 */
     fun readyAutoComplete(p: PlayerProfile, inventory: InventoryAccess): List<String> =

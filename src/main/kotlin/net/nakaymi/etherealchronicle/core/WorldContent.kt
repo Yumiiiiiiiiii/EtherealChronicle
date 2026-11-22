@@ -226,9 +226,14 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
         require(nodeCoordinates.distinct().size == nodeCoordinates.size) { "ec.error.invalid_content" }
         fishingSpots.values.filter { it.defaultForArea }.groupBy { it.area }.forEach { (area,spots) -> require(spots.size == 1) { "$area: ec.error.invalid_content" } }
     }
+    /** 指定エリアと敵配置を一度だけ照合し、一覧画面での繰り返し走査を避けます。 */
+    val enemiesByArea: Map<String, List<EnemyDefinition>> by lazy {
+        areas.values.associate { area ->
+            area.id to enemies.values.filter { enemy -> enemy.spawns.any { area.contains(it.position) } }.sortedBy { it.id }
+        }
+    }
     /** 指定エリア内に出現点を持つ魔物をID順で返します。 */
     fun enemiesInArea(areaId:String):List<EnemyDefinition> {
-        val area=areas[areaId] ?: return emptyList()
-        return enemies.values.filter { enemy -> enemy.spawns.any { spawn -> area.contains(spawn.position) } }.sortedBy { it.id }
+        return enemiesByArea[areaId].orEmpty()
     }
 }

@@ -33,13 +33,14 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     private val mm=MiniMessage.miniMessage()
     private val npcs=NpcController(plugin)
     private val dialogueSessions=mutableMapOf<UUID,Pair<String,String>>()
+    private val dialogueComponents=mutableMapOf<Triple<String,String,String>,Component>()
     private val invUiShops=mutableMapOf<UUID,String>()
     var enterDungeon: (Player,String) -> Unit = { p,id -> p.sendMessage(plugin.message(p,"ec.dungeon.preparing", "name" to plugin.contentName(p,id))) }
     init { plugin.server.pluginManager.registerEvents(this,plugin) }
     /** 非同期保存を含むプロフィール取引中かを返します。 */
     fun locked(id: UUID) = id in locks
     /** 時刻・天候条件に応じたNPCの再読込を専用controllerへ委譲します。 */
-    fun reloadNpcs() = npcs.reload()
+    fun reloadNpcs() { dialogueComponents.clear(); npcs.reload() }
     /** 管理対象NPCのspawn entityを解放します。 */
     fun close() = npcs.close()
     /** NPCの時間・天候条件とオンライン依頼進行を更新します。 */
@@ -97,6 +98,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         val p=plugin.profiles[player.uniqueId] ?: return
         val (at,definition)=dialogues.node(p,id,node)
         dialogueSessions[p.uuid]=id to at
+        val textComponent = dialogueComponents.getOrPut(Triple(id,at,player.locale().toString())) { mm.deserialize(definition.text) }
         val menu=RpgMenu("dialogue",id,at,plugin.message(player,"ec.menu.dialogue")).inventory
         menu.setItem(4,ItemStack(Material.WRITTEN_BOOK).apply { itemMeta=itemMeta.apply {
             displayName(plugin.message(player,"ec.dialogue.talk")); lore(definition.text.chunked(28).map { mm.deserialize(it) })
@@ -104,7 +106,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         definition.choices.take(45).forEachIndexed { index,c -> menu.setItem(9+index,ItemStack(Material.PAPER).apply { itemMeta=itemMeta.apply {
             displayName(mm.deserialize(c.label)); persistentDataContainer.set(entryKey,PersistentDataType.STRING,c.id)
         } }) }
-        player.sendMessage(mm.deserialize(definition.text))
+        player.sendMessage(textComponent)
         if (plugin.paperUiEnabled && paperDialogueHasChoices(definition.choices.size)) showDialogueDialog(player,id,at,definition)
         else player.openInventory(menu)
     }
@@ -300,9 +302,14 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     }
     @EventHandler(ignoreCancelled=true) fun tradeBound(e: InventoryClickEvent) {
         if(e.whoClicked !is Player) return
-        if(e.currentItem?.type?.name?.endsWith("BUNDLE") == true && bound(e.cursor) || e.cursor.type.name.endsWith("BUNDLE") && bound(e.currentItem)) { e.isCancelled=true; return }
+        val current=e.currentItem; val cursor=e.cursor
+        val currentBound=bound(current); val cursorBound=bound(cursor)
+        if(current?.type?.name?.endsWith("BUNDLE") == true && cursorBound || cursor.type.name.endsWith("BUNDLE") && currentBound) { e.isCancelled=true; return }
         val external=e.view.topInventory.type !in setOf(InventoryType.CRAFTING,InventoryType.CREATIVE)
-        if(external && (bound(e.currentItem) || bound(e.cursor) || e.click == ClickType.SWAP_OFFHAND && bound((e.whoClicked as Player).inventory.itemInOffHand) || e.hotbarButton >= 0 && bound((e.whoClicked as Player).inventory.getItem(e.hotbarButton))) || (e.click == ClickType.DROP || e.click == ClickType.CONTROL_DROP) && bound(e.currentItem)) e.isCancelled=true
+        val player=e.whoClicked as Player
+        val offhandBound=e.click == ClickType.SWAP_OFFHAND && bound(player.inventory.itemInOffHand)
+        val hotbarBound=e.hotbarButton >= 0 && bound(player.inventory.getItem(e.hotbarButton))
+        if(external && (currentBound || cursorBound || offhandBound || hotbarBound) || (e.click == ClickType.DROP || e.click == ClickType.CONTROL_DROP) && currentBound) e.isCancelled=true
     }
     @EventHandler(ignoreCancelled=true) fun boundEntity(e: PlayerInteractEntityEvent) {
         if(e.rightClicked is ItemFrame || e.rightClicked is ArmorStand || e.rightClicked is Allay) {
@@ -322,7 +329,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true) fun safe(e: EntityDamageEvent) {
         if(npcs.isManaged(e.entity)) { e.isCancelled=true; return }
         val p=e.entity as? Player ?: return
-        if(plugin.snapshot.world.areas.values.any { it.safe && it.contains(Position(p.world.name,p.x,p.y,p.z)) }) e.isCancelled=true
+        if(plugin.safeAreas(p.world.name).any { it.contains(Position(p.world.name,p.x,p.y,p.z)) }) e.isCancelled=true
     }
     private val consumableReady=mutableMapOf<Pair<UUID,String>,Long>()
     /** 消耗品を既存取引規則に沿って消費し、定義済み効果を適用します。 */
