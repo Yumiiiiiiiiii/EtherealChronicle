@@ -420,3 +420,10 @@
 - Clarified the shared fishing/world schedule contract: normalized 24,000-tick day, DAY `1000..11999`, NIGHT `13000..22999`, DAWN_DUSK `<1000`, `12000..12999`, and `>=23000`. This is the intentional Task25 behavior change for the 14 affected fish species.
 - Added Paper domain tests for null/different worlds, invalid radii, negative time, storage-slot counts and dungeon bounds, plus representative DemoWorld landmark block assertions.
 - Verification: targeted follow-up suite passed. Full build/test and final commit are pending.
+
+## Codex — overworld integration checkpoint (2026-11-23)
+- Branch: `codex/overworld-integration`; base `f7ce7c2`. Work in progress; do not merge or deploy this checkpoint as a completed feature.
+- Added pure YAML-area coordinate projection, registry and bootstrap interfaces, instance coordinate/slot helpers, a standalone asynchronous atomic dungeon-return JSON store, and a standalone portal-entry listener. These are not yet wired into the plugin or gameplay controllers.
+- Verified: `compileKotlin` passed on the current standalone sources. An earlier full `build test --no-daemon` passed 312 tests with 0 failures/errors/skips; it predates the latest standalone edits and adds no coverage for them.
+- Open: integrate the finalized town-engine adapter, projection and refresh paths in all controllers, safe instance placement and durable recovery, commands/config, requested delegated tests and cross-model reviews; rerun the full suite and `git diff --check`. The town-engine API is not yet finalized.
+- Next: wire the registered bootstrap only after its provider contract is finalized; meanwhile implement controller and dungeon integration without touching the other agent's five owned files.
