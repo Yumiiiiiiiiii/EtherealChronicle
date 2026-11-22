@@ -82,7 +82,7 @@ class ClassSelectionUi(
     fun open(player: Player, classes: List<ClassDefinition>) {
         // 再接続後に前セッションの未完了状態が残らないよう、一覧表示を新しい選択開始点とします。
         confirming.finish(player.uniqueId)
-        val available = classes.take(9)
+        val available = classes.take(ClassSelectionLayout.MAX_CLASS_OPTIONS)
         val builder = Gui.builder().setStructure("a b c d e f g h i")
         available.forEachIndexed { index, definition ->
             val letter = ('a'.code + index).toChar()

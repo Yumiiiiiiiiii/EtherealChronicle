@@ -251,7 +251,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         }
         val now=System.currentTimeMillis(); val k=siteKey(site)
         if(!engine.readyAt(profile,k,now)) { reject(player,"ec.gathering.respawning", "seconds" to MinecraftTicks.millisToSecondsCeil(profile.gatheringReadyAt.getValue(k)-now)); return }
-        val origin=player.location.clone(); val duration=(def.channelMillis*(1-tool.channelSpeedBonus)).toLong().coerceAtLeast(250)
+        val origin=player.location.clone(); val duration=(def.channelMillis*(1-tool.channelSpeedBonus)).toLong().coerceAtLeast(ContentLimits.MIN_GATHERING_CHANNEL_MILLIS)
         val barTitle=net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
             .serialize(plugin.message(player,"ec.gathering.bossbar", "name" to def.name))
         val bar=Bukkit.createBossBar(barTitle,BarColor.GREEN,BarStyle.SOLID).apply { addPlayer(player); progress=GatheringDisplayGeometry.CHANNEL_BOSSBAR_START_PROGRESS }

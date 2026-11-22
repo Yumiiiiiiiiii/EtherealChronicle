@@ -33,6 +33,7 @@ class PaperDomainUnitsTest {
 
     @Test
     fun `chunk and inventory layout helpers express negative coordinates and reserved slot`() {
+        assertEquals(16, ChunkCoordinates.CHUNK_SIZE_BLOCKS)
         assertEquals(ChunkCoordinates(-1,-2),ChunkCoordinates.fromBlocks(-1,-17))
         assertEquals(ChunkCoordinates(-1,-1),ChunkCoordinates.fromPosition(-0.01,-16.0))
         assertTrue(PlayerInventoryLayout.isUsableStorageSlot(0))
@@ -47,6 +48,7 @@ class PaperDomainUnitsTest {
         assertEquals(9,InventoryGrid.forInventorySize(ChestLayout.CLASS_MENU_SLOTS).slotCount)
         assertEquals(54,InventoryGrid.forInventorySize(ChestLayout.DOUBLE_CHEST_SLOTS).slotCount)
         assertEquals(9,ClassSelectionLayout.MAX_CLASS_OPTIONS)
+        assertEquals(ClassSelectionLayout.MAX_CLASS_OPTIONS, ChestLayout.CLASS_MENU_SLOTS)
         assertTrue(CodexLayout.NEXT_PAGE_SLOT < ChestLayout.DOUBLE_CHEST_SLOTS)
         assertEquals(45,DialogueLayout.MAX_VISIBLE_CHOICES)
     }

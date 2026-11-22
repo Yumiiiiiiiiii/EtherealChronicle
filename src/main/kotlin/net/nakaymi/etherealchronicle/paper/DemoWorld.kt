@@ -23,7 +23,7 @@ class DemoGenerator: ChunkGenerator() {
                 }
                 else -> when {
                     kotlin.math.abs(wx-island*DemoWorldLayout.ISLAND_CENTER_SPACING) <= DemoWorldLayout.ICE_ISLAND_CENTER_RADIUS_BLOCKS && kotlin.math.abs(wz) <= DemoWorldLayout.ICE_ISLAND_CENTER_RADIUS_BLOCKS -> Material.BLUE_ICE
-                    kotlin.math.abs(wz) <= 3 -> Material.PACKED_ICE
+                    kotlin.math.abs(wz) <= DemoWorldLayout.ICE_ISLAND_OUTER_LANE_HALF_WIDTH -> Material.PACKED_ICE
                     else -> Material.SNOW_BLOCK
                 }
             }
@@ -33,8 +33,8 @@ class DemoGenerator: ChunkGenerator() {
         }
     }
     override fun generateNoise(info: WorldInfo,random: Random,chunkX: Int,chunkZ: Int,data: ChunkData) {
-        for(x in 0..15) for(z in 0..15) {
-            val wx=chunkX*16+x; val wz=chunkZ*16+z
+        for(x in 0 until DemoWorldLayout.CHUNK_SIZE_BLOCKS) for(z in 0 until DemoWorldLayout.CHUNK_SIZE_BLOCKS) {
+            val wx=chunkX*DemoWorldLayout.CHUNK_SIZE_BLOCKS+x; val wz=chunkZ*DemoWorldLayout.CHUNK_SIZE_BLOCKS+z
             val surface=surfaceAt(wx,wz)
             if(surface != null) {
                 data.setBlock(x,DemoWorldLayout.UNDERGROUND_Y,z,Material.BEDROCK)

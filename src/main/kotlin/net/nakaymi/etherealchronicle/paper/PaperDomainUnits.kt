@@ -90,6 +90,7 @@ object CombatGeometry {
 /** 各種座標表現から負座標にも正しいチャンク座標を生成します。 */
 data class ChunkCoordinates(val x: Int, val z: Int) {
     companion object {
+        const val CHUNK_SIZE_BLOCKS = 16
         private const val CHUNK_COORDINATE_SHIFT = 4
 
         fun fromBlocks(x: Int, z: Int) = ChunkCoordinates(x shr CHUNK_COORDINATE_SHIFT, z shr CHUNK_COORDINATE_SHIFT)
@@ -154,6 +155,7 @@ object DungeonArenaLayout {
 
 /** 新規ec_worldの高さと島・広場を宣言的に記述します。 */
 object DemoWorldLayout {
+    const val CHUNK_SIZE_BLOCKS = ChunkCoordinates.CHUNK_SIZE_BLOCKS
     const val UNDERGROUND_Y = 62
     const val SUPPORT_Y = 63
     const val GROUND_Y = 64
@@ -173,6 +175,7 @@ object DemoWorldLayout {
     const val SECOND_CHAPTER_BRIDGE_END_X = 804
     const val FIRST_CHAPTER_BRIDGE_END_X = 420
     const val BRIDGE_HALF_WIDTH = 3
+    const val ICE_ISLAND_OUTER_LANE_HALF_WIDTH = BRIDGE_HALF_WIDTH
     const val LIFE_POOL_RADIUS = 3
     const val SECRET_POOL_CENTER_X = 124
     const val SECRET_POOL_CENTER_Z = -24
@@ -265,4 +268,16 @@ object DialogueLayout {
 object EnhanceLayout {
     const val TARGET_ITEM_SLOT = 4
     const val CONFIRM_SLOT = 13
+}
+
+/** 隠し宝箱の演出を、表示位置と粒子密度を保ったまままとめます。 */
+object TreasureVisualTuning {
+    const val PARTICLE_COUNT = 3
+    const val HINT_CENTER_X_BLOCKS = 0.5
+    const val HINT_HEIGHT_BLOCKS = 1.1
+    const val HINT_CENTER_Z_BLOCKS = 0.5
+    const val PARTICLE_SPREAD_X_BLOCKS = 0.15
+    const val PARTICLE_SPREAD_Y_BLOCKS = 0.2
+    const val PARTICLE_SPREAD_Z_BLOCKS = 0.15
+    const val PARTICLE_SPEED = 0.01
 }

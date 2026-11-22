@@ -46,7 +46,15 @@ class TreasureController(private val plugin:RpgPlugin):Listener {
         val display=world.spawn(loc,BlockDisplay::class.java) { it.block=Material.CHEST.createBlockData(); it.isPersistent=false; it.isInvulnerable=true; it.persistentDataContainer.set(key,PersistentDataType.STRING,chest.id) }
         val hitbox=world.spawn(loc.clone().add(0.5,0.0,0.5),Interaction::class.java) { it.interactionWidth=0.9f; it.interactionHeight=0.9f; it.isResponsive=true; it.isPersistent=false; it.isInvulnerable=true; it.persistentDataContainer.set(key,PersistentDataType.STRING,chest.id) }
         entities[chest.id]=mutableListOf(display.uniqueId,hitbox.uniqueId)
-        world.spawnParticle(runCatching { Particle.valueOf(chest.hintParticle) }.getOrDefault(Particle.END_ROD),loc.clone().add(0.5,1.1,0.5),3,0.15,0.2,0.15,0.01)
+            world.spawnParticle(
+                runCatching { Particle.valueOf(chest.hintParticle) }.getOrDefault(Particle.END_ROD),
+                loc.clone().add(TreasureVisualTuning.HINT_CENTER_X_BLOCKS, TreasureVisualTuning.HINT_HEIGHT_BLOCKS, TreasureVisualTuning.HINT_CENTER_Z_BLOCKS),
+                TreasureVisualTuning.PARTICLE_COUNT,
+                TreasureVisualTuning.PARTICLE_SPREAD_X_BLOCKS,
+                TreasureVisualTuning.PARTICLE_SPREAD_Y_BLOCKS,
+                TreasureVisualTuning.PARTICLE_SPREAD_Z_BLOCKS,
+                TreasureVisualTuning.PARTICLE_SPEED,
+            )
         } finally { spawning.remove(chest.id) }
     }
 
