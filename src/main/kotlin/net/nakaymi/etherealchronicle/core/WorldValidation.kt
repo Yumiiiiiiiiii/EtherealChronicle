@@ -9,7 +9,7 @@ internal fun WorldContent.validateWorldReferences(documents: Map<String,Map<Stri
         require(documents[aliases[target] ?: target]?.get("type") in types) { "$field -> $target: ec.error.invalid_content" }
     }
     fun condition(c: Condition) {
-        require(c.minLevel in 1..1000) { "condition.min_level: ec.error.invalid_content" }
+        require(c.minLevel in 1..ContentLimits.MAX_DECLARED_LEVEL) { "condition.min_level: ec.error.invalid_content" }
         (c.completed+c.active+c.notStarted).forEach { ref(it,setOf("quest"),"condition.quest") }
         c.classes.forEach { ref(it,setOf("class"),"condition.classes") }
         c.any.forEach(::condition)
@@ -27,7 +27,7 @@ internal fun WorldContent.validateWorldReferences(documents: Map<String,Map<Stri
             ObjectiveKind.GATHER_NODE -> if(o.target !in setOf("ANY","*","HERB","ORE","WOOD","CRYSTAL")) ref(o.target,setOf("gathering_node"),"objectives.GATHER_NODE")
             ObjectiveKind.ENHANCE_GEAR -> require(o.target in setOf("ANY","*") || (o.target.toIntOrNull() ?: -1) in 1..tuning.enhancementCap) { "objectives.ENHANCE_GEAR: ec.error.invalid_content" }
         } }
-        q.rewards.items.forEach { require(it.amount in 1..64) { "rewards.items.amount: ec.error.invalid_content" }; ref(it.item,setOf("item"),"rewards.items"); condition(it.condition) }
+        q.rewards.items.forEach { require(it.amount in 1..ContentLimits.MAX_ITEM_STACK) { "rewards.items.amount: ec.error.invalid_content" }; ref(it.item,setOf("item"),"rewards.items"); condition(it.condition) }
     } }
     dialogues.forEach { (id,d) -> check(id) { (d.nodes.values.toList()+DialogueNode("",emptyList(),d.globalChoices)).forEach { n ->
         n.branches.forEach { condition(it.first) }

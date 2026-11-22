@@ -39,11 +39,11 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
                 "quest" -> {
                     val objectives = d.maps("objectives").map { Objective(it.string("id"),ObjectiveKind.valueOf(it.string("kind")),it.string("target"),it.integer("amount",1),it.bool("consume",true)) }
                         .ifEmpty { listOf(Objective("legacy_kills",ObjectiveKind.KILL,d["kill_target"] as? String ?: "*",d.integer("required_kills",1))) }
-                    require(objectives.map { it.id }.distinct().size == objectives.size && objectives.all { it.amount in 1..1_000_000 }) { "$id: ec.error.invalid_content" }
+                    require(objectives.map { it.id }.distinct().size == objectives.size && objectives.all { it.amount in 1..GameLimits.MAX_RECORD_COUNT }) { "$id: ec.error.invalid_content" }
                     val rewards = if(d["rewards"] != null) d.mapping("rewards").rewards() else Rewards(d.whole("xp",0),d.whole("currency",0))
                     val reset=d["reset_schedule"] as? String
                     require(reset == null || reset in setOf("DAILY","WEEKLY")) { "ec.error.invalid_content" }
-                    quests[id] = QuestDefinition(id,d.string("name"),d.condition(),objectives,rewards,d.bool("auto_complete",d["objectives"] == null),d.bool("repeatable",false),d.whole("repeat_cooldown_ms",86_400_000),reset)
+                    quests[id] = QuestDefinition(id,d.string("name"),d.condition(),objectives,rewards,d.bool("auto_complete",d["objectives"] == null),d.bool("repeatable",false),d.whole("repeat_cooldown_ms",GameDurations.DEFAULT_QUEST_REPEAT_MILLIS),reset)
                 }
                 "dialogue" -> {
                     fun parseChoice(c: Map<String,Any?>) = DialogueChoice(c.string("id"),c.string("label"),c.condition(),c["next"] as? String,c.strings("set_flags").toSet(),c.strings("clear_flags").toSet(),c.maps("actions").map { a ->
@@ -61,7 +61,7 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
                     nodes.values.forEach { n ->
                         require(n.choices.map { it.id }.distinct().size == n.choices.size)
                         require(n.branches.all { it.second in nodes } && n.choices.all { it.next.isNullOrEmpty() || it.next in nodes }) { "$id: ec.error.invalid_content" }
-                        require(n.choices.flatMap { it.actions }.all { it.kind in setOf("START_QUEST","COMPLETE_QUEST","SELECT_CLASS","OPEN_SHOP","ENTER_DUNGEON","GIVE_ITEM","TELEPORT_AREA") && it.amount in 1..64 })
+                        require(n.choices.flatMap { it.actions }.all { it.kind in setOf("START_QUEST","COMPLETE_QUEST","SELECT_CLASS","OPEN_SHOP","ENTER_DUNGEON","GIVE_ITEM","TELEPORT_AREA") && it.amount in 1..ContentLimits.MAX_ITEM_STACK })
                     }
                     dialogues[id] = DialogueDefinition(id,start,nodes,globalChoices)
                 }
@@ -80,7 +80,7 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
                     val position=if("location" in d) d.mapping("location").position() else Position(d.string("world"),d.num("x"),d.num("y"),d.num("z"))
                     val definition=TreasureChestDefinition(id,position,d.string("once_flag"),items,d.whole("currency",0),d.text("hint_particle","END_ROD"))
                     val currencyCap=documents.values.single { it["type"]=="balance" }.whole("currency_gain_cap",1_000_000)
-                    require(definition.onceFlag.matches(Regex("ec:flag_[a-z0-9_]+")) && definition.items.isNotEmpty() && definition.items.values.all { it in 1..64 } && definition.currency in 0..currencyCap && definition.hintParticle.matches(Regex("[A-Z_]+"))) { "ec.error.invalid_content" }
+                    require(definition.onceFlag.matches(Regex("ec:flag_[a-z0-9_]+")) && definition.items.isNotEmpty() && definition.items.values.all { it in 1..ContentLimits.MAX_ITEM_STACK } && definition.currency in 0..currencyCap && definition.hintParticle.matches(Regex("[A-Z_]+"))) { "ec.error.invalid_content" }
                     treasureChests[id]=definition
                 }
                 "title" -> {
@@ -104,14 +104,14 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
                             TitleConditionType.CHALLENGE_RANK -> target?.startsWith("ec:")==true && condition.rank in setOf("S","A","B","C")
                             else -> target?.startsWith("ec:")==true
                         }
-                        require(definition.title.isNotBlank() && definition.title.length <= 80 && definition.description.length <= 240 && definition.icon.matches(Regex("[A-Z][A-Z0-9_]*")) && (definition.parent == null || definition.parent.matches(Regex("[a-z0-9_.-]+:[a-z0-9_./-]+"))) && definition.frame in setOf("TASK","CHALLENGE","GOAL") && condition.count in 1..1_000_000 && targetValid) { "$id: ec.error.invalid_content" }
+                        require(definition.title.isNotBlank() && definition.title.length <= 80 && definition.description.length <= 240 && definition.icon.matches(Regex("[A-Z][A-Z0-9_]*")) && (definition.parent == null || definition.parent.matches(Regex("[a-z0-9_.-]+:[a-z0-9_./-]+"))) && definition.frame in setOf("TASK","CHALLENGE","GOAL") && condition.count in 1..GameLimits.MAX_RECORD_COUNT && targetValid) { "$id: ec.error.invalid_content" }
                         definition
                     }
                     titles[id] = TitleDefinition(id,d.string("name"),d.text("description",""),unlockFlag,advancement)
                 }
                 "shop" -> {
                     val entries = d.maps("entries").map { e -> ShopEntry(e.string("id"),e.string("item"),e.integer("amount",1),e.whole("price",0),e.tokens("tokens"),e.condition(),e.integer("daily_limit",0),e["token_discount_flag"] as? String,e.tokens("token_discount")) }
-                    require(entries.size in 1..45 && entries.map { it.id }.distinct().size == entries.size && entries.all { it.amount in 1..64 && it.price >= 0 && it.dailyLimit >= 0 && it.tokens.all { t -> t.amount > 0 } })
+                    require(entries.size in 1..45 && entries.map { it.id }.distinct().size == entries.size && entries.all { it.amount in 1..ContentLimits.MAX_ITEM_STACK && it.price >= 0 && it.dailyLimit >= 0 && it.tokens.all { t -> t.amount > 0 } })
                     val discount = d.number("discount",0.0); require(discount in 0.0..0.5)
                     shops[id] = ShopDefinition(id,d.string("name"),d.bool("buyback",true),d["discount_flag"] as? String,discount,entries)
                 }
@@ -136,7 +136,7 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
                         require(ranks.mapNotNull { it.firstClearFlag }.all { it in d.strings("flags") } && ranks.mapNotNull { it.firstClearFlag }.distinct().size==ranks.mapNotNull { it.firstClearFlag }.size) { "$id: ec.error.invalid_content" }
                         val definition=DungeonDefinition(id,config.string("unlock_flag"),config.string("boss"),guards,offsets,config.string("area"),config.strings("palette"),bossOffset,config.string("entry_message"),config.string("clear_message"),waves,ranks)
                         require(id in d.strings("dungeons") && id !in dungeons && definition.unlockFlag in d.strings("flags") && definition.guards.size == definition.guardOffsets.size && definition.palette.size == 3)
-                        require(definition.waves.all { it.guardOffsets.size == it.guards.size } && definition.scoreRanks.all { it.rank in setOf("S","A","B","C") && it.maxSeconds > 0 && (it.firstClearFlag == null || it.firstClearFlag.matches(Regex("ec:flag_[a-z0-9_]+"))) && (it.firstClearItems.isEmpty() || it.firstClearFlag != null) && it.firstClearItems.values.all { amount -> amount in 1..64 } } && definition.scoreRanks.zipWithNext().all { (a,b) -> a.maxSeconds <= b.maxSeconds })
+                        require(definition.waves.all { it.guardOffsets.size == it.guards.size } && definition.scoreRanks.all { it.rank in setOf("S","A","B","C") && it.maxSeconds > 0 && (it.firstClearFlag == null || it.firstClearFlag.matches(Regex("ec:flag_[a-z0-9_]+"))) && (it.firstClearItems.isEmpty() || it.firstClearFlag != null) && it.firstClearItems.values.all { amount -> amount in 1..ContentLimits.MAX_ITEM_STACK } } && definition.scoreRanks.zipWithNext().all { (a,b) -> a.maxSeconds <= b.maxSeconds })
                         dungeons[id]=definition
                     }
                 }

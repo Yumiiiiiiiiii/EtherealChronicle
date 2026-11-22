@@ -103,15 +103,16 @@ class GatheringEngine(private val random: kotlin.random.Random = kotlin.random.R
     fun roll(node: GatheringNodeDefinition,toolTier: Int,lifeLevel: Int,partyNearby: Boolean,partyBonus: Double,
              pity: MutableMap<String,Int> = mutableMapOf(),attemptCap: Int = 100): List<GatherResult> {
         require(toolTier in 1..3 && lifeLevel >= 1 && partyBonus in 0.0..0.25)
-        require(attemptCap in 1..10_000)
+        require(attemptCap in 1..GameLimits.MAX_GATHER_ATTEMPTS)
         val bonus=if(partyNearby) partyBonus else 0.0
         return buildList {
             node.yields.forEach { y -> if(random.nextDouble() < y.chance) add(GatherResult(y.item,random.nextInt(y.min,y.max+1),false)) }
-            val rareBoost=((toolTier-node.minToolTier).coerceAtLeast(0)*0.05+(lifeLevel-1)*0.005+bonus).coerceAtMost(0.45)
+            val rareBoost=((toolTier-node.minToolTier).coerceAtLeast(0)*GatheringFormula.TOOL_TIER_RARE_BONUS+
+                (lifeLevel-1)*GatheringFormula.LIFE_LEVEL_RARE_BONUS+bonus).coerceAtMost(GatheringFormula.MAX_RARE_BONUS)
             node.rareYields.forEach { y ->
                 val key="gathering:${node.id}:${y.item}"
                 val attempts=pity.getOrDefault(key,0).coerceIn(0,attemptCap)
-                val chance=(y.chance+rareBoost).coerceAtMost(0.95)
+                val chance=(y.chance+rareBoost).coerceAtMost(GatheringFormula.MAX_RARE_CHANCE)
                 val guaranteed=y.pityAfter != null && attempts >= y.pityAfter-1
                 val success=guaranteed || random.nextDouble() < chance
                 pity[key]=if(success) 0 else (attempts+1).coerceAtMost(attemptCap)
@@ -123,7 +124,7 @@ class GatheringEngine(private val random: kotlin.random.Random = kotlin.random.R
     fun readyAt(profile: PlayerProfile,nodeId: String,nowMillis: Long) = (profile.gatheringReadyAt[nodeId] ?: 0L) <= nowMillis
     /** 再出現可能な地点を予約し、成功した場合だけ状態を更新します。 */
     fun reserve(profile: PlayerProfile,locationKey: String,respawnSeconds: Long,nowMillis: Long): Boolean {
-        require(respawnSeconds in 1..86_400 && nowMillis >= 0)
+        require(respawnSeconds in 1..GameLimits.MAX_GATHERING_RESPAWN_SECONDS && nowMillis >= 0)
         if(!readyAt(profile,locationKey,nowMillis)) return false
         profile.gatheringReadyAt[locationKey]=nowMillis+respawnSeconds*1000
         return true

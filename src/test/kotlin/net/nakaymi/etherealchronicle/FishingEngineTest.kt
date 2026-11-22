@@ -18,6 +18,23 @@ class FishingEngineTest {
         assertTrue(engine.eligible(listOf(fish.copy(minFishingLevel=2)),spot,1,1,6000,"CLEAR").isEmpty())
         assertTrue(engine.eligible(listOf(fish.copy(weather=setOf("RAIN"))),spot,1,1,6000,"CLEAR").isEmpty())
     }
+    @Test fun `fish time eligibility uses the shared schedule boundaries and wraps day length`() {
+        val engine=FishingEngine(LifeBalance(),Random(17))
+        val cases=listOf(
+            "DAY" to listOf(999L to false,1_000L to true,11_999L to true,12_000L to false),
+            "DAWN_DUSK" to listOf(999L to true,1_000L to false,12_000L to true,12_999L to true,13_000L to false,22_999L to false,23_000L to true,23_999L to true),
+            "NIGHT" to listOf(12_999L to false,13_000L to true,22_999L to true,23_000L to false),
+        )
+        cases.forEach { (window,boundaries) ->
+            val candidate=fish.copy(timeWindows=setOf(window))
+            boundaries.forEach { (time,expected) ->
+                assertEquals(expected,engine.eligible(listOf(candidate),spot,1,1,time,"CLEAR").isNotEmpty(),"$window at $time")
+                assertEquals(expected,engine.eligible(listOf(candidate),spot,1,1,time+WorldSchedule.DAY_LENGTH_TICKS,"CLEAR").isNotEmpty(),"wrapped $window at $time")
+            }
+        }
+        assertEquals(engine.eligible(listOf(fish.copy(timeWindows=setOf("DAY"))),spot,1,1,1_000,"CLEAR"),
+            engine.eligible(listOf(fish.copy(timeWindows=setOf("DAY"))),spot,1,1,-23_000,"CLEAR"))
+    }
     @Test fun `state machine casts waits and requires an input during bite window`() {
         val engine=FishingEngine(LifeBalance(),Random(2)); val state=FishingState(fish,waitSeconds=0.2)
         assertEquals(FishingPhase.CASTING,engine.tick(state,0.2,ReelInput.IDLE))

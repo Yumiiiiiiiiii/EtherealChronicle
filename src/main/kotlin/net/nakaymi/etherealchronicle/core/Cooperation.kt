@@ -14,7 +14,7 @@ class PartyService(private val cap: () -> Int,private val clock: Clock) {
         val party=membership[leader]
         require(party == null || party.leader == leader)
         require((party?.members?.size ?: 1) < cap())
-        invites[target]=leader to (clock.millis()+60_000)
+        invites[target]=leader to (clock.millis()+GameDurations.PARTY_INVITE_MILLIS)
     }
     fun accept(target: UUID) {
         val (leader,expires)=invites.remove(target) ?: error("ec.error.party_invite_missing")
@@ -66,5 +66,10 @@ data class BossState(val definition: EnemyDefinition,val partySize: Int,val star
 fun displayedHealth(hp: Double, virtualMaximum: Double, liveMaximum: Double): Double {
     require(virtualMaximum.isFinite() && virtualMaximum > 0 && liveMaximum.isFinite() && liveMaximum > 0)
     if(hp <= 0) return 0.0
-    return (hp/virtualMaximum*liveMaximum).coerceIn(minOf(0.1,liveMaximum),liveMaximum)
+    return (hp/virtualMaximum*liveMaximum).coerceIn(minOf(BossHealth.MIN_VISIBLE_HEALTH,liveMaximum),liveMaximum)
+}
+
+/** Paper側の体力表示で0除算や丸め消失を避ける最小値です。 */
+object BossHealth {
+    const val MIN_VISIBLE_HEALTH = 0.1
 }

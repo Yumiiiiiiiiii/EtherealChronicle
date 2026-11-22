@@ -163,7 +163,7 @@ class DialogueEngine(private val content: () -> ContentSnapshot) {
     fun node(p: PlayerProfile,id: String,start: String? = null): Pair<String,DialogueNode> {
         val dialogue=content().world.dialogues[id] ?: throw GameException("ec.error.dialogue_missing")
         var at=start ?: dialogue.start; val visited=mutableSetOf<String>()
-        repeat(32) {
+        repeat(GameLimits.MAX_DIALOGUE_BRANCH_DEPTH) {
             requireGame(visited.add(at), "ec.error.dialogue_cycle")
             val node=dialogue.nodes[at] ?: throw GameException("ec.error.dialogue_node_missing")
             val next=node.branches.firstOrNull { it.first.matches(p) }?.second
@@ -236,7 +236,7 @@ class TradeEngine(private val content: () -> ContentSnapshot) {
             p.dailyPurchases[key]=plan.dailyCount
         }
         p.transactions += plan.id
-        while(p.transactions.size > 128) p.transactions.removeAt(0)
+        while(p.transactions.size > GameLimits.MAX_TRANSACTION_HISTORY) p.transactions.removeAt(0)
     }
 
     private fun planResult(create: () -> TradePlan): TradePlanResult = try {
