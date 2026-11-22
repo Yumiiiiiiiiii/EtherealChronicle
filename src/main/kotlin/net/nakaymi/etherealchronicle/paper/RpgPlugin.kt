@@ -106,7 +106,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val languageDefaults = listOf("ja_jp.yml", "en_us.yml").associate { name ->
             "lang/$name" to getResource("lang/$name")!!.use { it.readBytes() }
         }
-        language = LangCatalog.load(dataFolder.toPath(), config.getString("language", "auto") ?: "auto", logger, languageDefaults)
+        language = LangCatalog.fromBundledDefaults(config.getString("language", "auto") ?: "auto", logger, languageDefaults)
         // Paperプラグインはライフサイクル登録のみを使い、MockBukkitではテスト用コマンドを登録します。
         if (paperInventoryUi) registerPaperCommand()
         else getCommand("ec")?.setExecutor(this) ?: registerMockCommand()
@@ -119,7 +119,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 )
                 languageInstall.updated.forEach { logger.info("Updated unchanged bundled language file: $it") }
                 languageInstall.changed.forEach { logger.info("Preserving server-edited language file: $it") }
-                language = LangCatalog.load(dataFolder.toPath(), config.getString("language", "auto") ?: "auto", logger)
+                val loadedLanguage = LangCatalog.load(dataFolder.toPath(), config.getString("language", "auto") ?: "auto", logger)
                 val bundled = getResource("content-index.txt")!!.bufferedReader().use { reader ->
                     reader.readLines().filter { it.isNotBlank() }.associate { path ->
                         val clean = path.removePrefix("\uFEFF")
@@ -143,6 +143,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 store = PlayerStore(dataFolder.toPath().resolve("playerdata"))
                 simStore = PlayerStore(dataFolder.toPath().resolve("simulation"))
                 sync {
+                    language = loadedLanguage
                     game = GameService(content::snapshot,SkillEngine(Clock { System.nanoTime()/1_000_000 },content.snapshot().balance))
                     resourcePacks = ResourcePackController(this)
                     if (resourcePacks.shouldRegisterLockListener()) {
@@ -277,6 +278,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         if(::adventure.isInitialized) adventure.beforeQuit(e.player)
         if(ready) codexController.clear(e.player.uniqueId)
         sessions.remove(e.player.uniqueId); choosing.remove(e.player.uniqueId)
+        if(ready) classSelectionUi.clear(e.player.uniqueId)
         profiles.remove(e.player.uniqueId)?.let { profile -> settleEnhancement(e.player,profile); save(profile) }
         lastMoved.remove(e.player.uniqueId); dirty.remove(e.player.uniqueId)
 
@@ -337,18 +339,26 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             choosing.remove(p.uniqueId)
             if(error != null) { profile.starterGranted = false; p.sendMessage(message(p,"ec.profile.save_retry")); return@sync }
             if(!p.isOnline || profiles[p.uniqueId] !== profile) return@sync
-            if(c.starterItems.size > (0..7).count { p.inventory.getItem(it) == null }) {
+            val deferredToMailbox = c.starterItems.size > (0..7).count { p.inventory.getItem(it) == null }
+            if(deferredToMailbox) {
                 // 先行保存済みのstarterGrantedを維持し、枠不足分は耐久メールボックスへ戻します。
-                c.starterItems.groupingBy { it }.eachCount().forEach { (item,amount) -> profile.returnToMailbox(mapOf(item to amount)) }
+                val counts = c.starterItems.groupingBy { it }.eachCount()
+                profile.returnToMailbox(counts)
+                counts.keys.forEach(profile::discoverItem)
                 save(profile)
                 p.sendMessage(message(p,"ec.profile.starter_space"))
-                adventure.claimPending(p)
-                return@sync
+            } else {
+                c.starterItems.forEach { item ->
+                    val slot = (0..7).first { p.inventory.getItem(it) == null }
+                    p.inventory.setItem(slot,createStarterItem(item,id,p))
+                    profile.discoverItem(item)
+                }
+                save(profile)
             }
-            c.starterItems.forEach { item -> val slot = (0..7).first { p.inventory.getItem(it) == null }; p.inventory.setItem(slot,createStarterItem(item,id,p)); profile.discoverItem(item) }
-            save(profile)
             skillSlot(p); applyStats(p,profile); p.health=p.getAttribute(Attribute.MAX_HEALTH)!!.value
-            p.closeInventory(); p.sendMessage(message(p,"ec.profile.welcome"))
+            p.closeInventory()
+            if (deferredToMailbox) adventure.claimPending(p)
+            else p.sendMessage(message(p,"ec.profile.welcome"))
         } }
     }
     internal fun createItem(id: String, amount: Int = 1): ItemStack = createItemInternal(id, amount, null)
@@ -922,7 +932,12 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                                 }
                                 content.install(snapshot); game.skills.updateBalance(snapshot.balance)
                                 reloadConfig()
-                                language=LangCatalog.load(dataFolder.toPath(),config.getString("language","auto") ?: "auto",logger)
+                                val languageSetting=config.getString("language","auto") ?: "auto"
+                                CompletableFuture.supplyAsync { LangCatalog.load(dataFolder.toPath(),languageSetting,logger) }
+                                    .whenComplete { loadedLanguage,languageError -> sync {
+                                        if(languageError == null && isEnabled) language=loadedLanguage
+                                        else if(languageError != null) logger.warning("Language reload failed: ${languageError.message}")
+                                    } }
                                 uiTheme.updateMode(UiThemeProvider.mode(config.getString("ui.theme.mode", "icons_only")))
                                 all.forEach { p -> p.level=p.level.coerceAtMost(snapshot.balance.levelCap); if(p.level == snapshot.balance.levelCap) p.xp=0; p.skillLevels.replaceAll { _,level -> level.coerceIn(1,snapshot.balance.skillLevelCap) } }
                                 dirty.addAll(profiles.keys)

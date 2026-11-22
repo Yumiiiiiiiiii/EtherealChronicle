@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test
 import java.nio.file.Path
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class FishingUiFeedbackTest {
     @Test fun `action bar advice maps each fishing behavior to a translation key`() {
@@ -35,6 +37,10 @@ class FishingUiFeedbackTest {
             assertContains(line,"FISH QA: ended reason=${reason.name}")
             assertContains(line,"progress=42% tension=61%")
         }
+    }
+    @Test fun `pending bait persistence pauses rather than replays the bite`() {
+        assertFalse(shouldAdvanceFishingSession(true))
+        assertTrue(shouldAdvanceFishingSession(false))
     }
     @Test fun `default debug fishing selects an accessible fish for the local area`() {
         val world=ContentService(Path.of("src/main/resources/content")).load().world

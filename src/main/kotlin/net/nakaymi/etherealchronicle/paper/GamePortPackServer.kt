@@ -69,8 +69,9 @@ class GamePortPackServer(
         require(maxHeaderBytes in 256..16_384)
         require(headerDeadlineMillis in 500..10_000)
         require(idleReadTimeoutMillis in 100..headerDeadlineMillis)
-        require(unsupportedProxies().isEmpty()) {
-            "Game-port pack delivery is not supported behind proxy plugins: ${unsupportedProxies().joinToString()}"
+        val proxies = unsupportedProxies()
+        require(proxies.isEmpty()) {
+            "Game-port pack delivery is not supported behind proxy plugins: ${proxies.joinToString()}"
         }
         holderClass.getMethod("addListener", Key::class.java, listenerClass).invoke(null, listenerKey, listener)
         plugin.logger.info("Experimental resource-pack HTTP sniffing enabled on the game port; Paper's internal channel-initialization hook is in use.")
@@ -91,16 +92,18 @@ class GamePortPackServer(
     private fun unsupportedProxies(): List<String> = detectUnsupportedProxies(
         bungeeCordEnabled = runCatching {
             org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(
-                plugin.server.worldContainer.toPath().resolve("spigot.yml").toFile(),
+            serverRoot().resolve("spigot.yml").toFile(),
             ).getBoolean("settings.bungeecord", false)
         }.getOrDefault(false),
         velocityEnabled = runCatching {
             org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(
-                plugin.server.worldContainer.toPath().resolve("config/paper-global.yml").toFile(),
+            serverRoot().resolve("config/paper-global.yml").toFile(),
             ).getBoolean("proxies.velocity.enabled", false)
         }.getOrDefault(false),
         tcpShieldEnabled = plugin.server.pluginManager.isPluginEnabled("TCPShield"),
     )
+
+    private fun serverRoot() = serverRootFromDataFolder(plugin.dataFolder.toPath())
 
     companion object {
         private const val HANDLER_NAME = "etherealchronicle_game_port_pack"
@@ -154,7 +157,9 @@ internal class PackRequestSniffer(
                 passBufferedMinecraft(context, input, output)
                 return
             }
-            if (sniffPrefix.matches(GET_PREFIX) || sniffPrefix.matches(HEAD_PREFIX)) {
+            if (sniffPrefixSize == GET_PREFIX.size && sniffPrefix.matchesPrefix(sniffPrefixSize, GET_PREFIX) ||
+                sniffPrefixSize == HEAD_PREFIX.size && sniffPrefix.matchesPrefix(sniffPrefixSize, HEAD_PREFIX)
+            ) {
                 val ip = ((context.channel().remoteAddress() as? InetSocketAddress)?.address?.hostAddress).orEmpty().ifBlank { "unknown" }
                 if (!limiter.acquire(ip)) {
                     reject(context)
@@ -174,7 +179,7 @@ internal class PackRequestSniffer(
         while (input.isReadable() && state == State.HTTP) {
             val nextByte = input.readUnsignedByte().toInt()
             request.write(nextByte)
-            headerTerminatorWindow = ((headerTerminatorWindow shl 8) or nextByte) and TERMINATOR_MASK
+            headerTerminatorWindow = (headerTerminatorWindow shl 8) or nextByte
             if (request.size() > maxHeaderBytes) {
                 reject(context)
                 return
@@ -242,7 +247,7 @@ internal class PackRequestSniffer(
         val reason = if (allowed) "OK" else "Not Found"
         val contentType = if (allowed) "Content-Type: application/zip\r\n" else ""
         val headers = "HTTP/1.1 $status $reason\r\n$contentType" +
-            "Cache-Control: public, max-age=3600, immutable\r\n" +
+            cacheControlHeader(status) +
             "X-Content-Type-Options: nosniff\r\n" +
             "Content-Length: ${body.size}\r\nConnection: close\r\n\r\n"
         state = State.CLOSED
@@ -250,12 +255,12 @@ internal class PackRequestSniffer(
             if (!result.isSuccess || method != "GET" || status != 200) {
                 context.close()
             } else {
-                streamBody(context, body, parts[0], 0)
+                streamBody(context, body, 0)
             }
         }
     }
 
-    private fun streamBody(context: ChannelHandlerContext, body: ByteArray, method: String, offset: Int) {
+    private fun streamBody(context: ChannelHandlerContext, body: ByteArray, offset: Int) {
         if (!context.channel().isActive) return
         if (offset >= body.size) {
             context.close()
@@ -266,7 +271,7 @@ internal class PackRequestSniffer(
         val send = Runnable {
             if (!context.channel().isActive) return@Runnable
             context.writeAndFlush(Unpooled.wrappedBuffer(body, offset, count)).addListener { result ->
-                if (result.isSuccess) streamBody(context, body, method, offset + count) else context.close()
+                if (result.isSuccess) streamBody(context, body, offset + count) else context.close()
             }
         }
         if (delay <= 0) send.run()
@@ -301,13 +306,9 @@ internal class PackRequestSniffer(
     private fun ByteArray.matchesPrefix(length: Int, value: ByteArray): Boolean =
         length <= value.size && (0 until length).all { this[it] == value[it] }
 
-    private fun ByteArray.matches(value: ByteArray): Boolean =
-        size >= value.size && value.indices.all { this[it] == value[it] }
-
     private companion object {
         const val BODY_CHUNK_BYTES = 16 * 1024
         const val HEADER_TERMINATOR = 0x0D0A0D0A
-        const val TERMINATOR_MASK = 0xFFFFFFFF.toInt()
         val GET_PREFIX = "GET ".toByteArray(StandardCharsets.US_ASCII)
         val HEAD_PREFIX = "HEAD ".toByteArray(StandardCharsets.US_ASCII)
     }
@@ -370,3 +371,7 @@ internal fun detectUnsupportedProxies(
     if (velocityEnabled) add("Velocity")
     if (tcpShieldEnabled) add("TCPShield")
 }
+
+/** plugins/<plugin>/data から実際のサーバールートを求めます（world-containerには依存しません）。 */
+internal fun serverRootFromDataFolder(pluginDataFolder: java.nio.file.Path): java.nio.file.Path =
+    pluginDataFolder.toAbsolutePath().normalize().parent.parent

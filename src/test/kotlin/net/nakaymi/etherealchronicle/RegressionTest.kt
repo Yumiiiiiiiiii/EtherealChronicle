@@ -109,6 +109,37 @@ class RegressionTest {
         assertEquals(5,profile.currency)
         assertEquals(10,profile.xp)
     }
+    @Test fun `full inventory defers only item-reward auto quests and allows the next one`() {
+        val base=ContentService(Path.of("src/main/resources/content")).load()
+        val blockedId="ec:quest_full_storage_test"
+        val freeId="ec:quest_free_storage_test"
+        fun questDocument(id: String, reward: Map<String, Any?>) = mapOf<String, Any?>(
+            "schema_version" to 1,
+            "id" to id,
+            "type" to "quest",
+            "name" to id,
+            "objectives" to listOf(mapOf("id" to "talk", "kind" to "TALK", "target" to "ec:npc_celia", "amount" to 1)),
+            "rewards" to reward,
+            "auto_complete" to true,
+        )
+        val documents=base.documents+mapOf(
+            blockedId to questDocument(blockedId,mapOf("items" to listOf(mapOf("item" to "ec:item_con_minor_hp_potion", "amount" to 1)))),
+            freeId to questDocument(freeId,mapOf("currency" to 1)),
+        )
+        val snapshot=base.copy(documents=documents)
+        val engine=QuestEngine({ snapshot },Clock { 100L })
+        val profile=PlayerProfile(UUID.randomUUID())
+        profile.quests[blockedId]=QuestProgress()
+        profile.quests[freeId]=QuestProgress()
+        val full=MemoryInventory(capacity=0)
+        engine.event(profile,ObjectiveKind.TALK,"ec:npc_celia",1,full,allowAutoComplete=false)
+
+        assertEquals(listOf(freeId),engine.completeReadyAuto(profile,full))
+        assertFalse(profile.quests.getValue(blockedId).completed)
+        assertTrue(profile.quests.getValue(freeId).completed)
+        assertEquals(listOf(blockedId),engine.completeReadyAuto(profile,MemoryInventory(capacity=1)))
+        assertTrue(profile.quests.getValue(blockedId).completed)
+    }
     @Test fun `sell plan preserves the clicked source slot for duplicate item ids`() {
         val snapshot=ContentService(Path.of("src/main/resources/content")).load()
         val shop=snapshot.world.shops.values.first { it.buyback }

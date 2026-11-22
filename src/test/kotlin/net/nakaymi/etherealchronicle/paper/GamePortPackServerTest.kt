@@ -142,18 +142,34 @@ class GamePortPackServerTest {
     }
 
     @Test
+    fun `proxy configuration fallback resolves from server root not world container`() {
+        val root = java.nio.file.Path.of("build", "mock-server")
+        val data = root.resolve("plugins/EtherealChronicle")
+        assertEquals(root.toAbsolutePath().normalize(), serverRootFromDataFolder(data))
+    }
+
+    @Test
     fun `write watchdog closes a stalled socket`() {
         val socket = BlockingSocket()
         val writer = Executors.newSingleThreadExecutor()
+        val watchdog = Executors.newSingleThreadScheduledExecutor()
         try {
             val result = writer.submit {
-                withSocketWriteDeadline(socket, 100) { output -> output.write(1) }
+                withSocketWriteDeadline(socket, 100, watchdog) { output -> output.write(1) }
             }
             assertThrows(java.util.concurrent.ExecutionException::class.java) { result.get(2, TimeUnit.SECONDS) }
             assertTrue(socket.closed)
         } finally {
             writer.shutdownNow()
+            watchdog.shutdownNow()
         }
+    }
+
+    @Test
+    fun `large packs receive a write deadline proportional to their size`() {
+        assertEquals(5_000, resourcePackWriteDeadlineMillis(1024 * 1024, 5_000))
+        assertTrue(resourcePackWriteDeadlineMillis(20 * 1024 * 1024, 5_000) > 5_000)
+        assertEquals(180_000, resourcePackWriteDeadlineMillis(Int.MAX_VALUE, 5_000))
     }
 
     @Test

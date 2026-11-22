@@ -49,6 +49,14 @@ ec:
     revive: "装備の加護が命を守りました！"
     enemy_defeated: "魔物を討伐！ レベル <level> / 経験値 <xp>"
   codex:
+    element:
+      physical: "物理"
+      fire: "炎"
+      ice: "氷"
+      lightning: "雷"
+      aether: "エーテル"
+      void: "虚無"
+      unknown: "未知"
     new_discoveries: "図鑑の発見率が上がりました: <items>"
     back_areas: "エリア一覧へ戻る"
     tab_fish: "魚類図鑑"

@@ -24,6 +24,19 @@ class ResourcePackRequiredPolicyTest {
     }
 
     @Test
+    fun `invalid pack settings disable only pack delivery`() {
+        val config = YamlConfiguration()
+        config.set("resource_pack.mode", "typo")
+        var warned = false
+
+        val settings = ResourcePackSettings.loadSafely(config) { warned = true }
+
+        assertTrue(warned)
+        assertFalse(settings.enabled)
+        assertFalse(settings.required)
+    }
+
+    @Test
     fun `required request overrides off preference and disconnects after rejection`() {
         val decision=ResourcePackPolicy.decide(
             configuredRequired=true,
@@ -162,6 +175,9 @@ class ResourcePackRequiredPolicyTest {
         assertFalse(ResourcePackEndpointPolicy.canAdvertise("0.0.0.0", "localhost"))
         assertTrue(ResourcePackEndpointPolicy.canAdvertise("127.0.0.1", "127.0.0.1"))
         assertTrue(ResourcePackEndpointPolicy.canAdvertise("0.0.0.0", "packs.example.test"))
+        assertFalse(ResourcePackEndpointPolicy.canAdvertise("0.0.0.0", "0.0.0.0"))
+        assertFalse(ResourcePackEndpointPolicy.canAdvertise("0.0.0.0", "::ffff:127.0.0.1"))
+        assertTrue(ResourcePackEndpointPolicy.canAdvertise("127.0.0.1", "localhost"))
     }
 
     @Test
@@ -175,6 +191,13 @@ class ResourcePackRequiredPolicyTest {
 
         assertFalse(off.send)
         assertFalse(off.required)
+    }
+
+    @Test
+    fun `off transition removes an applied pack but preserves it when request remains active`() {
+        assertTrue(shouldRemoveAppliedPack(wasLoaded = true, shouldSend = false))
+        assertFalse(shouldRemoveAppliedPack(wasLoaded = false, shouldSend = false))
+        assertFalse(shouldRemoveAppliedPack(wasLoaded = true, shouldSend = true))
     }
 
     @Test

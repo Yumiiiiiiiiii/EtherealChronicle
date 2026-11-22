@@ -28,7 +28,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     private val trades=TradeEngine { plugin.snapshot }
     private val locks=mutableMapOf<UUID,LockToken>()
     /** 保存callbackごとの所有権を識別し、古い処理による後続ロック解放を防ぎます。 */
-    internal data class LockToken(val playerId: UUID)
+    internal class LockToken(val playerId: UUID)
     private val entryKey=NamespacedKey(plugin,"entry_id")
     private val mm=MiniMessage.miniMessage()
     private val npcs=NpcController(plugin)
@@ -58,7 +58,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                         plugin.game.quests.event(p,ObjectiveKind.EXPLORE,area.id,1,staged,allowAutoComplete=false)
                     }
                     plugin.game.quests.event(p,ObjectiveKind.COLLECT,"",1,staged,allowAutoComplete=false)
-                    plugin.game.quests.readyAutoComplete(p,staged).forEach { quest -> plugin.game.completeQuest(p,quest,staged) }
+                    plugin.game.quests.completeReadyAuto(p, staged)
                 },skipIfUnchanged=true)
             } catch(e: Exception) { plugin.logger.warning("Quest progress update failed ${p.uuid}: ${e.message}") }
         }
@@ -82,10 +82,15 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         val p=plugin.profiles[e.player.uniqueId] ?: return
         if(locked(p.uuid)) return
         val npc=plugin.snapshot.world.npcs[id] ?: return
-        transaction(e.player,{ inventory ->
-            plugin.game.quests.event(p,ObjectiveKind.TALK,id,1,inventory,allowAutoComplete=false)
-            plugin.game.quests.readyAutoComplete(p,inventory).forEach { quest -> plugin.game.completeQuest(p,quest,inventory) }
-        },skipIfUnchanged=true) { showDialogue(e.player,npc.dialogue) }
+        runCatching {
+            transaction(e.player,{ inventory ->
+                plugin.game.quests.event(p,ObjectiveKind.TALK,id,1,inventory,allowAutoComplete=false)
+                plugin.game.quests.completeReadyAuto(p, inventory)
+            },skipIfUnchanged=true) { showDialogue(e.player,npc.dialogue) }
+        }.onFailure { error ->
+            plugin.logger.fine("NPC interaction progress deferred for ${p.uuid}: ${error.message}")
+            showDialogue(e.player, npc.dialogue)
+        }
     }
     /** 条件付き会話選択肢をGUIとして表示します。 */
     fun showDialogue(player: Player,id: String,node: String? = null) {
@@ -131,7 +136,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         val p=plugin.profiles[player.uniqueId] ?: return
         val shop=plugin.snapshot.world.shops[id] ?: error("ec.error.shop_missing")
         val menu=RpgMenu("shop",id,title=plugin.message(player,"ec.menu.shop")).inventory
-        compactVisibleShopEntries(shop.entries) { it.condition.matches(p) }.forEachIndexed { index,e ->
+        compactVisibleShopEntries(shop.entries) { it.condition.matches(p) }.take(54).forEachIndexed { index,e ->
             menu.setItem(index,plugin.createItem(e.item,e.amount).apply { itemMeta=itemMeta.apply {
                 val extra=listOf(plugin.message(player,"ec.shop.price_buy", "price" to e.price),plugin.message(player,"ec.shop.tokens", "items" to e.tokens.joinToString { "${plugin.contentName(player,it.item)} ×${it.amount}" }),plugin.message(player,"ec.shop.sell_hint"))
                 lore((lore() ?: emptyList())+extra); persistentDataContainer.set(entryKey,PersistentDataType.STRING,e.id)
@@ -392,10 +397,14 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             plugin.persist(profile).whenComplete { _,error -> plugin.sync {
                 try {
                     if (error != null) {
-                        profile.restore(before)
-                        plugin.save(profile)
+                        val sameSession = plugin.profiles[id] === profile
+                        val online = Bukkit.getPlayer(id)?.isOnline == true
+                        if (ProfileTransactionGuard.shouldRollback(sameSession, online)) {
+                            profile.restore(before)
+                            plugin.save(profile)
+                        }
                         plugin.logger.severe("Profile transaction failed $id: ${error.message}")
-                    } else success()
+                    } else if (ProfileTransactionGuard.shouldRunSuccess(plugin.profiles[id] === profile)) success()
                 } finally { releaseLock(token) }
             } }
         } catch (error: Throwable) {
@@ -461,7 +470,13 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                     plugin.syncTitleAdvancements(player,p)
                     success()
                 } else plugin.logger.warning("Player disconnected immediately after reward claim persistence: ${p.uuid} $output; admin recovery may be required.")
-            } finally { deliveries.remove(p.uuid); delivering.remove(p.uuid); releaseLock(token) }
+            } finally {
+                if (isCurrentDelivery(deliveries[p.uuid], claim)) {
+                    deliveries.remove(p.uuid)
+                    delivering.remove(p.uuid)
+                }
+                releaseLock(token)
+            }
         } }
     }
     /** 消費物を先に保存し、プロフィール状態を永続化してから出力報酬を配布します。 */
@@ -469,12 +484,14 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         val p=plugin.profiles[player.uniqueId] ?: return
         val token=acquireLock(p.uuid) ?: error("ec.error.transaction_busy")
         val before=p.snapshot(); val inventory=plugin.inventory(player,persistConsumption); val staged=StagedInventory(inventory)
-        val beforeStorage: Array<ItemStack?> = player.inventory.storageContents.map { it?.clone() }.toTypedArray()
+        var beforeStorage: Array<ItemStack?>? = null
         try {
             mutate(staged)
             if(skipIfUnchanged && before == p && staged.remove.isEmpty() && staged.add.isEmpty()) {
                 releaseLock(token); success(); return
             }
+            // StagedInventoryは実スロットを変えないため、変更確定直前まで36枠の複製を遅らせます。
+            beforeStorage = player.inventory.storageContents.map { it?.clone() }.toTypedArray()
             staged.add.keys.forEach(p::discoverItem)
             require(inventory.canExchange(staged.remove,staged.add)) { "ec.error.inventory_full" }
             require(inventory.exchangeFromSlot(staged.preferredRemovalSlot,staged.remove,emptyMap()))
@@ -487,7 +504,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                         val offlineWithoutReconnect=!player.isOnline && Bukkit.getPlayer(p.uuid)?.isOnline != true
                         if(sameSession || offlineWithoutReconnect) {
                             plugin.rollbackEnhancement(p.uuid)
-                            p.restore(before); player.inventory.storageContents=beforeStorage
+                            p.restore(before); beforeStorage?.let { player.inventory.storageContents=it }
                             runCatching { player.saveData() }.onFailure { plugin.logger.warning("Failed to persist inventory rollback after disconnect: ${p.uuid}: ${it.message}") }
                             plugin.save(p)
                             if(player.isOnline) player.sendMessage(plugin.message(player,"ec.error.transaction_rolled_back"))
@@ -504,11 +521,22 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             } }
         } catch(error: Exception) {
             plugin.rollbackEnhancement(p.uuid)
-            p.restore(before); player.inventory.storageContents=beforeStorage
+            p.restore(before); beforeStorage?.let { player.inventory.storageContents=it }
             runCatching { player.saveData() }
             releaseLock(token); throw error
         }
     }
+}
+
+/** 古い非同期完了処理が新しいメールボックスclaimを削除しないよう参照同一性を確認します。 */
+internal fun <T : Any> isCurrentDelivery(current: T?, expected: T): Boolean = current === expected
+
+/** 保存callbackによるロールバックと成功通知を、現行プロフィールセッションだけに限定します。 */
+internal object ProfileTransactionGuard {
+    fun shouldRollback(sameSession: Boolean, currentSessionOnline: Boolean): Boolean =
+        sameSession || !currentSessionOnline
+
+    fun shouldRunSuccess(sameSession: Boolean): Boolean = sameSession
 }
 
 

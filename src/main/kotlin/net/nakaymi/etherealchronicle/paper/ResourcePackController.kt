@@ -12,13 +12,15 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /** 同梱リソースパックを起動・配信し、クライアントの適用状態をUUID単位で保持します。 */
 class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoCloseable {
-    private val settings = ResourcePackSettings.from(plugin.config)
+    private val settings = ResourcePackSettings.loadSafely(plugin.config) { error ->
+        plugin.logger.warning("Invalid resource-pack settings; delivery and required mode are disabled: ${error.message}")
+    }
     private val enabled = settings.enabled
     private val required = settings.required
     private val requiredTimeoutSeconds = settings.requiredTimeoutSeconds
     private val debug = settings.debug
     private val mode = settings.mode
-    private val externalManaged = mode == "external_managed"
+    private val externalManaged = settings.mode == "external_managed"
     private val expectedPackIdText = settings.expectedPackIdText
     private val expectedPackId = settings.expectedPackId
     private val invalidExpectedPackId = settings.invalidExpectedPackId
@@ -64,7 +66,8 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
                 if (externalUrl.isNotBlank()) createEndpoint("external_url") else null
             } else createEndpoint(mode).also { endpoint ->
                 if (mode != "external_url") {
-                    require(ResourcePackEndpointPolicy.canAdvertise(endpoint.bindHost, endpoint.publicHost)) {
+                    val effectiveBindHost = if (mode == "game_port") plugin.server.ip.ifBlank { "0.0.0.0" } else endpoint.bindHost
+                    require(ResourcePackEndpointPolicy.canAdvertise(effectiveBindHost, endpoint.publicHost)) {
                         "Resource pack public_host resolves to loopback while bind_host is non-loopback; configure public_host."
                     }
                 }
@@ -105,12 +108,12 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
     private val endpoint = configuredEndpoint?.takeIf {
         (it.mode != "embedded_http" || httpServer != null) && (it.mode != "game_port" || gamePortServer != null)
     } ?: endpointFallback
-    private val bundledArtifact: ResourcePackArtifact? by lazy {
-        artifact ?: runCatching {
+    private val bundledInfo: ResourcePackBuildInfo? by lazy {
+        artifact?.let { ResourcePackBuildInfo(it.sha1, it.bytes.size.toLong()) } ?: runCatching {
             val bytes = requireNotNull(plugin.getResource("resourcepack/etherealchronicle-resourcepack.zip")).use { it.readBytes() }
             val expected = requireNotNull(plugin.getResource("resourcepack/etherealchronicle-resourcepack.sha1"))
                 .bufferedReader().use { it.readLine().trim() }
-            ResourcePackArtifact(bytes, expected)
+            ResourcePackBuildInfo(expected, bytes.size.toLong())
         }.getOrNull()
     }
 
@@ -140,7 +143,8 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
         val decision = ResourcePackPolicy.decide(required, deliveryAvailable, preference, bypass)
         if (!decision.send || deliveryEndpoint == null || artifact == null) {
             pendingRequests.remove(player.uniqueId)
-            loadedPlayers -= player.uniqueId
+            val wasLoaded = loadedPlayers.remove(player.uniqueId)
+            if (shouldRemoveAppliedPack(wasLoaded, decision.send)) runCatching { player.removeResourcePacks(requestId) }
             plugin.refreshPackItemModels(player, false)
             if (isAwaitingRequiredPack(player.uniqueId)) releaseRequiredWait(player.uniqueId, continueJoin = true)
             return
@@ -275,8 +279,7 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
 
     /** 管理者へ、JARに格納された生成済みパックのハッシュとサイズを返します。 */
     internal fun buildInfo(): ResourcePackBuildInfo? {
-        val pack = bundledArtifact ?: return null
-        return ResourcePackBuildInfo(pack.sha1, pack.bytes.size.toLong())
+        return bundledInfo
     }
 
     /** 配布要求を送らず状態だけ監視する設定か返します。 */
@@ -428,6 +431,9 @@ class ResourcePackController(private val plugin: RpgPlugin) : Listener, AutoClos
 
 /** ビルド済みZIPの識別情報を管理者コマンドへ渡します。 */
 internal data class ResourcePackBuildInfo(val sha1: String, val sizeBytes: Long)
+
+/** OFF変更時は、すでに適用済みの同じ要求だけをクライアントから除去します。 */
+internal fun shouldRemoveAppliedPack(wasLoaded: Boolean, shouldSend: Boolean): Boolean = wasLoaded && !shouldSend
 
 /** 外部配信のイベント監視で、送信・ID照合・適用状態の規則を集約します。 */
 internal object ManagedPackPolicy {

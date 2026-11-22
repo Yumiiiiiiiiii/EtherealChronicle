@@ -36,6 +36,9 @@ class ClassSelectionUi(
     /** 確認Dialogの表示中にInvUIのclose callbackが選択画面を再生成しないよう識別します。 */
     fun isConfirming(playerId: java.util.UUID): Boolean = confirming.isActive(playerId)
 
+    /** 切断された利用者の確認中状態を破棄します。 */
+    fun clear(playerId: java.util.UUID) = confirming.finish(playerId)
+
     fun open(player: Player, classes: List<ClassDefinition>) {
         // 再接続後に前セッションの未完了状態が残らないよう、一覧表示を新しい選択開始点とします。
         confirming.finish(player.uniqueId)
@@ -78,7 +81,7 @@ class ClassSelectionUi(
         val dialog = Dialog.create { entry ->
             entry.empty().base(DialogBase.builder(confirmationTitle(player, definition))
                 .body(listOf(DialogBody.plainMessage(confirmationText(player, definition))))
-                .canCloseWithEscape(false)
+                .canCloseWithEscape(true)
                 .build())
                 .type(DialogType.confirmation(yes, no))
         }

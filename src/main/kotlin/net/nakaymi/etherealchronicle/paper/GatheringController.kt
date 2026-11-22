@@ -325,8 +325,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
                 plugin.markDirty(profile.uuid)
             })
         } catch(error: Exception) {
-            val reason=if(error.message=="ec.gathering.respawned") plain(plugin.message(player,"ec.gathering.respawned")) else error.message.orEmpty()
-            player.sendMessage(plugin.message(player,"ec.gathering.reward_failed", "reason" to reason))
+            player.sendMessage(plugin.message(player,"ec.gathering.reward_failed", "reason" to plugin.diagnostic(player,error.message.orEmpty())))
         }
     }
 }

@@ -83,6 +83,17 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
     /** 自動完了対象のうち条件を満たした依頼を安定順で返します。 */
     fun readyAutoComplete(p: PlayerProfile, inventory: InventoryAccess): List<String> =
         p.quests.keys.filter { id -> content().world.quests[id]?.let { it.autoComplete && ready(p, id, inventory) } == true }
+    /** 空き不足の依頼を保留しつつ、同じイベントで完了可能な他の自動依頼を処理します。 */
+    fun completeReadyAuto(p: PlayerProfile, inventory: InventoryAccess): List<String> = buildList {
+        readyAutoComplete(p, inventory).forEach { id ->
+            try {
+                complete(p, id, inventory)
+                add(id)
+            } catch (error: IllegalArgumentException) {
+                if (error.message != "ec.error.inventory_exchange") throw error
+            }
+        }
+    }
     /** 報酬と消費物を一度だけ反映し、repeat/reset状態を記録します。 */
     fun complete(p: PlayerProfile,id: String,inventory: InventoryAccess) {
         val q = content().world.quests[id] ?: error("ec.error.quest_missing")

@@ -52,6 +52,14 @@ ec:
     revive: "Your equipment's blessing saved your life!"
     enemy_defeated: "Enemy defeated! Level <level> / XP <xp>"
   codex:
+    element:
+      physical: "Physical"
+      fire: "Fire"
+      ice: "Ice"
+      lightning: "Lightning"
+      aether: "Aether"
+      void: "Void"
+      unknown: "Unknown"
     new_discoveries: "New codex discoveries: <items>"
     back_areas: "Back to Areas"
     tab_fish: "Fish Codex"

@@ -49,7 +49,9 @@ class UiQAFixesTest {
         assertEquals(NamespacedKey.fromString("ec:ui_btn_confirm"),UiThemeProvider.itemModel(true,"enhance",13,Material.ANVIL,null,ThemeMode.ICONS_ONLY))
 
         val fullTitle=UiThemeProvider.title(true,title,"enhance",ThemeMode.FULL)
-        assertEquals(Key.key("minecraft","default"),fullTitle.children()[1].font())
+        assertEquals(Key.key("ec", "space"), fullTitle.font())
+        assertEquals(Key.key("ec", "ui"), fullTitle.children()[0].font())
+        assertEquals(Key.key("minecraft","default"),fullTitle.children()[2].font())
     }
 
     @Test
@@ -61,6 +63,16 @@ class UiQAFixesTest {
         assertEquals(ThemeMode.FULL, setting.current)
         setting.update(UiThemeProvider.mode("off"))
         assertEquals(ThemeMode.OFF, setting.current)
+    }
+
+    @Test
+    fun `class dialog tracker can be cleared on quit and escape remains available`() {
+        val tracker = ClassConfirmationTracker()
+        val id = UUID.randomUUID()
+        assertTrue(tracker.begin(id))
+        assertTrue(tracker.isActive(id))
+        tracker.finish(id)
+        assertFalse(tracker.isActive(id))
     }
 
     @Test

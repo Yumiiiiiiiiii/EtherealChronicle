@@ -65,8 +65,9 @@ class UiThemeProvider(
             val glyph = backgroundGlyph(menuKind)
             val width = approximateTitleWidth(localizedTitle)
             val sidePadding = ((BACKGROUND_WIDTH - width) / 2).coerceAtLeast(0)
-            return Component.text(glyph).font(uiFont)
-                .append(Component.text(spaces(-BACKGROUND_WIDTH + sidePadding + TITLE_LEFT_OFFSET)).font(spaceFont))
+            return Component.text(spaces(TITLE_LEFT_OFFSET)).font(spaceFont)
+                .append(Component.text(glyph).font(uiFont))
+                .append(Component.text(spaces(-BACKGROUND_WIDTH + sidePadding)).font(spaceFont))
                 // 子要素へ背景フォントが継承されると通常のタイトル文字が豆腐になるため標準フォントを明示します。
                 .append(localizedTitle.font(defaultFont))
                 .append(Component.text(spaces(sidePadding)).font(spaceFont))

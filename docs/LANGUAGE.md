@@ -27,6 +27,13 @@
 | `ec.codex.catch_count` | 釣果: <count>匹 | Caught: <count> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<count>` |
 | `ec.codex.defeated_count` | 討伐数: <count> | Defeated: <count> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<count>` |
 | `ec.codex.drops` | ドロップ: <values> | Drops: <values> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<values>` |
+| `ec.codex.element.aether` | エーテル | Aether | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
+| `ec.codex.element.fire` | 炎 | Fire | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
+| `ec.codex.element.ice` | 氷 | Ice | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
+| `ec.codex.element.lightning` | 雷 | Lightning | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
+| `ec.codex.element.physical` | 物理 | Physical | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
+| `ec.codex.element.unknown` | 未知 | Unknown | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
+| `ec.codex.element.void` | 虚無 | Void | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.codex.found_ratio` | 発見: <found>/<total> (<percent>%) | Discovered: <found>/<total> (<percent>%) | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<found>`, `<percent>`, `<total>` |
 | `ec.codex.gathering_count` | 採取回数: <count> | Harvests: <count> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<count>` |
 | `ec.codex.gathering_kind` | 種別: <kind> / 必要道具 T<tier> | Type: <kind> / Required tool T<tier> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<kind>`, `<tier>` |

@@ -293,12 +293,8 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
             if(stack!=s.rod.item || player.world.name!=s.water.world.name) { cancel(player,"ec.fishing.rod_changed",FishingEndReason.ROD_CHANGED); return@forEach }
             if(plugin.adventure.locked(id)) return@forEach
             val phaseBefore=s.state.phase
-            if(s.bitePending) {
-        // 餌の消費と釣果は同じ永続取引で確定します。失敗時は消費されず、セッションを再試行できます。
-                if(!plugin.adventure.locked(id) && plugin.inventory(player).count(s.bait ?: "")>=s.baitCountBefore) {
-                    s.bitePending=false; s.state.phase=FishingPhase.BITE_ALERT; showBite(player)
-                } else return@forEach
-            }
+            // 餌消費の完了・失敗callbackだけが保留中フラグを解除します。
+            if (!shouldAdvanceFishingSession(s.bitePending)) return@forEach
             val buffered=s.input; s.input=ReelInput.IDLE
             val input=when {
                 buffered==ReelInput.BRACE -> { s.pullRemaining=0.0; ReelInput.BRACE }
@@ -374,3 +370,6 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         }
     }
 }
+
+/** 餌の永続化が終わるまで、釣り状態機械を二重進行させない判定です。 */
+internal fun shouldAdvanceFishingSession(bitePending: Boolean): Boolean = !bitePending
