@@ -84,6 +84,11 @@ try {
     Start-Sleep -Milliseconds 500; Flush-Log
 }
 $r = Analyze-Log $log
+if (($Commands | Where-Object { $_ -match '^ec validate(?:\s|$)' }).Count -gt 0 -and
+    -not (Select-String -Path $log -Pattern 'コンテンツ検証成功\.|Content validation succeeded\.' -Quiet)) {
+    Write-Host '[qa] ec validate was requested, but its success reply was not present in the captured log' -ForegroundColor Red
+    $failed = $true
+}
 Write-Step ("exit={0} done={1} pluginEnabled={2} lines={3}" -f $p.ExitCode, $r.ServerDone, $r.PluginEnabled, $r.Lines)
 if ($r.Problems.Count) { Write-Host '[qa] problems found:' -ForegroundColor Red; $r.Problems | Select-Object -First 40 | ForEach-Object { Write-Host $_ }; $failed = $true }
 if (-not $r.PluginEnabled) { Write-Host "[qa] '$script:PluginName' was never enabled" -ForegroundColor Red; $failed = $true }

@@ -892,11 +892,18 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     }
     private fun validatePaperContent(c: ContentSnapshot) {
         fun validate(id: String, action: () -> Unit) { try { action() } catch(e: Exception) { throw IllegalArgumentException("${c.sources[id]} [$id]: ${e.message}",e) } }
-        c.items.all().forEach { item -> validate(item.id) { require(Material.valueOf(item.material).isItem) { "ec.error.invalid_content: material" } } }
-        c.classes.all().filter { it.icon != null }.forEach { definition -> validate(definition.id) { require(Material.valueOf(definition.icon!!).isItem) { "ec.error.invalid_content: icon" } } }
-        c.world.titles.values.filter { it.advancement != null }.forEach { title -> validate(title.id) { require(Material.valueOf(title.advancement!!.icon).isItem) { "ec.error.invalid_content: advancement.icon" } } }
-        c.world.gatheringNodes.values.forEach { node -> validate(node.id) { require(Material.valueOf(node.displayMaterial).isBlock && Material.valueOf(node.depletedMaterial).isBlock) { "ec.error.invalid_content: gathering display material" } } }
-        c.documents.values.filter { it["type"] in setOf("enemy","boss") }.forEach { d -> validate(d.string("id")) { require(EntityType.valueOf(d.string("entity")).isAlive) { "ec.error.invalid_content: entity" } } }
+        fun validateEnum(action: () -> Unit) {
+            try { action() } catch(error: Exception) {
+                throw IllegalArgumentException("ec.error.invalid_content: ${error.message}", error)
+            }
+        }
+        c.items.all().forEach { item -> validate(item.id) { validateEnum { PaperContentValidator.itemMaterial(item.material) } } }
+        c.classes.all().filter { it.icon != null }.forEach { definition -> validate(definition.id) { validateEnum { PaperContentValidator.itemMaterial(definition.icon!!) } } }
+        c.world.titles.values.filter { it.advancement != null }.forEach { title -> validate(title.id) { validateEnum { PaperContentValidator.itemMaterial(title.advancement!!.icon) } } }
+        c.world.gatheringNodes.values.forEach { node -> validate(node.id) { validateEnum { PaperContentValidator.blockMaterial(node.displayMaterial); PaperContentValidator.blockMaterial(node.depletedMaterial) } } }
+        c.world.treasureChests.values.forEach { chest -> validate(chest.id) { validateEnum { PaperContentValidator.particle(chest.hintParticle) } } }
+        c.world.dungeons.values.forEach { dungeon -> validate(dungeon.id) { validateEnum { dungeon.palette.forEach(PaperContentValidator::blockMaterial) } } }
+        c.documents.values.filter { it["type"] in setOf("enemy","boss") }.forEach { d -> validate(d.string("id")) { validateEnum { PaperContentValidator.livingEntity(d.string("entity")) } } }
     }
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
         return executeCommand(sender,args)
