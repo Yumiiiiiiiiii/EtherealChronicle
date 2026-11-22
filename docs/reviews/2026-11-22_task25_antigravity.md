@@ -167,3 +167,40 @@
 | `DemoWorld` / `DungeonArenaLayout` 座標一致 | OK | 全座標・範囲・Y 座標一致（`M-03` の定数流用のみ要注意） |
 | 意図しない挙動変更 | 要確認 2 件 | `M-01`（`millisToWholeSeconds` の非負クランプ欠落）、`M-02`（`preferredSlot == 8`） |
 | 未使用・未接続定数 | 要整理 | `M-04`（本番 0 参照 7 件＋近傍取り残し） |
+
+---
+
+## 最終スポット再確認（`master` @ `d53b4c9` / 差分 `3032504..d53b4c9`）
+
+- **対象コミット**: `master` @ `d53b4c9`（Codex-Impl フォローアップ `21eac7a`, `0ea6202`、差分 `3032504..d53b4c9`、25 files）
+- **ローカル検証**:
+  - `./gradlew.bat test --no-daemon`: **BUILD SUCCESSFUL**（`298 tests / 0 failures / 0 errors / 0 skipped`）
+  - `core.*` の Bukkit / Paper 依存検査: **0 件**
+  - 本番 `src/main/kotlin` の未使用定数スキャン（`GameLimits.kt`, `PaperDomainUnits.kt`, `ResourcePackSettings.kt`, `EnemyController.kt`）: **0 件**
+
+### 総合判定: **Go**（High 0 件 / Medium 0 件 / Low 2 件・Polish 2 件はいずれも受容可）
+
+前回の **Medium 4 件（M-01〜M-04）・Low 3 件（L-01〜L-03）はすべて解消**され、新規の High / Medium 回帰もありません。Task 25 はクローズ可能な状態です。
+
+### 前回指摘の解消状況
+
+| ID | 状態 | 検証内容 |
+|---|---|---|
+| **M-01** | **解消** | `Location.isWithinBlocks` が `val currentWorld = world ?: return false` と `blocks < 0.0 || currentWorld != other.world` をガード。`MinecraftTicks.millisToWholeSeconds` が `.coerceAtLeast(0)` を復元し、`PaperDomainUnitsTest` に境界テストを追加済み。 |
+| **M-02** | **解消** | `PaperInventoryAccess.plan` が `preferredSlot !in PlayerInventoryLayout.STORAGE_SLOT_RANGE`（`0..35` 互換）を復元し、追加探索ループも `PlayerInventoryLayout.USABLE_STORAGE_SLOTS` に統一済み。 |
+| **M-03** | **解消** | `DemoWorldLayout.HUB_GATE_HALF_WIDTH_BLOCKS = 2` を `DungeonArenaLayout` から分離し、`ResourcePackLimits.MIN_GAME_PORT_HEADER_DEADLINE_MILLIS` / `MAX_GAME_PORT_HEADER_DEADLINE_MILLIS` を独立定義済み（他、Claude M2 の `HOTBAR_SLOT_RANGE` / `ENTITY_SPAWN_Y` / `MOVED_RECENTLY_TICKS` / `GatheringSessionTuning` / `MAX_TENSION`・`MAX_PROGRESS` も解消）。 |
+| **M-04** | **解消** | 本番 `src/main/kotlin` 内の 0 参照定数 7 件をすべて解消（`MAX_SPECIAL_ATTACK_*` → `WorldContent.kt:187`、`MAX_ENEMY_SIZE` → `WorldValidation.kt:57`、`CodexLayout.MAX_VISIBLE_ENTRIES` → `CodexPagination.kt:5`、重複 `MAX_PROFILE_LEVEL`・`MILLIS_PER_DAY` 削除、`EmbeddedPackServer` 既定値 → `ResourcePackDefaults.*`、`PlayerStore.kt:74,78,79`・`Content.kt:121`・`FishingEngine.kt:178` 接続済み）。 |
+| **L-01** | **解消** | `PaperDomainUnitsTest` に負値・null world・異ワールド・`0`/`-1`・`STORAGE_SLOT_RANGE.count() == 36`・`isInsideBounds` を追加、`ResourcePackRequiredPolicyTest` の `assertEquals(expected, actual)` 順を修正、`DemoWorldMigrationTest` でランドマーク特性テストを追加済み。 |
+| **L-02** | **解消** | `EnemyController.kt:141, 242`・`RpgPlugin.kt:755` を `isWithinBlocks` へ統一し、`FishingController.kt:303, 306` のステップ時間を `FishingStepTuning.SECONDS_PER_UPDATE` から導出済み。 |
+| **L-03** | **解消** | `FishingMacroDefaults` / `FishingPhysics.DEFAULT_*` / `WorldTuningLimits.MAX_ENHANCEMENT_RATE` / `GatheringFormula.MAX_TOOL_TIER` の重複削除、`Plaza` の `Material` 直接保持、`SolidBox` と `Outline` の分離、`PaperDomainUnits.kt` の `internal` 化、`UiCallbackLifetimes.DIALOGUE_CHOICE` 抽出（`AdventureController.kt:150`）、`DungeonController.ArenaPalette` での `Material` 事前解決を完了。 |
+| **P-01** | **残存（受容可）** | インデント崩れ（空白のみ・機能影響なし）。次回フォーマット整形でまとめて解消すれば十分。 |
+
+### 新規差分（`3032504..d53b4c9`）の軽微な観察事項（すべて受容可 / 非ブロッカー）
+
+1. **[Low — 受容可（次回タスクで戻すことを推奨）]** `src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt:294`:
+   - `partyRadius` の検証下限が `1.0..WorldTuningLimits.MAX_PARTY_XP_RADIUS_BLOCKS` から `0.0..WorldTuningLimits.MAX_PARTY_XP_RADIUS_BLOCKS` へ意図せず緩んでいます（Task 25 前 `0b1e470` では `1.0..128.0`）。同梱 YAML は `32.0` のため実動作影響はありませんが、不正な `party_xp_radius: 0.0` を弾けなくなるため次回クリーンアップ時に下限 `1.0` へ戻すことを推奨します。
+2. **[Low — 受容可]** `src/main/kotlin/net/nakaymi/etherealchronicle/core/FishingEngine.kt:12-13, 56-57`:
+   - `TELEGRAPH_THRASH_MIN_SECONDS = 1.2` / `TELEGRAPH_THRASH_VARIANCE_SECONDS = 1.0` が既存の同値定数 `THRASH_BEHAVIOR_MIN_SECONDS` / `THRASH_BEHAVIOR_VARIANCE_SECONDS` と並存しています（機能影響なし）。
+3. **[Polish — 受容可]** `src/main/kotlin/net/nakaymi/etherealchronicle/paper/PaperDomainUnits.kt:49` & `src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt:22`:
+   - `FishingStepTuning.SECONDS_PER_UPDATE` が生の `1_000.0` で除算しています（`MinecraftTicks.MILLIS_PER_SECOND.toDouble()` 参照可）。
+   - `AdventureController.kt:22` に `UiCallbackLifetimes` 移行後の未使用 `import java.time.Duration` が 1 行残っています。
