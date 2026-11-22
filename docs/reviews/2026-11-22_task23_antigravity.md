@@ -233,3 +233,26 @@ try { complete(p,id,inventory) } catch(error: GameException) { if(error.messageK
 #### `T23F-L01` `[Low][Style/Test]` 軽微な残件 2 件
 - `RpgPlugin.kt:957`: `commandCompletions` の第 1 引数候補に非管理者へも `"reload"`, `"validate"` が含まれる。
 - `ResourcePackControllerIntegrationTest.kt:90-92`: `PlayerStore` は独自 `SingleThreadExecutor` を使うため `server.scheduler.waitAsyncTasksFinished()` は永続化キューを待たず、実質 `Thread.sleep(100)` 依存になっている。
+
+---
+
+## 7. Task 24 追補クロスモデル再確認（`3f9bafd` / `master` @ `4572ef4`）
+
+- **対象コミット**: `3f9bafd`（`Fix Task 24 client QA blockers`、`master` @ `4572ef4` マージ済み、`289 tests / 0 failures`）
+- **最終 Go / No-Go 判定**: **Go（実機 QA 進行可 — 新規 High 0 件 / 新規 Med 0 件、前回ブロッカーおよび Task 23 Med 3 件すべて解消）**
+
+### 7.1 前回ブロッカー・Med 残件の解消確認
+
+| 対象 | 状態 | 根拠 |
+|---|---|---|
+| 実機 High（クラス選択メニュー同 tick 再開ループによるハング） | **解消** | `ClassSelectionUi.kt:23-53, 107-130`（`ClassSelectionWindowTracker` によるウィンドウ同一性判定・差し替え中フラグ・確定/キャンセル時の状態クリア）、`RpgPlugin.kt:196, 304, 333-348, 367`（`pendingClassMenuReopen` 重複抑止＋`runTaskLater(..., 1L)` 次 tick 遅延＋退出時クリア）、`UiQAFixesTest.kt:81-97` |
+| `FIX-26`（`ui.theme.mode: full` 背景サイズ・不透明領域・タイトル位置/色） | **解消（実クライアント目視最終確認待ち）** | 全 6 PNG の実ピクセル検査で `bg_class_select.png` `176x132`（不透明領域 `0..175, 0..131`）・他 5 枚 `176x222`（不透明領域 `0..175, 0..221`）を確認（旧 `a46cf25` の `0..120` 切欠きを解消）。`ui.json` の `height`（`132` / `222`）・`ascent: 13`、`UiThemeProvider.kt:71-74` の `NamedTextColor.WHITE`・`-(BACKGROUND_WIDTH + 1) + sidePadding`（1px ビットマップ送り補正）・`0xF5E6C8` タイトル色、および `UiPackAssetsTest.kt:34-61` / `UiQAFixesTest.kt:55-57` を確認 |
+| `scripts/smoke-test.ps1:87`（StrictMode 単一一致 `.Count` 例外） | **解消** | `scripts/smoke-test.ps1:87-88`（`@(...)` 配列ラップ＋大文字小文字/先頭空白許容） |
+| `T23F-M01`（`[COLLECT, EXPLORE]` 順の依頼進行不能） | **解消** | `AdventureServices.kt:62-63`（`earlier.kind == ObjectiveKind.COLLECT ||` 復元）、`AdventureServicesTest.kt:68-123` |
+| `T23F-M02`（`validatePaperContent` 起動途中停止ハング・例外ラップ） | **解消** | `RpgPlugin.kt:28, 225, 922-949`（`paperValidationWaiters` による `onDisable` 時即時解除、`isEnabled` 二重検査、15 秒タイムアウト、`ExecutionException.cause` アンラップ） |
+| `T23F-M03` / `T23F-L01`（実 Paper `BasicCommand.suggest` 未接続・起動前クラッシュ・非管理者候補露出） | **解消** | `RpgPlugin.kt:975-1013`（`BasicCommand.suggest` 接続、`if (!ready) return emptyList()` ガード、`reload`/`validate` の管理者権限フィルタ）、`UiQAFixesTest.kt:198-200` |
+
+### 7.2 新規指摘サマリー
+- **High**: **0 件**
+- **Med**: **0 件**
+- *(参考・Low 以下は実機 QA ブロッカーなし)*: 実クライアント QA では `ui.theme.mode: full` のスクリーンショット（スロット枠整列・タイトル視認性・バニラ `Inventory` ラベルとのコントラスト）および「職業選択 → 戻る → 確定 → `/ec class`」のハング非再発を最終確認する。
