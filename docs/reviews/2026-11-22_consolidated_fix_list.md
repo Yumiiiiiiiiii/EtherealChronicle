@@ -7,85 +7,85 @@
   - `docs/reviews/2026-11-22_task20_claude-qa.md`（Claude-QA / `a55b5ad` — Task 20 差分 `8f3acfa`）
 - **運用ルール**: `AGENTS.md` の「Cross-model review loop」に従い、Wave 単位でコミット＋全テスト実行し、完了後に実装者以外の全モデル（Claude / Antigravity）が再確認して全項目クローズ（または理由付き受容）となるまで完了としない。
 - **実行計画**:
-  - **Batch 1（Wave 1〜3）**: High / Med のセキュリティ・正しさバグ修正＋回帰テスト
-  - **Batch 2（Wave 3B + Wave 4〜6）**: Task 20 ゲート修正（`FIX-39`〜`FIX-46`）・高速化 (`Perf`)・書き方の違和感 (`Idiom`)・見栄え/構成分割 (`Style` / `Polish`)・残テスト拡充
+  - **Batch 1（Wave 1〜3）**: 実装完了・`master` マージ済み（`65e62bf` / 257 tests pass）→ **Claude / Antigravity 再確認中**
+  - **Batch 2（Wave 3B + Wave 4〜6）**: Task 20 ゲート修正（`FIX-39`〜`FIX-45`）・高速化 (`Perf`)・書き方の違和感 (`Idiom`)・見栄え/構成分割 (`Style` / `Polish`)・残テスト拡充 → **Codex 実装中**
 
 ---
 
-## Wave 1 — Security / Resource Pack / Netty / HTTP（Batch 1）
+## Wave 1 — Security / Resource Pack / Netty / HTTP（Batch 1 — 実装済 `ec5ceb8` / 再確認中）
 
-- [ ] **FIX-01 `[High][Security]`** (`AG H-01`) `GamePortPackServer.kt:132-162`
+- [x] **FIX-01 `[High][Security]`** (`AG H-01` / 実装済 `ec5ceb8`・再確認中) `GamePortPackServer.kt:132-162`
   - `SNIFFING` で先頭 `'G'`/`'H'` を 1 バイト保留した時点で `idleTimeout` を開始し、`MINECRAFT` パススルー・`channelInactive`・`handlerRemoved` で確実にキャンセルする（1 バイト Slowloris DoS 対策）。
-- [ ] **FIX-02 `[High][Security]`** (`AG H-02`) `GamePortPackServer.kt:90-94`
+- [x] **FIX-02 `[High][Security]`** (`AG H-02` / 実装済 `ec5ceb8`・再確認中) `GamePortPackServer.kt:90-94`
   - `unsupportedProxies()` で `server.spigot().spigotConfig`（`settings.bungeecord`）および `paperConfig`（`proxies.velocity.enabled`）を検査し、既存の `TCPShield` プラグイン検知と併用する。
-- [ ] **FIX-03 `[High][Security]`** (`AG H-08`, `CL M9`) `ResourcePackDistribution.kt:92-96,170-180`
+- [x] **FIX-03 `[High][Security]`** (`AG H-08`, `CL M9` / 実装済 `ec5ceb8`・再確認中) `ResourcePackDistribution.kt:92-96,170-180`
   - `EmbeddedPackServer.writeResponse()` に書き込み全体デッドライン（watchdog 強制 close）を追加し Slow-Reader DoS を防止。
   - 非 200 応答（404 等）には `Cache-Control: no-store` を返す。
   - `acceptConnections` の `IOException` リトライに短いバックオフを入れる（EMFILE 時の CPU スピン防止）。
-- [ ] **FIX-04 `[Med][Security/Perf]`** (`AG M-01, L-05`, `CL M10, P8`) `GamePortPackServer.kt:139,164-175,272-324`
+- [x] **FIX-04 `[Med][Security/Perf]`** (`AG M-01, L-05`, `CL M10, P8` / 実装済 `ec5ceb8`・再確認中) `GamePortPackServer.kt:139,164-175,272-324`
   - `PackConnectionLimiter` にグローバル共有の `globalNextSendNanos` を導入し、IP 切断で帯域予算がリセットされないようにする（共有帯域の KDoc と一致させる）。
   - `\r\n\r\n` 終端判定を 1 バイト毎 `toByteArray()` から `Int` シフトレジスタ（`0x0D0A0D0A`）の O(1) ゼロアロケーションに変更し、`GET_PREFIX` / `HEAD_PREFIX` を `companion object` 定数化する。
   - NAT 共有上限と Paper 内部 API 依存について起動ログ/KDoc を明記する。
-- [ ] **FIX-05 `[High][Bug]`** (`AG H-03`) `ResourcePackController.kt:96-112`, `RpgPlugin.kt:1003-1024`
+- [x] **FIX-05 `[High][Bug]`** (`AG H-03` / 実装済 `ec5ceb8`・再確認中) `ResourcePackController.kt:96-112`, `RpgPlugin.kt:1003-1024`
   - `ResourcePackController.send()` で `ResourcePackPolicy.decide(...)` を `loadedPlayers` 早期 return より前に評価し、`/ec ui pack off`（`!decision.send`）で適用済みプレイヤーも必ず `loadedPlayers` 解除＋`refreshPackItemModels(player, false)` されるようにする。
-- [ ] **FIX-06 `[Med][Bug]`** (`AG M-02`, `T20-M03`) `ResourcePackController.kt:139-147,180-186,211-231`
+- [x] **FIX-06 `[Med][Bug]`** (`AG M-02`, `T20-M03` / 実装済 `ec5ceb8`・再確認中) `ResourcePackController.kt:139-147,180-186,211-231`
   - `close()` に `observedManagedStatuses.clear()` を追加。
   - `applyManagedStatus()` で `SUCCESSFULLY_LOADED` のみ `loaded = true`、終端失敗ステータスのみ `loaded = false` とし、`ACCEPTED`/`DOWNLOADED` 中間ステータスでカスタムモデルが剥がれないようにする。
   - `buildInfo()` の SHA-1 / サイズ結果をキャッシュし、`/ec pack info` のたびにメインスレッドで JAR を再読込しないようにする。
-- [ ] **FIX-07 `[Med][Bug/Style]`** (`CL M8, L8, S3`) `ResourcePackController.kt:20-37,152-171,199`
+- [x] **FIX-07 `[Med][Bug/Style]`** (`CL M8, L8, S3` / 実装済 `ec5ceb8`・再確認中) `ResourcePackController.kt:20-37,152-171,199`
   - `bind_host` が非ループバックなのに公開 URL が `127.0.0.1` 等ループバックへ解決される場合、起動時に WARN を出して配信不能扱い（必須強制を緩和）にする。
   - 終端ステータス別にキック文言を分ける（`FAILED_DOWNLOAD` / `INVALID_URL` と `DECLINED` を区別）。
   - 20 行の `settings.getX(...)` を `data class ResourcePackSettings`（バリデーション付き）へまとめる。
 
 ---
 
-## Wave 2 — Transactions / Locks / Economy / Persistence Integrity（Batch 1）
+## Wave 2 — Transactions / Locks / Economy / Persistence Integrity（Batch 1 — 実装済 `58de839` / 再確認中）
 
-- [ ] **FIX-08 `[High][Bug]`** (`CL H1`) `AdventureController.kt:55-57,79-80`, `AdventureServices.kt:55,74-94`
+- [x] **FIX-08 `[High][Bug]`** (`CL H1` / 実装済 `58de839`・再確認中) `AdventureController.kt:55-57,79-80`, `AdventureServices.kt:55,74-94`
   - `tick()` / `interact()` 経由のクエスト自動完了がトランザクション・ロック外でアイテム/通貨を付与する問題を修正（`transaction(...)` 経由に統一、または `allowAutoComplete` をトランザクション内のみに限定し、必ず永続化してから報酬付与する）。
-- [ ] **FIX-09 `[Med][Bug]`** (`CL M1`) `AdventureController.kt:373,381,411,415`
+- [x] **FIX-09 `[Med][Bug]`** (`CL M1` / 実装済 `58de839`・再確認中) `AdventureController.kt:373,381,411,415`
   - `pendingRewards.putAll(output)` を加算マージ（`PlayerProfile.returnToMailbox(output)` ヘルパー）へ統一し、メールボックス報酬の上書きロストを防止する。
-- [ ] **FIX-10 `[Med][Bug]`** (`CL M2`) `DungeonController.kt:93-106`
+- [x] **FIX-10 `[Med][Bug]`** (`CL M2` / 実装済 `58de839`・再確認中) `DungeonController.kt:93-106`
   - ダンジョン初回クリア報酬（`flags` / `pendingRewards` 更新＋保存）を `adventure.whenAvailable(member)` / ロック境界内で実行する。
-- [ ] **FIX-11 `[Med][Bug/Idiom]`** (`CL M3, I5`) `AdventureController.kt:393-459`
+- [x] **FIX-11 `[Med][Bug/Idiom]`** (`CL M3, I5` / 実装済 `58de839`・再確認中) `AdventureController.kt:393-459`
   - `transaction()` と `deliverLocked()` の潜在的二重アンロックを解消（トークン付き `LockToken` / `withTxLock` で冪等化）。
-- [ ] **FIX-12 `[Med][Bug]`** (`CL M4`) `AdventureController.kt:243-259`, `PaperInventoryAccess.kt:13-21`
+- [x] **FIX-12 `[Med][Bug]`** (`CL M4` / 実装済 `58de839`・再確認中) `AdventureController.kt:243-259`, `PaperInventoryAccess.kt:13-21`
   - 売却時に同一アイテム ID の先頭スタック（強化済み等）を誤売却する問題を修正（未強化/最小強化スタック優先、またはクリックしたスロット基準・強化済み誤売却ガード）。
-- [ ] **FIX-13 `[Med][Bug]`** (`CL M7`) `RpgPlugin.kt:311-322`
+- [x] **FIX-13 `[Med][Bug]`** (`CL M7` / 実装済 `58de839`・再確認中) `RpgPlugin.kt:311-322`
   - 初回スターター装備付与時にホットバー変化で失敗した場合、`starterGranted = true` のまま消失させず `pendingRewards` へフォールバックする。
-- [ ] **FIX-14 `[Med][Bug]`** (`AG M-05`) `FishingController.kt:241-251,281-288`
+- [x] **FIX-14 `[Med][Bug]`** (`AG M-05` / 実装済 `58de839`・再確認中) `FishingController.kt:241-251,281-288`
   - バイト時の餌消費失敗でそのまま `BITE_ALERT` を続行できる無料餌エクスプロイトを修正（失敗時は `FishingEndReason.CANCELLED` でセッション中断）。`bitePending` 解除をトランザクションコールバック側へ一本化し二重 `showBite` を防ぐ。
 
 ---
 
-## Wave 3 — UI / Lang / Reload / World & Entity Correctness（Batch 1）
+## Wave 3 — UI / Lang / Reload / World & Entity Correctness（Batch 1 — 実装済 `9de04bb` / 再確認中）
 
-- [ ] **FIX-15 `[High][Bug/Style]`** (`AG H-04, L-07`) `ClassSelectionUi.kt:40-79`, `RpgPlugin.kt:151-161`
+- [x] **FIX-15 `[High][Bug/Style]`** (`AG H-04, L-07` / 実装済 `9de04bb`・再確認中) `ClassSelectionUi.kt:40-79`, `RpgPlugin.kt:151-161`
   - 確認 `Dialog` 表示中の `confirming: MutableSet<UUID>` 追跡を導入し、InvUI `onClose` による再オープン競合を防止。キャンセル時は明示的に職業選択メニューへ戻す。
   - `fallback(resource: ResourceKind)` を enum 網羅分岐にし、職業アイコンの斜体解除＋ロール/ステータス/スキル概要 Lore を付与する。
-- [ ] **FIX-16 `[High][Bug]`** (`AG H-05`, `CL L7`) `RpgPlugin.kt:38,120,881-891`, `GatheringController.kt:47-51,130`, `FishingController.kt:41,44,106`
+- [x] **FIX-16 `[High][Bug]`** (`AG H-05`, `CL L7` / 実装済 `9de04bb`・再確認中) `RpgPlugin.kt:38,120,881-891`, `GatheringController.kt:47-51,130`, `FishingController.kt:41,44,106`
   - `RpgPlugin.language` を `@Volatile` 化し、非同期読込後は `sync {}` 内で差し替える。
   - `/ec reload` で `LangCatalog` の再読込、`GatheringController` の `sites`/`sitesById` 再構築、`FishingController` の `engine`/`capacity` 再生成を行う。`resource_pack.*` 変更には再起動が必要である旨をリロードメッセージへ明記する。
-- [ ] **FIX-17 `[High][Bug]`** (`AG H-06`) `GatheringController.kt:314,319`, `RpgPlugin.kt:1097,1109`, `AdventureController.kt:129`
+- [x] **FIX-17 `[High][Bug]`** (`AG H-06` / 実装済 `9de04bb`・再確認中) `GatheringController.kt:314,319`, `RpgPlugin.kt:1097,1109`, `AdventureController.kt:129`
   - 4 箇所の `Component.toString()` チャット生ダンプを修正（`Component` プレースホルダーまたは `plainText()` 使用）。
   - プレイヤー向け表示に残っていた内部アイテム ID (`ec:item_*`) を `plugin.contentName(player, it.item)` へ統一する。
-- [ ] **FIX-18 `[High][Bug]`** (`AG H-07`, `CL L4`) `LangCatalog.kt:49-53`
+- [x] **FIX-18 `[High][Bug]`** (`AG H-07`, `CL L4` / 実装済 `9de04bb`・再確認中) `LangCatalog.kt:49-53`
   - `diagnostic()` の `Regex.replace(template, detail)` による `\` / `$` クラッシュを修正（リテラル置換へ変更）し、MiniMessage 装飾タグがプレースホルダー正規表現で破壊されないようにする（正規表現は `companion object` 定数化）。
-- [ ] **FIX-19 `[Med][Bug]`** (`AG M-03`) `RpgPlugin.kt:589-599`, `CodexController.kt:26-34,74-79`
+- [x] **FIX-19 `[Med][Bug]`** (`AG M-03` / 実装済 `9de04bb`・再確認中) `RpgPlugin.kt:589-599`, `CodexController.kt:26-34,74-79`
   - 図鑑エリア一覧のクリック解決に現在ページ（`currentPage * 45 + slot`）を加算し、未使用の `codexTabs` を削除する。
-- [ ] **FIX-20 `[Med][Bug/Idiom]`** (`AG M-04`, `CL L6`) `AdventureController.kt:127-136,152-158,186-191`, `InvUiInventoryAdapter.kt:46`
+- [x] **FIX-20 `[Med][Bug/Idiom]`** (`AG M-04`, `CL L6` / 実装済 `9de04bb`・再確認中) `AdventureController.kt:127-136,152-158,186-191`, `InvUiInventoryAdapter.kt:46`
   - ショップ表示時に条件一致エントリを `visible` へ詰めて空白歯抜けを解消し、`InvUiInventoryAdapter.open` に `onClose` を追加して `invUiShops` をウィンドウ単位でクリーンアップする。`InventoryGrid.forInventorySize` に `require(size % 9 == 0)` を追加する。
-- [ ] **FIX-21 `[Med][Bug]`** (`CL M11`) `AdventureController.kt:118`
+- [x] **FIX-21 `[Med][Bug]`** (`CL M11` / 実装済 `9de04bb`・再確認中) `AdventureController.kt:118`
   - Paper `Dialog` で選択肢ボタンが空の場合でも例外にならないガード（閉じるボタン等へのフォールバック）を入れる。
-- [ ] **FIX-22 `[Med][Bug]`** (`AG M-06`) `GatheringController.kt:158-163,186-190`
+- [x] **FIX-22 `[Med][Bug]`** (`AG M-06` / 実装済 `9de04bb`・再確認中) `GatheringController.kt:158-163,186-190`
   - `ChunkLoadEvent` の孤立エンティティ掃除対象に `hitboxKey`（`Interaction`）を追加する。
-- [ ] **FIX-23 `[Med][Bug]`** (`AG M-08`) `RpgPlugin.kt:666,674-677`
+- [x] **FIX-23 `[Med][Bug]`** (`AG M-08` / 実装済 `9de04bb`・再確認中) `RpgPlugin.kt:666,674-677`
   - `castSkill` の範囲巻き込み対象にも `participants` フィルタと `distinctBy { it.uniqueId }` を適用し、味方判定の `&&`/`||` を括弧で明示する。
-- [ ] **FIX-24 `[Med][Bug]`** (`AG M-12`) `NpcController.kt:70-82`
+- [x] **FIX-24 `[Med][Bug]`** (`AG M-12` / 実装済 `9de04bb`・再確認中) `NpcController.kt:70-82`
   - 管理 NPC を `entity.isPersistent = false` に統一し、対象チャンクがロード済みのときだけスポーンする。
-- [ ] **FIX-25 `[Med][Bug]`** (`AG M-13`) `DungeonController.kt:15,35-40`
+- [x] **FIX-25 `[Med][Bug]`** (`AG M-13` / 実装済 `9de04bb`・再確認中) `DungeonController.kt:15,35-40`
   - スロット再利用時に別パレットのダンジョンへ切り替わったらアリーナを再建築する（`builtPalette: MutableMap<Int, List<String>>`）。
-- [ ] **FIX-26 `[Med][Bug/Style — 実クライアント要確認]`** (`AG M-09, L-07`, `CL S4`) `UiThemeProvider.kt:58-91`
+- [x] **FIX-26 `[Med][Bug/Style — 実クライアント要確認]`** (`AG M-09, L-07`, `CL S4` / 実装済 `9de04bb`・実機スクショ要確認) `UiThemeProvider.kt:58-91`
   - `ThemeMode.FULL` の先頭 `-8px` 補正（`TITLE_LEFT_OFFSET`）を入れ、スロット番号ハードコードを宣言的ルールまたは PDC ロールタグ判定へ整理する（※実クライアント `ui.theme.mode: full` スクショでズレ確認必須）。
 
 ---
