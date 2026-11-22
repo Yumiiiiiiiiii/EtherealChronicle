@@ -14,7 +14,7 @@ class AdventureServicesTest {
         val b=base()
         val quest=map("id" to "ec:q","type" to "quest","name" to "試験", "condition" to map("has_flags" to listOf("ec:ready")),
             "objectives" to listOf(map("id" to "kill","kind" to "KILL","target" to "ec:forest_slime","amount" to 2),map("id" to "collect","kind" to "COLLECT","target" to "ec:field_ration","amount" to 2)),
-            "rewards" to map("xp" to 25,"currency" to 20,"set_flags" to listOf("ec:done")),"repeatable" to true,"repeat_cooldown_ms" to 1000)
+            "rewards" to map("xp" to 25,"currency" to 20,"set_flags" to listOf("ec:done")),"repeatable" to true,"repeat_cooldown_ms" to 1000,"auto_complete" to true)
         val dialogue=map("id" to "ec:d","type" to "dialogue","start" to "root","nodes" to map(
             "root" to map("text" to "通常", "branches" to listOf(map("condition" to map("has_flags" to listOf("ec:done")),"next" to "done")),
                 "choices" to listOf(map("id" to "yes","label" to "はい","condition" to map("has_flags" to listOf("ec:ready")),"set_flags" to listOf("ec:choice")))),
@@ -28,11 +28,27 @@ class AdventureServicesTest {
         val c=chapterContent(); var now=100L; val q=QuestEngine({ c },Clock { now }); val p=PlayerProfile(UUID.randomUUID())
         val inventory=MemoryInventory(mutableMapOf("ec:field_ration" to 2))
         assertFails { q.start(p,"ec:q") }; p.flags.add("ec:ready"); q.start(p,"ec:q")
-        q.event(p,ObjectiveKind.KILL,"ec:forest_slime",1,inventory); assertFalse(q.ready(p,"ec:q",inventory))
-        q.event(p,ObjectiveKind.KILL,"ec:forest_slime",1,inventory); assertTrue(q.ready(p,"ec:q",inventory))
+        q.event(p,ObjectiveKind.KILL,"ec:forest_slime",1,inventory,allowAutoComplete=false); assertFalse(q.ready(p,"ec:q",inventory))
+        q.event(p,ObjectiveKind.KILL,"ec:forest_slime",1,inventory,allowAutoComplete=false); assertTrue(q.ready(p,"ec:q",inventory))
         q.complete(p,"ec:q",inventory); assertEquals(0,inventory.count("ec:field_ration")); assertEquals(20,p.currency); assertTrue("ec:done" in p.flags)
         assertFails { q.complete(p,"ec:q",inventory) }; assertFails { q.start(p,"ec:q") }
         now+=1000; q.start(p,"ec:q"); assertFalse(p.quests.getValue("ec:q").completed)
+    }
+    @Test fun `periodic quest precheck skips unchanged profiles and detects ready automatic rewards`() {
+        val content=chapterContent()
+        val quests=QuestEngine({ content },Clock { 1_000 })
+        val profile=PlayerProfile(UUID.randomUUID())
+        val inventory=MemoryInventory(mutableMapOf("ec:field_ration" to 2))
+
+        assertFalse(quests.needsPeriodicUpdate(profile,inventory,emptySet()))
+        profile.flags.add("ec:ready")
+        quests.start(profile,"ec:q")
+        assertFalse(quests.mayNeedPeriodicUpdate(profile,emptySet()))
+        assertFalse(quests.needsPeriodicUpdate(profile,inventory,emptySet()))
+        quests.event(profile,ObjectiveKind.KILL,"ec:forest_slime",2,inventory,allowAutoComplete=false)
+
+        assertTrue(quests.mayNeedPeriodicUpdate(profile,emptySet()))
+        assertTrue(quests.needsPeriodicUpdate(profile,inventory,emptySet()))
     }
     @Test fun `dialogue conditions filter choices and redirect flags without mutating state`() {
         val c=chapterContent(); val d=DialogueEngine { c }; val p=PlayerProfile(UUID.randomUUID())

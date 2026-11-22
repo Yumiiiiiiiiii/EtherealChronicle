@@ -65,7 +65,7 @@ try {
     if (-not (Wait-Log 'Done \(' $StartTimeoutSec)) { Write-Host '[qa] server did not reach Done' -ForegroundColor Red; $failed = $true }
     else {
         # plugin startup is async: wait until it reports ready so early commands are not answered with 起動中
-        [void](Wait-Log '準備が完了' 30)
+        [void](Wait-Log '準備が完了|Adventure systems are ready\.' 30)
         foreach ($c in $Commands) {
             if ($c -match '^sleep:(\d+)$') { Start-Sleep -Seconds ([int]$Matches[1]); Flush-Log; continue }   # pseudo-command
             if ($c -match '\{uuid\}') { Flush-Log; $last = (Select-String -Path $log -Pattern 'SIM spawn=([0-9a-f-]{36})' | Select-Object -Last 1); if ($last) { $c = $c -replace '\{uuid\}', $last.Matches[0].Groups[1].Value } }
@@ -85,7 +85,7 @@ try {
 }
 $r = Analyze-Log $log
 if (($Commands | Where-Object { $_ -match '^ec validate(?:\s|$)' }).Count -gt 0 -and
-    -not (Select-String -Path $log -Pattern 'コンテンツ検証成功\.|Content validation succeeded\.' -Quiet)) {
+    -not (Select-String -Path $log -Pattern 'コンテンツ検証成功。|Content validation succeeded\.' -Quiet)) {
     Write-Host '[qa] ec validate was requested, but its success reply was not present in the captured log' -ForegroundColor Red
     $failed = $true
 }

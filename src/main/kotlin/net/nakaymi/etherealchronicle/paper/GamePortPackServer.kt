@@ -103,7 +103,10 @@ class GamePortPackServer(
         tcpShieldEnabled = plugin.server.pluginManager.isPluginEnabled("TCPShield"),
     )
 
-    private fun serverRoot() = serverRootFromDataFolder(plugin.dataFolder.toPath())
+    private fun serverRoot() = serverRootFromDataFolder(
+        plugin.dataFolder.toPath(),
+        plugin.server.worldContainer.toPath(),
+    )
 
     companion object {
         private const val HANDLER_NAME = "etherealchronicle_game_port_pack"
@@ -372,6 +375,12 @@ internal fun detectUnsupportedProxies(
     if (tcpShieldEnabled) add("TCPShield")
 }
 
-/** plugins/<plugin>/data から実際のサーバールートを求めます（world-containerには依存しません）。 */
-internal fun serverRootFromDataFolder(pluginDataFolder: java.nio.file.Path): java.nio.file.Path =
-    pluginDataFolder.toAbsolutePath().normalize().parent.parent
+/** 通常のplugins配置を優先し、独自データ配置ではworld-containerへフォールバックします。 */
+internal fun serverRootFromDataFolder(
+    pluginDataFolder: java.nio.file.Path,
+    worldContainer: java.nio.file.Path,
+): java.nio.file.Path {
+    val conventional = pluginDataFolder.toAbsolutePath().normalize().parent?.parent
+    return conventional?.takeIf { java.nio.file.Files.exists(it.resolve("spigot.yml")) }
+        ?: worldContainer.toAbsolutePath().normalize()
+}

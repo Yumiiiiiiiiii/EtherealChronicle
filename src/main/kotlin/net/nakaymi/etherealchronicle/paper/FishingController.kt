@@ -14,6 +14,7 @@ import org.bukkit.boss.BossBar
 import org.bukkit.entity.ItemDisplay
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
+import org.bukkit.event.Event
 import org.bukkit.event.Listener
 import org.bukkit.event.block.Action
 import org.bukkit.event.entity.EntityDamageEvent
@@ -138,9 +139,10 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         if(e.player.world.name==DemoWorld.NAME && DemoWorld.isOwned(e.player.world) || customRod) e.isCancelled=true
     }
     /** 竿の右・左クリックを釣り開始またはミニゲーム入力へ変換します。 */
-    @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true)
+    @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=false)
     fun interact(e:PlayerInteractEvent) {
-        if(e.hand!=EquipmentSlot.HAND) return
+        // Paperは空中クリックでブロック使用をDENYにするため、手のアイテム使用だけを確認します。
+        if (!shouldProcessFishingInteract(e.useItemInHand(), e.hand)) return
         val player=e.player
         val id=plugin.identify(player.inventory.itemInMainHand) ?: return
         val rod=plugin.snapshot.world.tackle.values.firstOrNull { it.item==id && it.kind==TackleKind.ROD } ?: return
@@ -369,6 +371,10 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         }
     }
 }
+
+/** 空中クリックのblock DENYは許容し、アイテム使用DENYとオフハンドだけを除外します。 */
+internal fun shouldProcessFishingInteract(itemUse: Event.Result, hand: EquipmentSlot?): Boolean =
+    itemUse != Event.Result.DENY && hand == EquipmentSlot.HAND
 
 /** 餌の永続化が終わるまで、釣り状態機械を二重進行させない判定です。 */
 internal fun shouldAdvanceFishingSession(bitePending: Boolean): Boolean = !bitePending

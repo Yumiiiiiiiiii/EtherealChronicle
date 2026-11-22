@@ -16,6 +16,9 @@ internal class ClassConfirmationTracker {
     fun isActive(playerId: UUID): Boolean = playerId in confirming
 }
 
+/** classIdが未設定のプロフィールだけに再選択メニューを開かせます。 */
+internal fun classSelectionCanReopen(classId: String?): Boolean = classId == null
+
 /** Paper DialogのmultiActionを選択肢のない定義で作らないよう判定します。 */
 internal fun paperDialogueHasChoices(choiceCount: Int): Boolean = choiceCount > 0
 

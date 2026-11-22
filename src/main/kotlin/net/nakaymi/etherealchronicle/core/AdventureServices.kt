@@ -35,19 +35,53 @@ class MemoryInventory(val contents: MutableMap<String,Int> = mutableMapOf(), pri
 class QuestEngine(private val content: () -> ContentSnapshot, private val clock: Clock) {
     /** 前提条件を満たす依頼を開始し、progress状態を初期化します。 */
     fun start(p: PlayerProfile,id: String) {
-        val q = content().world.quests[id] ?: error("ec.error.quest_missing")
-        require(q.condition.matches(p)) { "ec.error.quest_prerequisite" }
+        val q = content().world.quests[id] ?: throw GameException("ec.error.quest_missing")
+        requireGame(q.condition.matches(p), "ec.error.quest_prerequisite")
         val old = p.quests[id]
         if(old != null) {
             val now=clock.millis()
             val eligible=if(q.resetSchedule != null) old.completed && if(old.resetPeriod != null) old.resetPeriod != ResetPeriods.key(now,q.resetSchedule,content().world.tuning) else now-old.completedAt >= q.repeatCooldown
                 else old.completed && q.repeatable && now-old.completedAt >= q.repeatCooldown
-            require(eligible) { "ec.error.quest_active" }
+            requireGame(eligible, "ec.error.quest_active")
         }
         p.quests[id] = QuestProgress(completedAt=old?.completedAt ?: 0)
     }
     private fun progress(p: PlayerProfile,q: QuestDefinition,o: Objective,inventory: InventoryAccess): Int =
         if(o.kind == ObjectiveKind.COLLECT) inventory.count(o.target).coerceAtMost(o.amount) else p.quests[q.id]?.objectives?.get(o.id) ?: 0
+    /** インベントリを複製する前に、探索または自動達成を見込める依頼だけを選びます。 */
+    fun mayNeedPeriodicUpdate(p: PlayerProfile, areaIds: Set<String>): Boolean =
+        p.quests.any { (id, state) ->
+            if (state.completed) return@any false
+            val quest = content().world.quests[id] ?: return@any false
+            quest.objectives.any { objective ->
+                objective.kind == ObjectiveKind.EXPLORE && objective.target in areaIds &&
+                    progress(p, quest, objective, EmptyInventory) < objective.amount
+            } || quest.autoComplete && quest.objectives
+                .filter { it.kind != ObjectiveKind.COLLECT }
+                .all { progress(p, quest, it, EmptyInventory) >= it.amount }
+        }
+
+    /** 毎秒の保存取引が必要な進行中依頼だけを読み取り判定します。 */
+    fun needsPeriodicUpdate(p: PlayerProfile, inventory: InventoryAccess, areaIds: Set<String>): Boolean {
+        if (!mayNeedPeriodicUpdate(p, areaIds)) return false
+        if (areaIds.isEmpty() && p.quests.values.none { !it.completed }) return false
+        return p.quests.any { (id, state) ->
+            if (state.completed) return@any false
+            val quest = content().world.quests[id] ?: return@any false
+            (quest.autoComplete && ready(p, id, inventory)) || quest.objectives.any { objective ->
+                objective.kind == ObjectiveKind.EXPLORE &&
+                    objective.target in areaIds && progress(p, quest, objective, inventory) < objective.amount
+            }
+        }
+    }
+
+    private object EmptyInventory : InventoryAccess {
+        override fun count(item: String) = 0
+        override fun canExchange(remove: Map<String, Int>, add: Map<String, Int>) = false
+        override fun exchange(remove: Map<String, Int>, add: Map<String, Int>) = false
+        override fun canExchangeFromSlot(slot: Int?, remove: Map<String, Int>, add: Map<String, Int>) = false
+        override fun exchangeFromSlot(slot: Int?, remove: Map<String, Int>, add: Map<String, Int>) = false
+    }
     /** 全objectiveが揃ったかを所持品状態と合わせて確認します。 */
     fun ready(p: PlayerProfile,id: String,inventory: InventoryAccess): Boolean {
         val q = content().world.quests[id] ?: return false
@@ -93,19 +127,19 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
             try {
                 complete(p, id, inventory)
                 add(id)
-            } catch (error: IllegalArgumentException) {
-                if (error.message != "ec.error.inventory_exchange") throw error
+            } catch (error: GameException) {
+                if (error.messageKey != "ec.error.inventory_exchange") throw error
             }
         }
     }
     /** 報酬と消費物を一度だけ反映し、repeat/reset状態を記録します。 */
     fun complete(p: PlayerProfile,id: String,inventory: InventoryAccess) {
-        val q = content().world.quests[id] ?: error("ec.error.quest_missing")
-        require(ready(p,id,inventory)) { "ec.error.quest_incomplete" }
+        val q = content().world.quests[id] ?: throw GameException("ec.error.quest_missing")
+        requireGame(ready(p,id,inventory), "ec.error.quest_incomplete")
         val remove = mutableMapOf<String,Int>(); val add = mutableMapOf<String,Int>()
         q.objectives.filter { it.kind == ObjectiveKind.COLLECT && it.consume }.forEach { remove.merge(it.target,it.amount,Int::plus) }
         q.rewards.items.filter { it.condition.matches(p) }.forEach { add.merge(it.item,it.amount,Int::plus) }
-        require(inventory.exchange(remove,add)) { "ec.error.inventory_exchange" }
+        requireGame(inventory.exchange(remove,add), "ec.error.inventory_exchange")
         val state=p.quests.getValue(id); state.completed=true; state.completedAt=clock.millis()
         state.resetPeriod=q.resetSchedule?.let { ResetPeriods.key(clock.millis(),it,content().world.tuning) }
         state.repeatAvailableAt=if(q.repeatable) clock.millis()+q.repeatCooldown else Long.MAX_VALUE
@@ -118,19 +152,19 @@ class QuestEngine(private val content: () -> ContentSnapshot, private val clock:
 /** flag・プロフィール条件と分岐に従って会話ノード・選択肢を解決します。 */
 class DialogueEngine(private val content: () -> ContentSnapshot) {
     fun node(p: PlayerProfile,id: String,start: String? = null): Pair<String,DialogueNode> {
-        val dialogue=content().world.dialogues[id] ?: error("ec.error.dialogue_missing")
+        val dialogue=content().world.dialogues[id] ?: throw GameException("ec.error.dialogue_missing")
         var at=start ?: dialogue.start; val visited=mutableSetOf<String>()
         repeat(32) {
-            require(visited.add(at)) { "ec.error.dialogue_cycle" }
-            val node=dialogue.nodes[at] ?: error("ec.error.dialogue_node_missing")
+            requireGame(visited.add(at), "ec.error.dialogue_cycle")
+            val node=dialogue.nodes[at] ?: throw GameException("ec.error.dialogue_node_missing")
             val next=node.branches.firstOrNull { it.first.matches(p) }?.second
             if(next == null) return at to node.copy(choices=(node.choices+dialogue.globalChoices).filter { it.condition.matches(p) })
             at=next
         }
-        error("ec.error.dialogue_too_deep")
+        throw GameException("ec.error.dialogue_too_deep")
     }
     fun choice(p: PlayerProfile,id: String,node: String,choice: String): DialogueChoice =
-        node(p,id,node).second.choices.firstOrNull { it.id == choice } ?: error("ec.error.dialogue_choice")
+        node(p,id,node).second.choices.firstOrNull { it.id == choice } ?: throw GameException("ec.error.dialogue_choice")
 }
 data class TradePlan(val id: String,val currencyBefore: Long,val currencyAfter: Long,val remove: Map<String,Int>,val add: Map<String,Int>,val dailyKey: String?,val dailyCount: Int,val sourceSlot: Int? = null)
 /** 取引計画の成功またはプレイヤーに返す想定内の拒否理由です。 */

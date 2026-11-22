@@ -168,15 +168,17 @@ class UiQAFixesTest {
             assertTrue(await(server) { plugin.isEnabled && runCatching { plugin.snapshot }.isSuccess })
             val player = PlayerMock(server, "ClassSwap", UUID.nameUUIDFromBytes("class-swap".toByteArray()))
             server.addPlayer(player)
-            player.addAttachment(plugin,"etherealchronicle.admin",true)
             assertTrue(await(server) { player.uniqueId in plugin.profiles })
+            val command = object : org.bukkit.command.Command("ec") {
+                override fun execute(sender: org.bukkit.command.CommandSender, label: String, args: Array<out String>) = true
+            }
 
-            player.performCommand("ec class ${player.name} ec:class_warrior")
+            plugin.onCommand(server.consoleSender, command, "ec", arrayOf("class", player.name, "ec:class_warrior"))
             val warriorWeapon = "ec:item_wpn_rusty_broadsword"
-            assertTrue(await(server) { count(plugin, player, warriorWeapon) == 1 })
+            assertTrue(await(server) { count(plugin, player, warriorWeapon) == 1 }, "starter weapon was not granted; class=${plugin.profiles[player.uniqueId]?.classId}, messages=${player.nextMessage()}")
             assertEquals(warriorWeapon, plugin.identify(player.inventory.itemInMainHand))
 
-            player.performCommand("ec class ${player.name} ec:class_cleric")
+            plugin.onCommand(server.consoleSender, command, "ec", arrayOf("class", player.name, "ec:class_cleric"))
 
             val clericWeapon = "ec:item_wpn_novice_censer"
             assertEquals("ec:class_cleric", plugin.profiles.getValue(player.uniqueId).classId)
@@ -194,7 +196,6 @@ class UiQAFixesTest {
 
     private fun await(server: ServerMock, condition: () -> Boolean): Boolean {
         repeat(300) {
-            server.scheduler.waitAsyncTasksFinished()
             server.scheduler.performOneTick()
             if (condition()) return true
             Thread.sleep(10)

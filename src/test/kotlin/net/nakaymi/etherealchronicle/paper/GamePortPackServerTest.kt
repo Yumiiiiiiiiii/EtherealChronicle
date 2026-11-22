@@ -145,7 +145,9 @@ class GamePortPackServerTest {
     fun `proxy configuration fallback resolves from server root not world container`() {
         val root = java.nio.file.Path.of("build", "mock-server")
         val data = root.resolve("plugins/EtherealChronicle")
-        assertEquals(root.toAbsolutePath().normalize(), serverRootFromDataFolder(data))
+        java.nio.file.Files.createDirectories(root)
+        java.nio.file.Files.writeString(root.resolve("spigot.yml"), "")
+        assertEquals(root.toAbsolutePath().normalize(), serverRootFromDataFolder(data, root.resolve("worlds")))
     }
 
     @Test
@@ -167,7 +169,7 @@ class GamePortPackServerTest {
 
     @Test
     fun `large packs receive a write deadline proportional to their size`() {
-        assertEquals(5_000, resourcePackWriteDeadlineMillis(1024 * 1024, 5_000))
+        assertEquals(8_000, resourcePackWriteDeadlineMillis(1024 * 1024, 5_000))
         assertTrue(resourcePackWriteDeadlineMillis(20 * 1024 * 1024, 5_000) > 5_000)
         assertEquals(180_000, resourcePackWriteDeadlineMillis(Int.MAX_VALUE, 5_000))
     }

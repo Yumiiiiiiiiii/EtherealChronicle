@@ -4,6 +4,7 @@ import org.bukkit.entity.Player
 import org.bukkit.entity.Projectile
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
+import org.bukkit.event.Event
 import org.bukkit.event.Listener
 import org.bukkit.event.block.BlockBreakEvent
 import org.bukkit.event.block.BlockPlaceEvent
@@ -80,7 +81,10 @@ internal class RequiredPackLockListener(
 
     @EventHandler(priority = EventPriority.LOWEST)
     fun interact(event: PlayerInteractEvent) {
-        if (lock(event.player)) event.isCancelled = true
+        if (!lock(event.player)) return
+        event.isCancelled = true
+        event.setUseItemInHand(Event.Result.DENY)
+        event.setUseInteractedBlock(Event.Result.DENY)
     }
 
     @EventHandler(priority = EventPriority.LOWEST)

@@ -55,6 +55,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private val enhancementFlights=mutableMapOf<UUID,EnhancementFlight>()
     private var enhancementLoreLanguage: LangCatalog? = null
     private var enhancementLoreLines: Set<String> = emptySet()
+    private var enhancementLoreCap = -1
     private var advancementWarningLogged=false
     private lateinit var itemKey: NamespacedKey
     private lateinit var enhancementKey: NamespacedKey
@@ -88,6 +89,9 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     /** 例外診断中の安定キーを翻訳し、ファイル名やIDなどの診断情報を保ちます。 */
     internal fun diagnostic(sender: CommandSender, text: String): Component =
         language.diagnostic((sender as? Player)?.locale()?.toString(),text)
+    /** 型付きゲーム例外のキーと引数を、利用者の言語へ変換します。 */
+    internal fun diagnostic(sender: CommandSender, error: GameException): Component =
+        language.component((sender as? Player)?.locale()?.toString(), error.messageKey, error.arguments)
     private fun plain(component: Component): String = component.plainText()
     /** クラスの資源種別を表示用の翻訳へ変換します。 */
     private fun resourceName(player: Player,kind: ResourceKind): Component = message(player, when(kind) {
@@ -622,13 +626,14 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     }
     /** 言語・強化上限が変わった時だけ既存強化loreを再生成します。 */
     private fun enhancementLoreLines(catalog: LangCatalog, cap: Int): Set<String> {
-        if (enhancementLoreLanguage !== catalog || enhancementLoreLines.size != cap * 2) {
+        if (enhancementLoreLanguage !== catalog || enhancementLoreCap != cap) {
             enhancementLoreLines = (1..cap).flatMap { level ->
                 listOf("ja_jp", "en_us").map { locale ->
                     plain(catalog.component(locale, "ec.enhance.level_lore", mapOf("level" to level)))
                 }
             }.toSet()
             enhancementLoreLanguage = catalog
+            enhancementLoreCap = cap
         }
         return enhancementLoreLines
     }
@@ -874,12 +879,14 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     drops=game.kill(profile,id,inv,xp[playerId] ?: 0,currency[playerId] ?: 0,playerId == loot)
                     drops.forEach { (item,amount) -> profile.pendingRewards.merge(item,amount,Int::plus) }
                 }) {
+                    syncTitleAdvancements(player,profile)
                     player.sendMessage(message(player,"ec.combat.enemy_defeated", "level" to profile.level, "xp" to profile.xp))
                     if(codexUnlocks.isNotEmpty()) player.sendMessage(message(player,"ec.codex.new_discoveries", "items" to codexUnlocks.joinToString { contentName(player,it) }))
                 }
             }
         }
-    }    private var lootSequence=0L
+    }
+    private var lootSequence=0L
     @EventHandler fun playerDeath(e: PlayerDeathEvent) { e.drops.removeIf(::isSkill) }
     @EventHandler(priority=EventPriority.MONITOR,ignoreCancelled=true) fun itemPickup(e:EntityPickupItemEvent) {
         val player=e.entity as? Player ?: return
@@ -902,7 +909,10 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         c.world.titles.values.filter { it.advancement != null }.forEach { title -> validate(title.id) { validateEnum { PaperContentValidator.itemMaterial(title.advancement!!.icon) } } }
         c.world.gatheringNodes.values.forEach { node -> validate(node.id) { validateEnum { PaperContentValidator.blockMaterial(node.displayMaterial); PaperContentValidator.blockMaterial(node.depletedMaterial) } } }
         c.world.treasureChests.values.forEach { chest -> validate(chest.id) { validateEnum { PaperContentValidator.particle(chest.hintParticle) } } }
-        c.world.dungeons.values.forEach { dungeon -> validate(dungeon.id) { validateEnum { dungeon.palette.forEach(PaperContentValidator::blockMaterial) } } }
+        c.world.dungeons.values.forEach { dungeon -> validate(dungeon.id) { validateEnum { PaperContentValidator.dungeonPalette(dungeon.palette) } } }
+        c.world.enemies.values.filter { it.visualVariant != null }.forEach { enemy ->
+            validate(enemy.id) { validateEnum { PaperContentValidator.wolfVariant(enemy.visualVariant!!) } }
+        }
         c.documents.values.filter { it["type"] in setOf("enemy","boss") }.forEach { d -> validate(d.string("id")) { validateEnum { PaperContentValidator.livingEntity(d.string("entity")) } } }
     }
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>): Boolean {
@@ -931,7 +941,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             sender.sendMessage(message(sender,"ec.startup.starting"))
             return true
         }
-        if(sender is Player && args.firstOrNull() in setOf("quest","party","equipment","dungeon","shop","claim","title","codex","enhance","fish","gather","ui")) {
+        if(sender is Player && args.firstOrNull() in setOf("quest","party","equipment","dungeon","shop","claim","title","codex","enhance","fish","gather","ui","class")) {
             try { playerCommand(sender,args.toList()) } catch(error: Exception) {
                 val reason=error.message?.let { diagnostic(sender,it) } ?: Component.empty()
                 sender.sendMessage(message(sender,"ec.command.failed", "reason" to reason))
@@ -957,19 +967,27 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                                 val languageSetting=config.getString("language","auto") ?: "auto"
                                 CompletableFuture.supplyAsync { LangCatalog.load(dataFolder.toPath(),languageSetting,logger) }
                                     .whenComplete { loadedLanguage,languageError -> sync {
-                                        if(languageError == null && isEnabled) language=loadedLanguage
-                                        else if(languageError != null) logger.warning("Language reload failed: ${languageError.message}")
+                                        if(languageError == null && isEnabled) {
+                                            language=loadedLanguage
+                                            runCatching { reloadAdvancementPack() }.onFailure { advancementWarning(it) }
+                                            sender.sendMessage(message(sender,"ec.command.reload_success"))
+                                        } else if(languageError != null) {
+                                            logger.warning("Language reload failed: ${languageError.message}")
+                                            sender.sendMessage(message(sender,"ec.command.validation_failed", "reason" to diagnostic(sender,languageError.message.orEmpty())))
+                                        }
                                     } }
                                 uiTheme.updateMode(UiThemeProvider.mode(config.getString("ui.theme.mode", "icons_only")))
                                 all.forEach { p -> p.level=p.level.coerceAtMost(snapshot.balance.levelCap); if(p.level == snapshot.balance.levelCap) p.xp=0; p.skillLevels.replaceAll { _,level -> level.coerceIn(1,snapshot.balance.skillLevelCap) } }
                                 dirty.addAll(profiles.keys)
-                                runCatching { reloadAdvancementPack() }.onFailure { advancementWarning(it) }
                                 enemies.close(); adventure.reloadNpcs()
                                 if(::gathering.isInitialized) gathering.reload()
                                 if(::fishing.isInitialized) fishing.reload()
                     if(::treasures.isInitialized) treasures.reload()
                             }
-                            sender.sendMessage(message(sender,if(reload) "ec.command.reload_success" else "ec.command.validate_success"))
+                            if(!reload) {
+                                logger.info("EC_CONTENT_VALIDATION_SUCCESS")
+                                sender.sendMessage(message(sender,"ec.command.validate_success"))
+                            }
                         }
                     } }
                 }
@@ -997,6 +1015,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     require(flag in declared || flag in profile.flags) { "ec.error.flag_not_declared: $flag" }
                     val changed=if(operation == "set") profile.flags.add(flag) else profile.flags.remove(flag)
                     save(profile)
+                    if(changed) syncTitleAdvancements(p,profile)
                     logger.info("Admin flag update: ${sender.name} -> ${p.name} $flag $operation")
                     sender.sendMessage(message(sender,if(changed) "ec.command.flag_changed" else "ec.command.flag_unchanged", "flag" to flag, "operation" to message(sender,if(operation == "set") "ec.command.flag_set" else "ec.command.flag_clear")))
                 }
@@ -1045,6 +1064,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     require(!adventure.locked(profile.uuid))
                     val level = args[2].toInt(); require(level in 1..content.snapshot().balance.levelCap)
                     profile.level = level; profile.xp = 0; save(profile)
+                    syncTitleAdvancements(p,profile)
                     sender.sendMessage(message(sender,"ec.command.level_set"))
                 }
                 "class" -> {
@@ -1079,6 +1099,10 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val p=profiles[player.uniqueId] ?: error("ec.error.profile_loading")
         require(!adventure.locked(p.uuid)) { "ec.error.transaction_busy" }
         when(args[0]) {
+            "class" -> {
+                require(classSelectionCanReopen(p.classId)) { "ec.error.class_already_selected" }
+                menu(player)
+            }
             "codex" -> openCodex(player)
             "ui" -> {
                 require(args.getOrNull(1) == "pack") { "ec.resource_pack.usage" }

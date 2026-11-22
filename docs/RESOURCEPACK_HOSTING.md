@@ -126,6 +126,21 @@ ForcePack公式Paper設定では `Server.packs.all.urls`, `generate-hash`, `hash
 
 ## BetterModel 連携
 
+## ローカル配信の検証
+
+同じPC上で接続確認するときは、埋め込みHTTPの待受先と公開先を両方ループバックにします。通常の公開サーバーではこの設定を使わず、外部HTTPS URLを設定してください。
+
+```yaml
+resource_pack:
+  mode: embedded_http
+  embedded_http:
+    bind_host: "127.0.0.1"
+    public_host: "127.0.0.1"
+    port: 25580
+```
+
+同じLANの別端末で試す場合、`public_host` は接続端末から到達できるサーバーのLANアドレスにします。`bind_host` は待受インターフェースに合わせて設定し、必要なファイアウォール規則だけを開けてください。
+
 BetterModel は任意依存です。Paper のソフト依存として先に読み込まれますが、導入しなくてもバニラ/`wolf_variant` の見た目で動作します。BetterModel と対応するクライアント用モデル・リソースパックを別途導入し、設定後に再起動してください。
 
 ```yaml

@@ -33,7 +33,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     private val mm=MiniMessage.miniMessage()
     private val npcs=NpcController(plugin)
     private val dialogueSessions=mutableMapOf<UUID,Pair<String,String>>()
-    private val dialogueComponents=mutableMapOf<Triple<String,String,String>,Component>()
+    private val dialogueComponents=mutableMapOf<Pair<String,String>,Component>()
     private val invUiShops=mutableMapOf<UUID,String>()
     var enterDungeon: (Player,String) -> Unit = { p,id -> p.sendMessage(plugin.message(p,"ec.dungeon.preparing", "name" to plugin.contentName(p,id))) }
     init { plugin.server.pluginManager.registerEvents(this,plugin) }
@@ -53,12 +53,16 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             if(plugin.resourcePacks.isAwaitingRequiredPack(player.uniqueId)) return@forEach
             if(player.uniqueId in locks) return@forEach
             val pos=Position(player.world.name,player.x,player.y,player.z)
+            val currentAreas=plugin.snapshot.world.areas.values.filter { it.contains(pos) }
+            val areaIds=currentAreas.mapTo(mutableSetOf()) { it.id }
+            if(!plugin.game.quests.mayNeedPeriodicUpdate(p,areaIds)) return@forEach
+            val inventory=plugin.inventory(player,persistRemoval=false)
+            if(!plugin.game.quests.needsPeriodicUpdate(p,inventory,areaIds)) return@forEach
             try {
                 transaction(player,{ staged ->
-                    plugin.snapshot.world.areas.values.filter { it.contains(pos) }.forEach { area ->
+                    currentAreas.forEach { area ->
                         plugin.game.quests.event(p,ObjectiveKind.EXPLORE,area.id,1,staged,allowAutoComplete=false)
                     }
-                    plugin.game.quests.event(p,ObjectiveKind.COLLECT,"",1,staged,allowAutoComplete=false)
                     plugin.game.quests.completeReadyAuto(p, staged)
                 },skipIfUnchanged=true)
             } catch(e: Exception) { plugin.logger.warning("Quest progress update failed ${p.uuid}: ${e.message}") }
@@ -67,12 +71,12 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     private fun message(player: Player,text: String) = player.sendMessage(Component.text(text))
     private fun message(player: Player,component: Component) = player.sendMessage(component)
     private fun teleportArea(player: Player,id: String,destination: Position?) {
-        val area=plugin.snapshot.world.areas[id] ?: error("ec.error.area_missing")
-        require(area.world == DemoWorld.NAME) { "ec.error.teleport_world" }
-        val world=Bukkit.getWorld(area.world) ?: error("ec.error.world_missing")
+        val area=plugin.snapshot.world.areas[id] ?: throw GameException("ec.error.area_missing")
+        requireGame(area.world == DemoWorld.NAME, "ec.error.teleport_world")
+        val world=Bukkit.getWorld(area.world) ?: throw GameException("ec.error.world_missing")
         val x=(area.minX+area.maxX)/2.0; val z=(area.minZ+area.maxZ)/2.0
         val target=destination ?: Position(area.world,x,(world.getHighestBlockYAt(x.toInt(),z.toInt())+1).toDouble(),z)
-        require(area.contains(target)) { "ec.error.teleport_destination" }
+        requireGame(area.contains(target), "ec.error.teleport_destination")
         player.teleport(org.bukkit.Location(world,target.x,target.y,target.z,target.yaw,0f))
         player.sendMessage(plugin.message(player,"ec.area.teleported", "name" to area.name))
     }
@@ -98,7 +102,12 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         val p=plugin.profiles[player.uniqueId] ?: return
         val (at,definition)=dialogues.node(p,id,node)
         dialogueSessions[p.uuid]=id to at
-        val textComponent = dialogueComponents.getOrPut(Triple(id,at,player.locale().toString())) { mm.deserialize(definition.text) }
+        val textComponent = dialogueComponents.getOrPut(id to at) { mm.deserialize(definition.text) }
+        if (plugin.paperUiEnabled && paperDialogueHasChoices(definition.choices.size)) {
+            showDialogueDialog(player,id,at,definition,textComponent)
+            player.sendMessage(textComponent)
+            return
+        }
         val menu=RpgMenu("dialogue",id,at,plugin.message(player,"ec.menu.dialogue")).inventory
         menu.setItem(4,ItemStack(Material.WRITTEN_BOOK).apply { itemMeta=itemMeta.apply {
             displayName(plugin.message(player,"ec.dialogue.talk")); lore(definition.text.chunked(28).map { mm.deserialize(it) })
@@ -107,11 +116,10 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             displayName(mm.deserialize(c.label)); persistentDataContainer.set(entryKey,PersistentDataType.STRING,c.id)
         } }) }
         player.sendMessage(textComponent)
-        if (plugin.paperUiEnabled && paperDialogueHasChoices(definition.choices.size)) showDialogueDialog(player,id,at,definition)
-        else player.openInventory(menu)
+        player.openInventory(menu)
     }
     /** Paper Dialogを主表示にし、選択アクションは既存の取引処理へ戻します。 */
-    private fun showDialogueDialog(player: Player,id: String,node: String,definition: DialogueNode) {
+    private fun showDialogueDialog(player: Player,id: String,node: String,definition: DialogueNode,textComponent: Component) {
         val buttons = definition.choices.map { choice ->
             ActionButton.builder(mm.deserialize(choice.label)).width(200)
                 .action(DialogAction.customClick({ _, audience ->
@@ -126,7 +134,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         val dialog = Dialog.create { builder ->
             builder.empty()
                 .base(DialogBase.builder(plugin.message(player,"ec.menu.dialogue"))
-                    .body(listOf(DialogBody.plainMessage(mm.deserialize(definition.text))))
+                    .body(listOf(DialogBody.plainMessage(textComponent)))
                     .canCloseWithEscape(true)
                     .build())
                 .type(DialogType.multiAction(buttons, close, 2))
@@ -136,7 +144,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     /** 条件を満たす商品だけをショップ画面に表示します。 */
     fun showShop(player: Player,id: String) {
         val p=plugin.profiles[player.uniqueId] ?: return
-        val shop=plugin.snapshot.world.shops[id] ?: error("ec.error.shop_missing")
+        val shop=plugin.snapshot.world.shops[id] ?: throw GameException("ec.error.shop_missing")
         val menu=RpgMenu("shop",id,title=plugin.message(player,"ec.menu.shop")).inventory
         compactVisibleShopEntries(shop.entries) { it.condition.matches(p) }.take(54).forEachIndexed { index,e ->
             menu.setItem(index,plugin.createItem(e.item,e.amount).apply { itemMeta=itemMeta.apply {
@@ -220,7 +228,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         }
         runExpectedTrade(player) {
             transaction(player,{ inventory ->
-                require(inventory.exchange(plan.remove,plan.add)) { "ec.error.materials_or_space" }
+                requireGame(inventory.exchange(plan.remove,plan.add), "ec.error.materials_or_space")
                 trades.commit(profile,plan)
             }) { showShop(player,shopId) }
         }
@@ -241,13 +249,13 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                     "OPEN_SHOP" -> after.add { showShop(player,action.target) }
                     "ENTER_DUNGEON" -> after.add { enterDungeon(player,action.target) }
                     "TELEPORT_AREA" -> {
-                        require(action.requiredFlag == null || action.requiredFlag in profile.flags) { "ec.error.teleport_condition" }
+                        requireGame(action.requiredFlag == null || action.requiredFlag in profile.flags, "ec.error.teleport_condition")
                         after.add { teleportArea(player,action.target,action.destination) }
                     }
                     "GIVE_ITEM" -> if(action.onceFlag == null || action.onceFlag !in profile.flags) {
-                        require(action.onceFlag != null) { "ec.error.reward_once_flag" }
-                        require(inventory.exchange(emptyMap(),mapOf(action.target to action.amount)))
-                        profile.flags.add(action.onceFlag)
+                        val onceFlag=action.onceFlag ?: throw GameException("ec.error.reward_once_flag")
+                        requireGame(inventory.exchange(emptyMap(),mapOf(action.target to action.amount)), "ec.error.inventory_full")
+                        profile.flags.add(onceFlag)
                     }
                 }
             }
@@ -270,7 +278,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         }
         runExpectedTrade(player) {
             transaction(player,{ inventory ->
-                require(inventory.exchangeFromSlot(plan.sourceSlot,plan.remove,plan.add)) { "ec.error.sell_items_missing" }
+                requireGame(inventory.exchangeFromSlot(plan.sourceSlot,plan.remove,plan.add), "ec.error.sell_items_missing")
                 trades.commit(profile,plan)
             }) { showShop(player,shopId) }
         }
@@ -279,11 +287,9 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     private fun runExpectedTrade(player: Player, action: () -> Unit) {
         try {
             action()
-        } catch (error: Exception) {
-            val key = error.message?.takeIf { it.startsWith("ec." + "error.") }
-            if (key == null) throw error
-            plugin.logger.fine("Trade rejected for ${player.uniqueId}: $key")
-            player.sendMessage(plugin.diagnostic(player,key))
+        } catch (error: GameException) {
+            plugin.logger.fine("Trade rejected for ${player.uniqueId}: ${error.messageKey}")
+            player.sendMessage(plugin.diagnostic(player,error))
         }
     }
     private fun equipAccessory(player: Player, id: String) {
@@ -302,17 +308,21 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     }
     @EventHandler(ignoreCancelled=true) fun tradeBound(e: InventoryClickEvent) {
         if(e.whoClicked !is Player) return
-        val current=e.currentItem; val cursor=e.cursor
-        val currentBound=bound(current); val cursorBound=bound(cursor)
-        val bundleSwap=current?.type?.name?.endsWith("BUNDLE") == true && cursorBound || cursor.type.name.endsWith("BUNDLE") && currentBound
-        if(bundleSwap) { e.isCancelled=true; return }
         val external=e.view.topInventory.type !in setOf(InventoryType.CRAFTING,InventoryType.CREATIVE)
+        val current=e.currentItem; val cursor=e.cursor
+        val currentIsBundle=current?.type?.name?.endsWith("BUNDLE") == true
+        val cursorIsBundle=cursor.type.name.endsWith("BUNDLE")
+        val bundleSwap = (currentIsBundle && bound(cursor)) || (cursorIsBundle && bound(current))
+        if(bundleSwap) { e.isCancelled=true; return }
+        if(!external && e.click != ClickType.DROP && e.click != ClickType.CONTROL_DROP) return
         val player=e.whoClicked as Player
-        val offhandBound=e.click == ClickType.SWAP_OFFHAND && bound(player.inventory.itemInOffHand)
-        val hotbarBound=e.hotbarButton >= 0 && bound(player.inventory.getItem(e.hotbarButton))
+        val currentBound=bound(current)
+        val cursorBound=if(external) bound(cursor) else false
+        val offhandBound=external && e.click == ClickType.SWAP_OFFHAND && bound(player.inventory.itemInOffHand)
+        val hotbarBound=external && e.hotbarButton >= 0 && bound(player.inventory.getItem(e.hotbarButton))
         val touchesExternal=external && (currentBound || cursorBound || offhandBound || hotbarBound)
         val dropsBound=(e.click == ClickType.DROP || e.click == ClickType.CONTROL_DROP) && currentBound
-        if(bundleSwap || touchesExternal || dropsBound) e.isCancelled=true
+        if(touchesExternal || dropsBound) e.isCancelled=true
     }
     @EventHandler(ignoreCancelled=true) fun boundEntity(e: PlayerInteractEntityEvent) {
         if(e.rightClicked is ItemFrame || e.rightClicked is ArmorStand || e.rightClicked is Allay) {
@@ -503,8 +513,8 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             // StagedInventoryは実スロットを変えないため、変更確定直前まで36枠の複製を遅らせます。
             beforeStorage = player.inventory.storageContents.map { it?.clone() }.toTypedArray()
             staged.add.keys.forEach(p::discoverItem)
-            require(inventory.canExchange(staged.remove,staged.add)) { "ec.error.inventory_full" }
-            require(inventory.exchangeFromSlot(staged.preferredRemovalSlot,staged.remove,emptyMap()))
+            requireGame(inventory.canExchange(staged.remove,staged.add), "ec.error.inventory_full")
+            requireGame(inventory.exchangeFromSlot(staged.preferredRemovalSlot,staged.remove,emptyMap()), "ec.error.sell_items_missing")
             staged.add.forEach { (id,n) -> p.pendingRewards.merge(id,n,Int::plus) }
             beforePersist()
             plugin.persist(p).whenComplete { _,error -> plugin.sync {

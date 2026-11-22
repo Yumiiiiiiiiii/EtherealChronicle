@@ -14,6 +14,7 @@ import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.player.PlayerInteractEntityEvent
 import org.bukkit.persistence.PersistentDataType
+import kotlin.math.floor
 
 /** 宣言座標に宝箱表示を置き、once flagと報酬をAdventureControllerの取引mailboxで確定します。 */
 class TreasureController(private val plugin:RpgPlugin):Listener {
@@ -27,7 +28,7 @@ class TreasureController(private val plugin:RpgPlugin):Listener {
     fun reload() {
         entities.values.flatten().forEach { Bukkit.getEntity(it)?.remove() }; entities.clear()
         val chests = plugin.snapshot.world.treasureChests.values.toList()
-        chestsByChunk = chests.groupBy { (it.position.x.toInt() shr 4) to (it.position.z.toInt() shr 4) }
+        chestsByChunk = chests.groupBy { chunkCoordinates(it.position.x, it.position.z) }
         chests.forEach(::spawn)
     }
 
@@ -36,7 +37,7 @@ class TreasureController(private val plugin:RpgPlugin):Listener {
         try {
         val world=Bukkit.getWorld(chest.position.world) ?: return
         if(world.name!=DemoWorld.NAME || !DemoWorld.isOwned(world)) return
-        val chunkX=chest.position.x.toInt() shr 4; val chunkZ=chest.position.z.toInt() shr 4
+        val (chunkX,chunkZ)=chunkCoordinates(chest.position.x,chest.position.z)
         // 再読込時に未ロードchunkを同期ロードせず、後続のChunkLoadEventに配置を任せます。
         if(!world.isChunkLoaded(chunkX,chunkZ)) return
         val loc=Location(world,chest.position.x,chest.position.y,chest.position.z)
@@ -81,3 +82,7 @@ class TreasureController(private val plugin:RpgPlugin):Listener {
 
     fun close() { entities.values.flatten().forEach { Bukkit.getEntity(it)?.remove() }; entities.clear() }
 }
+
+/** 負の小数座標もMinecraftと同じ床関数でchunkへ割り当てます。 */
+internal fun chunkCoordinates(x: Double, z: Double): Pair<Int, Int> =
+    (floor(x).toInt() shr 4) to (floor(z).toInt() shr 4)

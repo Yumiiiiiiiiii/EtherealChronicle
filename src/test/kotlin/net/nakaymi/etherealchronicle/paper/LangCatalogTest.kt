@@ -181,6 +181,10 @@ class LangCatalogTest {
             entries.mapValues { (_, values) -> placeholders(values.first!!) },
             entries.mapValues { (_, values) -> placeholders(values.second!!) }
         )
+        entries.values.forEach { (japanese, english) ->
+            assertEquals(placeholders(japanese!!), LangCatalog.detailPlaceholderMatches(japanese).toSet())
+            assertEquals(placeholders(english!!), LangCatalog.detailPlaceholderMatches(english).toSet())
+        }
 
         val references = linkedMapOf<String, MutableSet<String>>()
         Files.walk(root.resolve("src/main/kotlin")).use { paths ->
@@ -207,7 +211,7 @@ class LangCatalogTest {
 
     private companion object {
         val KEY = Regex("(ec(?:\\.[a-z0-9_]+)+)")
-        val PLACEHOLDER = Regex("<(?!aqua|black|blue|dark_aqua|dark_blue|dark_gray|dark_green|dark_purple|dark_red|gold|gray|green|italic|light_purple|red|reset|white|yellow)([a-zA-Z][a-zA-Z0-9_]*)>")
+        val PLACEHOLDER = Regex("<(?!aqua|black|blue|dark_aqua|dark_blue|dark_gray|dark_green|dark_purple|dark_red|gold|gray|green|italic|light_purple|newline|red|reset|white|yellow)([a-zA-Z][a-zA-Z0-9_]*)>")
         val DOC_HEADER = listOf(
             "# 言語ファイルと翻訳キー",
             "",
