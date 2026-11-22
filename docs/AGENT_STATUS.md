@@ -420,3 +420,10 @@
 - Clarified the shared fishing/world schedule contract: normalized 24,000-tick day, DAY `1000..11999`, NIGHT `13000..22999`, DAWN_DUSK `<1000`, `12000..12999`, and `>=23000`. This is the intentional Task25 behavior change for the 14 affected fish species.
 - Added Paper domain tests for null/different worlds, invalid radii, negative time, storage-slot counts and dungeon bounds, plus representative DemoWorld landmark block assertions.
 - Verification: targeted follow-up suite passed. Full build/test and final commit are pending.
+
+## Terra-Overworld-Engine — WIP checkpoint (2026-11-23)
+- Branch `codex/overworld-towns`; WIP commit `223f6b0` (not ready to merge). A separate test agent is working on branch `codex/overworld-engine-tests` from this commit.
+- Done: initial incremental schematic placer, deterministic staged site selection and asynchronous Paper sampler, layout journal and guarded cleanup acknowledgement, preliminary procedural town planner and tick-budgeted world service. Added `docs/OVERWORLD_RECOVERY.md` documenting crash limitations.
+- Verification: original 312 tests passed at the preceding draft; latest WIP compiled with `compileKotlin compileTestKotlin`. Changes and real assets have not yet undergone the required independent reviews or live Paper verification.
+- Open: real asset integration, planner correctness and terrain protection, terrain/site recovery safety, waterfront and roads, synthetic tests and full suite, cross-model review and integration with the separate controller branch. Do not mark this WIP complete or merge it yet.
+- Next: finish and validate planner and service, integrate the delegated test branch, address findings, then report exact remaining limitations to the coordinator.
