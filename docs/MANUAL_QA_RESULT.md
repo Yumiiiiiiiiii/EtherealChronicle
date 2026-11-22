@@ -224,3 +224,21 @@ Processes stopped (server was force-killed), server.properties/ops/whitelist/con
 
 ### Diagnosis of the hang (needs Codex confirmation)
 `ClassSelectionUi.window.addCloseHandler { if (!isConfirming) onClose(player) }` -> `onClose` = `sync { if (online) menu(p) }` -> `ClassSelectionUi.open()` first calls `confirming.finish(uuid)` and then `window.open()`, which closes the viewer's previous InvUI window and fires its close handler again with `isConfirming == false`; that schedules another `sync { menu(p) }`. `runTask` scheduled from inside the scheduler heartbeat is executed in the same heartbeat, so the cycle never yields to the next tick: infinite loop on the main thread. Fix: track the current window per player and ignore close handlers of replaced windows (`if (window !== current[uuid]) return`), set a "replacing" flag around `window.open()`, and schedule the reopen with `runTaskLater(1)` plus a per-player re-entrancy guard.
+
+## Task 24 re-run (master 4572ef4 / codex 3f9bafd, offline QaG1, en_us client, 2026-11-22)
+Review gate: 3f9bafd code review found no High/Med blocker (Low: `ClassSelectionWindowTracker.open` leaves `current` set if `window.open()` throws; startup `result.get(15 s)` is fatal on a very slow cold start).
+Shots: `D:\test\mcmmo-client-qa\shots\s1..s5, t_*, u1..u3, v1,v2, w1, x1, y1, y2 *.png` (not in repo). Helper: `scripts/client/qa-setup-config.ps1` (apply/restore QA config incl. `-ThemeMode`).
+| Item | Result | Evidence |
+|---|---|---|
+| Build + headless smoke | PASS | `gradlew build` green; `smoke-test.ps1 -SkipBuild -Commands 'ec validate','ec reload'` PASS, `EC_CONTENT_VALIDATION_SUCCESS`, no StrictMode error |
+| Class menu cycle: accept pack -> pick -> Esc (ignored) -> Go back -> pick -> Start -> `/ec class` | PASS | no hang (0 ERROR, "not responded" none, TPS 20.0/19.9), class assigned, `/ec class` -> "A class has already been selected." (s1-s5) |
+| FIX-26 `ui.theme.mode: full` | PASS (minor) | panels now cover the full chest width and title is centred/readable on class/codex/enhance/shop (s1, t_full_*); small grid misalignment in the lower inventory rows and the vanilla "Inventory" label dimmed over the panel |
+| `icons_only` / `off` | PASS | via `/ec reload` switch: vanilla grey chest with pack icons / without themed background (t_icons_only_*, t_off_*) |
+| Shop buy + refresh + right-click sell | PASS | 5000 -> 4972 -> 4944 G, then sells +7 +7 G after refresh |
+| Fishing cast (rod, aimed at water) -> bite -> reel (held click) | PASS | cast shows "Searching for fish...", BITE_ALERT, `reason=CAUGHT` (v1). Left-click-air reel input and the gate-locked rejection were not separately exercised |
+| Returning player keeps position (gated relog, non-op) | PASS | logged in at last position (102.96, 65, -3.32), `data get` identical after load; no hub teleport |
+| Admin `/ec class <player> <id>` in game (op) | PASS | class -> warrior, sword given, "Class updated." (y2) |
+| Full-inventory NPC talk with ready auto-complete quest | NOT RUN | no ready auto quest was prepared |
+| M3 mid-air/uneven spawn during long wait | NOT RUN (earlier run: 75 s wait OK at a ground spawn) | |
+| Server log | PASS | 0 ERROR, TPS 20.0 |
+Processes stopped; server.properties/ops/whitelist/config restored; ports closed.
