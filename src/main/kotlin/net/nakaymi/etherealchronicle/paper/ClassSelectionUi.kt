@@ -16,7 +16,6 @@ import xyz.xenondevs.invui.gui.Gui
 import xyz.xenondevs.invui.item.Item
 import xyz.xenondevs.invui.item.ItemBuilder
 import xyz.xenondevs.invui.window.Window
-import java.time.Duration
 import java.util.UUID
 
 /** InvUI画面差し替え時に、旧ウィンドウのclose通知を識別します。 */
@@ -113,8 +112,8 @@ class ClassSelectionUi(
     private fun confirm(player: Player, definition: ClassDefinition) {
         if(!confirming.begin(player.uniqueId)) return
         // Dialogにclose callbackがないためEscを禁止し、操作ボタンの寿命も十分長く取ります。
-        val options = ClickCallback.Options.builder().uses(1).lifetime(Duration.ofHours(24)).build()
-        val yes = ActionButton.builder(confirmLabel(player)).width(200)
+        val options = ClickCallback.Options.builder().uses(1).lifetime(UiCallbackLifetimes.CLASS_SELECTION).build()
+        val yes = ActionButton.builder(confirmLabel(player)).width(ClassSelectionLayout.CONFIRM_BUTTON_WIDTH_PIXELS)
             .action(DialogAction.customClick({ _, audience ->
                 (audience as? Player)?.let {
                     confirming.finish(it.uniqueId)
@@ -122,14 +121,14 @@ class ClassSelectionUi(
                     onSelected(it, definition.id)
                 }
             }, options)).build()
-        val no = ActionButton.builder(cancelLabel(player)).width(200)
+        val no = ActionButton.builder(cancelLabel(player)).width(ClassSelectionLayout.CONFIRM_BUTTON_WIDTH_PIXELS)
             .action(DialogAction.customClick({ _, audience ->
                 (audience as? Player)?.let {
                     confirming.finish(it.uniqueId)
                     windows.clear(it.uniqueId)
                     onCancel(it)
                 }
-            }, ClickCallback.Options.builder().uses(1).lifetime(Duration.ofHours(24)).build())).build()
+            }, ClickCallback.Options.builder().uses(1).lifetime(UiCallbackLifetimes.CLASS_SELECTION).build())).build()
         val dialog = Dialog.create { entry ->
             entry.empty().base(DialogBase.builder(confirmationTitle(player, definition))
                 .body(listOf(DialogBody.plainMessage(confirmationText(player, definition))))

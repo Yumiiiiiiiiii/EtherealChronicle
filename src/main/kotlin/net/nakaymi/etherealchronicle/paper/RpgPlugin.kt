@@ -205,11 +205,11 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     fishing=FishingController(this)
                     treasures=TreasureController(this).also { it.reload() }
                     runCatching { reloadAdvancementPack() }.onFailure { advancementWarning(it) }
-                    server.scheduler.runTaskTimer(this,Runnable { enemies.tick() },10,10)
+                    server.scheduler.runTaskTimer(this,Runnable { enemies.tick() },PaperTaskIntervals.ENEMY_UPDATE_TICKS,PaperTaskIntervals.ENEMY_UPDATE_TICKS)
                     ready = true
                     server.pluginManager.registerEvents(this,this)
                     if (!paperInventoryUi) getCommand("ec")?.setExecutor(this)
-                    server.scheduler.runTaskTimer(this,Runnable { tick() },20,20)
+                    server.scheduler.runTaskTimer(this,Runnable { tick() },PaperTaskIntervals.PLAYER_UPDATE_TICKS,PaperTaskIntervals.PLAYER_UPDATE_TICKS)
                     server.onlinePlayers.forEach { join(it) }
                     logger.info("Adventure systems are ready.")
                 }
@@ -342,7 +342,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 ) {
                     menu(player)
                 }
-            }, 1L)
+}, PaperTaskIntervals.NEXT_TICK_DELAY)
         } catch (_: org.bukkit.plugin.IllegalPluginAccessException) {
             pendingClassMenuReopen.remove(id)
         }
@@ -371,7 +371,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private fun starter(p: Player, profile: PlayerProfile, id: String) {
         if(!choosing.add(p.uniqueId)) return
         val c = content.snapshot().classes[id]
-        if(c.starterItems.size > p.inventory.storageContents.take(PlayerInventoryLayout.LAST_STARTER_HOTBAR_SLOT + 1).count { it == null } ) {
+        if(c.starterItems.size > p.inventory.storageContents.take(PlayerInventoryCapacities.STARTER_HOTBAR).count { it == null } ) {
             choosing.remove(p.uniqueId); p.sendMessage(message(p,"ec.profile.inventory_space")); return
         }
         if(profile.classId == null) game.chooseClass(profile,id)
@@ -414,7 +414,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         return ItemStack(Material.valueOf(d.material),amount).apply { itemMeta = itemMeta.apply {
             val rarity=language.component(null,d.rarity.displayKey)
             displayName(Component.text(d.name)); lore(listOf(language.component(null,"ec.item.required_level", mapOf("level" to d.minLevel, "rarity" to rarity))))
-            snapshot.world.itemProperties[id]?.lore?.takeIf { it.isNotBlank() }?.let { text -> lore((lore() ?: emptyList())+text.chunked(28).map { Component.text(it) }) }
+        snapshot.world.itemProperties[id]?.lore?.takeIf { it.isNotBlank() }?.let { text -> lore((lore() ?: emptyList())+text.chunked(DialogueLayout.TEXT_WRAP_CHARACTERS).map { Component.text(it) }) }
             persistentDataContainer.set(itemKey,PersistentDataType.STRING,id)
             val hasPack=packRecipient?.let { ::resourcePacks.isInitialized && resourcePacks.hasResourcePack(it.uniqueId) } == true
             UiThemeProvider.modelKey(hasPack,d.itemModel)?.let(::setItemModel)
@@ -498,7 +498,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private fun applyStats(p: Player, profile: PlayerProfile, calculated: Stats = effectiveStats(p,profile)) {
         val max = calculated.hp.coerceIn(1.0,content.snapshot().balance.statCap)
         p.getAttribute(Attribute.MAX_HEALTH)?.baseValue = max
-        p.isHealthScaled = true; p.healthScale = 20.0
+        p.isHealthScaled = true; p.healthScale = PaperHealthDisplay.VANILLA_HEARTS_SCALE
         if(p.health > max) p.health = max
     }
     private fun hasEnhancementToken(player:Player,token:String):Boolean = player.inventory.contents.filterNotNull().any { stack ->
@@ -699,14 +699,15 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             val fishingActive=::fishing.isInitialized && fishing.active(p.uniqueId)
             val s = effectiveStats(p,profile); applyStats(p,profile,s); applyTitle(p,profile)
             val beforeResource = profile.resource
-            game.regenerate(profile,s.resource,Bukkit.getCurrentTick()-(lastMoved[p.uniqueId] ?: Int.MIN_VALUE/2) < 20)
+            val movedRecently = lastMoved[p.uniqueId]?.let { Bukkit.getCurrentTick() - it < PaperTaskIntervals.PLAYER_UPDATE_TICKS } ?: false
+            game.regenerate(profile,s.resource,movedRecently)
             if(profile.resource != beforeResource) dirty.add(p.uniqueId)
             profile.selectedSkill = profile.selectedSkill.coerceIn(0,c.skills.lastIndex)
             val skill = c.skills[profile.selectedSkill]
             if(shouldSendClassHud(gatheringActive,fishingActive)) p.sendActionBar(message(p,"ec.hud.main", "hp" to p.health.toInt(), "max_hp" to s.hp.toInt(), "resource_name" to resourceName(p,c.resource), "resource" to profile.resource.toInt(), "max_resource" to s.resource.toInt(), "skill" to content.snapshot().skills[skill].name, "cooldown" to "%.1f".format(MinecraftTicks.millisToSeconds(game.skills.remaining(p.uniqueId,skill))), "party" to adventure.parties.members(p.uniqueId).size))
           } catch(error: Exception) { logger.warning("HUD update failed ${p.uniqueId}: ${error.message}") }
         }
-        if(++autosaveSeconds >= 60) {
+            if(++autosaveSeconds >= PaperTaskIntervals.PROFILE_AUTOSAVE_SECONDS) {
             autosaveSeconds = 0; dirty.toList().forEach { profiles[it]?.let(::save) }; dirty.clear()
         }
     }
@@ -1143,7 +1144,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     val p = server.getPlayerExact(args[1]) ?: error("ec.error.player_missing")
                     val profile = profiles[p.uniqueId] ?: error("ec.error.profile_loading")
                     val amount = args.getOrNull(3)?.toInt() ?: 1
-                    require(amount in 1..64)
+                    require(amount in 1..ContentLimits.MAX_ITEM_STACK)
                     require(!adventure.locked(p.uniqueId))
                     require(inventory(p).exchange(emptyMap(),mapOf(args[2] to amount))) { "ec.error.inventory_full" }
                     profile.discoverItem(args[2]); save(profile)

@@ -32,13 +32,13 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
         val world=Bukkit.getWorld(DemoWorld.NAME) ?: error("ec.error.world_unavailable")
         val slot=(0 until plugin.snapshot.world.tuning.instanceCap).firstOrNull { it !in instances } ?: error("ec.error.dungeon_full")
         val instance=Instance(slot,definition,players.map { it.uniqueId }.toMutableSet(),players.associate { it.uniqueId to it.location.clone() },tick)
-        val x=1024+slot*192; val z=1024
+        val origin=DungeonArenaLayout.originForSlot(slot); val x=origin.x; val z=origin.z
         if(dungeonPaletteNeedsBuild(builtPalette[slot],definition.palette)) {
-            for(dx in -24..24) for(dz in -24..24) {
-            val edge=kotlin.math.abs(dx) == 24 || kotlin.math.abs(dz) == 24
-            val center=kotlin.math.abs(dx) <= 2 && kotlin.math.abs(dz) <= 2
-            world.getBlockAt(x+dx,64,z+dz).type=Material.valueOf(definition.palette[if(center) 2 else 0])
-            if(edge) for(y in 65..68) world.getBlockAt(x+dx,y,z+dz).type=Material.valueOf(definition.palette[1])
+            for(dx in -DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS..DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS) for(dz in -DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS..DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS) {
+            val edge=kotlin.math.abs(dx) == DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS || kotlin.math.abs(dz) == DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS
+            val center=kotlin.math.abs(dx) <= DungeonArenaLayout.INNER_FLOOR_RADIUS_BLOCKS && kotlin.math.abs(dz) <= DungeonArenaLayout.INNER_FLOOR_RADIUS_BLOCKS
+            world.getBlockAt(x+dx,DungeonArenaLayout.FLOOR_Y,z+dz).type=Material.valueOf(definition.palette[if(center) 2 else 0])
+            if(edge) for(y in DungeonArenaLayout.WALL_BOTTOM_Y..DungeonArenaLayout.WALL_TOP_Y) world.getBlockAt(x+dx,y,z+dz).type=Material.valueOf(definition.palette[1])
             }
             builtPalette[slot]=definition.palette.toList()
         }
@@ -46,7 +46,7 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
         try { spawnWave(instance,world,x,z) }
         catch(error:Exception) { close(instance); throw error }
         players.forEach { p -> plugin.profiles[p.uniqueId]?.let { profile -> plugin.game.quests.event(profile,net.nakaymi.etherealchronicle.core.ObjectiveKind.EXPLORE,definition.area,1,plugin.inventory(p),false); plugin.markDirty(profile.uuid) } }
-        players.forEach { it.teleport(Location(world,x.toDouble(),65.0,z-12.0)); it.sendMessage(plugin.message(it,"ec.dungeon.entry", "message" to definition.entryMessage)) }
+        players.forEach { it.teleport(Location(world,x.toDouble(),DungeonArenaLayout.PLAYER_SPAWN_Y.toDouble(),(z+DungeonArenaLayout.PLAYER_SPAWN_Z_OFFSET).toDouble())); it.sendMessage(plugin.message(it,"ec.dungeon.entry", "message" to definition.entryMessage)) }
     }
     private fun spawnWave(instance:Instance,world:World,x:Int,z:Int) {
         val definition=instance.definition
@@ -57,10 +57,10 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
         val offsets=wave?.guardOffsets ?: definition.guardOffsets
         val spawned=mutableListOf<org.bukkit.entity.LivingEntity>()
         try {
-            val boss=enemies.spawn(bossId,Location(world,(x+bossOffset.first).toDouble(),65.0,(z+bossOffset.second).toDouble()),"instance:${instance.slot}:wave:${instance.waveIndex}",1,instance.members.toSet()) ?: error("ec.error.spawn_cap")
+            val boss=enemies.spawn(bossId,Location(world,(x+bossOffset.first).toDouble(),DungeonArenaLayout.PLAYER_SPAWN_Y.toDouble(),(z+bossOffset.second).toDouble()),"instance:${instance.slot}:wave:${instance.waveIndex}",1,instance.members.toSet()) ?: error("ec.error.spawn_cap")
             spawned += boss
             guards.zip(offsets).forEach { (guard,offset) ->
-                val entity=enemies.spawn(guard,Location(world,x+offset.first.toDouble(),65.0,z+offset.second.toDouble()),"instance:${instance.slot}:wave:${instance.waveIndex}:guards",guards.size.coerceAtLeast(1),instance.members.toSet())
+                val entity=enemies.spawn(guard,Location(world,x+offset.first.toDouble(),DungeonArenaLayout.PLAYER_SPAWN_Y.toDouble(),z+offset.second.toDouble()),"instance:${instance.slot}:wave:${instance.waveIndex}:guards",guards.size.coerceAtLeast(1),instance.members.toSet())
                 if(entity == null) error("ec.error.guard_spawn_failed")
                 spawned += entity
             }
@@ -74,7 +74,7 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
             instance.entities.forEach { Bukkit.getEntity(it)?.remove() }
             instance.waveIndex++
             val world=Bukkit.getWorld(DemoWorld.NAME) ?: return
-            val x=1024+instance.slot*192; val z=1024
+            val origin=DungeonArenaLayout.originForSlot(instance.slot); val x=origin.x; val z=origin.z
             try {
                 spawnWave(instance,world,x,z)
                 instance.members.forEach { member -> Bukkit.getPlayer(member)?.let { player -> player.sendMessage(plugin.message(player,"ec.dungeon.wave", "current" to instance.waveIndex+1, "total" to waveCount)) } }
@@ -128,25 +128,24 @@ class DungeonController(private val plugin: RpgPlugin,private val adventure: Adv
         instances.remove(instance.slot)
     }
     fun recover(player: Player) {
-        if(player.world.name == DemoWorld.NAME && player.x >= 900 && player.z >= 900 && instances.values.none { player.uniqueId in it.members }) player.teleport(player.world.spawnLocation)
+        if(player.world.name == DemoWorld.NAME && player.x >= DungeonArenaLayout.RECOVERY_MIN_COORDINATE && player.z >= DungeonArenaLayout.RECOVERY_MIN_COORDINATE && instances.values.none { player.uniqueId in it.members }) player.teleport(player.world.spawnLocation)
     }
     fun tick() {
-        tick+=20
+        tick+=PaperTaskIntervals.PLAYER_UPDATE_TICKS
         instances.values.toList().filter { tick-it.started >= plugin.snapshot.world.tuning.instanceTimeout }.forEach { instance ->
             instance.members.toList().forEach { Bukkit.getPlayer(it)?.let { p -> p.sendMessage(plugin.message(p,"ec.dungeon.timeout")); leave(p) } }; close(instance)
         }
     }
     @EventHandler(priority=EventPriority.MONITOR,ignoreCancelled=true) fun teleport(e: PlayerTeleportEvent) {
         val instance=instances.values.firstOrNull { e.player.uniqueId in it.members } ?: return
-        val centerX=1024+instance.slot*192
         val to=e.to
-        if(to.world?.name != DemoWorld.NAME || kotlin.math.abs(to.x-centerX) > 30 || kotlin.math.abs(to.z-1024) > 30) {
+        if(to.world?.name != DemoWorld.NAME || !DungeonArenaLayout.isInsideBounds(to,instance.slot)) {
             instance.members.remove(e.player.uniqueId); if(instance.members.isEmpty()) close(instance)
         }
     }
     @EventHandler fun quit(e: PlayerQuitEvent) = leave(e.player)
     @EventHandler fun respawn(e: PlayerRespawnEvent) { val instance=instances.values.firstOrNull { e.player.uniqueId in it.members } ?: return; e.respawnLocation=instance.returns[e.player.uniqueId] ?: e.respawnLocation; instance.members.remove(e.player.uniqueId); if(instance.members.isEmpty()) close(instance) }
-    @EventHandler fun move(e: PlayerMoveEvent) { if(e.player.world.name == DemoWorld.NAME && e.to.y < 0) { e.player.teleport(e.player.world.spawnLocation); leave(e.player) } }
+    @EventHandler fun move(e: PlayerMoveEvent) { if(e.player.world.name == DemoWorld.NAME && e.to.y < DungeonArenaLayout.VOID_RECOVERY_Y) { e.player.teleport(e.player.world.spawnLocation); leave(e.player) } }
     fun shutdown() { instances.values.toList().forEach { instance -> instance.members.toList().forEach { Bukkit.getPlayer(it)?.let(::leave) }; close(instance) } }
 }
 

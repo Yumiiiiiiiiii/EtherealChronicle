@@ -56,7 +56,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
 
     init {
         plugin.server.pluginManager.registerEvents(this,plugin)
-        task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },2,2)
+        task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },PaperTaskIntervals.FISHING_UPDATE_TICKS,PaperTaskIntervals.FISHING_UPDATE_TICKS)
     }
     /** プレイヤーが釣りセッションを保持しているかを返します。 */
     fun active(id:UUID)=id in sessions
@@ -120,7 +120,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         close()
         engine=FishingEngine(plugin.snapshot.world.lifeBalance,random)
         capacity=plugin.snapshot.world.lifeBalance.maxFishingSessions
-        task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },2,2)
+            task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },PaperTaskIntervals.FISHING_UPDATE_TICKS,PaperTaskIntervals.FISHING_UPDATE_TICKS)
     }
     private fun cleanup(session:Session) { session.bar.removeAll(); Bukkit.getEntity(session.bobber)?.remove() }
     private fun plain(component:Component):String = component.plainText()
@@ -329,7 +329,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
                 val behaviorKey=when(s.state.behavior) { FishBehavior.CALM -> "ec.fishing.behavior_calm"; FishBehavior.TELEGRAPH -> "ec.fishing.behavior_telegraph"; FishBehavior.THRASH -> "ec.fishing.behavior_thrash"; FishBehavior.DIVE -> "ec.fishing.behavior_dive" }
                 val barTitle=if(s.state.phase==FishingPhase.REELING) plugin.message(player,"ec.fishing.bossbar_reeling","behavior" to plain(plugin.message(player,behaviorKey)),"progress" to s.state.progress.toInt()) else plugin.message(player,"ec.fishing.bossbar_search")
                 s.bar.setTitle(plain(barTitle))
-                s.bar.progress=(s.state.progress/100).coerceIn(0.0,1.0)
+        s.bar.progress=(s.state.progress/FishingPhysics.MAX_TENSION_OR_PROGRESS).coerceIn(0.0,1.0)
                 s.bar.color=when(s.state.behavior) { FishBehavior.DIVE -> BarColor.BLUE; FishBehavior.THRASH -> BarColor.RED; FishBehavior.TELEGRAPH -> BarColor.YELLOW; else -> BarColor.GREEN }
                 val status=plugin.message(player,"ec.fishing.actionbar_status","tension" to s.state.tension.toInt(),"progress" to s.state.progress.toInt())
                 player.sendActionBar(status.append(Component.space()).append(plugin.message(player,fishingReelAdvice(s.state.behavior,s.state.tension))))

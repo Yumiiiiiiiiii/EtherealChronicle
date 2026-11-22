@@ -515,7 +515,7 @@ internal object RequiredPackGatePolicy {
         required && deliveryAvailable && ManagedPackPolicy.sendsPack(mode) && !bypass
 
     fun timeoutTicks(seconds: Int): Long =
-        seconds.coerceIn(MIN_TIMEOUT_SECONDS, MAX_TIMEOUT_SECONDS).toLong() * 20L
+        MinecraftTicks.secondsToTicks(seconds.coerceIn(MIN_TIMEOUT_SECONDS, MAX_TIMEOUT_SECONDS).toLong())
 }
 
 /** パック状態イベントをゲートへ適用する純粋な処理分類です。 */

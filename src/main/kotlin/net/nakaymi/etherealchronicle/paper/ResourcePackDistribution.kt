@@ -38,7 +38,7 @@ data class ResourcePackArtifact(val bytes: ByteArray, val sha1: String) {
 data class ResourcePackEndpoint(val bindHost: String, val publicHost: String, val port: Int, val mode: String, val externalUrl: String) {
     init {
         require(mode in setOf("embedded_http", "external_url", "game_port"))
-        require(port in 1024..65535)
+        require(port in ResourcePackLimits.MIN_PORT..ResourcePackLimits.MAX_PORT)
         require(bindHost.isNotBlank() && bindHost.none(Char::isISOControl))
         require(publicHost.isNotBlank() && publicHost.none { it.isWhitespace() || it.isISOControl() || it == '/' || it == '\\' })
         if (mode == "external_url") require(URI(externalUrl).let { it.scheme == "https" && it.host != null })
@@ -61,11 +61,11 @@ class EmbeddedPackServer(
     private val writeDeadlineMillis: Int = 5_000,
 ) : AutoCloseable {
     init {
-        require(maxConcurrent in 1..128)
-        require(maxPerIp in 1..maxConcurrent)
-        require(idleReadTimeoutMillis in 100..10_000)
-        require(headerDeadlineMillis in idleReadTimeoutMillis..30_000)
-        require(writeDeadlineMillis in 500..30_000)
+        require(maxConcurrent in ResourcePackLimits.MIN_CONNECTIONS..ResourcePackLimits.MAX_CONNECTIONS)
+        require(maxPerIp in ResourcePackLimits.MIN_CONNECTIONS..maxConcurrent)
+        require(idleReadTimeoutMillis in ResourcePackLimits.MIN_TIMEOUT_MILLIS..ResourcePackLimits.MAX_IDLE_TIMEOUT_MILLIS)
+        require(headerDeadlineMillis in idleReadTimeoutMillis..ResourcePackLimits.MAX_HEADER_DEADLINE_MILLIS)
+        require(writeDeadlineMillis in ResourcePackLimits.MIN_WRITE_DEADLINE_MILLIS..ResourcePackLimits.MAX_WRITE_DEADLINE_MILLIS)
     }
 
     private val running = AtomicInteger(1)
@@ -133,9 +133,9 @@ class EmbeddedPackServer(
             val (method, target) = request
             val isPack = target == "/pack/${artifact.sha1}.zip"
             if (method !in setOf("GET", "HEAD") || !isPack) {
-                writeResponse(socket, 404, "Not Found", null, headOnly = true)
+                writeResponse(socket, HttpStatus.NOT_FOUND, "Not Found", null, headOnly = true)
             } else {
-                writeResponse(socket, 200, "OK", artifact.bytes, headOnly = method == "HEAD")
+                writeResponse(socket, HttpStatus.OK, "OK", artifact.bytes, headOnly = method == "HEAD")
             }
         } catch (_: IOException) {
             // 無効な入力・遅いヘッダーは応答を待たず接続を閉じます。
@@ -185,7 +185,7 @@ class EmbeddedPackServer(
         val bytes = body ?: ByteArray(0)
         withSocketWriteDeadline(socket, resourcePackWriteDeadlineMillis(bytes.size, writeDeadlineMillis), writeWatchdog) { socketOutput ->
             val output = BufferedOutputStream(socketOutput)
-            val contentType = if (status == 200) "Content-Type: application/zip\r\n" else ""
+            val contentType = if (status == HttpStatus.OK) "Content-Type: application/zip\r\n" else ""
             val cacheControl = cacheControlHeader(status)
             output.write("HTTP/1.1 $status $reason\r\n$contentType".toByteArray(Charsets.ISO_8859_1))
             output.write(cacheControl.toByteArray(Charsets.ISO_8859_1))
@@ -236,13 +236,13 @@ internal fun withSocketWriteDeadline(
 
 /** パック容量に応じて通常回線の書込み猶予を増やし、上限時間で低速接続を切ります。 */
 internal fun resourcePackWriteDeadlineMillis(sizeBytes: Int, minimumDeadlineMillis: Int): Int {
-    val expectedMillis = sizeBytes.coerceAtLeast(0).toLong() * 1_000 / MINIMUM_PACK_RATE_BYTES_PER_SECOND
+    val expectedMillis = sizeBytes.coerceAtLeast(0).toLong() * TimeUnit.SECONDS.toMillis(1) / MINIMUM_PACK_RATE_BYTES_PER_SECOND
     return maxOf(minimumDeadlineMillis, expectedMillis.toInt()).coerceAtMost(MAX_PACK_WRITE_DEADLINE_MILLIS)
 }
 
-private const val MINIMUM_PACK_RATE_BYTES_PER_SECOND = 128 * 1024L
+private const val MINIMUM_PACK_RATE_BYTES_PER_SECOND = 128 * ResourcePackLimits.BYTES_PER_KIB
 private const val MAX_PACK_WRITE_DEADLINE_MILLIS = 180_000
 
 /** 成功ZIPだけを長期キャッシュし、エラー応答の誤キャッシュを避けます。 */
 internal fun cacheControlHeader(status: Int): String =
-    if (status == 200) "Cache-Control: public, max-age=3600, immutable\r\n" else "Cache-Control: no-store\r\n"
+        if (status == HttpStatus.OK) "Cache-Control: public, max-age=3600, immutable\r\n" else "Cache-Control: no-store\r\n"

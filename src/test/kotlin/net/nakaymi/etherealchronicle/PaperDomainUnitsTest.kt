@@ -14,6 +14,7 @@ class PaperDomainUnitsTest {
         assertEquals(1L,MinecraftTicks.millisToSecondsCeil(1_000))
         assertEquals(2L,MinecraftTicks.millisToSecondsCeil(1_001))
         assertEquals(0L,MinecraftTicks.millisToSecondsCeil(0))
+        assertEquals(1L,MinecraftTicks.millisToWholeSeconds(1_999))
     }
 
     @Test
@@ -48,5 +49,17 @@ class PaperDomainUnitsTest {
         assertEquals(9,ClassSelectionLayout.MAX_CLASS_OPTIONS)
         assertTrue(CodexLayout.NEXT_PAGE_SLOT < ChestLayout.DOUBLE_CHEST_SLOTS)
         assertEquals(45,DialogueLayout.MAX_VISIBLE_CHOICES)
+    }
+
+    @Test
+    fun `dungeon arena slots have isolated boundaries`() {
+        assertEquals(1_024, DungeonArenaLayout.centerX(0))
+        assertEquals(1_216, DungeonArenaLayout.centerX(1))
+        assertEquals(DungeonArenaLayout.Origin(1_216, 1_024), DungeonArenaLayout.originForSlot(1))
+        assertTrue(DungeonArenaLayout.contains(1_054.0, 1_054.0, 0))
+        assertFalse(DungeonArenaLayout.contains(1_054.01, 1_024.0, 0))
+        assertFalse(DungeonArenaLayout.contains(1_216.0, 1_024.0, 0))
+        assertEquals(listOf(0, 96, 192, 288, 384), DemoWorldLayout.HUB_PLAZAS.map { it.centerX })
+        assertEquals(65, DemoWorldLayout.SURFACE_Y)
     }
 }

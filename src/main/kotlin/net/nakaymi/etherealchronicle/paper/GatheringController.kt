@@ -46,16 +46,16 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
     private var sitesById=sites.values.distinctBy(::siteKey).associateBy(::siteKey)
     private var sitesByChunk=sitesById.values.groupBy { ChunkCoordinates.fromBlocks(it.location.x,it.location.z) }
     private val channels=mutableMapOf<UUID,Channel>()
+    private val limit = GatheringControllerLimits.MAX_CONCURRENT_CHANNELS
     private val lastAttempt=mutableMapOf<UUID,String>()
     private val displays=mutableMapOf<String,List<UUID>>()
     private val displayKey=NamespacedKey(plugin,"gather_node")
     private val hitboxKey=NamespacedKey(plugin,"gather_node_hitbox")
-    private val limit=100
     private var task: org.bukkit.scheduler.BukkitTask?=null
 
     init {
         plugin.server.pluginManager.registerEvents(this,plugin)
-        task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },2,2)
+        task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },PaperTaskIntervals.GATHERING_UPDATE_TICKS,PaperTaskIntervals.GATHERING_UPDATE_TICKS)
         renderAll()
     }
 
@@ -69,7 +69,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
             val progress = ((monotonicMillis() - channel.started).toDouble() / channel.duration).coerceIn(0.0, 1.0)
             return plugin.message(locale, "ec.debug.gathering_active", mapOf(
                 "node" to "${channel.site.node.id}/${channel.site.location.id}",
-                "progress" to (progress * 100).toInt(),
+                "progress" to (progress * PercentageScale.MAX_PERCENT).toInt(),
                 "bossbar" to channel.bar.players.any { it.uniqueId == player },
                 "visible" to channel.bar.isVisible,
                 "duration" to channel.duration
@@ -124,7 +124,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         sitesById=sites.values.distinctBy(::siteKey).associateBy(::siteKey)
         sitesByChunk=sitesById.values.groupBy { ChunkCoordinates.fromBlocks(it.location.x,it.location.z) }
         renderAll()
-        task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },2,2)
+            task=plugin.server.scheduler.runTaskTimer(plugin,Runnable { tick() },PaperTaskIntervals.GATHERING_UPDATE_TICKS,PaperTaskIntervals.GATHERING_UPDATE_TICKS)
     }
 
     private fun key(world:String,x:Int,y:Int,z:Int)="$world:$x,$y,$z"
@@ -154,17 +154,17 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         val block=world.getBlockAt(site.location.x,site.location.y,site.location.z)
         val display=world.spawn(at,BlockDisplay::class.java) { entity ->
             entity.block=Material.valueOf(site.node.displayMaterial).createBlockData()
-            entity.transformation=org.bukkit.util.Transformation(gatheringBlockDisplayTranslation(),org.joml.Quaternionf(),Vector3f(1f,1f,1f),org.joml.Quaternionf())
+        entity.transformation=org.bukkit.util.Transformation(gatheringBlockDisplayTranslation(),org.joml.Quaternionf(),Vector3f(1f,1f,1f),org.joml.Quaternionf())
             entity.isPersistent=false; entity.isInvulnerable=true
             entity.persistentDataContainer.set(displayKey,PersistentDataType.STRING,k)
         }
-        val label=world.spawn(at.clone().add(0.0,1.15,0.0),TextDisplay::class.java) { entity ->
+        val label=world.spawn(at.clone().add(0.0,GatheringDisplayGeometry.TEXT_HEIGHT_BLOCKS,0.0),TextDisplay::class.java) { entity ->
             entity.text(plugin.message(Bukkit.getConsoleSender(), "ec.gathering.node_label", "name" to site.node.name, "level" to site.node.minGatheringLevel))
             entity.isPersistent=false; entity.isInvulnerable=true
             entity.persistentDataContainer.set(displayKey,PersistentDataType.STRING,k)
         }
         val hitbox=world.spawn(at,Interaction::class.java) { entity ->
-            entity.interactionWidth=1.1f; entity.interactionHeight=1.1f
+        entity.interactionWidth=GatheringDisplayGeometry.INTERACTION_WIDTH_BLOCKS; entity.interactionHeight=GatheringDisplayGeometry.INTERACTION_HEIGHT_BLOCKS
             entity.isPersistent=false; entity.isInvulnerable=true
             entity.persistentDataContainer.set(hitboxKey,PersistentDataType.STRING,k)
         }
@@ -214,7 +214,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         val site=sites[key(block.world.name,block.x,block.y,block.z)]
         if(site==null) {
             val nearby=sitesById.values.filter { it.location.world==block.world.name }.minByOrNull { (it.location.x-block.x)*(it.location.x-block.x)+(it.location.z-block.z)*(it.location.z-block.z) }
-            if(nearby!=null && kotlin.math.abs(nearby.location.y-block.y)<=2 && (nearby.location.x-block.x)*(nearby.location.x-block.x)+(nearby.location.z-block.z)*(nearby.location.z-block.z)<=4) {
+            if(nearby!=null && kotlin.math.abs(nearby.location.y-block.y)<=GatheringDisplayGeometry.CLICK_VERTICAL_TOLERANCE_BLOCKS && (nearby.location.x-block.x)*(nearby.location.x-block.x)+(nearby.location.z-block.z)*(nearby.location.z-block.z)<=GatheringDisplayGeometry.CLICK_HORIZONTAL_RADIUS_BLOCKS*GatheringDisplayGeometry.CLICK_HORIZONTAL_RADIUS_BLOCKS) {
                 e.isCancelled=true
                 reject(e.player,"ec.gathering.click_site", "name" to nearby.node.name)
             }
@@ -254,7 +254,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         val origin=player.location.clone(); val duration=(def.channelMillis*(1-tool.channelSpeedBonus)).toLong().coerceAtLeast(250)
         val barTitle=net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
             .serialize(plugin.message(player,"ec.gathering.bossbar", "name" to def.name))
-        val bar=Bukkit.createBossBar(barTitle,BarColor.GREEN,BarStyle.SOLID).apply { addPlayer(player); progress=0.08 }
+        val bar=Bukkit.createBossBar(barTitle,BarColor.GREEN,BarStyle.SOLID).apply { addPlayer(player); progress=GatheringDisplayGeometry.CHANNEL_BOSSBAR_START_PROGRESS }
         channels[player.uniqueId]=Channel(site,monotonicMillis(),duration,origin,bar)
         lastAttempt[player.uniqueId]="ec.gathering.channel_started"
         player.sendActionBar(plugin.message(player,"ec.gathering.actionbar_start"))
@@ -281,7 +281,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
         // 診断表示にもその時点のプレースホルダーを反映し、未展開のキーを残しません。
         val rendered = plain(plugin.message(player, key, *values))
         lastAttempt[player.uniqueId]=rendered
-        if(lastAttempt.size>1000) lastAttempt.keys.firstOrNull()?.let(lastAttempt::remove)
+        if(lastAttempt.size>GatheringDisplayGeometry.MAX_ACTIVE_ATTEMPT_RECORDS) lastAttempt.keys.firstOrNull()?.let(lastAttempt::remove)
         plugin.logger.fine("GATHER ${player.name}: $key")
         if(player.isOnline) player.sendMessage(net.kyori.adventure.text.Component.text(rendered))
     }
@@ -292,7 +292,7 @@ class GatheringController(private val plugin: RpgPlugin): Listener {
             if(player==null || !player.isOnline) { channels.remove(id)?.bar?.removeAll(); return@forEach }
             if(plugin.profiles[id]==null || plugin.adventure.locked(id)) { cancel(player,"ec.gathering.cancel_generic"); return@forEach }
             val elapsed=now-channel.started; val ratio=(elapsed.toDouble()/channel.duration).coerceIn(0.0,1.0)
-            channel.bar.progress=ratio; player.sendActionBar(plugin.message(player,"ec.gathering.actionbar_progress", "percent" to floor(ratio*100).toInt(), "name" to channel.site.node.name))
+        channel.bar.progress=ratio; player.sendActionBar(plugin.message(player,"ec.gathering.actionbar_progress", "percent" to floor(ratio*PercentageScale.MAX_PERCENT).toInt(), "name" to channel.site.node.name))
             if(elapsed>=channel.duration) complete(player,channel)
         }
     }
