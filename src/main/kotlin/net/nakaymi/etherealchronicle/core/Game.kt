@@ -5,8 +5,8 @@ import kotlin.math.pow
 import kotlin.random.Random
 
 /** 装備・職業・効果を合算するゲーム内ステータス値です。 */
-data class Stats(val hp: Double = 100.0, val resource: Double = 100.0, val attack: Double = 10.0,
-    val defense: Double = 0.0, val crit: Double = 0.05, val critDamage: Double = 1.5,
+data class Stats(val hp: Double = StatDefaults.HP, val resource: Double = StatDefaults.RESOURCE, val attack: Double = StatDefaults.ATTACK,
+    val defense: Double = 0.0, val crit: Double = StatDefaults.CRITICAL_CHANCE, val critDamage: Double = StatDefaults.CRITICAL_DAMAGE,
     val elementResist: Double = 0.0, val skillPower: Double = 1.0) {
     operator fun plus(other: Stats) = Stats(hp + other.hp, resource + other.resource, attack + other.attack,
         defense + other.defense, crit + other.crit, critDamage + other.critDamage,
@@ -18,7 +18,7 @@ operator fun Stats.times(factor: Double) = Stats(hp*factor,resource*factor,attac
 /** 成長・ダメージ計算の設定値と、インフレを抑える上限を保持します。 */
 data class Balance(val levelCap: Int, val xpBase: Double, val xpExponent: Double, val xpGainCap: Long,
     val currencyGainCap: Long, val damageCap: Double, val statCap: Double, val critCap: Double,
-    val defenseScale: Double, val skillLevelCap: Int, val skillGrowth: Double, val critDamageCap: Double, val elementCap: Double, val xpCurve: String = "POWER", val xpLinear: Double = 45.0, val xpQuadratic: Double = 18.0, val xpRounding: Long = 10, val skillGcdMillis: Long = 800, val dropPityAttemptCap: Int = 100) {
+    val defenseScale: Double, val skillLevelCap: Int, val skillGrowth: Double, val critDamageCap: Double, val elementCap: Double, val xpCurve: String = "POWER", val xpLinear: Double = BalanceDefaults.XP_LINEAR, val xpQuadratic: Double = BalanceDefaults.XP_QUADRATIC, val xpRounding: Long = BalanceDefaults.XP_ROUNDING, val skillGcdMillis: Long = BalanceDefaults.SKILL_GCD_MILLIS, val dropPityAttemptCap: Int = BalanceDefaults.DROP_PITY_ATTEMPT_CAP) {
     /** 指定レベルから次のレベルに必要な経験値を返します。 */
     fun requiredXp(level: Int): Long {
         val l=level.coerceIn(1,levelCap)
@@ -107,7 +107,7 @@ data class ItemDefinition(val id: String, val name: String, val material: String
 }
 /** 上限を越えない範囲で、budget内に収まる強化後ステータスを計算します。 */
 fun ItemDefinition.enhancedStats(level:Int,balance:Balance,rate:Double):Stats {
-    require(level in 0..GameLimits.MAX_ENHANCEMENT_LEVEL && rate in 0.0..0.1)
+    require(level in 0..GameLimits.MAX_ENHANCEMENT_LEVEL && rate in 0.0..BalanceDefaults.ENHANCEMENT_RATE_CAP)
     fun candidate(factor:Double)=Stats(
         (stats.hp*factor).coerceAtMost(balance.statCap),(stats.resource*factor).coerceAtMost(balance.statCap),
         (stats.attack*factor).coerceAtMost(balance.statCap),(stats.defense*factor).coerceAtMost(balance.statCap),
@@ -121,7 +121,7 @@ fun ItemDefinition.enhancedStats(level:Int,balance:Balance,rate:Double):Stats {
 data class DropEntry(val item: String, val chance: Double, val min: Int, val max: Int, val pityAfter: Int? = null)
 /** 重み付きドロップとプロフィール別pityを反映した結果を返します。 */
 data class DropTable(val id: String, val entries: List<DropEntry>) {
-    fun roll(random: Random, pity: MutableMap<String,Int> = mutableMapOf(), pityCap: Int = 100): Map<String, Int> = buildMap {
+    fun roll(random: Random, pity: MutableMap<String,Int> = mutableMapOf(), pityCap: Int = BalanceDefaults.DROP_PITY_ATTEMPT_CAP): Map<String, Int> = buildMap {
         require(pityCap in 1..GameLimits.MAX_DROP_PITY_ATTEMPTS)
         this@DropTable.entries.forEach { entry ->
             val chanceSuccess=random.nextDouble() < entry.chance

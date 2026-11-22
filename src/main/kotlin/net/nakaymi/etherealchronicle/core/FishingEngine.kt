@@ -8,6 +8,9 @@ import kotlin.random.Random
 object FishingPhysics {
     const val START_TENSION = 32.0
     const val START_SWEET_CENTER = 50.0
+    const val CALM_ADVICE_TENSION = START_SWEET_CENTER
+    const val LOW_TENSION_ADVICE_THRESHOLD = 18.0
+    const val HIGH_TENSION_ADVICE_THRESHOLD = 70.0
     const val START_BEHAVIOR_SECONDS = 3.0
     const val START_WAIT_SECONDS = 4.0
     const val CASTING_SECONDS = 0.4
@@ -41,6 +44,8 @@ object FishingPhysics {
     const val OUTSIDE_SWEET_PROGRESS_MULTIPLIER = 0.28
     const val IDLE_PROGRESS_LOSS_PER_SECOND = 2.5
     const val MAX_TENSION_OR_PROGRESS = 100.0
+    const val MAX_SWEET_REGION_WIDTH = 46.0
+    const val MAX_ROD_SIZE_BONUS = 0.15
     const val SLACK_TENSION_THRESHOLD = 2.0
     const val SIZE_GAUSSIAN_SIGMA_DIVISOR = 5.2
     const val MIN_GAUSSIAN_SAMPLE = 1e-12
@@ -76,7 +81,7 @@ data class FishingState(
     var phase: FishingPhase = FishingPhase.CASTING,
     var escapeCause: FishingEscapeCause? = null,
     var elapsedSeconds: Double = 0.0,
-    var biteWindowLeft: Double = fish.minigame.biteWindowMillis/1000.0,
+        var biteWindowLeft: Double = fish.minigame.biteWindowMillis/FishingPhysics.MILLIS_PER_SECOND,
     var progress: Double = 0.0,
     var tension: Double = FishingPhysics.START_TENSION,
     var sweetCenter: Double = FishingPhysics.START_SWEET_CENTER,
@@ -185,7 +190,7 @@ class FishingEngine(private val balance: LifeBalance,private val random: Random 
             input==ReelInput.PULL -> {
                 val wild=if(state.behavior==FishBehavior.THRASH) FishingPhysics.THRASH_TENSION_MULTIPLIER else 1.0
                 state.tension+=(FishingPhysics.PULL_TENSION_PER_SECOND*wild*state.tensionStability)*dt
-                val inSweet=kotlin.math.abs(state.tension-state.sweetCenter)<=(mini.sweetWidth+state.sweetSpotBonus).coerceAtMost(46.0)/2
+                val inSweet=kotlin.math.abs(state.tension-state.sweetCenter)<=(mini.sweetWidth+state.sweetSpotBonus).coerceAtMost(FishingPhysics.MAX_SWEET_REGION_WIDTH)/2
                 state.progress+=mini.progressPerSecond*(if(state.behavior==FishBehavior.THRASH) FishingPhysics.THRASH_PROGRESS_MULTIPLIER else if(inSweet) 1.0 else FishingPhysics.OUTSIDE_SWEET_PROGRESS_MULTIPLIER)*dt
             }
             else -> { state.tension-=mini.tensionDecayPerSecond*dt; state.progress-=FishingPhysics.IDLE_PROGRESS_LOSS_PER_SECOND*dt }
@@ -193,14 +198,14 @@ class FishingEngine(private val balance: LifeBalance,private val random: Random 
         state.tension=state.tension.coerceIn(0.0,FishingPhysics.MAX_TENSION_OR_PROGRESS); state.progress=state.progress.coerceIn(0.0,FishingPhysics.MAX_TENSION_OR_PROGRESS)
         state.slackSeconds=if(state.tension<=FishingPhysics.SLACK_TENSION_THRESHOLD) state.slackSeconds+dt else 0.0
         when {
-            state.progress>=100 -> state.phase=FishingPhase.CAUGHT
-            state.tension>=100 -> { state.escapeCause=FishingEscapeCause.OVER_TENSION; state.phase=FishingPhase.ESCAPED }
+            state.progress>=FishingPhysics.MAX_TENSION_OR_PROGRESS -> state.phase=FishingPhase.CAUGHT
+            state.tension>=FishingPhysics.MAX_TENSION_OR_PROGRESS -> { state.escapeCause=FishingEscapeCause.OVER_TENSION; state.phase=FishingPhase.ESCAPED }
             state.slackSeconds>=balance.slackFailSeconds -> { state.escapeCause=FishingEscapeCause.LINE_SLACK; state.phase=FishingPhase.ESCAPED }
             state.elapsedSeconds>=balance.reelingTimeoutSeconds -> { state.escapeCause=FishingEscapeCause.TIMEOUT; state.phase=FishingPhase.ESCAPED }
         }
     }
     fun catch(state:FishingState,rodSizeBonus:Double,lifeLevel:Int):FishCatch {
-        require(state.phase==FishingPhase.CAUGHT && rodSizeBonus in 0.0..0.15 && lifeLevel>=1)
+        require(state.phase==FishingPhase.CAUGHT && rodSizeBonus in 0.0..FishingPhysics.MAX_ROD_SIZE_BONUS && lifeLevel>=1)
         val fish=state.fish; val mean=(fish.minCm+fish.maxCm)/2; val sigma=(fish.maxCm-fish.minCm)/FishingPhysics.SIZE_GAUSSIAN_SIGMA_DIVISOR
         val u1=random.nextDouble().coerceAtLeast(FishingPhysics.MIN_GAUSSIAN_SAMPLE); val u2=random.nextDouble()
         val gaussian=sqrt(-2*ln(u1))*kotlin.math.cos(2*Math.PI*u2)

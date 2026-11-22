@@ -79,7 +79,7 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
                     }
                     val position=if("location" in d) d.mapping("location").position() else Position(d.string("world"),d.num("x"),d.num("y"),d.num("z"))
                     val definition=TreasureChestDefinition(id,position,d.string("once_flag"),items,d.whole("currency",0),d.text("hint_particle","END_ROD"))
-                    val currencyCap=documents.values.single { it["type"]=="balance" }.whole("currency_gain_cap",1_000_000)
+        val currencyCap=documents.values.single { it["type"]=="balance" }.whole("currency_gain_cap",BalanceDefaults.CURRENCY_GAIN_CAP)
                     require(definition.onceFlag.matches(Regex("ec:flag_[a-z0-9_]+")) && definition.items.isNotEmpty() && definition.items.values.all { it in 1..ContentLimits.MAX_ITEM_STACK } && definition.currency in 0..currencyCap && definition.hintParticle.matches(Regex("[A-Z_]+"))) { "ec.error.invalid_content" }
                     treasureChests[id]=definition
                 }

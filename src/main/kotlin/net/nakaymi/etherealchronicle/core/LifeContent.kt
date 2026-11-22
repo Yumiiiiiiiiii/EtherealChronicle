@@ -126,7 +126,7 @@ class GatheringEngine(private val random: kotlin.random.Random = kotlin.random.R
     fun reserve(profile: PlayerProfile,locationKey: String,respawnSeconds: Long,nowMillis: Long): Boolean {
         require(respawnSeconds in 1..GameLimits.MAX_GATHERING_RESPAWN_SECONDS && nowMillis >= 0)
         if(!readyAt(profile,locationKey,nowMillis)) return false
-        profile.gatheringReadyAt[locationKey]=nowMillis+respawnSeconds*1000
+        profile.gatheringReadyAt[locationKey]=nowMillis+respawnSeconds*GameDurations.MILLIS_PER_SECOND
         return true
     }
 }

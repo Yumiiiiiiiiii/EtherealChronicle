@@ -20,6 +20,26 @@ object GameLimits {
     const val MAX_GATHERING_RESPAWN_SECONDS = 86_400L
 }
 
+/** balance YAMLの任意項目が省略されたときの互換既定値です。 */
+object BalanceDefaults {
+    const val XP_LINEAR = 45.0
+    const val XP_QUADRATIC = 18.0
+    const val XP_ROUNDING = 10L
+    const val SKILL_GCD_MILLIS = 800L
+    const val DROP_PITY_ATTEMPT_CAP = 100
+    const val ENHANCEMENT_RATE_CAP = 0.1
+    const val CURRENCY_GAIN_CAP = 1_000_000L
+}
+
+/** YAMLで上書きされない共通ステータスの便宜既定値です。 */
+object StatDefaults {
+    const val HP = 100.0
+    const val RESOURCE = 100.0
+    const val ATTACK = 10.0
+    const val CRITICAL_CHANCE = 0.05
+    const val CRITICAL_DAMAGE = 1.5
+}
+
 /** YAML読込時に適用する構造上の安全上限です。 */
 object ContentLimits {
     const val MAX_YAML_ALIASES = 20
@@ -54,6 +74,7 @@ object CodexMilestones {
 
 /** ゲーム内の固定暦期間です。暦日リセットは別途ゾーン付きResetPeriodsを使います。 */
 object GameDurations {
+    const val MILLIS_PER_SECOND = 1_000L
     val PARTY_INVITE_MILLIS = java.time.Duration.ofMinutes(1).toMillis()
     val DEFAULT_QUEST_REPEAT_MILLIS = java.time.Duration.ofDays(1).toMillis()
     val MILLIS_PER_DAY = java.util.concurrent.TimeUnit.DAYS.toMillis(1)
