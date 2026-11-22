@@ -192,3 +192,44 @@ try { complete(p,id,inventory) } catch(error: GameException) { if(error.messageK
 1. **必須（No-Go 解除）**: `T23-H01` 修正（`RpgPlugin.kt:939` で `"class"` は `args.size == 1` のみ `playerCommand` へ＋`UiQAFixesTest` のゲーム内管理者テスト復元）。
 2. **強く推奨（1〜2 行修正）**: `T23-M01`（`AdventureController.kt:501` と `AdventureServices.kt:115` の `GameException` 統一）、`T23-M03`（`PlayerStore.kt:57`）、`T23-L01`（`smoke-test.ps1:88`）、`T23-L02`（`docs/RESOURCEPACK_HOSTING.md:98-113`）。
 3. **その後 Go**: ヘッドレススモーク `./scripts/smoke-test.ps1 -Commands 'ec validate','ec reload'` 実行 → 実クライアント QA（`FIX-26` フルテーマスクショ、`FIX-15` 職業確認 Dialog、`FIX-39` 空中クリック釣り＆ロック中拒否、`FIX-44` 再ログイン位置保全＆ダメージ遮断、`FIX-20` ショップ再描画後右クリック売却）。
+
+---
+
+## 6. 追補スポット再確認（`f06194c` + `a46cf25` / `master` @ `d0b0ba4`）
+
+- **対象コミット**: `f06194c`（`Fix Task 23 review regressions`）および `a46cf25`（`Fix Task 23 cross-model follow-up`、`master` @ `d0b0ba4` マージ済み、`288 tests / 0 failures`）
+- **最終 Go / No-Go 判定**: **条件付き Go（実機 QA 進行可 — High 0 件、新規 Med 3 件・Low 2 件は実機 QA と並行またはリリース前に解消推奨）**
+
+### 6.1 解消済み確認（High ブロッカー全件クリア）
+
+| 対象 | 状態 | 根拠 |
+|---|---|---|
+| `T23-H01`（`/ec class <player> <classId>` ルーティング） | **解消** | `RpgPlugin.kt:970-975, 1113`, `UiQAFixesTest.kt:171-200`（コンソール単独 `/ec class` 保護とゲーム内管理者テスト復元も確認） |
+| `f06194c` 新規 High（`mayNeedPeriodicUpdate` の `EXPLORE` 完了済み再走査＆ワイルドカード空エリア無限取引） | **解消** | `AdventureServices.kt:58-60, 79-80`, `WorldValidation.kt:25`, `AdventureServicesTest.kt:63-116` |
+| `T23-M01`（`transaction_busy`・`AdventureServices` `GameException`） | **解消** | `AdventureController.kt:522, 534`, `AdventureServices.kt:120` |
+| `T23-M03`（`PlayerStore` `skill_levels` 上限＆`boundedInt`） | **解消** | `PlayerStore.kt:57`, `PlayerStoreValidationTest.kt:24-33`（`@TempDir` 化済み） |
+| `f06194c` Med（リソパ拒否結合テスト・落下クランプ視点保持） | **解消** | `ResourcePackControllerIntegrationTest.kt:69-94`, `RequiredPackLockListener.kt:58-60`, `RequiredPackLockListenerTest.kt:92-101` |
+| `T23-L01` / `T23-L02` / 一部 `T23-L03` | **解消** | `scripts/smoke-test.ps1:88`, `docs/RESOURCEPACK_HOSTING.md:142`, `GamePortPackServer.kt:163-164`, `ResourcePackController.kt`（未使用 `shouldDispatch` 削除）, `AdventureServices.kt:84-90` / `AdventureController.kt:82-90`（read-only `InventoryAccess`） |
+
+### 6.2 `a46cf25` で新規検出された Med / Low 残件（High 0 件）
+
+#### `T23F-M01` `[Med][Bug]` `mayNeedPeriodicUpdate` の `COLLECT` 先行 objective 除外漏れ（`a46cf25` 回帰）
+- **箇所**: `src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt:61-63`
+- **詳細**: `quest.objectives.take(index).all { earlier -> progress(p, quest, earlier, EmptyInventory) >= earlier.amount }` で `earlier.kind == ObjectiveKind.COLLECT ||` が誤削除された。`EmptyInventory.count()` は常に `0` のため、**`COLLECT` の後に `EXPLORE` を並べた依頼**は所持品を満たして対象エリアに入っても `mayNeedPeriodicUpdate` が常に `false` になり永久進行不能となる（現行同梱 YAML には該当順序がないため実機 QA のハードブロッカーではないが、カスタム依頼で確実に踏む）。
+- **修正案**: `earlier.kind == ObjectiveKind.COLLECT || progress(p, quest, earlier, EmptyInventory) >= earlier.amount` を復元し、`[COLLECT, EXPLORE]` 順序の回帰テストを `AdventureServicesTest` へ追加する。
+
+#### `T23F-M02` `[Med][Thread Safety]` `validatePaperContent` の無制限 `result.get()` による終了時ハング懸念・例外ラップ
+- **箇所**: `src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt:897-909`
+- **詳細**: 非同期起動スレッドから `server.scheduler.runTask(this, ...)` 後にタイムアウトなし・`!isEnabled` 確認なしで `result.get()` をブロック待機している。起動途中でプラグイン無効化／サーバ停止が走ると `onDisable()` の `cancelTasks(this)` でメインスレッド側タスクがキャンセルされ、`result` が永遠に完了せず非同期ワーカがハングし得る。また `validatePaperContentNow` の `IllegalArgumentException` が `ExecutionException` に包まれたまま `ContentBootstrap` のフォールバックログへ露出する。
+- **修正案**: 起動時 Paper 検証を `sync { ... }` 内で完結（失敗時フォールバック含む）させて非同期ブロックを廃止するか、最小対応として `!isEnabled` チェック・タイムアウト付き `result.get(...)`・`onDisable()` キャンセル・`ExecutionException` アンラップを入れる。
+
+#### `T23F-M03` `[Med][Bug]` `commandCompletions` が実 Paper の `BasicCommand` へ未接続＋起動前 `snapshot` 参照クラッシュ
+- **箇所**: `src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt:935-963`
+- **詳細**:
+  1. `commandCompletions` は MockBukkit 用の `registerMockCommand()`（947 行）にのみ接続されており、実 Paper 用の `registerPaperCommand()`（937 行）は SAM `BasicCommand { source, args -> executeCommand(...) }` のままのため `suggest(...)` が空リストを返し、実サーバで `/ec` のタブ補完が一切機能しない。
+  2. `commandCompletions`（959 行）が `if (!ready) return emptyList()` を確認せず `snapshot.classes.all()` を参照するため、非同期起動完了前に管理者が `/ec class <player> ` をタブ補完すると `UninitializedPropertyAccessException` が発生する。
+- **修正案**: `registerPaperCommand()` を `object : BasicCommand` にして `suggest(commandSourceStack, args)` から `commandCompletions(commandSourceStack.sender, args)` を呼び出し、`commandCompletions` 先頭で `if (!ready) return emptyList()` をガードする。
+
+#### `T23F-L01` `[Low][Style/Test]` 軽微な残件 2 件
+- `RpgPlugin.kt:957`: `commandCompletions` の第 1 引数候補に非管理者へも `"reload"`, `"validate"` が含まれる。
+- `ResourcePackControllerIntegrationTest.kt:90-92`: `PlayerStore` は独自 `SingleThreadExecutor` を使うため `server.scheduler.waitAsyncTasksFinished()` は永続化キューを待たず、実質 `Thread.sleep(100)` 依存になっている。
