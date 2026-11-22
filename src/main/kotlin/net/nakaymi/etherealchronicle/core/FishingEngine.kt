@@ -32,16 +32,12 @@ object FishingPhysics {
     const val MAX_STABILITY = 1.2
     const val MAX_SWEET_BONUS = 15.0
     const val MIN_MACRO_SAMPLES = 6
-    const val DEFAULT_MACRO_SAMPLES = 8
-    const val DEFAULT_HISTORY_CAPACITY = 12
     const val MIN_HISTORY_CAPACITY = 8
     const val MAX_HISTORY_CAPACITY = 64
     const val MAX_RESPONSE_DEVIATION_MS = 100.0
     const val MIN_RESPONSE_DEVIATION_MS = 1.0
     const val MIN_CAST_DEVIATION_MS = 10.0
     const val MAX_CAST_DEVIATION_MS = 1_000.0
-    const val DEFAULT_RESPONSE_DEVIATION_MS = 18.0
-    const val DEFAULT_CAST_DEVIATION_MS = 120.0
     const val CAST_RESPONSE_DEVIATION_FACTOR = 2.0
     const val MIN_SWEET_CENTER = 12.0
     const val MAX_SWEET_CENTER = 88.0
@@ -55,7 +51,10 @@ object FishingPhysics {
     const val THRASH_PROGRESS_MULTIPLIER = 0.3
     const val OUTSIDE_SWEET_PROGRESS_MULTIPLIER = 0.28
     const val IDLE_PROGRESS_LOSS_PER_SECOND = 2.5
-    const val MAX_TENSION_OR_PROGRESS = 100.0
+    const val MAX_TENSION = 100.0
+    const val MAX_PROGRESS = 100.0
+    const val TELEGRAPH_THRASH_MIN_SECONDS = 1.2
+    const val TELEGRAPH_THRASH_VARIANCE_SECONDS = 1.0
     const val MAX_SWEET_REGION_WIDTH = 46.0
     const val MAX_ROD_SIZE_BONUS = 0.15
     const val SLACK_TENSION_THRESHOLD = 2.0
@@ -74,14 +73,6 @@ object FishingScoring {
     const val GOLD_CROWN_POINTS = 400
     const val CATCH_POINTS = 2
     const val CATCH_POINT_CAP = 1_000
-}
-
-/** 周期的な自動操作の検出に使う既定値です。 */
-object FishingMacroDefaults {
-    const val CAPACITY = FishingPhysics.DEFAULT_HISTORY_CAPACITY
-    const val MIN_SAMPLES = FishingPhysics.DEFAULT_MACRO_SAMPLES
-    const val RESPONSE_DEVIATION_MILLIS = FishingPhysics.DEFAULT_RESPONSE_DEVIATION_MS
-    const val CAST_DEVIATION_MILLIS = FishingPhysics.DEFAULT_CAST_DEVIATION_MS
 }
 
 enum class FishingPhase { CASTING, WAITING, BITE_ALERT, REELING, CAUGHT, ESCAPED, CANCELLED }
@@ -109,7 +100,7 @@ data class FishingState(
 data class FishCatch(val species: FishSpeciesDefinition,val sizeCm: Double,val crown: Crown)
 
 /** 応答時間・pull間隔・cast間隔の有界履歴から周期botらしさを判定します。 */
-class FishingMacroDetector(private val capacity:Int=FishingMacroDefaults.CAPACITY) {
+class FishingMacroDetector(private val capacity:Int=LifeBalanceDefaults.MACRO_HISTORY_CAPACITY) {
     private val responses=ArrayDeque<Long>()
     private val intervals=ArrayDeque<Long>()
     private val castIntervals=ArrayDeque<Long>()
@@ -126,9 +117,9 @@ class FishingMacroDetector(private val capacity:Int=FishingMacroDefaults.CAPACIT
         biteStarted?.let { add(responses,nowMillis-it) }; biteStarted=null
         lastPull?.let { add(intervals,nowMillis-it) }; lastPull=nowMillis
     }
-    fun suspicious(minSamples:Int=FishingMacroDefaults.MIN_SAMPLES,
-                   responseDeviationMillis:Double=FishingMacroDefaults.RESPONSE_DEVIATION_MILLIS,
-                   castIntervalDeviationMillis:Double=FishingMacroDefaults.CAST_DEVIATION_MILLIS):Boolean {
+    fun suspicious(minSamples:Int=LifeBalanceDefaults.MACRO_MIN_SAMPLES,
+                   responseDeviationMillis:Double=LifeBalanceDefaults.MACRO_RESPONSE_DEVIATION_MILLIS,
+                   castIntervalDeviationMillis:Double=LifeBalanceDefaults.MACRO_CAST_INTERVAL_DEVIATION_MILLIS):Boolean {
         require(minSamples in FishingPhysics.MIN_MACRO_SAMPLES..capacity &&
             responseDeviationMillis in FishingPhysics.MIN_RESPONSE_DEVIATION_MS..FishingPhysics.MAX_RESPONSE_DEVIATION_MS &&
             castIntervalDeviationMillis in FishingPhysics.MIN_CAST_DEVIATION_MS..FishingPhysics.MAX_CAST_DEVIATION_MS)
@@ -184,7 +175,7 @@ class FishingEngine(private val balance: LifeBalance,private val random: Random 
         val mini=state.fish.minigame
         state.elapsedSeconds+=dt; state.behaviorSeconds-=dt; state.diveCooldownSeconds=(state.diveCooldownSeconds-dt).coerceAtLeast(0.0)
         if(state.behavior==FishBehavior.TELEGRAPH && state.behaviorSeconds<=0) {
-            state.behavior=FishBehavior.THRASH; state.behaviorSeconds=1.2+random.nextDouble()
+            state.behavior=FishBehavior.THRASH; state.behaviorSeconds=FishingPhysics.TELEGRAPH_THRASH_MIN_SECONDS+random.nextDouble()*FishingPhysics.TELEGRAPH_THRASH_VARIANCE_SECONDS
         } else if(state.behaviorSeconds<=0) {
             state.behavior=when {
                 random.nextDouble()<mini.diveChancePerSecond && state.diveCooldownSeconds<=0 -> FishBehavior.DIVE
@@ -212,11 +203,11 @@ class FishingEngine(private val balance: LifeBalance,private val random: Random 
             }
             else -> { state.tension-=mini.tensionDecayPerSecond*dt; state.progress-=FishingPhysics.IDLE_PROGRESS_LOSS_PER_SECOND*dt }
         }
-        state.tension=state.tension.coerceIn(0.0,FishingPhysics.MAX_TENSION_OR_PROGRESS); state.progress=state.progress.coerceIn(0.0,FishingPhysics.MAX_TENSION_OR_PROGRESS)
+        state.tension=state.tension.coerceIn(0.0,FishingPhysics.MAX_TENSION); state.progress=state.progress.coerceIn(0.0,FishingPhysics.MAX_PROGRESS)
         state.slackSeconds=if(state.tension<=FishingPhysics.SLACK_TENSION_THRESHOLD) state.slackSeconds+dt else 0.0
         when {
-            state.progress>=FishingPhysics.MAX_TENSION_OR_PROGRESS -> state.phase=FishingPhase.CAUGHT
-            state.tension>=FishingPhysics.MAX_TENSION_OR_PROGRESS -> { state.escapeCause=FishingEscapeCause.OVER_TENSION; state.phase=FishingPhase.ESCAPED }
+            state.progress>=FishingPhysics.MAX_PROGRESS -> state.phase=FishingPhase.CAUGHT
+            state.tension>=FishingPhysics.MAX_TENSION -> { state.escapeCause=FishingEscapeCause.OVER_TENSION; state.phase=FishingPhase.ESCAPED }
             state.slackSeconds>=balance.slackFailSeconds -> { state.escapeCause=FishingEscapeCause.LINE_SLACK; state.phase=FishingPhase.ESCAPED }
             state.elapsedSeconds>=balance.reelingTimeoutSeconds -> { state.escapeCause=FishingEscapeCause.TIMEOUT; state.phase=FishingPhase.ESCAPED }
         }

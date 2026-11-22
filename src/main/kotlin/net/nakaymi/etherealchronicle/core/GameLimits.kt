@@ -4,7 +4,6 @@ package net.nakaymi.etherealchronicle.core
 object GameLimits {
     const val MAX_ENHANCEMENT_LEVEL = 5
     const val MAX_TRANSACTION_HISTORY = 128
-    const val MAX_PROFILE_LEVEL = 1_000
     const val MAX_SKILL_LEVEL = 100
     const val MAX_LIFE_SKILL_LEVEL = 100
     const val MAX_RECORD_COUNT = 1_000_000
@@ -56,6 +55,7 @@ object LifeBalanceDefaults {
     const val SLACK_FAIL_SECONDS = 2.5
     const val PARTY_GATHER_RARE_BONUS = 0.08
     const val MACRO_MIN_SAMPLES = 8
+    const val MACRO_HISTORY_CAPACITY = 12
     const val MACRO_RESPONSE_DEVIATION_MILLIS = 18.0
     const val MACRO_CAST_INTERVAL_DEVIATION_MILLIS = 120.0
     const val MACRO_RARE_WEIGHT_MULTIPLIER = 0.1
@@ -99,7 +99,6 @@ object WorldTuningLimits {
     const val MAX_DAILY_RESET_HOUR = 23
     const val MIN_BASIC_ATTACK_COOLDOWN_MILLIS = 100L
     const val MAX_BASIC_ATTACK_COOLDOWN_MILLIS = 5_000L
-    const val MAX_ENHANCEMENT_RATE = 0.1
     const val MAX_ENHANCEMENT_BASE_CURRENCY = 1_000_000L
 }
 
@@ -151,12 +150,12 @@ object ContentLimits {
     const val MAX_PUBLIC_DESCRIPTION_CHARACTERS = 240
     const val DUNGEON_PALETTE_SIZE = 3
     const val MAX_TACKLE_TIER = 3
+    const val MAX_SKILL_THREAT_MULTIPLIER = 100.0
     const val MIN_GATHERING_CHANNEL_MILLIS = 250L
 }
 
 /** 生活系計算式の固定係数を集め、コンテンツ値と実装定数を区別します。 */
 object GatheringFormula {
-    const val MAX_TOOL_TIER = 3
     const val TOOL_TIER_RARE_BONUS = 0.05
     const val LIFE_LEVEL_RARE_BONUS = 0.005
     const val MAX_RARE_BONUS = 0.45
@@ -189,5 +188,4 @@ object GameDurations {
     const val MILLIS_PER_SECOND = 1_000L
     val PARTY_INVITE_MILLIS = java.time.Duration.ofMinutes(1).toMillis()
     val DEFAULT_QUEST_REPEAT_MILLIS = java.time.Duration.ofDays(1).toMillis()
-    val MILLIS_PER_DAY = java.util.concurrent.TimeUnit.DAYS.toMillis(1)
 }

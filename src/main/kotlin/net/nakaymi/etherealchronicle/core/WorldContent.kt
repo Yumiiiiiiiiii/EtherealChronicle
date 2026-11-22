@@ -184,7 +184,7 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
                             effectDuration = attack.integer("effect_duration_ticks", defaultEffectDuration),
                         )
                     }
-                    require(specials.all { it.shape in setOf("CIRCLE","LINE","CONE","TARGET") && it.cooldown > 0 && it.telegraph > 0 && it.radius in 0.1..32.0 && it.range in 0.1..128.0 && it.minHp in 0.0..it.maxHp && it.maxHp <= 1.0 && it.effect in setOf("NONE","SLOW","POISON","KNOCKUP","FREEZE") && (it.element == null || it.element in setOf("PHYSICAL","FIRE","ICE","LIGHTNING","AETHER","VOID")) && it.effectDuration in 1..200 })
+                    require(specials.all { it.shape in setOf("CIRCLE","LINE","CONE","TARGET") && it.cooldown > 0 && it.telegraph > 0 && it.radius in 0.1..ContentLimits.MAX_SPECIAL_ATTACK_RADIUS_BLOCKS && it.range in 0.1..ContentLimits.MAX_SPECIAL_ATTACK_RANGE_BLOCKS && it.minHp in 0.0..it.maxHp && it.maxHp <= 1.0 && it.effect in setOf("NONE","SLOW","POISON","KNOCKUP","FREEZE") && (it.element == null || it.element in setOf("PHYSICAL","FIRE","ICE","LIGHTNING","AETHER","VOID")) && it.effectDuration in 1..ContentLimits.MAX_SPECIAL_ATTACK_DURATION_TICKS })
                     val spawns = d.maps("spawn_points").map { point ->
                         SpawnPoint(
                             id = point.string("id"),

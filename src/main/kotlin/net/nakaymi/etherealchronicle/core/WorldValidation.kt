@@ -54,7 +54,7 @@ internal fun WorldContent.validateWorldReferences(documents: Map<String,Map<Stri
     } } }
     npcs.forEach { (id,n) -> check(id) { ref(n.dialogue,setOf("dialogue"),"dialogue"); n.shop?.let { ref(it,setOf("shop"),"shop") } } }
     enemies.forEach { (id,e) -> check(id) {
-        require(e.speed in 0.0..2.0 && e.size in 1..16 && e.aggro in 0.0..128.0 && e.leash in 0.0..256.0 && e.attackInterval > 0 && e.enrageTicks > 0 && e.enrageMultiplier > 0) { "speed/size/aggro/leash/attack_interval/enrage: ec.error.invalid_content" }
+        require(e.speed in 0.0..2.0 && e.size in 1..ContentLimits.MAX_ENEMY_SIZE && e.aggro in 0.0..128.0 && e.leash in 0.0..256.0 && e.attackInterval > 0 && e.enrageTicks > 0 && e.enrageMultiplier > 0) { "speed/size/aggro/leash/attack_interval/enrage: ec.error.invalid_content" }
         require(e.specials.map { it.id }.distinct().size == e.specials.size && e.specials.all { it.multiplier in 0.0..100.0 }) { "specials.id/multiplier: ec.error.invalid_content" }
     } }
     chapters.forEach { (id,d) -> check(id) {
