@@ -32,7 +32,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     private val entryKey=NamespacedKey(plugin,"entry_id")
     private val mm=MiniMessage.miniMessage()
     private val npcs=NpcController(plugin)
-    private var areasByWorld = plugin.snapshot.world.areas.values.groupBy { it.world }
+    private var areasByWorld = projectedAreas()
     private val dialogueSessions=mutableMapOf<UUID,Pair<String,String>>()
     private val dialogueComponents=mutableMapOf<Pair<String,String>,Component>()
     private val invUiShops=mutableMapOf<UUID,String>()
@@ -43,9 +43,16 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     /** 時刻・天候条件に応じたNPCの再読込を専用controllerへ委譲します。 */
     fun reloadNpcs() {
         dialogueComponents.clear()
-        areasByWorld = plugin.snapshot.world.areas.values.groupBy { it.world }
+        areasByWorld = projectedAreas()
         npcs.reload()
     }
+    /** 建設が完了した拠点の境界と NPC を再バインドします。 */
+    fun refreshWorldAnchors(changedAreaIds: Set<String>? = null) {
+        areasByWorld = projectedAreas()
+        npcs.refreshWorldAnchors(changedAreaIds)
+    }
+    private fun projectedAreas(): Map<String, List<Area>> = plugin.snapshot.world.areas.values
+        .mapNotNull(plugin.activeWorldProjection.projector::projectArea).groupBy { it.world }
     /** 管理対象NPCのspawn entityを解放します。 */
     fun close() = npcs.close()
     /** NPCの時間・天候条件とオンライン依頼進行を更新します。 */
@@ -92,11 +99,15 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     private fun message(player: Player,component: Component) = player.sendMessage(component)
     private fun teleportArea(player: Player,id: String,destination: Position?) {
         val area=plugin.snapshot.world.areas[id] ?: throw GameException("ec.error.area_missing")
-        requireGame(area.world == DemoWorld.NAME, "ec.error.teleport_world")
-        val world=Bukkit.getWorld(area.world) ?: throw GameException("ec.error.world_missing")
         val x=(area.minX+area.maxX)/2.0; val z=(area.minZ+area.maxZ)/2.0
-        val target=destination ?: Position(area.world,x,(world.getHighestBlockYAt(x.toInt(),z.toInt())+1).toDouble(),z)
-        requireGame(area.contains(target), "ec.error.teleport_destination")
+        val over=plugin.activeWorldProjection.registry.isOverworldMode()
+        val world=Bukkit.getWorld(plugin.activeWorldProjection.worldName()) ?: throw GameException("ec.error.world_missing")
+        requireGame(over || area.world == world.name, "ec.error.teleport_world")
+        val target=if (over) plugin.projectedPosition(destination ?: Position(area.world,x,OverworldAnchorProjector.BASE_SURFACE_Y.toDouble(),z), area.id)
+            ?: throw GameException("ec.error.world_unavailable")
+        else destination ?: Position(area.world,x,(world.getHighestBlockYAt(x.toInt(),z.toInt())+1).toDouble(),z)
+        val projectedArea=plugin.activeWorldProjection.projector.projectArea(area) ?: throw GameException("ec.error.world_unavailable")
+        requireGame(projectedArea.contains(target), "ec.error.teleport_destination")
         player.teleport(org.bukkit.Location(world,target.x,target.y,target.z,target.yaw,0f))
         player.sendMessage(plugin.message(player,"ec.area.teleported", "name" to area.name))
     }
@@ -384,7 +395,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                 effects.forEach { effect -> when(effect.kind) {
                     "HEAL" -> player.health=(player.health+effect.amount).coerceAtMost(player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH)!!.value)
                     "CLEANSE" -> { player.removePotionEffect(org.bukkit.potion.PotionEffectType.POISON); player.removePotionEffect(org.bukkit.potion.PotionEffectType.SLOWNESS) }
-                    "RETURN" -> Bukkit.getWorld(DemoWorld.NAME)?.let { player.teleport(it.spawnLocation) }
+                    "RETURN" -> plugin.luminaSpawn()?.let(player::teleport)
                     "DEFENSE_BUFF" -> plugin.defenseBuff(player,effect.amount,effect.duration)
                 } }
                 consumableReady[p.uuid to id]=now+(effects.maxOfOrNull { it.cooldown } ?: 0)

@@ -1,6 +1,7 @@
 package net.nakaymi.etherealchronicle.paper
 
 import net.nakaymi.etherealchronicle.core.*
+import net.nakaymi.etherealchronicle.core.OverworldSiteStatus as GameSiteStatus
 import net.nakaymi.etherealchronicle.data.*
 import net.kyori.adventure.text.Component
 import org.bukkit.*
@@ -31,6 +32,12 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal val isReadyForGameplay: Boolean get() = ready
     private val codexController by lazy { CodexController(this) }
     private val simulationCommands by lazy { SimulationCommandController(this) }
+    private var overworldBootstrap: OverworldBootstrapPort? = null
+    internal lateinit var activeWorldProjection: ActiveWorldProjection
+    private data class ProjectionCacheKey(val position: Position, val areaId: String?, val allowWater: Boolean)
+    private val projectedPositions = mutableMapOf<ProjectionCacheKey, Position>()
+    private val failedProjectionPositions = mutableSetOf<ProjectionCacheKey>()
+    private var appliedReadyAnchors: Map<String, OverworldSiteAnchor> = emptyMap()
     private val invUiInventoryAdapter by lazy { InvUiInventoryAdapter(uiTheme) { stack -> item(stack)?.itemModel } }
     internal lateinit var adventure: AdventureController
     internal lateinit var enemies: EnemyController
@@ -47,6 +54,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal lateinit var game: GameService
     internal val profiles = mutableMapOf<UUID,PlayerProfile>()
     private val sessions = mutableMapOf<UUID,UUID>()
+    private val pendingHubSpawns = mutableSetOf<UUID>()
+    private val hubLoads = mutableMapOf<UUID, UUID>()
     private val choosing = mutableSetOf<UUID>()
     private val pendingClassMenuReopen = mutableSetOf<UUID>()
     private val lastMoved = mutableMapOf<UUID,Int>()
@@ -71,11 +80,186 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private lateinit var starterClassKey: NamespacedKey
     /** 現在の不変コンテンツSnapshotをControllerへ公開します。 */
     internal val snapshot get() = content.snapshot()
+    /** 建設サービスの有無に関わらず、安全な座標投影を初期化します。 */
+    private fun initializeWorldProjection() {
+        val mode = WorldMode.fromConfig(config.getString("world.mode", WorldMode.DEDICATED_EC_WORLD.configValue))
+        val registry = if (mode == WorldMode.OVERWORLD) {
+            val worldName = config.getString("world.overworld_name", "world") ?: "world"
+            overworldBootstrap = server.getWorld(worldName)?.let { EngineOverworldBootstrap(this, it, snapshot.world.areas.values) }
+            overworldBootstrap?.registry ?: PendingOverworldSiteRegistry(
+                worldName, snapshot.world.areas.values,
+            ).also { logger.warning("Overworld construction service is unavailable; sites remain pending.") }
+        } else DedicatedWorldSiteRegistry(areas = snapshot.world.areas.values)
+        rebuildWorldProjection(registry)
+        appliedReadyAnchors = currentReadyAnchors()
+    }
+
+    private fun rebuildWorldProjection(registry: OverworldSiteRegistry = activeWorldProjection.registry) {
+        projectedPositions.clear()
+        failedProjectionPositions.clear()
+        safeAreaSnapshot = null
+        activeWorldProjection = ActiveWorldProjection(registry, snapshot.world.areas.values) { x, z ->
+            val world = server.getWorld(registry.activeWorldName()) ?: error("ec.error.world_unavailable")
+            check(world.isChunkLoaded(x shr 4, z shr 4)) { "Projection chunk is not loaded" }
+            resolveProjectionSurfaceY(world, x, z)
+        }
+    }
+
+    /**
+     * Engine の OverworldTerrain.surfaceY を基準に葉・丸太の上を避けて地表 Y+1 を返します。
+     * 通常投影（allowWater = false）では水面・溶岩面・水没地表を固体地表として採用しません。
+     */
+    internal fun resolveProjectionSurfaceY(world: World, x: Int, z: Int, allowWater: Boolean = false): Int {
+        var y = runCatching { OverworldTerrain.surfaceY(world, x, z) }
+            .getOrElse { world.getHighestBlockYAt(x, z) }
+        while (y >= world.minHeight) {
+            val type = world.getBlockAt(x, y, z).type
+            val isTree = runCatching { Tag.LOGS.isTagged(type) || Tag.LEAVES.isTagged(type) }.getOrDefault(false)
+            if (isTree) {
+                y--
+                continue
+            }
+            if (type == Material.WATER) {
+                check(allowWater) { "Water surface is not valid solid ground" }
+                break
+            }
+            if (type == Material.LAVA) {
+                error("Lava surface is not valid ground")
+            }
+            if (type.isSolid) {
+                if (!allowWater && y + 1 < world.maxHeight) {
+                    val above = world.getBlockAt(x, y + 1, z).type
+                    check(above != Material.WATER && above != Material.LAVA) {
+                        "Submerged surface is not valid solid ground"
+                    }
+                }
+                break
+            }
+            y--
+        }
+        check(y >= world.minHeight && y + 2 < world.maxHeight) { "No usable surface" }
+        return y + 1
+    }
+
+    private fun currentReadyAnchors(): Map<String, OverworldSiteAnchor> =
+        activeWorldProjection.registry.allSites()
+            .filter { it.status == GameSiteStatus.READY }
+            .associateBy { it.areaId }
+
+    /** 建設通知を受けた後、メインスレッドで変更のあった拠点だけを各コントローラーへ反映します。 */
+    internal fun refreshWorldAnchors() {
+        val currentReady = currentReadyAnchors()
+        val changedAreaIds = (appliedReadyAnchors.keys + currentReady.keys)
+            .filterTo(mutableSetOf()) { areaId -> appliedReadyAnchors[areaId] != currentReady[areaId] }
+        appliedReadyAnchors = currentReady
+        rebuildWorldProjection()
+        if (changedAreaIds.isNotEmpty()) {
+            if (::adventure.isInitialized) adventure.refreshWorldAnchors(changedAreaIds)
+            if (::enemies.isInitialized) enemies.refreshWorldAnchors(changedAreaIds)
+            if (::gathering.isInitialized) gathering.refreshWorldAnchors(changedAreaIds)
+            if (::fishing.isInitialized) fishing.refreshWorldAnchors(changedAreaIds)
+            if (::treasures.isInitialized) treasures.refreshWorldAnchors(changedAreaIds)
+        }
+        pendingHubSpawns.toList().forEach { id -> server.getPlayer(id)?.let(::requestHubSpawn) }
+    }
+
+    /** 非同期チャンク読込後にメインスレッドで後続処理を実行する共通ヘルパーです。 */
+    internal fun withChunk(
+        world: World,
+        chunkX: Int,
+        chunkZ: Int,
+        generate: Boolean = true,
+        action: (Throwable?) -> Unit,
+    ) {
+        world.getChunkAtAsync(chunkX, chunkZ, generate).whenComplete { _, failure ->
+            sync { action(failure) }
+        }
+    }
+
+    /** 未ロードチャンクを同期ロードせず、利用可能な配置だけを返します。釣り場のみ allowWater = true を指定します。 */
+    internal fun projectedPosition(position: Position, areaId: String? = null, allowWater: Boolean = false): Position? {
+        val cacheKey = ProjectionCacheKey(position, areaId, allowWater)
+        projectedPositions[cacheKey]?.let { return it }
+        if (cacheKey in failedProjectionPositions) return null
+        val projection = activeWorldProjection.projector
+        val horizontal = if (areaId == null) projection.projectHorizontal(position) else projection.projectHorizontal(position, areaId)
+        horizontal ?: return null
+        if (!activeWorldProjection.registry.isOverworldMode()) return horizontal
+        val world = server.getWorld(horizontal.world) ?: return null
+        val chunk = ChunkCoordinates.fromPosition(horizontal.x, horizontal.z)
+        if (!world.isChunkLoaded(chunk.x, chunk.z)) return null
+        val result = runCatching {
+            if (allowWater) {
+                val bx = kotlin.math.floor(horizontal.x).toInt()
+                val bz = kotlin.math.floor(horizontal.z).toInt()
+                horizontal.copy(y = resolveProjectionSurfaceY(world, bx, bz, allowWater = true).toDouble())
+            } else if (areaId == null) {
+                projection.project(position)
+            } else {
+                projection.project(position, areaId)
+            }
+        }
+        result.onFailure { error ->
+            if (failedProjectionPositions.add(cacheKey)) {
+                logger.warning(
+                    "Could not project position (${horizontal.world} ${horizontal.x},${horizontal.z}, " +
+                        "area=${areaId ?: "auto"}, allowWater=$allowWater): ${error.message}",
+                )
+            }
+        }
+        return result.getOrNull()?.also { projectedPositions[cacheKey] = it }
+    }
+
+    /** 対象ワールドだけをゲームコントローラーに公開します。 */
+    internal fun isActiveWorld(world: World): Boolean = world.name == activeWorldProjection.worldName()
+
+    /** 専用ワールドでは所有マーカーを確認してから地形関連の操作を許可します。 */
+    internal fun isManagedWorld(world: World): Boolean = isActiveWorld(world) &&
+        (activeWorldProjection.registry.isOverworldMode() || runCatching { DemoWorld.isOwned(world) }.getOrDefault(false))
+
+    /** 読み込み済みの安全なルミナ港広場を返し、未準備なら移動を行いません。 */
+    internal fun luminaSpawn(): Location? {
+        val world = server.getWorld(activeWorldProjection.worldName()) ?: return null
+        if (!activeWorldProjection.registry.isOverworldMode()) return DemoWorld.luminaSpawn(world)
+        val site = activeWorldProjection.registry.siteForArea("ec:area_lumina_port")
+            ?.takeIf { it.status == GameSiteStatus.READY } ?: return null
+        val spawnX = site.plazaSpawnX ?: return null
+        val spawnY = site.plazaSpawnY ?: return null
+        val spawnZ = site.plazaSpawnZ ?: return null
+        val location = Location(world, spawnX + 0.5, spawnY.toDouble(), spawnZ + 0.5)
+        return location.takeIf(SafeStandingSpot::isSafe)
+    }
+
+    /** 初回接続時に広場のチャンクを非同期確保し、準備が整ってから安全な地点へ移します。 */
+    internal fun requestHubSpawn(player: Player) {
+        if (!activeWorldProjection.registry.isOverworldMode()) {
+            luminaSpawn()?.let(player::teleport)
+            return
+        }
+        val id = player.uniqueId
+        pendingHubSpawns.add(id)
+        val site = activeWorldProjection.registry.siteForArea("ec:area_lumina_port")
+            ?.takeIf { it.status == GameSiteStatus.READY } ?: return
+        val spawnX = site.plazaSpawnX ?: return
+        val spawnZ = site.plazaSpawnZ ?: return
+        val world = server.getWorld(activeWorldProjection.worldName()) ?: return
+        val session = sessions[id] ?: return
+        if (hubLoads[id] == session) return
+        hubLoads[id] = session
+        withChunk(world, spawnX shr 4, spawnZ shr 4) { error ->
+            if (hubLoads[id] == session) hubLoads.remove(id)
+            if (!player.isOnline || player.isDead || sessions[id] != session || id !in pendingHubSpawns) return@withChunk
+            if (error != null) { logger.warning("Could not load hub spawn chunk: ${error.message}"); return@withChunk }
+            val destination = luminaSpawn() ?: return@withChunk
+            if (player.teleport(destination)) pendingHubSpawns.remove(id)
+        }
+    }
     /** コンテンツ版ごとに安全地帯をワールド別へ索引化します。 */
     internal fun safeAreas(world: String): List<Area> {
         val current = snapshot
         if (safeAreaSnapshot !== current) {
-            safeAreasByWorld = current.world.areas.values.filter { it.safe }.groupBy { it.world }
+            safeAreasByWorld = current.world.areas.values.filter { it.safe }
+                .mapNotNull(activeWorldProjection.projector::projectArea).groupBy { it.world }
             safeAreaSnapshot = current
         }
         return safeAreasByWorld[world].orEmpty()
@@ -196,14 +380,22 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                         onClose={ p -> scheduleClassMenuReopen(p) },
                     )
                     if (paperInventoryUi) xyz.xenondevs.invui.InvUI.getInstance().setPlugin(this)
+                    initializeWorldProjection()
                     adventure=AdventureController(this)
                     enemies=EnemyController(this,adventure)
                     dungeons=DungeonController(this,adventure,enemies)
-                    try { if(DemoWorld.ensure(this) != null) adventure.reloadNpcs() }
+                    try {
+                        if (activeWorldProjection.registry.isOverworldMode()) adventure.reloadNpcs()
+                        else if (DemoWorld.ensure(this) != null) adventure.reloadNpcs()
+                    }
                     catch(error: Exception) { logger.severe("Could not prepare the dedicated world; foundation features remain enabled: ${error.message}") }
                     gathering=GatheringController(this)
                     fishing=FishingController(this)
                     treasures=TreasureController(this).also { it.reload() }
+                    if (activeWorldProjection.registry.isOverworldMode()) {
+                        DungeonEntranceListener(this, activeWorldProjection.registry, dungeons)
+                        overworldBootstrap?.start { sync { refreshWorldAnchors() } }
+                    }
                     runCatching { reloadAdvancementPack() }.onFailure { advancementWarning(it) }
                     server.scheduler.runTaskTimer(this,Runnable { enemies.tick() },PaperTaskIntervals.ENEMY_UPDATE_TICKS,PaperTaskIntervals.ENEMY_UPDATE_TICKS)
                     ready = true
@@ -237,6 +429,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         if(::adventure.isInitialized) runCatching { adventure.close() }.onFailure { logger.severe("NPC shutdown failed: ${it.message}") }
         if(::treasures.isInitialized) runCatching { treasures.close() }.onFailure { logger.severe("Treasure shutdown failed: ${it.message}") }
         if(::resourcePacks.isInitialized) runCatching { resourcePacks.close() }.onFailure { logger.severe("Resource pack shutdown failed: ${it.message}") }
+        runCatching { overworldBootstrap?.close() }.onFailure { logger.severe("Overworld shutdown failed: ${it.message}") }
         server.scheduler.cancelTasks(this)
         if (::store.isInitialized) {
             profiles.values.forEach { store.save(it) }
@@ -286,10 +479,17 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
 
     /** 必須パック適用後に、ワールド移動・HUD装備・職業メニューを開始します。 */
     private fun finishLoadedJoin(player: Player, profile: PlayerProfile) {
+        if (::dungeons.isInitialized && activeWorldProjection.registry.isOverworldMode() && !dungeons.isJournalReady()) {
+            dungeons.whenJournalReady {
+                if (player.isOnline && profiles[player.uniqueId] === profile) finishLoadedJoin(player, profile)
+            }
+            return
+        }
         syncTitleAdvancements(player,profile)
         if(::dungeons.isInitialized) dungeons.recover(player)
-        if(!player.hasPlayedBefore() || profile.classId == null) Bukkit.getWorld(DemoWorld.NAME)?.let { player.teleport(DemoWorld.luminaSpawn(it)) }
-        Bukkit.getWorld(DemoWorld.NAME)?.takeIf { player.world==it }?.let { DemoWorld.clearNearbySafeHostiles(this,it,player.location) }
+        if ((!player.hasPlayedBefore() || profile.classId == null) &&
+            !(::dungeons.isInitialized && dungeons.hasPendingReturn(player.uniqueId))) requestHubSpawn(player)
+        clearProjectedSafeHostiles(this,player.location)
         if(profile.classId == null || !profile.starterGranted) menu(player) else {
             skillSlot(player); applyStats(player,profile)
             adventure.whenAvailable(player.uniqueId) { if(player.isOnline && profiles[player.uniqueId] === profile) adventure.claimPending(player) }
@@ -298,6 +498,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     @EventHandler fun onJoin(e: PlayerJoinEvent) = join(e.player)
 
     @EventHandler fun onQuit(e: PlayerQuitEvent) {
+        simulationCommands.cancelTravel(e.player.uniqueId)
+        pendingHubSpawns.remove(e.player.uniqueId); hubLoads.remove(e.player.uniqueId)
         if(::adventure.isInitialized) adventure.beforeQuit(e.player)
         if(ready) codexController.clear(e.player.uniqueId)
         sessions.remove(e.player.uniqueId); choosing.remove(e.player.uniqueId)
@@ -864,18 +1066,17 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val safeAreas=safeAreas(e.to.world.name)
         val to=e.to
         if(enteredSafeArea(Position(e.from.world.name,e.from.x,e.from.y,e.from.z),Position(to.world.name,to.x,to.y,to.z),safeAreas)) {
-            DemoWorld.clearNearbySafeHostiles(this,to.world,to)
+            clearProjectedSafeHostiles(this,to)
         }
     }
     @EventHandler fun split(e: SlimeSplitEvent) { if(e.entity.persistentDataContainer.has(enemyKey)) e.isCancelled = true }
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true)
     fun suppressVanillaHostilesInSafeAreas(e:CreatureSpawnEvent) {
         val world=e.location.world
-        if(world.name!=DemoWorld.NAME || e.entity !is Monster || e.spawnReason.name=="CUSTOM") return
-        if(!runCatching { DemoWorld.isOwned(world) }.getOrDefault(false)) return
+        if(!isManagedWorld(world) || e.entity !is Monster || e.spawnReason.name=="CUSTOM") return
         val location=e.location
         val position=Position(world.name,location.x,location.y,location.z)
-        if(shouldSuppressVanillaHostileSpawn(e.spawnReason.name,true,position,snapshot.world.areas.values)) e.isCancelled=true
+        if(shouldSuppressVanillaHostileSpawn(e.spawnReason.name,true,position,safeAreas(world.name))) e.isCancelled=true
     }
     private fun spawnEnemy(player: Player,id: String) { require(enemies.spawn(id,player.location) != null) { "ec.error.spawn_duplicate_or_cap" } }
     @EventHandler fun death(e: EntityDeathEvent) {
@@ -921,7 +1122,12 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         identify(e.item.itemStack)?.let { if(profile.discoverItem(it)) save(profile) }
     }
     @EventHandler(priority=EventPriority.LOWEST) fun respawn(e: PlayerRespawnEvent) {
-        Bukkit.getWorld(DemoWorld.NAME)?.let { e.respawnLocation=DemoWorld.luminaSpawn(it) }
+        val inDungeon = ::dungeons.isInitialized && dungeons.containsPlayer(e.player.uniqueId)
+        val hub = luminaSpawn()
+        if (!inDungeon && hub != null) e.respawnLocation = hub
+        else if (!inDungeon && activeWorldProjection.registry.isOverworldMode()) sync {
+            if (e.player.isOnline) requestHubSpawn(e.player)
+        }
         sync { skillSlot(e.player); profiles[e.player.uniqueId]?.let { applyStats(e.player,it); e.player.health=e.player.getAttribute(Attribute.MAX_HEALTH)!!.value } }
     }
     /** Paper Registry参照をメインスレッドへ集約し、起動時とreloadの安全性を揃えます。 */
@@ -1007,10 +1213,19 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal fun commandCompletions(sender: CommandSender, args: Array<out String>): List<String> {
         if (!ready) return emptyList()
         val prefix = args.lastOrNull().orEmpty()
-        val rootCommands = listOf("class", "quest", "party", "equipment", "dungeon", "shop", "claim", "title", "codex", "enhance", "fish", "gather", "ui")
-        val adminCommands = listOf("reload", "validate")
+        val rootCommands = listOf("class", "quest", "party", "equipment", "dungeon", "shop", "claim", "title", "codex", "enhance", "fish", "gather", "ui", "sites")
+        val adminCommands = listOf("reload", "validate", "travel")
         val candidates = when {
             args.size <= 1 -> rootCommands + adminCommands.takeIf { sender.hasPermission("etherealchronicle.admin") }.orEmpty()
+            args.firstOrNull() == "sites" && args.size == 2 && sender.hasPermission("etherealchronicle.admin") -> listOf("repair", "acknowledge-cleanup")
+            args.firstOrNull() == "sites" && args.size == 3 && args[1] == "acknowledge-cleanup" && sender.hasPermission("etherealchronicle.admin") ->
+                snapshot.world.areas.keys.map { it.removePrefix("ec:area_") }
+            args.firstOrNull() == "travel" && args.size == 2 && sender.hasPermission("etherealchronicle.admin") ->
+                snapshot.world.areas.keys.map { it.removePrefix("ec:area_") }
+            args.firstOrNull() == "dungeon" && args.size == 2 ->
+                listOf("enter", "leave", "records") + listOf("release").takeIf { sender.hasPermission("etherealchronicle.admin") }.orEmpty()
+            args.firstOrNull() == "dungeon" && args.size == 3 && args[1] == "release" && sender.hasPermission("etherealchronicle.admin") ->
+                if (::dungeons.isInitialized) dungeons.releasableSlots().map { it.toString() } else emptyList()
             args.firstOrNull() == "class" && sender.hasPermission("etherealchronicle.admin") && args.size == 2 -> server.onlinePlayers.map { it.name }
             args.firstOrNull() == "class" && sender.hasPermission("etherealchronicle.admin") && args.size == 3 -> snapshot.classes.all().map { it.id }
             else -> emptyList()
@@ -1021,6 +1236,24 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private fun executeCommand(sender: CommandSender, args: Array<out String>): Boolean {
         if(!ready) {
             sender.sendMessage(message(sender,"ec.startup.starting"))
+            return true
+        }
+        if (args.firstOrNull() in setOf("sites", "travel") ||
+            (args.firstOrNull() == "dungeon" && args.getOrNull(1) == "release")
+        ) {
+            try {
+                when (args[0]) {
+                    "sites" -> simulationCommands.sites(sender, args.toList())
+                    "dungeon" -> simulationCommands.releaseDungeonSlot(sender, args.toList())
+                    else -> {
+                        require(sender.hasPermission("etherealchronicle.admin")) { "ec.command.no_permission" }
+                        require(args.size == 2) { "ec.sites.travel_usage" }
+                        simulationCommands.travel(sender as? Player ?: error("ec.error.player_required"), args[1])
+                    }
+                }
+            } catch (error: Exception) {
+                sender.sendMessage(message(sender, "ec.command.failed", "reason" to diagnostic(sender, error.message.orEmpty())))
+            }
             return true
         }
         val isPlayerCommand = args.firstOrNull() in setOf("quest","party","equipment","dungeon","shop","claim","title","codex","enhance","fish","gather","ui") ||
@@ -1072,6 +1305,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                                 uiTheme.updateMode(UiThemeProvider.mode(config.getString("ui.theme.mode", "icons_only")))
                                 all.forEach { p -> p.level=p.level.coerceAtMost(snapshot.balance.levelCap); if(p.level == snapshot.balance.levelCap) p.xp=0; p.skillLevels.replaceAll { _,level -> level.coerceIn(1,snapshot.balance.skillLevelCap) } }
                                 dirty.addAll(profiles.keys)
+                                rebuildWorldProjection()
+                                appliedReadyAnchors = currentReadyAnchors()
                                 enemies.close(); adventure.reloadNpcs()
                                 if(::gathering.isInitialized) gathering.reload()
                                 if(::fishing.isInitialized) fishing.reload()
@@ -1086,7 +1321,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 }
                 "world" -> {
                     val p=(args.getOrNull(1)?.let(server::getPlayerExact) ?: sender as? Player) ?: error("ec.error.player_required")
-                    p.teleport(Bukkit.getWorld(DemoWorld.NAME)?.spawnLocation ?: error("ec.error.world_unavailable"))
+                    p.teleport(luminaSpawn() ?: error("ec.error.world_unavailable"))
                 }
                 "currency" -> {
                     require(args.size == 3) { "ec.error.usage: /ec currency <player> <balance>" }
@@ -1266,7 +1501,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             "shop" -> {
                 val id=args.getOrNull(1) ?: error("ec.error.usage: /ec shop <id>")
                 val npc=snapshot.world.npcs.values.firstOrNull { it.shop == id } ?: error("ec.error.shop_npc_missing")
-                require(npc.position.world == player.world.name && player.location.isWithinBlocks(Location(player.world,npc.position.x,npc.position.y,npc.position.z),PaperDistance.SHOP_INTERACTION_BLOCKS)) { "ec.error.shop_too_far" }
+                val position=projectedPosition(npc.position) ?: error("ec.error.world_unavailable")
+                require(position.world == player.world.name && player.location.isWithinBlocks(Location(player.world,position.x,position.y,position.z),PaperDistance.SHOP_INTERACTION_BLOCKS)) { "ec.error.shop_too_far" }
                 adventure.showShop(player,id)
             }
             "quest" -> when(args.getOrNull(1)) {
