@@ -163,7 +163,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         pendingHubSpawns.toList().forEach { id -> server.getPlayer(id)?.let(::requestHubSpawn) }
     }
 
-    /** 非同期チャンク読込後にメインスレッドで後続処理を実行する共通ヘルパーです。 */
+    /** 非同期チャンク読込後にチャンクを保持したままメインスレッドで後続処理を実行する共通ヘルパーです。 */
     internal fun withChunk(
         world: World,
         chunkX: Int,
@@ -171,8 +171,24 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         generate: Boolean = true,
         action: (Throwable?) -> Unit,
     ) {
-        world.getChunkAtAsync(chunkX, chunkZ, generate).whenComplete { _, failure ->
-            sync { action(failure) }
+        world.getChunkAtAsync(chunkX, chunkZ, generate).whenComplete { chunk, failure ->
+            val pinned = failure == null && chunk != null && Bukkit.isPrimaryThread() && isEnabled &&
+                runCatching { chunk.addPluginChunkTicket(this) }.getOrDefault(false)
+            if (!isEnabled) {
+                if (pinned) runCatching { chunk.removePluginChunkTicket(this) }
+                return@whenComplete
+            }
+            try {
+                server.scheduler.runTask(this, Runnable {
+                    try {
+                        if (isEnabled) action(failure)
+                    } finally {
+                        if (pinned) runCatching { chunk.removePluginChunkTicket(this) }
+                    }
+                })
+            } catch (_: org.bukkit.plugin.IllegalPluginAccessException) {
+                if (pinned) runCatching { chunk.removePluginChunkTicket(this) }
+            }
         }
     }
 

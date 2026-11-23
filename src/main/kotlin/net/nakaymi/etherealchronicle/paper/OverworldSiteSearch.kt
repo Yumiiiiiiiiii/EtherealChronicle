@@ -3,6 +3,7 @@ package net.nakaymi.etherealchronicle.paper
 import net.nakaymi.etherealchronicle.core.OverworldSite
 import net.nakaymi.etherealchronicle.core.OverworldSiteLocator
 import net.nakaymi.etherealchronicle.core.SiteTerrain
+import org.bukkit.Bukkit
 import org.bukkit.HeightMap
 import org.bukkit.Material
 import org.bukkit.Tag
@@ -37,29 +38,46 @@ internal class OverworldSiteSearch(private val plugin: Plugin, private val world
         loadCandidate(x, z, 0)
     }
 
-    /** 読込直後にアンロードされたチャンクだけを上限付きで再要求します。 */
+    /** 非同期読込の完了コールバック内で即時に地形を読み取り、次候補への進行のみ次tickへ送ります。 */
     private fun loadCandidate(x: Int, z: Int, attempt: Int) {
         if (result.isDone) return
-        world.getChunkAtAsync(x shr 4, z shr 4, true).whenComplete { _, failure ->
+        val cx = x shr 4
+        val cz = z shr 4
+        world.getChunkAtAsync(cx, cz, true).whenComplete { chunk, failure ->
             if (result.isDone) return@whenComplete
-            if (failure != null) {
-                result.completeExceptionally(failure)
+            val handle: () -> Unit = {
+                if (!result.isDone) {
+                    try {
+                        if (failure != null) {
+                            result.completeExceptionally(failure)
+                        } else if (chunk == null || !world.isChunkLoaded(cx, cz)) {
+                            if (attempt < MAX_CHUNK_RETRIES) {
+                                plugin.server.scheduler.runTaskLater(
+                                    plugin,
+                                    Runnable { loadCandidate(x, z, attempt + 1) },
+                                    1L,
+                                )
+                            } else {
+                                plugin.logger.warning(
+                                    "Skipping unloaded overworld site candidate at $x,$z after ${MAX_CHUNK_RETRIES + 1} attempts",
+                                )
+                                search.accept(SiteTerrain(y = world.minHeight, biome = "UNAVAILABLE", dryLand = false))
+                                plugin.server.scheduler.runTaskLater(plugin, Runnable { advance() }, 1L)
+                            }
+                        } else {
+                            search.accept(sample(x, z))
+                            plugin.server.scheduler.runTaskLater(plugin, Runnable { advance() }, 1L)
+                        }
+                    } catch (error: Exception) {
+                        result.completeExceptionally(error)
+                    }
+                }
+            }
+            if (Bukkit.isPrimaryThread()) {
+                handle()
             } else {
                 try {
-                    plugin.server.scheduler.runTaskLater(plugin, Runnable {
-                        if (result.isDone) return@Runnable
-                        try {
-                            if (!world.isChunkLoaded(x shr 4, z shr 4)) {
-                                if (attempt < MAX_CHUNK_RETRIES) loadCandidate(x, z, attempt + 1)
-                                else result.completeExceptionally(IllegalStateException("Site sampling chunk repeatedly unloaded at $x,$z"))
-                                return@Runnable
-                            }
-                            search.accept(sample(x, z))
-                            advance()
-                        } catch (error: Exception) {
-                            result.completeExceptionally(error)
-                        }
-                    }, 1L)
+                    plugin.server.scheduler.runTask(plugin, Runnable { handle() })
                 } catch (error: Exception) {
                     result.completeExceptionally(error)
                 }
