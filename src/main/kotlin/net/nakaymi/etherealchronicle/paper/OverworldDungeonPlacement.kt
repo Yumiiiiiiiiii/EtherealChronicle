@@ -226,66 +226,73 @@ internal class OverworldDungeonPlacement(
                 return
             }
             var remaining = allPositions.size
-            var firstError: Throwable? = null
+            var failed = false
             for (pos in allPositions) {
                 world.getChunkAtAsync(pos.first, pos.second, false).whenComplete { chunk, error ->
                     if (!plugin.isEnabled || closed) return@whenComplete
                     val handle: () -> Unit = {
-                        if (!released && !closed) {
-                            try {
-                                if (error != null) {
-                                    if (firstError == null) firstError = error
-                                } else if (chunk != null) {
+                        if (!failed && !released && !closed) {
+                            val failure: Throwable? = if (error != null) {
+                                error
+                            } else if (chunk != null) {
+                                try {
                                     check(world.isChunkLoaded(pos.first, pos.second)) {
                                         "Dungeon chunk unloaded during bounds cleanup"
                                     }
                                     if (acquired.add(pos)) scanner.acquireTicket(pos)
+                                    null
+                                } catch (caught: Exception) {
+                                    caught
                                 }
-                            } catch (failure: Exception) {
-                                if (firstError == null) firstError = failure
+                            } else {
+                                null
                             }
-                            remaining--
-                            if (remaining == 0) {
-                                val failure = firstError
-                                scheduleMain {
-                                    if (released || closed) return@scheduleMain
-                                    if (failure != null) return@scheduleMain finish(false, failure)
-                                    if (acquired.isEmpty()) {
-                                        finish(true, null)
-                                        return@scheduleMain
-                                    }
-                                    val totalCount = cellIndices?.size ?: DungeonInstanceBounds.BLOCK_COUNT
-                                    if (totalCount == 0) {
-                                        finish(true, null)
-                                        return@scheduleMain
-                                    }
-                                    var cursor = 0
-                                    task = plugin.server.scheduler.runTaskTimer(plugin, Runnable {
-                                        try {
-                                            val deadline = System.nanoTime() + timeBudgetNanos
-                                            var processed = 0
-                                            while (cursor < totalCount && processed < maxBlocksPerTick) {
-                                                val blockIndex = cellIndices?.get(cursor) ?: cursor
-                                                val point = bounds.position(blockIndex)
-                                                val chunkPos = (point.x shr 4) to (point.z shr 4)
-                                                if (chunkPos in acquired) {
-                                                    check(world.isChunkLoaded(chunkPos.first, chunkPos.second)) {
-                                                        "Dungeon chunk unexpectedly unloaded during bounds cleanup"
-                                                    }
-                                                    val block = world.getBlockAt(point.x, point.y, point.z)
-                                                    if (!block.type.isAir) {
-                                                        block.setType(Material.AIR, false)
-                                                    }
-                                                }
-                                                cursor++
-                                                processed++
-                                                if (processed >= MIN_BLOCKS_PER_TICK && System.nanoTime() >= deadline) break
-                                            }
-                                            if (cursor == totalCount) finish(true, null)
-                                        } catch (failure: Exception) {
-                                            finish(false, failure)
+                            if (failure != null) {
+                                failed = true
+                                releaseAcquiredTickets()
+                                scheduleMain { if (!released && !closed) finish(false, failure) }
+                            } else {
+                                remaining--
+                                if (remaining == 0) {
+                                    scheduleMain {
+                                        if (failed || released || closed) return@scheduleMain
+                                        if (acquired.isEmpty()) {
+                                            finish(true, null)
+                                            return@scheduleMain
                                         }
-                                    }, PaperTaskIntervals.NEXT_TICK_DELAY, PaperTaskIntervals.NEXT_TICK_DELAY)
+                                        val totalCount = cellIndices?.size ?: DungeonInstanceBounds.BLOCK_COUNT
+                                        if (totalCount == 0) {
+                                            finish(true, null)
+                                            return@scheduleMain
+                                        }
+                                        var cursor = 0
+                                        task = plugin.server.scheduler.runTaskTimer(plugin, Runnable {
+                                            try {
+                                                val deadline = System.nanoTime() + timeBudgetNanos
+                                                var processed = 0
+                                                while (cursor < totalCount && processed < maxBlocksPerTick) {
+                                                    val blockIndex = cellIndices?.get(cursor) ?: cursor
+                                                    val point = bounds.position(blockIndex)
+                                                    val chunkPos = (point.x shr 4) to (point.z shr 4)
+                                                    if (chunkPos in acquired) {
+                                                        check(world.isChunkLoaded(chunkPos.first, chunkPos.second)) {
+                                                            "Dungeon chunk unexpectedly unloaded during bounds cleanup"
+                                                        }
+                                                        val block = world.getBlockAt(point.x, point.y, point.z)
+                                                        if (!block.type.isAir) {
+                                                            block.setType(Material.AIR, false)
+                                                        }
+                                                    }
+                                                    cursor++
+                                                    processed++
+                                                    if (processed >= MIN_BLOCKS_PER_TICK && System.nanoTime() >= deadline) break
+                                                }
+                                                if (cursor == totalCount) finish(true, null)
+                                            } catch (clearFailure: Exception) {
+                                                finish(false, clearFailure)
+                                            }
+                                        }, PaperTaskIntervals.NEXT_TICK_DELAY, PaperTaskIntervals.NEXT_TICK_DELAY)
+                                    }
                                 }
                             }
                         }
@@ -307,6 +314,11 @@ internal class OverworldDungeonPlacement(
             }
         }
 
+        private fun releaseAcquiredTickets() {
+            acquired.forEach(scanner::releaseTicket)
+            acquired.clear()
+        }
+
         private fun finish(cleared: Boolean, error: Throwable?) {
             if (finished || released) return
             finished = true
@@ -319,8 +331,7 @@ internal class OverworldDungeonPlacement(
             released = true
             task?.cancel()
             task = null
-            acquired.forEach(scanner::releaseTicket)
-            acquired.clear()
+            releaseAcquiredTickets()
             boundsClearOperations.remove(this)
         }
     }

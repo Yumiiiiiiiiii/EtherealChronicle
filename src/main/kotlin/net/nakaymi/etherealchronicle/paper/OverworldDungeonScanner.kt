@@ -37,36 +37,43 @@ internal class OverworldDungeonScanner(private val plugin: Plugin, private val w
                 return
             }
             var remaining = allPositions.size
-            var firstError: Throwable? = null
+            var failed = false
             for (pos in allPositions) {
                 world.getChunkAtAsync(pos.first, pos.second, false).whenComplete { chunk, error ->
                     if (!plugin.isEnabled || closed) return@whenComplete
                     val handle: () -> Unit = {
-                        if (!released && !closed) {
-                            try {
-                                if (error != null) {
-                                    if (firstError == null) firstError = error
-                                } else if (chunk != null) {
+                        if (!failed && !released && !closed) {
+                            val failure: Throwable? = if (error != null) {
+                                error
+                            } else if (chunk != null) {
+                                try {
                                     check(world.isChunkLoaded(pos.first, pos.second)) {
                                         "Dungeon chunk unloaded during preparation"
                                     }
                                     if (acquired.add(pos)) acquireTicket(pos)
+                                    null
+                                } catch (caught: Exception) {
+                                    caught
                                 }
-                            } catch (failure: Exception) {
-                                if (firstError == null) firstError = failure
+                            } else {
+                                null
                             }
-                            remaining--
-                            if (remaining == 0) {
-                                val failure = firstError
-                                scheduleMain {
-                                    if (released || closed) return@scheduleMain
-                                    if (failure != null) return@scheduleMain finish(null, failure)
-                                    if (acquired.isEmpty()) {
-                                        // 未生成チャンクのみの空域は不要な生成を避け、そのまま空きと判定します。
-                                        finish(DungeonBoxScanResult.EMPTY, null)
-                                        return@scheduleMain
+                            if (failure != null) {
+                                failed = true
+                                releaseAcquiredTickets()
+                                scheduleMain { if (!released && !closed) finish(null, failure) }
+                            } else {
+                                remaining--
+                                if (remaining == 0) {
+                                    scheduleMain {
+                                        if (failed || released || closed) return@scheduleMain
+                                        if (acquired.isEmpty()) {
+                                            // 未生成チャンクのみの空域は不要な生成を避け、そのまま空きと判定します。
+                                            finish(DungeonBoxScanResult.EMPTY, null)
+                                            return@scheduleMain
+                                        }
+                                        startScanTimer()
                                     }
-                                    startScanTimer()
                                 }
                             }
                         }
@@ -113,56 +120,58 @@ internal class OverworldDungeonScanner(private val plugin: Plugin, private val w
                 return
             }
             var remaining = missing.size
-            var firstError: Throwable? = null
+            var failed = false
             for (pos in missing) {
                 world.getChunkAtAsync(pos.first, pos.second, true).whenComplete { chunk, error ->
                     if (!plugin.isEnabled || closed) return@whenComplete
                     val handle: () -> Unit = {
-                        if (!released && !closed) {
-                            try {
-                                if (error != null) {
-                                    if (firstError == null) firstError = error
-                                } else {
+                        if (!failed && !released && !closed) {
+                            val failure: Throwable? = if (error != null) {
+                                error
+                            } else {
+                                try {
                                     check(chunk != null && world.isChunkLoaded(pos.first, pos.second)) {
                                         "Dungeon chunk unloaded during placement preparation"
                                     }
                                     if (acquired.add(pos)) acquireTicket(pos)
+                                    null
+                                } catch (caught: Exception) {
+                                    caught
                                 }
-                            } catch (failure: Exception) {
-                                if (firstError == null) firstError = failure
                             }
-                            remaining--
-                            if (remaining == 0) {
-                                val failure = firstError
-                                scheduleMain {
-                                    if (released || closed) return@scheduleMain
-                                    if (failure != null) {
-                                        onReady(null, failure)
-                                        return@scheduleMain
-                                    }
-                                    val missingSet = missing.toSet()
-                                    val verifyScan = DungeonBoxScan(bounds)
-                                    task = plugin.server.scheduler.runTaskTimer(plugin, Runnable {
-                                        try {
-                                            val result = verifyScan.advance(verifyBudget) { point ->
-                                                val chunkPos = (point.x shr 4) to (point.z shr 4)
-                                                if (chunkPos !in missingSet) return@advance true
-                                                check(world.isChunkLoaded(chunkPos.first, chunkPos.second)) {
-                                                    "Dungeon chunk unexpectedly unloaded"
+                            if (failure != null) {
+                                failed = true
+                                releaseAcquiredTickets()
+                                scheduleMain { if (!released && !closed) onReady(null, failure) }
+                            } else {
+                                remaining--
+                                if (remaining == 0) {
+                                    scheduleMain {
+                                        if (failed || released || closed) return@scheduleMain
+                                        val missingSet = missing.toSet()
+                                        val verifyScan = DungeonBoxScan(bounds)
+                                        task = plugin.server.scheduler.runTaskTimer(plugin, Runnable {
+                                            try {
+                                                val result = verifyScan.advance(verifyBudget) { point ->
+                                                    val chunkPos = (point.x shr 4) to (point.z shr 4)
+                                                    if (chunkPos !in missingSet) return@advance true
+                                                    check(world.isChunkLoaded(chunkPos.first, chunkPos.second)) {
+                                                        "Dungeon chunk unexpectedly unloaded"
+                                                    }
+                                                    world.getBlockAt(point.x, point.y, point.z).type.isAir
                                                 }
-                                                world.getBlockAt(point.x, point.y, point.z).type.isAir
-                                            }
-                                            if (result != DungeonBoxScanResult.IN_PROGRESS) {
+                                                if (result != DungeonBoxScanResult.IN_PROGRESS) {
+                                                    task?.cancel()
+                                                    task = null
+                                                    onReady(result, null)
+                                                }
+                                            } catch (scanFailure: Exception) {
                                                 task?.cancel()
                                                 task = null
-                                                onReady(result, null)
+                                                onReady(null, scanFailure)
                                             }
-                                        } catch (failure: Exception) {
-                                            task?.cancel()
-                                            task = null
-                                            onReady(null, failure)
-                                        }
-                                    }, PaperTaskIntervals.NEXT_TICK_DELAY, PaperTaskIntervals.NEXT_TICK_DELAY)
+                                        }, PaperTaskIntervals.NEXT_TICK_DELAY, PaperTaskIntervals.NEXT_TICK_DELAY)
+                                    }
                                 }
                             }
                         }
@@ -188,6 +197,11 @@ internal class OverworldDungeonScanner(private val plugin: Plugin, private val w
             }
         }
 
+        private fun releaseAcquiredTickets() {
+            acquired.forEach(::releaseTicket)
+            acquired.clear()
+        }
+
         private fun finish(result: DungeonBoxScanResult?, failure: Throwable?) {
             if (finished || released) return
             finished = true
@@ -203,8 +217,7 @@ internal class OverworldDungeonScanner(private val plugin: Plugin, private val w
             released = true
             task?.cancel()
             task = null
-            acquired.forEach(::releaseTicket)
-            acquired.clear()
+            releaseAcquiredTickets()
             operations.remove(this)
         }
     }
