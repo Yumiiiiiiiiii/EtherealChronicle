@@ -3,6 +3,7 @@ package net.nakaymi.etherealchronicle.paper
 import net.nakaymi.etherealchronicle.core.OverworldSite
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
@@ -37,7 +38,7 @@ class OverworldLayoutStoreTest {
         assertThrows<IllegalArgumentException> { store.load(UUID.randomUUID(), layout.worldName, layout.seed) }
 
         Files.writeString(folder.resolve(".etherealchronicle-overworld.json"), "{broken")
-        assertThrows<RuntimeException> { store.load(UUID.fromString(layout.worldId), layout.worldName, layout.seed) }
+        assertThrows<IllegalArgumentException> { store.load(UUID.fromString(layout.worldId), layout.worldName, layout.seed) }
     }
 
     @Test
@@ -46,6 +47,56 @@ class OverworldLayoutStoreTest {
         val good = completedLayout()
         assertThrows<IllegalArgumentException> { store.save(good.copy(sites = good.sites.dropLast(1) + good.sites.last().copy(status = OverworldSiteStatus.PENDING))) }
         assertThrows<IllegalArgumentException> { store.save(good.copy(portals = good.portals.dropLast(1))) }
+        assertThrows<IllegalArgumentException> { store.save(good.copy(sites = good.sites.map { if (it.site.id == "ec:area_lumina_port") it.copy(anchors = emptyMap()) else it })) }
+        assertThrows<IllegalArgumentException> { store.save(good.copy(portals = good.portals.toMutableList().also { it[0] = it[0].copy(areaId = "ec:area_lumina_port") })) }
+    }
+
+    @Test
+    fun `ready dungeon site requires its portal before overall completion`() {
+        val store = OverworldLayoutStore(folder)
+        val partial = inProgressLayout().copy(sites = inProgressLayout().sites.map {
+            if (it.site.id == "ec:area_ashwood_forest") it.copy(status = OverworldSiteStatus.READY) else it
+        })
+        assertThrows<IllegalArgumentException> { store.save(partial) }
+    }
+
+    @Test
+    fun `missing and null json fields are rejected consistently`() {
+        val store = OverworldLayoutStore(folder)
+        val layout = inProgressLayout()
+        store.save(layout)
+        val journal = folder.resolve(".etherealchronicle-overworld.json")
+        val original = Files.readString(journal)
+        for (invalid in listOf(original.replace("\"sites\":", "\"missingSites\":"), original.replace("\"sites\": [", "\"sites\": null, \"oldSites\": ["))) {
+            Files.writeString(journal, invalid)
+            assertThrows<IllegalArgumentException> { store.load(UUID.fromString(layout.worldId), layout.worldName, layout.seed) }
+        }
+    }
+
+    @Test
+    fun `oversized journal and out of area portal are rejected`() {
+        val store = OverworldLayoutStore(folder)
+        val good = completedLayout()
+        assertThrows<IllegalArgumentException> { store.save(good.copy(portals = good.portals.toMutableList().also { it[0] = it[0].copy(exit = OverworldPoint(10000, 70, 0)) })) }
+        val journal = folder.resolve(".etherealchronicle-overworld.json")
+        Files.writeString(journal, " ".repeat(4 * 1024 * 1024 + 1))
+        assertThrows<IllegalArgumentException> { store.load(UUID.fromString(good.worldId), good.worldName, good.seed) }
+    }
+
+    @Test
+    fun `atomic replacement preserves the latest layout and marker is not overwritten`() {
+        val store = OverworldLayoutStore(folder)
+        val first = inProgressLayout()
+        store.save(first)
+        val second = first.copy(sites = first.sites.mapIndexed { index, site -> if (index == 0) site.copy(status = OverworldSiteStatus.GENERATING) else site })
+        store.save(second)
+        assertEquals(second, store.load(UUID.fromString(first.worldId), first.worldName, first.seed))
+        store.markCompleted()
+        val marker = folder.resolve(".etherealchronicle-owned")
+        Files.writeString(marker, "custom-marker")
+        store.markCompleted()
+        assertEquals("custom-marker", Files.readString(marker))
+        assertTrue(Files.list(folder).use { stream -> stream.noneMatch { it.fileName.toString().endsWith(".tmp") } })
     }
 
     private fun inProgressLayout() = layout(OverworldBuildStatus.IN_PROGRESS, OverworldSiteStatus.PENDING, emptyList())
@@ -63,7 +114,9 @@ class OverworldLayoutStoreTest {
 
     private fun layout(status: OverworldBuildStatus, siteStatus: OverworldSiteStatus, portals: List<OverworldPortal>) = OverworldLayout(
         worldId = WORLD_ID.toString(), worldName = "journal-test", seed = 123456L, status = status,
-        sites = SITE_IDS.mapIndexed { index, id -> OverworldSiteLayout(OverworldSite(id, index * 200, 70, index * 210, 1, "PLAINS"), siteStatus) },
+        sites = SITE_IDS.mapIndexed { index, id -> OverworldSiteLayout(OverworldSite(id, index * 200, 70, index * 210, 1, "PLAINS"), siteStatus,
+            if (status == OverworldBuildStatus.COMPLETED && index == 0) mapOf("spawn" to OverworldPoint(0, 71, 0),
+                "plaza_min" to OverworldPoint(-2, 70, -2), "plaza_max" to OverworldPoint(2, 70, 2), "plaza_center" to OverworldPoint(0, 71, 0)) else emptyMap()) },
         portals = portals,
     )
 

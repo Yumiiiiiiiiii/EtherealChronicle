@@ -7,6 +7,9 @@ import org.bukkit.World
 import org.bukkit.block.data.BlockData
 import org.bukkit.block.structure.StructureRotation
 
+private const val DEFAULT_FOUNDATION_DEPTH = 18
+private const val MAX_FOUNDATION_DEPTH = 512
+
 /** 建物の回転、材質と斜面への基礎を指定します。 */
 data class SchematicPlacementOptions(
     val rotation: StructureRotation = StructureRotation.NONE,
@@ -14,12 +17,12 @@ data class SchematicPlacementOptions(
     val materialSwaps: Map<Material, Material> = emptyMap(),
     val extendFoundation: Boolean = false,
     val foundationMaterials: List<Material> = listOf(Material.COBBLESTONE, Material.STONE_BRICKS, Material.MOSSY_STONE_BRICKS),
-    val maxFoundationDepth: Int = 18,
+    val maxFoundationDepth: Int = DEFAULT_FOUNDATION_DEPTH,
     val clearTreeCanopyAbove: Boolean = false,
     val protectExisting: Boolean = false,
 ) {
     init {
-        require(maxFoundationDepth in 0..512)
+        require(maxFoundationDepth in 0..MAX_FOUNDATION_DEPTH)
         require(foundationMaterials.isNotEmpty() && foundationMaterials.all { it.isSolid })
     }
 }
@@ -79,7 +82,9 @@ object SchematicPlacer {
         val structureVoid = states.map { it.substringBefore('[') == "minecraft:structure_void" }
         val air = states.map(::isAir)
         val blockData = states.map { state -> resolveState(state, options, warning) }
-        require(!options.extendFoundation || blockData.all { it != null }) { "Cannot validate foundation with an unresolved palette" }
+        require(!(options.extendFoundation || options.protectExisting) || blockData.all { it != null }) {
+            "Cannot validate protected placement with an unresolved palette"
+        }
         val foundations = mutableListOf<FoundationColumn>()
         var complete = false
         val steps = sequence {
@@ -92,91 +97,100 @@ object SchematicPlacer {
                 }
                 require(foundations.isNotEmpty()) { "Schematic has no solid foundation blocks" }
             }
+            // 建物の全セルを変更前に調べ、後続セルの障害物で部分建築を残さないようにします。
+            if (options.protectExisting) for (y in 0 until schematic.height) for (z in 0 until schematic.length) for (x in 0 until schematic.width) {
+                yield(Unit)
+                val index = schematic.paletteIndexAt(y * schematic.length * schematic.width + z * schematic.width + x)
+                if (structureVoid[index] || (options.skipAir && air[index])) continue
+                val target = blockData[index] ?: error("Unresolved protected schematic palette")
+                val point = transformLocalPoint(schematic, options.rotation, x, y, z)
+                val block = world.getBlockAt(originX + point.x, originY + y, originZ + point.z)
+                require(OverworldMaterials.replaceable(block.type) || block.blockData == target) {
+                    "Schematic footprint obstructed at ${block.x},${block.y},${block.z}: ${block.type}"
+                }
+            }
             complete = true
         }.iterator()
 
         return SchematicPreparation(steps) {
             check(complete) { "Schematic foundation validation is incomplete" }
             sequence<() -> Unit> {
-            foundations.forEach { column ->
-                yield {
-                    require(world.getBlockAt(column.x, column.bottom - 1, column.z).type in naturalGround) {
-                        "Foundation ground changed at ${column.x},${column.bottom - 1},${column.z}"
-                    }
-                }
-            }
-            if (options.clearTreeCanopyAbove) {
-                val (width, length) = rotatedDimensions(schematic, options.rotation)
-                for (x in 0 until width) for (z in 0 until length) for (y in originY until minOf(world.maxHeight, originY + schematic.height + 8)) {
+                foundations.forEach { column ->
                     yield {
-                        val block = world.getBlockAt(originX + x, y, originZ + z)
-                        if (Tag.LOGS.isTagged(block.type) || Tag.LEAVES.isTagged(block.type)) block.setType(Material.AIR, false)
+                        require(world.getBlockAt(column.x, column.bottom - 1, column.z).type in OverworldMaterials.ground) {
+                            "Foundation ground changed at ${column.x},${column.bottom - 1},${column.z}"
+                        }
                     }
                 }
-            }
-            foundations.forEach { column ->
-                for (y in column.bottom until originY) {
-                    val material = options.foundationMaterials[Math.floorMod(column.x * 31 + y * 17 + column.z, options.foundationMaterials.size)]
+                if (options.clearTreeCanopyAbove) {
+                    val (width, length) = rotatedDimensions(schematic, options.rotation)
+                    for (x in 0 until width) for (z in 0 until length) {
+                        yield {
+                            for (y in originY until minOf(world.maxHeight, originY + schematic.height + CANOPY_CLEARANCE)) {
+                                val block = world.getBlockAt(originX + x, y, originZ + z)
+                                if (Tag.LOGS.isTagged(block.type) || Tag.LEAVES.isTagged(block.type)) block.setType(Material.AIR, false)
+                            }
+                        }
+                    }
+                }
+                foundations.forEach { column ->
+                    for (y in column.bottom until originY) {
+                        val material = options.foundationMaterials[(column.x * 31 + y * 17 + column.z).mod(options.foundationMaterials.size)]
+                        yield {
+                            val block = world.getBlockAt(column.x, y, column.z)
+                            require(!options.protectExisting || OverworldMaterials.replaceable(block.type)) { "Foundation changed at ${column.x},$y,${column.z}" }
+                            block.setType(material, false)
+                        }
+                    }
+                }
+                for (z in 0 until schematic.length) for (x in 0 until schematic.width) {
+                    val placements = (0 until schematic.height).mapNotNull { y ->
+                        val index = schematic.paletteIndexAt(y * schematic.length * schematic.width + z * schematic.width + x)
+                        if (structureVoid[index] || (options.skipAir && air[index])) return@mapNotNull null
+                        val data = blockData[index] ?: return@mapNotNull null
+                        val point = transformLocalPoint(schematic, options.rotation, x, y, z)
+                        if (air[index] && world.getBlockAt(originX + point.x, originY + y, originZ + point.z).type.isAir) return@mapNotNull null
+                        Placement(point, data, air[index])
+                    }
+                    if (placements.isEmpty()) continue
                     yield {
-                        val block = world.getBlockAt(column.x, y, column.z)
-                        require(!options.protectExisting || isNaturalOrReplaceable(block.type)) { "Foundation changed at ${column.x},$y,${column.z}" }
-                        block.setType(material, false)
+                        placements.forEach { (point, data, isAir) ->
+                            val block = world.getBlockAt(originX + point.x, originY + point.y, originZ + point.z)
+                            require(!options.protectExisting || OverworldMaterials.replaceable(block.type) || block.blockData == data) {
+                                "Schematic footprint obstructed at ${block.x},${block.y},${block.z}"
+                            }
+                            if (!isAir || !block.type.isAir) block.setBlockData(data, false)
+                        }
                     }
                 }
-            }
-            for (y in 0 until schematic.height) for (z in 0 until schematic.length) for (x in 0 until schematic.width) {
-                val paletteIndex = schematic.paletteIndexAt(y * schematic.length * schematic.width + z * schematic.width + x)
-                if (structureVoid[paletteIndex] || (options.skipAir && air[paletteIndex])) continue
-                val data = blockData[paletteIndex] ?: continue
-                val point = transformLocalPoint(schematic, options.rotation, x, y, z)
-                yield {
-                    val block = world.getBlockAt(originX + point.x, originY + y, originZ + point.z)
-                    require(!options.protectExisting || isNaturalOrReplaceable(block.type) || block.blockData == data) {
-                        "Schematic footprint obstructed at ${block.x},${block.y},${block.z}"
-                    }
-                    if (!air[paletteIndex] || !block.type.isAir) block.setBlockData(data, false)
-                }
-            }
             }.iterator()
         }
     }
 
     private data class FoundationColumn(val x: Int, val z: Int, val bottom: Int)
+    private data class Placement(val point: SchematicPoint, val data: BlockData, val isAir: Boolean)
 
     /** 支柱の全列を先に検証し、建造物や地盤のない場所を変更前に拒否します。 */
     private fun foundationColumn(schematic: SchematicData, world: World, ox: Int, oy: Int, oz: Int,
         options: SchematicPlacementOptions, x: Int, z: Int,
     ): FoundationColumn {
-            val point = transformLocalPoint(schematic, options.rotation, x, 0, z)
-            val wx = ox + point.x
-            val wz = oz + point.z
-            val lowest = maxOf(world.minHeight, oy - options.maxFoundationDepth - 1)
-            val ground = (oy - 1 downTo lowest).firstOrNull { y ->
-                val type = world.getBlockAt(wx, y, wz).type
-                if (type in naturalGround) return@firstOrNull true
-                require(type.isAir || type == Material.WATER || Tag.LOGS.isTagged(type) || Tag.LEAVES.isTagged(type) || type in naturalPlants) {
-                    "Obstructed foundation at $wx,$y,$wz: $type"
-                }
-                false
+        val point = transformLocalPoint(schematic, options.rotation, x, 0, z)
+        val wx = ox + point.x
+        val wz = oz + point.z
+        val lowest = maxOf(world.minHeight, oy - options.maxFoundationDepth - 1)
+        val ground = (oy - 1 downTo lowest).firstOrNull { y ->
+            val type = world.getBlockAt(wx, y, wz).type
+            if (type in OverworldMaterials.ground) return@firstOrNull true
+            require(OverworldMaterials.replaceable(type)) {
+                "Obstructed foundation at $wx,$y,$wz: $type"
             }
-            require(ground != null) { "No solid foundation within ${options.maxFoundationDepth} blocks at $wx,$wz" }
-            return FoundationColumn(wx, wz, ground + 1)
+            false
+        }
+        require(ground != null) { "No solid foundation within ${options.maxFoundationDepth} blocks at $wx,$wz" }
+        return FoundationColumn(wx, wz, ground + 1)
     }
 
-    private val naturalGround = setOf(
-        Material.STONE, Material.DEEPSLATE, Material.DIRT, Material.GRASS_BLOCK, Material.COARSE_DIRT,
-        Material.ROOTED_DIRT, Material.PODZOL, Material.MYCELIUM, Material.MUD, Material.CLAY,
-        Material.SAND, Material.RED_SAND, Material.GRAVEL, Material.SANDSTONE, Material.RED_SANDSTONE,
-        Material.GRANITE, Material.DIORITE, Material.ANDESITE, Material.TUFF, Material.CALCITE,
-        Material.SNOW_BLOCK, Material.ICE, Material.PACKED_ICE, Material.BLUE_ICE, Material.TERRACOTTA,
-        Material.WHITE_TERRACOTTA, Material.ORANGE_TERRACOTTA, Material.YELLOW_TERRACOTTA,
-        Material.RED_TERRACOTTA, Material.BROWN_TERRACOTTA, Material.LIGHT_GRAY_TERRACOTTA,
-    )
-    private val naturalPlants = setOf(Material.SHORT_GRASS, Material.TALL_GRASS, Material.FERN, Material.LARGE_FERN, Material.SNOW)
-
-    /** ブロック種別から自然物と判定できないものは、既存建造物の可能性があるため保護します。 */
-    private fun isNaturalOrReplaceable(type: Material): Boolean =
-        type.isAir || type == Material.WATER || type in naturalGround || type in naturalPlants || Tag.LOGS.isTagged(type) || Tag.LEAVES.isTagged(type)
+    private const val CANOPY_CLEARANCE = 8
 
     /** 元の状態を解決し、共通プロパティを移した後で向きを回転します。 */
     private fun resolveState(state: String, options: SchematicPlacementOptions, warning: (String, Throwable?) -> Unit): BlockData? =

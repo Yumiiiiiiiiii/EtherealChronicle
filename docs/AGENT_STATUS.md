@@ -433,3 +433,10 @@
 - Lumina selects a safe plaza cell, sets shared world spawn south (yaw 0), persists `anchors["spawn"]` with READY, then calls `onSiteReady` on the primary thread.
 - Open: chunk saves and JSON journal are not crash-atomic; no complete per-block journal or automatic rollback; successful placement and crash/restart behavior have not been verified on real Paper. Cross-model review remains pending.
 - Verification: `./gradlew.bat test --no-daemon` passed (327 tests, 1 skipped); `git diff --check` passed. Review and real Paper integration remain open.
+
+## Codex-Overworld-Engine-2 — cross-model findings follow-up (2026-11-23)
+- Branch `codex/overworld-towns`, based on `d442722`. Retained and completed the interrupted worktree diff without changing the public layout, portal, site or world-service signatures.
+- Added full schematic-footprint preflight and shared natural-material rules; bounded chunk retries and concurrent chunk loading; site-search cancellation; safe READY journal/spawn ordering and ticket cleanup; null-safe journal loading and READY portal checks; optional leak-checked town ponds; site-scoped terrain caching and planning yields; shared site/dungeon identifiers and Japanese code comments.
+- Expanded tests for locator tiers and search transitions, malformed/oversized journals and READY portals, protected placement, all 27 bundled schematics, four portal rotations, non-town planning without a pond, cleanup acknowledgement, and service close cleanup. Updated `docs/OVERWORLD_RECOVERY.md` for the actual recovery and spawn ordering.
+- Verification: `./gradlew.bat test --no-daemon` passed 348 tests across 88 suites, 0 failures, 0 errors, 2 skipped; `git diff --check` passed. The full Gradle run succeeded in a persistent shell after two short-lived command sessions lost Gradle's in-progress test-results file at about 2m30s; no test assertion failed in those runs.
+- Open: real Paper placement, crash/restart consistency and chunk/journal durability remain unverified. Independent cross-model re-review and lead integration remain pending; no child agent was started in this task.

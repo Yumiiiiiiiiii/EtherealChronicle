@@ -22,6 +22,9 @@ internal class OverworldSiteSearch(private val plugin: Plugin, private val world
         return result
     }
 
+    /** サービス終了後の非同期コールバックが探索を再開しないよう停止します。 */
+    fun cancel() { result.cancel(false) }
+
     /** 次のチャンクが生成・読込できてからメインスレッドで地形を読みます。 */
     private fun advance() {
         if (result.isDone) return
@@ -31,7 +34,14 @@ internal class OverworldSiteSearch(private val plugin: Plugin, private val world
             return
         }
         val (x, z) = point
+        loadCandidate(x, z, 0)
+    }
+
+    /** 読込直後にアンロードされたチャンクだけを上限付きで再要求します。 */
+    private fun loadCandidate(x: Int, z: Int, attempt: Int) {
+        if (result.isDone) return
         world.getChunkAtAsync(x shr 4, z shr 4, true).whenComplete { _, failure ->
+            if (result.isDone) return@whenComplete
             if (failure != null) {
                 result.completeExceptionally(failure)
             } else {
@@ -39,7 +49,11 @@ internal class OverworldSiteSearch(private val plugin: Plugin, private val world
                     plugin.server.scheduler.runTaskLater(plugin, Runnable {
                         if (result.isDone) return@Runnable
                         try {
-                            check(world.isChunkLoaded(x shr 4, z shr 4)) { "Site sampling chunk unloaded" }
+                            if (!world.isChunkLoaded(x shr 4, z shr 4)) {
+                                if (attempt < MAX_CHUNK_RETRIES) loadCandidate(x, z, attempt + 1)
+                                else result.completeExceptionally(IllegalStateException("Site sampling chunk repeatedly unloaded at $x,$z"))
+                                return@Runnable
+                            }
                             search.accept(sample(x, z))
                             advance()
                         } catch (error: Exception) {
@@ -64,12 +78,14 @@ internal class OverworldSiteSearch(private val plugin: Plugin, private val world
         val water = points.zip(heights).any { (point, y) -> world.getBlockAt(point.first, y, point.second).type == Material.WATER }
         return SiteTerrain(
             y = heights.first(),
-            biome = world.getBiome(x, 68, z).key.key.uppercase(Locale.ROOT),
+            biome = world.getBiome(x, heights.first(), z).key.key.uppercase(Locale.ROOT),
             dryLand = surface.isSolid && surface != Material.ICE && surface != Material.PACKED_ICE && surface != Material.BLUE_ICE,
             relief = heights.max() - heights.min(),
             nearbyWater = water,
         )
     }
+
+    private companion object { const val MAX_CHUNK_RETRIES = 5 }
 }
 
 /** 樹冠や幹の頂点ではなく、その下の地面を基準に施設の高さを決めます。 */

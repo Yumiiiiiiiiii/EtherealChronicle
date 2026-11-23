@@ -14,6 +14,67 @@ import org.mockbukkit.mockbukkit.MockBukkit
 /** 配置器のair・structure_void契約をPaper互換のテストワールドで確認します。 */
 class SchematicPlacerTest {
     @Test
+    fun `canopy clearing removes logs above footprint by column`() {
+        val server = MockBukkit.mock()
+        try {
+            val world = server.addSimpleWorld("schematic-canopy")
+            world.getBlockAt(0, 65, 0).type = Material.OAK_LOG
+            world.getBlockAt(0, 66, 0).type = Material.OAK_LEAVES
+            val data = SchematicData(1, 1, 1, listOf("minecraft:air"), intArrayOf(0))
+            SchematicPlacer.place(data, world, 0, 64, 0, SchematicPlacementOptions(skipAir = true, clearTreeCanopyAbove = true))
+            assertEquals(Material.AIR, world.getBlockAt(0, 65, 0).type)
+            assertEquals(Material.AIR, world.getBlockAt(0, 66, 0).type)
+        } finally { MockBukkit.unmock() }
+    }
+
+    @Test
+    fun `protected footprint rejects a later obstacle before placing any block`() {
+        val server = MockBukkit.mock()
+        try {
+            val world = server.addSimpleWorld("schematic-preflight")
+            val data = SchematicData(2, 1, 1, listOf("minecraft:stone"), intArrayOf(0, 0))
+            world.getBlockAt(0, 63, 0).type = Material.GRASS_BLOCK
+            world.getBlockAt(1, 63, 0).type = Material.GRASS_BLOCK
+            world.getBlockAt(1, 64, 0).type = Material.GOLD_BLOCK
+            assertThrows(IllegalArgumentException::class.java) {
+                SchematicPlacer.prepare(data, world, 0, 64, 0,
+                    SchematicPlacementOptions(extendFoundation = true, protectExisting = true))
+            }
+            assertEquals(Material.AIR, world.getBlockAt(0, 64, 0).type)
+            assertEquals(Material.GOLD_BLOCK, world.getBlockAt(1, 64, 0).type)
+        } finally { MockBukkit.unmock() }
+    }
+
+    @Test
+    fun `stepped preparation cannot publish operations early`() {
+        val server = MockBukkit.mock()
+        try {
+            val world = server.addSimpleWorld("schematic-stepped")
+            world.getBlockAt(0, 63, 0).type = Material.GRASS_BLOCK
+            val data = SchematicData(1, 1, 1, listOf("minecraft:stone"), intArrayOf(0))
+            val preparation = SchematicPlacer.prepareStepped(data, world, 0, 64, 0,
+                SchematicPlacementOptions(extendFoundation = true))
+            assertThrows(IllegalStateException::class.java) { preparation.result() }
+            preparation.steps.forEach { }
+            assertEquals(true, preparation.result().hasNext())
+        } finally { MockBukkit.unmock() }
+    }
+
+    @Test
+    fun `structure void stays untouched after quarter turn`() {
+        val server = MockBukkit.mock()
+        try {
+            val world = server.addSimpleWorld("schematic-void-rotated")
+            val data = SchematicData(2, 1, 1, listOf("minecraft:structure_void", "minecraft:stone"), intArrayOf(0, 1))
+            world.getBlockAt(0, 64, 0).type = Material.GOLD_BLOCK
+            SchematicPlacer.place(data, world, 0, 64, 0,
+                SchematicPlacementOptions(rotation = StructureRotation.CLOCKWISE_90))
+            assertEquals(Material.GOLD_BLOCK, world.getBlockAt(0, 64, 0).type)
+            assertEquals(SchematicPoint(0, 0, 1), SchematicPlacer.transformLocalPoint(data, StructureRotation.CLOCKWISE_90, 1, 0, 0))
+        } finally { MockBukkit.unmock() }
+    }
+
+    @Test
     fun `structure void always preserves blocks and skip air controls clearing`() {
         val server = MockBukkit.mock()
         try {
