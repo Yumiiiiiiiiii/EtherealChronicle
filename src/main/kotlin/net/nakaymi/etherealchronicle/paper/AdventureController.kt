@@ -47,9 +47,9 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         npcs.reload()
     }
     /** 建設が完了した拠点の境界と NPC を再バインドします。 */
-    fun refreshWorldAnchors() {
+    fun refreshWorldAnchors(changedAreaIds: Set<String>? = null) {
         areasByWorld = projectedAreas()
-        npcs.refreshWorldAnchors()
+        npcs.refreshWorldAnchors(changedAreaIds)
     }
     private fun projectedAreas(): Map<String, List<Area>> = plugin.snapshot.world.areas.values
         .mapNotNull(plugin.activeWorldProjection.projector::projectArea).groupBy { it.world }
@@ -103,7 +103,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         val over=plugin.activeWorldProjection.registry.isOverworldMode()
         val world=Bukkit.getWorld(plugin.activeWorldProjection.worldName()) ?: throw GameException("ec.error.world_missing")
         requireGame(over || area.world == world.name, "ec.error.teleport_world")
-        val target=if (over) plugin.projectedPosition(destination ?: Position(area.world,x,65.0,z), area.id)
+        val target=if (over) plugin.projectedPosition(destination ?: Position(area.world,x,OverworldAnchorProjector.BASE_SURFACE_Y.toDouble(),z), area.id)
             ?: throw GameException("ec.error.world_unavailable")
         else destination ?: Position(area.world,x,(world.getHighestBlockYAt(x.toInt(),z.toInt())+1).toDouble(),z)
         val projectedArea=plugin.activeWorldProjection.projector.projectArea(area) ?: throw GameException("ec.error.world_unavailable")

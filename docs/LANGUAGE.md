@@ -118,7 +118,7 @@
 | `ec.error.dialogue_missing` | 会話が見つかりません。 | Dialogue not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt |  |
 | `ec.error.dialogue_node_missing` | 会話ノードが見つかりません。 | Dialogue node not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.dialogue_too_deep` | 会話の分岐が長すぎます。 | The dialogue branch is too long. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
-| `ec.error.dungeon_already_inside` | 既にダンジョン内です。 | You are already in a dungeon. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
+| `ec.error.dungeon_already_inside` | 既にダンジョン内です。 | You are already in a dungeon. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.error.dungeon_full` | 聖堂が満員です。しばらくお待ちください。 | The sanctuary is full. Please wait. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
 | `ec.error.dungeon_missing` | ダンジョンが見つかりません: <detail> | Dungeon not found: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonEntranceListener.kt | `<detail>` |
 | `ec.error.dungeon_required` | 進捗の条件には有効なダンジョンIDが必要です。 | The advancement condition requires a valid dungeon ID. | src/main/kotlin/net/nakaymi/etherealchronicle/core/WorldContent.kt |  |
@@ -202,7 +202,7 @@
 | `ec.error.transaction_changed` | 取引の状態が変化しました。 | The transaction state changed. Please try again. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.transaction_replayed` | 処理済みの取引です。 | This transaction has already been processed. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.transaction_rolled_back` | 保存に失敗したため取引を戻しました。 | The transaction was rolled back because saving failed. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
-| `ec.error.usage` | 使い方: <detail> | Usage: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<detail>` |
+| `ec.error.usage` | 使い方: <detail> | Usage: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<detail>` |
 | `ec.error.world_missing` | 転送先ワールドがありません。 | Destination world is unavailable. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.error.world_owned_only` | この操作は管理対象ワールド内でのみ利用できます。 | This action is only available in the managed world. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt |  |
 | `ec.error.world_unavailable` | 専用ワールドの準備ができていません。 | The dedicated world is not ready. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
@@ -392,17 +392,22 @@
 | `ec.sim.spawn` | 仮想出現 UUID=<uuid> HP=<hp> | Simulated spawn UUID=<uuid> HP=<hp> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<hp>`, `<uuid>` |
 | `ec.sim.transaction` | 取引 <id> / 所持金: <currency> / 持ち物: <inventory> | Transaction <id> / Currency: <currency> / Inventory: <inventory> | src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt | `<currency>`, `<id>`, `<inventory>` |
 | `ec.sites.cleanup_acknowledging` | 手動片付けの確認を記録しています。完了後に /ec sites repair を実行してください。 | Recording manual cleanup confirmation. Run /ec sites repair after it completes. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
+| `ec.sites.failed_position` | 座標未確定（生成失敗） | Position unresolved (failed) | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.sites.pending_position` | 座標未確定 | Position pending | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.sites.portal` | <id>: 入口 <entrance> / 退出 <exit> | <id>: entrance <entrance> / exit <exit> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<entrance>`, `<exit>`, `<id>` |
 | `ec.sites.repair_started` | 拠点の修復を開始しました。進行状況は /ec sites で確認できます。 | Site repair started. Use /ec sites to check progress. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.sites.repair_unavailable` | 拠点の修復を開始できません。中断地点を確認し、必要なら手動で片付けてください。 | Site repair could not start. Inspect the interrupted site and clean it up manually if needed. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.sites.site` | <id>: <position> / <biome> / <status> | <id>: <position> / <biome> / <status> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<biome>`, `<id>`, `<position>`, `<status>` |
-| `ec.sites.status_failed` | 要確認 | Needs inspection | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
+| `ec.sites.status_failed` | 失敗（要確認） | Failed (needs inspection) | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.sites.status_generating` | 建設中 | Building | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.sites.status_pending` | 待機中 | Pending | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.sites.status_ready` | 完成 | Ready | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.sites.travel_success` | <name>へ移動しました。 | Traveled to <name>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<name>` |
+| `ec.sites.travel_usage` | 使用法: /ec travel <areaId> | Usage: /ec travel <areaId> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<areaId>` |
 | `ec.sites.unknown_biome` | 未確定 | Unknown | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
+| `ec.sites.usage` | 使用法: /ec sites [repair\|acknowledge-cleanup <areaId>] | Usage: /ec sites [repair\|acknowledge-cleanup <areaId>] | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<areaId>` |
+| `ec.sites.usage_cleanup` | 使用法: /ec sites acknowledge-cleanup <areaId> | Usage: /ec sites acknowledge-cleanup <areaId> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<areaId>` |
+| `ec.sites.usage_repair` | 使用法: /ec sites repair | Usage: /ec sites repair | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.skill.cooldown` | まだ使用できません。 | That skill is not ready yet. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.skill.obstructed` | 魔物との間に障害物があります。 | An obstacle blocks your line to the enemy. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.skill.resource_low` | リソースが足りません。 | Not enough resource. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |

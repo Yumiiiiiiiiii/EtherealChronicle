@@ -86,6 +86,35 @@ internal fun Location.isWithinBlocks(other: Location, blocks: Double): Boolean {
     return distanceSquared(other) <= blocks * blocks
 }
 
+/** プレイヤーが安全に立脚できる地上足場かを一貫して判定します。 */
+internal object SafeStandingSpot {
+    /** 足場として不適切な危険ブロック群（毎判定の Set 生成を避けるため定数化）。 */
+    private val HAZARDOUS_GROUND = setOf(
+        Material.MAGMA_BLOCK,
+        Material.CACTUS,
+        Material.CAMPFIRE,
+        Material.SOUL_CAMPFIRE,
+        Material.LAVA,
+        Material.SWEET_BERRY_BUSH,
+        Material.POWDER_SNOW,
+    )
+
+    /** チャンク読込済みの足元・頭上空間、固体足場、危険ブロック、ワールド境界を検証します。 */
+    fun isSafe(location: Location): Boolean {
+        val world = location.world ?: return false
+        val blockX = location.blockX
+        val blockY = location.blockY
+        val blockZ = location.blockZ
+        if (!world.isChunkLoaded(blockX shr 4, blockZ shr 4)) return false
+        if (blockY <= world.minHeight || blockY + 1 >= world.maxHeight) return false
+        if (!world.worldBorder.isInside(location)) return false
+        val feet = world.getBlockAt(blockX, blockY, blockZ).type
+        val head = world.getBlockAt(blockX, blockY + 1, blockZ).type
+        val ground = world.getBlockAt(blockX, blockY - 1, blockZ).type
+        return feet.isAir && head.isAir && ground.isSolid && ground !in HAZARDOUS_GROUND
+    }
+}
+
 /** ゲーム内で距離の意味が定まっている半径をまとめます。 */
 internal object PaperDistance {
     const val MIN_FISH_CAST_DISTANCE_BLOCKS = 2.0

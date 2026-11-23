@@ -39,7 +39,17 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
     }
 
     /** 拠点変更時に旧座標の釣りセッションを終了します。 */
-    fun refreshWorldAnchors() = reload()
+    fun refreshWorldAnchors(changedAreaIds: Set<String>? = null) {
+        if (changedAreaIds == null) {
+            reload()
+            return
+        }
+        if (changedAreaIds.isEmpty()) return
+        sessions.entries.filter { it.value.spot.area in changedAreaIds }.map { it.key }.forEach { id ->
+            Bukkit.getPlayer(id)?.let { cancel(it, "ec.fishing.line_left", FishingEndReason.WORLD_UNLOAD) }
+                ?: sessions.remove(id)?.let { cleanup(it) }
+        }
+    }
     private data class Session(
         val state:FishingState,val spot:FishingSpotDefinition,val rod:TackleDefinition,val castOrigin:Location,
         val water:Location,val bobber:UUID,val bar:BossBar,var input:ReelInput=ReelInput.IDLE,var lastInput:Long=0,

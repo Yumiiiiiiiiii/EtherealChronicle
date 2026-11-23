@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-/** ダンジョン枠の上限、座標範囲、高さと走査座標の契約を確認します。 */
+/** ダンジョン枠の上限、座標範囲、ワールド境界解決、状態遷移と帰還判定の契約を確認します。 */
 class OverworldDungeonInstanceLayoutTest {
     @Test
     fun `candidate slots are capped at sixteen and occupied slots are skipped`() {
@@ -49,6 +49,72 @@ class OverworldDungeonInstanceLayoutTest {
     }
 
     @Test
+    fun `worldborder check and resolveForWorld adapt base coordinates to small borders`() {
+        val defaultLayout = OverworldDungeonInstanceLayout()
+        assertFalse(defaultLayout.fitsBorder(0, borderCenterX = 0.0, borderCenterZ = 0.0, borderSize = 2_000.0))
+        assertEquals(emptyList<Int>(), defaultLayout.fittingSlots(16, 0.0, 0.0, 2_000.0))
+        assertEquals((0..15).toList(), defaultLayout.fittingSlots(16, 0.0, 0.0, 500_000.0))
+
+        // 小さいワールド境界では境界内に収まる候補座標が自動選択される
+        val adapted = OverworldDungeonInstanceLayout.resolveForWorld(
+            borderCenterX = 0.0,
+            borderCenterZ = 0.0,
+            borderSize = 2_000.0,
+            minHeight = -64,
+            maxHeight = 320,
+        )
+        assertTrue(adapted.fittingSlots(16, 0.0, 0.0, 2_000.0).isNotEmpty())
+        assertTrue(adapted.fitsBorder(0, 0.0, 0.0, 2_000.0))
+
+        // 明示設定が境界内に収まる場合はそのまま採用される
+        val configured = OverworldDungeonInstanceLayout.resolveForWorld(
+            configuredBaseX = -400,
+            configuredBaseY = 215,
+            configuredBaseZ = 300,
+            configuredSpacing = 128,
+            borderCenterX = 0.0,
+            borderCenterZ = 0.0,
+            borderSize = 2_000.0,
+            minHeight = -64,
+            maxHeight = 320,
+        )
+        assertEquals(-400, configured.baseX)
+        assertEquals(215, configured.baseY)
+        assertEquals(300, configured.baseZ)
+        assertEquals(128, configured.spacing)
+    }
+
+    @Test
+    fun `slot tracker enforces RESERVED to ACTIVE to CLEANING to release without leaks or double reservation`() {
+        val tracker = DungeonSlotTracker()
+        assertEquals(0, tracker.activeCount())
+        assertTrue(tracker.tryReserve(0))
+        // 同時予約は拒否される
+        assertFalse(tracker.tryReserve(0))
+        assertEquals(DungeonSlotState.RESERVED, tracker.stateOf(0))
+        assertEquals(setOf(0), tracker.occupiedSlots())
+        assertEquals(1, tracker.activeCount())
+
+        // RESERVED -> ACTIVE -> CLEANING -> 解放 -> 再利用
+        tracker.activate(0)
+        assertEquals(DungeonSlotState.ACTIVE, tracker.stateOf(0))
+        assertEquals(1, tracker.activeCount())
+        assertTrue(tracker.beginCleaning(0))
+        assertEquals(DungeonSlotState.CLEANING, tracker.stateOf(0))
+        assertFalse(tracker.tryReserve(0))
+        tracker.release(0)
+        assertEquals(null, tracker.stateOf(0))
+        assertEquals(0, tracker.activeCount())
+        assertTrue(tracker.tryReserve(0))
+
+        // placement 失敗・中断時の RESERVED からの直接解放
+        tracker.release(0)
+        assertEquals(0, tracker.activeCount())
+        assertThrows(IllegalStateException::class.java) { tracker.activate(0) }
+        assertFalse(tracker.beginCleaning(0))
+    }
+
+    @Test
     fun `bounds use floor origin and arithmetic chunk ranges for negative coordinates`() {
         val bounds = DungeonInstanceBounds(minX = -56, minY = -10, minZ = -31)
 
@@ -71,7 +137,7 @@ class OverworldDungeonInstanceLayoutTest {
         assertEquals(DungeonBlockPosition(-1, 7, -17), bounds.position(width - 1))
         assertEquals(DungeonBlockPosition(-55, 7, -16), bounds.position(width))
         assertEquals(DungeonBlockPosition(-55, 8, -17), bounds.position(layerSize))
-        assertEquals(DungeonBlockPosition( -1, 40, 37), bounds.position(DungeonInstanceBounds.BLOCK_COUNT - 1))
+        assertEquals(DungeonBlockPosition(-1, 40, 37), bounds.position(DungeonInstanceBounds.BLOCK_COUNT - 1))
         assertThrows(IllegalArgumentException::class.java) { bounds.position(-1) }
         assertThrows(IllegalArgumentException::class.java) { bounds.position(DungeonInstanceBounds.BLOCK_COUNT) }
     }

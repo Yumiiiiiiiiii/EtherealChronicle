@@ -2,8 +2,30 @@ package net.nakaymi.etherealchronicle.core
 
 import kotlin.math.floor
 
+/** ワールド運用モードの設定値と種別を一元管理します。 */
+enum class WorldMode(val configValue: String) {
+    OVERWORLD("overworld"),
+    DEDICATED_EC_WORLD("dedicated_ec_world"),
+    ;
+
+    companion object {
+        /** config.yml の `world.mode` を検証してモードへ変換します。 */
+        fun fromConfig(value: String?): WorldMode {
+            val normalized = value ?: DEDICATED_EC_WORLD.configValue
+            return entries.firstOrNull { it.configValue == normalized }
+                ?: throw IllegalArgumentException("Unknown world.mode: $normalized")
+        }
+    }
+}
+
 /** 拠点の建設状態。READY 以外はゲームプレイに公開しません。 */
 enum class OverworldSiteStatus { PENDING, GENERATING, READY, FAILED }
+
+/** オーバーワールド修復コマンドの受付結果です。 */
+enum class OverworldRepairResult { STARTED, UNAVAILABLE }
+
+/** 手動片付け確認コマンドの受付結果です。 */
+enum class OverworldCleanupAckResult { ACKNOWLEDGING, UNAVAILABLE }
 
 /** オーバーワールドに確定した拠点と任意の入口座標です。 */
 data class OverworldSiteAnchor(
@@ -52,10 +74,10 @@ interface OverworldSiteRegistry {
     fun allSites(): List<OverworldSiteAnchor>
     fun portalForDungeon(dungeonId: String): OverworldDungeonPortal?
     fun allPortals(): List<OverworldDungeonPortal>
-    fun triggerRepair(): String
+    fun triggerRepair(): OverworldRepairResult
 
     /** 管理者が現地の手動片付けを確認した後だけ、該当拠点の保留状態を解除します。 */
-    fun acknowledgeCleanup(areaId: String): String = "UNAVAILABLE"
+    fun acknowledgeCleanup(areaId: String): OverworldCleanupAckResult = OverworldCleanupAckResult.UNAVAILABLE
 }
 
 /** 建設サービス未登録時は未完成として扱い、推測した座標への配置を防ぎます。 */
@@ -66,15 +88,16 @@ class PendingOverworldSiteRegistry(
     private val sites = areas.associate { area ->
         area.id to OverworldSiteAnchor(area.id, 0, 0, 0, "", OverworldSiteStatus.PENDING)
     }
+    private val siteList = sites.values.toList()
 
     override fun activeWorldName(): String = worldName
     override fun isOverworldMode(): Boolean = true
     override fun isReady(): Boolean = false
     override fun siteForArea(areaId: String): OverworldSiteAnchor? = sites[areaId]
-    override fun allSites(): List<OverworldSiteAnchor> = sites.values.toList()
+    override fun allSites(): List<OverworldSiteAnchor> = siteList
     override fun portalForDungeon(dungeonId: String): OverworldDungeonPortal? = null
     override fun allPortals(): List<OverworldDungeonPortal> = emptyList()
-    override fun triggerRepair(): String = "UNAVAILABLE"
+    override fun triggerRepair(): OverworldRepairResult = OverworldRepairResult.UNAVAILABLE
 }
 
 /** 既存 ec_world の座標をそのまま扱う後方互換モードです。 */
@@ -83,17 +106,25 @@ class DedicatedWorldSiteRegistry(
     areas: Collection<Area> = emptyList(),
 ) : OverworldSiteRegistry {
     private val sites = areas.associate { area ->
-        area.id to OverworldSiteAnchor(area.id, ((area.minX + area.maxX) / 2).toInt(), 65,
-            ((area.minZ + area.maxZ) / 2).toInt(), "", OverworldSiteStatus.READY)
+        area.id to OverworldSiteAnchor(
+            area.id,
+            ((area.minX + area.maxX) / 2).toInt(),
+            OverworldAnchorProjector.BASE_SURFACE_Y,
+            ((area.minZ + area.maxZ) / 2).toInt(),
+            "",
+            OverworldSiteStatus.READY,
+        )
     }
+    private val siteList = sites.values.toList()
+
     override fun activeWorldName(): String = worldName
     override fun isOverworldMode(): Boolean = false
     override fun isReady(): Boolean = true
     override fun siteForArea(areaId: String): OverworldSiteAnchor? = sites[areaId]
-    override fun allSites(): List<OverworldSiteAnchor> = sites.values.toList()
+    override fun allSites(): List<OverworldSiteAnchor> = siteList
     override fun portalForDungeon(dungeonId: String): OverworldDungeonPortal? = null
     override fun allPortals(): List<OverworldDungeonPortal> = emptyList()
-    override fun triggerRepair(): String = "UNAVAILABLE"
+    override fun triggerRepair(): OverworldRepairResult = OverworldRepairResult.UNAVAILABLE
 }
 
 /** ワールド切替と投影機能を一つの依存としてコントローラーへ渡します。 */
@@ -115,10 +146,50 @@ class OverworldAnchorProjector(
     private val surfaceYResolver: (Int, Int) -> Int,
 ) {
     private val areas = areas.associateBy { it.id }
+    private val areasBySourceWorld = areas.groupBy { it.world }
+    private var cachedSitesRef: List<OverworldSiteAnchor>? = null
+    private var cachedSitesSnapshot: List<OverworldSiteAnchor>? = null
+    private var cachedProjectedAreas: List<Area> = emptyList()
+    private var cachedProjectedAreaById: Map<String, Area> = emptyMap()
+    private val horizontalCache = mutableMapOf<Pair<Position, String?>, Position?>()
+
+    /** アンカー一覧の変化を検知したときだけ水平投影・エリア投影キャッシュを更新します。 */
+    private fun ensureCacheFresh() {
+        if (!registry.isOverworldMode()) {
+            if (cachedSitesSnapshot == null) {
+                val list = areas.values.toList()
+                cachedProjectedAreas = list
+                cachedProjectedAreaById = areas
+                cachedSitesSnapshot = emptyList()
+            }
+            return
+        }
+        val currentSites = registry.allSites()
+        if (cachedSitesRef === currentSites) return
+        if (cachedSitesSnapshot == currentSites) {
+            cachedSitesRef = currentSites
+            return
+        }
+        val projected = areas.values.mapNotNull(::computeProjectedArea)
+        cachedProjectedAreas = projected
+        cachedProjectedAreaById = projected.associateBy { it.id }
+        horizontalCache.clear()
+        cachedSitesRef = currentSites
+        cachedSitesSnapshot = currentSites.toList()
+    }
 
     /** 高さの取得前に水平座標だけ求め、呼び出し側がチャンク状態を検査できるようにします。 */
     fun projectHorizontal(position: Position, areaId: String): Position? {
         if (!registry.isOverworldMode()) return position
+        ensureCacheFresh()
+        val key = position to areaId
+        if (key in horizontalCache) return horizontalCache[key]
+        val computed = computeHorizontal(position, areaId)
+        horizontalCache[key] = computed
+        return computed
+    }
+
+    private fun computeHorizontal(position: Position, areaId: String): Position? {
         val area = areas[areaId] ?: return null
         val site = registry.siteForArea(areaId)?.takeIf { it.status == OverworldSiteStatus.READY } ?: return null
         if (position.world != area.world) return null
@@ -137,11 +208,25 @@ class OverworldAnchorProjector(
     /** エリア指定のない定義は基準範囲内を優先し、範囲外なら最寄り中心へ割り当てます。 */
     fun projectHorizontal(position: Position): Position? {
         if (!registry.isOverworldMode()) return position
-        val candidates = areas.values.filter { it.world == position.world }
-        val area = candidates.firstOrNull { position.x in it.minX..it.maxX && position.z in it.minZ..it.maxZ }
-            ?: candidates.minByOrNull { distanceSquared(position.x, position.z, (it.minX + it.maxX) / 2, (it.minZ + it.maxZ) / 2) }
-            ?: return null
-        return projectHorizontal(position, area.id)
+        ensureCacheFresh()
+        val key = position to null
+        if (key in horizontalCache) return horizontalCache[key]
+        val area = resolveSourceArea(position) ?: run {
+            horizontalCache[key] = null
+            return null
+        }
+        val computed = computeHorizontal(position, area.id)
+        horizontalCache[key] = computed
+        return computed
+    }
+
+    /** エリア未指定の基準座標が属するエリア ID を解決します。 */
+    fun sourceAreaId(position: Position): String? = resolveSourceArea(position)?.id
+
+    private fun resolveSourceArea(position: Position): Area? {
+        val candidates = areasBySourceWorld[position.world].orEmpty()
+        return candidates.firstOrNull { position.x in it.minX..it.maxX && position.z in it.minZ..it.maxZ }
+            ?: candidates.minByOrNull { distanceSquared(position.x, position.z, (it.minX + it.maxX) / 2.0, (it.minZ + it.maxZ) / 2.0) }
     }
 
     /** エリアが明示されていない座標も地表へ投影します。 */
@@ -173,24 +258,46 @@ class OverworldAnchorProjector(
     /** エリア境界を平行移動し、高さを拠点の地表差だけ移動します。 */
     fun projectArea(area: Area): Area? {
         if (!registry.isOverworldMode()) return area
+        ensureCacheFresh()
+        return cachedProjectedAreaById[area.id] ?: computeProjectedArea(area)
+    }
+
+    private fun computeProjectedArea(area: Area): Area? {
         val site = registry.siteForArea(area.id)?.takeIf { it.status == OverworldSiteStatus.READY } ?: return null
         val dx = site.centerX - (area.minX + area.maxX) / 2.0
         val dz = site.centerZ - (area.minZ + area.maxZ) / 2.0
         val dy = site.surfaceY - BASE_SURFACE_Y
-        return area.copy(world = registry.activeWorldName(), minX = area.minX + dx, maxX = area.maxX + dx,
-            minY = area.minY + dy, maxY = area.maxY + dy, minZ = area.minZ + dz, maxZ = area.maxZ + dz)
+        return area.copy(
+            world = registry.activeWorldName(),
+            minX = area.minX + dx,
+            maxX = area.maxX + dx,
+            minY = area.minY + dy,
+            maxY = area.maxY + dy,
+            minZ = area.minZ + dz,
+            maxZ = area.maxZ + dz,
+        )
     }
 
     /** 指定地点が実際に含まれる投影済みエリアだけを返します。 */
-    fun areasAt(position: Position): List<Area> = areas.values.mapNotNull(::projectArea).filter { it.contains(position) }
+    fun areasAt(position: Position): List<Area> {
+        ensureCacheFresh()
+        return cachedProjectedAreas.filter { it.contains(position) }
+    }
 
     /** 所属エリアがなければ、同じワールドの完成済み拠点から最寄りを返します。 */
-    fun nearestArea(position: Position): Area? = areasAt(position).firstOrNull()
-        ?: areas.values.asSequence().mapNotNull(::projectArea).filter { it.world == position.world }
-            .minByOrNull { distanceSquared(position.x, position.z, (it.minX + it.maxX) / 2, (it.minZ + it.maxZ) / 2) }
+    fun nearestArea(position: Position): Area? {
+        ensureCacheFresh()
+        return cachedProjectedAreas.firstOrNull { it.contains(position) }
+            ?: cachedProjectedAreas.asSequence()
+                .filter { it.world == position.world }
+                .minByOrNull { distanceSquared(position.x, position.z, (it.minX + it.maxX) / 2.0, (it.minZ + it.maxZ) / 2.0) }
+    }
 
     private fun distanceSquared(x: Double, z: Double, cx: Double, cz: Double): Double =
         (x - cx) * (x - cx) + (z - cz) * (z - cz)
 
-    private companion object { const val BASE_SURFACE_Y = 65 }
+    companion object {
+        /** ec_world の基準地表高さ（DemoWorldLayout.SURFACE_Y と同じ 65）。 */
+        const val BASE_SURFACE_Y = 65
+    }
 }

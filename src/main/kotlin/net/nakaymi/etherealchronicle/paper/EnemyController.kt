@@ -294,10 +294,28 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
     fun removeSimulation(participant: UUID) { states.filterValues { it.pinned && participant in it.participants }.keys.toList().forEach { remove(it,true) } }
     fun removeParticipants(participants: Set<UUID>) { states.filterValues { it.participants == participants }.keys.toList().forEach { remove(it,true) } }
     /** フィールド敵だけを撤去し、ダンジョンや管理者による敵は維持します。 */
-    fun refreshWorldAnchors() {
-        val fieldPoints = nextSpawn.keys.toSet() + plugin.snapshot.world.enemies.values.flatMap { enemy -> enemy.spawns.map { "${enemy.id}/${it.id}" } }
-        states.filterValues { it.point in fieldPoints }.keys.toList().forEach { remove(it,true) }
-        nextSpawn.clear()
+    fun refreshWorldAnchors(changedAreaIds: Set<String>? = null) {
+        if (changedAreaIds == null) {
+            val fieldPoints = nextSpawn.keys.toSet() + plugin.snapshot.world.enemies.values.flatMap { enemy -> enemy.spawns.map { "${enemy.id}/${it.id}" } }
+            states.filterValues { it.point in fieldPoints }.keys.toList().forEach { remove(it,true) }
+            nextSpawn.clear()
+            return
+        }
+        if (changedAreaIds.isEmpty()) return
+        val projector = plugin.activeWorldProjection.projector
+        val allKnownPoints = mutableSetOf<String>()
+        val affectedPoints = mutableSetOf<String>()
+        plugin.snapshot.world.enemies.values.forEach { enemy ->
+            enemy.spawns.forEach { spawn ->
+                val pointId = "${enemy.id}/${spawn.id}"
+                allKnownPoints += pointId
+                val areaId = projector.sourceAreaId(spawn.position)
+                if (areaId == null || areaId in changedAreaIds) affectedPoints += pointId
+            }
+        }
+        nextSpawn.keys.filter { it !in allKnownPoints }.forEach { affectedPoints += it }
+        states.filterValues { it.point in affectedPoints }.keys.toList().forEach { remove(it,true) }
+        affectedPoints.forEach(nextSpawn::remove)
     }
     fun close() { states.keys.toList().forEach { remove(it,true) }; betterModel.close() }
 }
