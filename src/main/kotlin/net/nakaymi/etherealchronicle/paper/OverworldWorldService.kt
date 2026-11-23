@@ -194,7 +194,7 @@ class OverworldWorldService internal constructor(
         }
     }
 
-    /** 少数のチャンクを並列取得し、建設中は明示的に保持します。 */
+    /** 少数のチャンクを並列取得し、完了コールバック内で即時チケット確保して建設中保持します。 */
     private fun loadChunks(site: OverworldSite, result: CompletableFuture<OverworldLayout>, done: () -> Unit) {
         val minX = (site.x - SITE_RADIUS) shr CHUNK_SHIFT
         val maxX = (site.x + SITE_RADIUS) shr CHUNK_SHIFT
@@ -202,26 +202,55 @@ class OverworldWorldService internal constructor(
         val maxZ = (site.z + SITE_RADIUS) shr CHUNK_SHIFT
         val positions = (minX..maxX).flatMap { x -> (minZ..maxZ).map { z -> x to z } }.iterator()
         var inFlight = 0
-        fun pump() {
-            if (result.isDone) return
-            if (!positions.hasNext() && inFlight == 0) { done(); return }
-            while (inFlight < CHUNK_REQUEST_WINDOW && positions.hasNext()) {
-                val (x, z) = positions.next()
-                inFlight++
-                fun request(attempt: Int) {
-                    world.getChunkAtAsync(x, z, true).whenComplete { chunk, error -> main(result, 1L) {
-                        if (error != null) return@main fail(result, error)
-                        if (!world.isChunkLoaded(x, z)) {
-                            if (attempt < MAX_CHUNK_RETRIES) request(attempt + 1)
-                            else fail(result, IllegalStateException("Overworld chunk repeatedly unloaded at $x,$z"))
-                            return@main
+        var pumpScheduled = false
+        var completed = false
+        lateinit var pump: () -> Unit
+        fun schedulePump() {
+            if (pumpScheduled || completed || result.isDone || closed) return
+            pumpScheduled = true
+            main(result, 1L) {
+                pumpScheduled = false
+                pump()
+            }
+        }
+        pump = {
+            if (!result.isDone && !closed && !completed) {
+                if (!positions.hasNext() && inFlight == 0) {
+                    completed = true
+                    done()
+                } else {
+                    while (inFlight < CHUNK_REQUEST_WINDOW && positions.hasNext()) {
+                        val (x, z) = positions.next()
+                        inFlight++
+                        fun request(attempt: Int) {
+                            world.getChunkAtAsync(x, z, true).whenComplete { chunk, error ->
+                                val handle: () -> Unit = {
+                                    if (error != null) {
+                                        fail(result, error)
+                                    } else if (chunk == null || !world.isChunkLoaded(x, z)) {
+                                        if (attempt < MAX_CHUNK_RETRIES) main(result, 1L) { request(attempt + 1) }
+                                        else fail(result, IllegalStateException("Overworld chunk repeatedly unloaded at $x,$z"))
+                                    } else {
+                                        if (chunk.addPluginChunkTicket(plugin)) tickets += chunk
+                                        inFlight--
+                                        schedulePump()
+                                    }
+                                }
+                                if (Bukkit.isPrimaryThread()) {
+                                    if (!result.isDone && !closed) {
+                                        try { handle() } catch (t: Throwable) {
+                                            if (t is OutOfMemoryError) throw t
+                                            fail(result, t)
+                                        }
+                                    }
+                                } else {
+                                    main(result, 0L, handle)
+                                }
+                            }
                         }
-                        if (chunk.addPluginChunkTicket(plugin)) tickets += chunk
-                        inFlight--
-                        pump()
-                    } }
+                        request(0)
+                    }
                 }
-                request(0)
             }
         }
         pump()

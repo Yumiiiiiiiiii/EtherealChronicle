@@ -78,6 +78,12 @@ class SchematicPlacerTest {
                 Material.OAK_SAPLING,
                 Material.POPPY,
                 Material.DRIPSTONE_BLOCK,
+                Material.LEAF_LITTER,
+                Material.WILDFLOWERS,
+                Material.BUSH,
+                Material.SHORT_DRY_GRASS,
+                Material.PALE_MOSS_BLOCK,
+                Material.PALE_MOSS_CARPET,
             ).forEach { material ->
                 assertTrue(OverworldMaterials.replaceable(material), "Expected natural material to be replaceable: $material")
             }
@@ -87,8 +93,11 @@ class SchematicPlacerTest {
                 Material.GOLD_BLOCK,
                 Material.CHEST,
                 Material.OBSIDIAN,
+                Material.LAVA,
+                Material.FIRE,
+                Material.SOUL_FIRE,
             ).forEach { material ->
-                assertFalse(OverworldMaterials.replaceable(material), "Expected artificial block to stay protected: $material")
+                assertFalse(OverworldMaterials.replaceable(material), "Expected non-replaceable block to stay protected: $material")
             }
         } finally { MockBukkit.unmock() }
     }

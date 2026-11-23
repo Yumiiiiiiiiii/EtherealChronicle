@@ -11,7 +11,7 @@ internal object OverworldMaterials {
         Material.MUDDY_MANGROVE_ROOTS, Material.MANGROVE_ROOTS,
         Material.SAND, Material.RED_SAND, Material.GRAVEL, Material.SANDSTONE, Material.RED_SANDSTONE,
         Material.GRANITE, Material.DIORITE, Material.ANDESITE, Material.TUFF, Material.CALCITE,
-        Material.DRIPSTONE_BLOCK, Material.MOSS_BLOCK, Material.DIRT_PATH, Material.FARMLAND,
+        Material.DRIPSTONE_BLOCK, Material.MOSS_BLOCK, Material.PALE_MOSS_BLOCK, Material.DIRT_PATH, Material.FARMLAND,
         Material.COAL_ORE, Material.IRON_ORE, Material.COPPER_ORE, Material.GOLD_ORE,
         Material.REDSTONE_ORE, Material.LAPIS_ORE, Material.DIAMOND_ORE, Material.EMERALD_ORE,
         Material.DEEPSLATE_COAL_ORE, Material.DEEPSLATE_IRON_ORE, Material.DEEPSLATE_COPPER_ORE,
@@ -22,7 +22,10 @@ internal object OverworldMaterials {
         Material.RED_TERRACOTTA, Material.BROWN_TERRACOTTA, Material.LIGHT_GRAY_TERRACOTTA,
     )
     val plants = setOf(
-        Material.SHORT_GRASS, Material.TALL_GRASS, Material.FERN, Material.LARGE_FERN, Material.SNOW,
+        Material.SHORT_GRASS, Material.TALL_GRASS, Material.SHORT_DRY_GRASS, Material.TALL_DRY_GRASS,
+        Material.FERN, Material.LARGE_FERN, Material.SNOW,
+        Material.BUSH, Material.FIREFLY_BUSH, Material.LEAF_LITTER, Material.WILDFLOWERS, Material.CACTUS_FLOWER,
+        Material.PALE_MOSS_CARPET, Material.PALE_HANGING_MOSS,
         Material.VINE, Material.GLOW_LICHEN, Material.BAMBOO, Material.BAMBOO_SAPLING,
         Material.MOSS_CARPET, Material.SUGAR_CANE, Material.SWEET_BERRY_BUSH, Material.LILY_PAD,
         Material.KELP, Material.KELP_PLANT, Material.CACTUS, Material.PUMPKIN, Material.MELON,
@@ -35,9 +38,8 @@ internal object OverworldMaterials {
         Material.LILAC, Material.ROSE_BUSH, Material.PEONY, Material.DEAD_BUSH, Material.SEAGRASS, Material.TALL_SEAGRASS,
     )
 
-    /** 自然地形だけを対象とし、人工ブロックは保護します。 */
+    /** 自然地形だけを対象とし、溶岩・炎・人工ブロックは保護します。 */
     fun replaceable(type: Material): Boolean = type.isAir || type == Material.WATER || type in ground ||
         type in plants || Tag.LOGS.isTagged(type) || Tag.LEAVES.isTagged(type) ||
-        Tag.FLOWERS.isTagged(type) || Tag.SAPLINGS.isTagged(type) ||
-        Tag.REPLACEABLE.isTagged(type) || Tag.CAVE_VINES.isTagged(type)
+        Tag.FLOWERS.isTagged(type) || Tag.SAPLINGS.isTagged(type) || Tag.CAVE_VINES.isTagged(type)
 }
