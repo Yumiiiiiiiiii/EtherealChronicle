@@ -34,8 +34,10 @@ import kotlin.random.Random
 
 /** 有界の独自釣りセッションを管理し、バニラの浮きと釣果報酬を抑止します。 */
 class FishingController(private val plugin:RpgPlugin,private val random:Random=Random.Default):Listener {
-    private fun projectedSpots(): List<FishingSpotDefinition> = plugin.snapshot.world.fishingSpots.values.mapNotNull { spot ->
-        plugin.projectedPosition(spot.center, spot.area, allowWater = true)?.let { spot.copy(world = it.world, center = it) }
+    internal fun projectedSpots(): List<FishingSpotDefinition> = plugin.snapshot.world.fishingSpots.values.mapNotNull { spot ->
+        val projected = plugin.activeWorldProjection.projector.fishingWaterCenter(spot)
+            ?: plugin.projectedPosition(spot.center, spot.area, allowWater = true)
+        projected?.let { spot.copy(world = it.world, center = it) }
     }
 
     /** 拠点変更時に旧座標の釣りセッションを終了します。 */

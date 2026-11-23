@@ -45,6 +45,9 @@ data class OverworldSiteAnchor(
     val plazaSpawnX: Int? = null,
     val plazaSpawnY: Int? = null,
     val plazaSpawnZ: Int? = null,
+    val fishingWaterX: Int? = null,
+    val fishingWaterY: Int? = null,
+    val fishingWaterZ: Int? = null,
 )
 
 /** 入場検知に使う入口中心と、地上への帰還先です。 */
@@ -242,9 +245,22 @@ class OverworldAnchorProjector(
     /** 敵スポナーの出現条件を保ったまま位置を投影します。 */
     fun projectSpawn(spawn: SpawnPoint): SpawnPoint? = project(spawn.position)?.let { spawn.copy(position = it) }
 
+    /** Overworld の既定釣り場に建設済み池アンカーがある場合は、その水面の中心座標を返します。 */
+    fun fishingWaterCenter(spot: FishingSpotDefinition): Position? {
+        if (!registry.isOverworldMode() || !spot.defaultForArea) return null
+        val area = areas[spot.area] ?: return null
+        if (spot.world != area.world || spot.center.world != area.world) return null
+        val site = registry.siteForArea(spot.area)?.takeIf { it.status == OverworldSiteStatus.READY } ?: return null
+        val x = site.fishingWaterX ?: return null
+        val y = site.fishingWaterY ?: return null
+        val z = site.fishingWaterZ ?: return null
+        return Position(registry.activeWorldName(), x + 0.5, y.toDouble(), z + 0.5, spot.center.yaw)
+    }
+
     /** 釣り場のエリアを使い、ワールド名と中心を同時に更新します。 */
     fun projectFishingSpot(spot: FishingSpotDefinition): FishingSpotDefinition? =
-        project(spot.center, spot.area)?.let { spot.copy(world = it.world, center = it) }
+        (fishingWaterCenter(spot) ?: project(spot.center, spot.area))
+            ?.let { spot.copy(world = it.world, center = it) }
 
     /** 採取地点の識別子を保ち、完成した拠点だけを配置します。 */
     fun projectGatheringLocation(location: GatheringLocation): GatheringLocation? =

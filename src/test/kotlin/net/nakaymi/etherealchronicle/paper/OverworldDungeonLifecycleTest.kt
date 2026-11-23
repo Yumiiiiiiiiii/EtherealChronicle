@@ -11,6 +11,7 @@ import net.nakaymi.etherealchronicle.core.OverworldSiteAnchor
 import net.nakaymi.etherealchronicle.core.OverworldSiteRegistry
 import net.nakaymi.etherealchronicle.core.OverworldSiteStatus
 import net.nakaymi.etherealchronicle.core.Position
+import net.nakaymi.etherealchronicle.core.selectFishingSpot
 import net.nakaymi.etherealchronicle.data.DungeonOwnedSlot
 import net.nakaymi.etherealchronicle.data.DungeonReturnRecord
 import net.nakaymi.etherealchronicle.data.DungeonReturnStore
@@ -38,6 +39,9 @@ import java.nio.file.Files
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
+import java.util.logging.Handler
+import java.util.logging.Level
+import java.util.logging.LogRecord
 import kotlin.math.floor
 
 /**
@@ -1198,14 +1202,32 @@ class OverworldDungeonLifecycleTest {
             val areaCenterZ = (luminaArea.minZ + luminaArea.maxZ) / 2.0
             val sourcePos = Position(luminaArea.world, areaCenterX + (waterX - 10), 65.0, areaCenterZ + (waterZ - 10))
 
-            // 1 回目は失敗して負キャッシュされる
-            assertNull(plugin.projectedPosition(sourcePos, "ec:area_lumina_port", allowWater = false))
-            assertEquals(1, surfaceLookups, "First failed projection should invoke surfaceLookup once")
+            val previousLevel = plugin.logger.level
+            val records = mutableListOf<LogRecord>()
+            val handler = object : Handler() {
+                override fun publish(record: LogRecord) { records += record }
+                override fun flush() = Unit
+                override fun close() = Unit
+            }
+            plugin.logger.level = Level.FINE
+            plugin.logger.addHandler(handler)
+            try {
+                // 1 回目は失敗して負キャッシュされ、ログは WARN ではなく FINE で 1 回だけ記録される
+                assertNull(plugin.projectedPosition(sourcePos, "ec:area_lumina_port", allowWater = false))
+                assertEquals(1, surfaceLookups, "First failed projection should invoke surfaceLookup once")
 
-            // 2 回目以降は負キャッシュにより surfaceLookup を再計算しないこと
-            assertNull(plugin.projectedPosition(sourcePos, "ec:area_lumina_port", allowWater = false))
-            assertNull(plugin.projectedPosition(sourcePos, "ec:area_lumina_port", allowWater = false))
-            assertEquals(1, surfaceLookups, "Negative cache must prevent repeated surfaceLookup recomputation")
+                // 2 回目以降は負キャッシュにより surfaceLookup を再計算しないこと
+                assertNull(plugin.projectedPosition(sourcePos, "ec:area_lumina_port", allowWater = false))
+                assertNull(plugin.projectedPosition(sourcePos, "ec:area_lumina_port", allowWater = false))
+                assertEquals(1, surfaceLookups, "Negative cache must prevent repeated surfaceLookup recomputation")
+
+                val projectionLogs = records.filter { it.message.orEmpty().startsWith("Could not project position (") }
+                assertEquals(1, projectionLogs.size, "Expected single projection diagnostic log, got $projectionLogs")
+                assertEquals(Level.FINE, projectionLogs.single().level, "Failed surface projection should log at FINE rather than WARNING")
+            } finally {
+                plugin.logger.removeHandler(handler)
+                plugin.logger.level = previousLevel
+            }
 
             // 同一座標でも allowWater = true は別キーとして成功すること
             val fishingPos = plugin.projectedPosition(sourcePos, "ec:area_lumina_port", allowWater = true)
@@ -1219,6 +1241,40 @@ class OverworldDungeonLifecycleTest {
             val recovered = plugin.projectedPosition(sourcePos, "ec:area_lumina_port", allowWater = false)
             assertNotNull(recovered, "refreshWorldAnchors must clear negative projection cache")
             assertEquals(65.0, recovered!!.y)
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
+    fun `FishingController projectedSpots prefers fishing_water anchor over relative offset in overworld mode`() {
+        val server = MockBukkit.mock()
+        try {
+            val anchoredSite = OverworldSiteAnchor(
+                areaId = "ec:area_lumina_port",
+                centerX = 10,
+                surfaceY = 65,
+                centerZ = 10,
+                biomeKey = "SNOWY_BEACH",
+                status = OverworldSiteStatus.READY,
+                plazaSpawnX = 10,
+                plazaSpawnY = 65,
+                plazaSpawnZ = 10,
+                fishingWaterX = 48,
+                fishingWaterY = 63,
+                fishingWaterZ = -24,
+            )
+            val (plugin, world, _) = setupOverworldPlugin(server, customSites = listOf(anchoredSite))
+
+            val spots = plugin.fishing.projectedSpots()
+            val luminaSpot = spots.firstOrNull { it.id == "ec:spot_lumina_pier" }
+            assertNotNull(luminaSpot, "Expected default Lumina fishing spot to resolve via fishing_water anchor")
+            assertEquals(world.name, luminaSpot!!.world)
+            assertEquals(Position(world.name, 48.5, 63.0, -23.5), luminaSpot.center)
+
+            // 建設済み池（fishing_water）へのキャストが凍結海シードでもヒットすること
+            val selected = selectFishingSpot(spots, world.name, 48.5, -23.5, emptySet())
+            assertEquals("ec:spot_lumina_pier", selected?.id)
         } finally {
             MockBukkit.unmock()
         }

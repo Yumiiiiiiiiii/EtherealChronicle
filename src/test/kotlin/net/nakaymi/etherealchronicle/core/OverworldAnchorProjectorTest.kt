@@ -133,6 +133,80 @@ class OverworldAnchorProjectorTest {
         assertEquals(lumina, dedicated.projectArea(lumina))
     }
 
+    @Test
+    fun `fishingWaterCenter prefers constructed pond anchor for default READY spots and falls back otherwise`() {
+        val lumina = Area("ec:area_lumina_port", "Lumina", WorldIds.DEMO, -20.0, 20.0, 50.0, 90.0, -20.0, 20.0, safe = true)
+        val forest = Area("ec:area_ashwood_forest", "Ashwood", WorldIds.DEMO, 80.0, 140.0, 50.0, 90.0, -30.0, 30.0, safe = false)
+        val registry = MutableOverworldRegistry(
+            worldName = "world",
+            sites = listOf(
+                OverworldSiteAnchor(
+                    areaId = lumina.id,
+                    centerX = 300,
+                    surfaceY = 70,
+                    centerZ = -200,
+                    biomeKey = "SNOWY_BEACH",
+                    status = OverworldSiteStatus.READY,
+                    fishingWaterX = 318,
+                    fishingWaterY = 63,
+                    fishingWaterZ = -182,
+                ),
+                OverworldSiteAnchor(
+                    areaId = forest.id,
+                    centerX = 500,
+                    surfaceY = 72,
+                    centerZ = 100,
+                    biomeKey = "FOREST",
+                    status = OverworldSiteStatus.PENDING,
+                    fishingWaterX = 512,
+                    fishingWaterY = 71,
+                    fishingWaterZ = 112,
+                ),
+            ),
+        )
+        var surfaceCalls = 0
+        val projector = OverworldAnchorProjector(listOf(lumina, forest), registry) { _, _ ->
+            surfaceCalls++
+            71
+        }
+
+        val defaultSpot = FishingSpotDefinition(
+            "ec:spot_lumina_pier", "Pier", lumina.id, WorldIds.DEMO,
+            Position(WorldIds.DEMO, 10.0, 64.0, 28.0), 14.0, true, setOf("PORT"),
+        )
+        val hiddenSpot = FishingSpotDefinition(
+            "ec:spot_hidden", "Hidden", lumina.id, WorldIds.DEMO,
+            Position(WorldIds.DEMO, 1.0, 65.0, 2.0), 4.0, false, setOf("HIDDEN"),
+        )
+        val pendingSpot = FishingSpotDefinition(
+            "ec:spot_ashwood_stream", "Stream", forest.id, WorldIds.DEMO,
+            Position(WorldIds.DEMO, 92.0, 64.0, 30.0), 14.0, true, setOf("FOREST"),
+        )
+        val mismatchedWorldSpot = defaultSpot.copy(world = "other_world", center = defaultSpot.center.copy(world = "other_world"))
+
+        // 既定釣り場は fishing_water を優先し、surfaceYResolver を呼ばない
+        val projectedDefault = projector.projectFishingSpot(defaultSpot)!!
+        assertEquals("world", projectedDefault.world)
+        assertEquals(Position("world", 318.5, 63.0, -181.5), projectedDefault.center)
+        assertEquals(0, surfaceCalls)
+
+        // defaultForArea = false の隠し釣り場は相対投影を維持する
+        assertNull(projector.fishingWaterCenter(hiddenSpot))
+        val projectedHidden = projector.projectFishingSpot(hiddenSpot)!!
+        assertEquals(Position("world", 301.0, 71.0, -198.0), projectedHidden.center)
+        assertEquals(1, surfaceCalls)
+
+        // PENDING 拠点やワールド不一致では返さない
+        assertNull(projector.fishingWaterCenter(pendingSpot))
+        assertNull(projector.projectFishingSpot(pendingSpot))
+        assertNull(projector.fishingWaterCenter(mismatchedWorldSpot))
+
+        // dedicated_ec_world モードでは従来どおり無変換
+        val dedicated = OverworldAnchorProjector(listOf(lumina), DedicatedWorldSiteRegistry(WorldIds.DEMO, listOf(lumina))) { _, _ -> 99 }
+        assertNull(dedicated.fishingWaterCenter(defaultSpot))
+        assertEquals(defaultSpot, dedicated.projectFishingSpot(defaultSpot))
+    }
+
     private class MutableOverworldRegistry(
         private val worldName: String,
         sites: List<OverworldSiteAnchor>,

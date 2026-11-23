@@ -128,9 +128,10 @@ internal class EngineSiteRegistry(
     }
 }
 
-/** 保存済みのルミナ足元座標と入口をゲーム側の単一拠点へ写します。 */
+/** 保存済みのルミナ足元座標・池水面座標・入口をゲーム側の単一拠点へ写します。 */
 internal fun OverworldSiteLayout.toGameAnchor(portal: OverworldPortal?): OverworldSiteAnchor {
     val spawn = anchors["spawn"]
+    val fishingWater = anchors["fishing_water"]
     return OverworldSiteAnchor(
         areaId = site.id, centerX = site.x, surfaceY = site.y, centerZ = site.z,
         biomeKey = site.biome, status = GameSiteStatus.valueOf(status.name),
@@ -140,6 +141,7 @@ internal fun OverworldSiteLayout.toGameAnchor(portal: OverworldPortal?): Overwor
         portalCenterZ = portal?.let { (it.min.z + it.max.z) / 2 },
         portalExitX = portal?.exit?.x, portalExitY = portal?.exit?.y, portalExitZ = portal?.exit?.z,
         plazaSpawnX = spawn?.x, plazaSpawnY = spawn?.y, plazaSpawnZ = spawn?.z,
+        fishingWaterX = fishingWater?.x, fishingWaterY = fishingWater?.y, fishingWaterZ = fishingWater?.z,
     )
 }
 

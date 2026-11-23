@@ -217,7 +217,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         }
         result.onFailure { error ->
             if (failedProjectionPositions.add(cacheKey)) {
-                logger.warning(
+                logger.fine(
                     "Could not project position (${horizontal.world} ${horizontal.x},${horizontal.z}, " +
                         "area=${areaId ?: "auto"}, allowWater=$allowWater): ${error.message}",
                 )

@@ -6,6 +6,7 @@ import net.nakaymi.etherealchronicle.core.OverworldSite
 import net.nakaymi.etherealchronicle.core.OverworldSiteStatus as GameSiteStatus
 import org.bukkit.World
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import org.mockbukkit.mockbukkit.MockBukkit
@@ -21,7 +22,10 @@ class EngineOverworldBootstrapTest {
         val layout = OverworldSiteLayout(
             site,
             OverworldSiteStatus.READY,
-            mapOf("spawn" to OverworldPoint(123, 69, -77)),
+            mapOf(
+                "spawn" to OverworldPoint(123, 69, -77),
+                "fishing_water" to OverworldPoint(132, 63, -68),
+            ),
         )
 
         val anchor = layout.toGameAnchor(null)
@@ -30,6 +34,9 @@ class EngineOverworldBootstrapTest {
         assertEquals(123, anchor.plazaSpawnX)
         assertEquals(69, anchor.plazaSpawnY)
         assertEquals(-77, anchor.plazaSpawnZ)
+        assertEquals(132, anchor.fishingWaterX)
+        assertEquals(63, anchor.fishingWaterY)
+        assertEquals(-68, anchor.fishingWaterZ)
         assertEquals(120, anchor.centerX)
     }
 
@@ -57,6 +64,9 @@ class EngineOverworldBootstrapTest {
         assertEquals(24, gamePortal.exitZ)
         assertEquals(gamePortal.dungeonId, anchor.dungeonId)
         assertEquals(gamePortal.centerX, anchor.portalCenterX)
+        assertNull(anchor.fishingWaterX)
+        assertNull(anchor.fishingWaterY)
+        assertNull(anchor.fishingWaterZ)
     }
 
     @Test
