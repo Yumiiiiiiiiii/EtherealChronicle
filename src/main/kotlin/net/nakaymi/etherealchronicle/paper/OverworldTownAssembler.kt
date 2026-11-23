@@ -536,13 +536,18 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
         fun request(name: String, template: String, required: Boolean = true, fallbacks: List<String> = emptyList()) =
             Request(name, template, required, fallbacks)
         val temperate = listOf("house_timber_small_a", "house_timber_small_b", "house_coastal_cottage", "house_l_shaped_manor", "house_stone_bakery", "house_alchemist_tower", "house_snow_cabin_a", "house_snow_longhouse")
-        val smallTemperate = listOf("house_timber_small_a", "house_timber_small_b", "house_coastal_cottage")
+        val smallTemperate = listOf("house_timber_small_a", "house_timber_small_b", "house_alchemist_tower", "house_coastal_cottage")
         val smallSnow = listOf("house_snow_cabin_a", "house_timber_small_a", "house_timber_small_b")
         fun homes(templates: List<String>, count: Int, fallbacks: List<String>): List<Request> {
             val shuffled = templates.shuffled(random)
             return List(count) { i ->
                 val template = if (i < shuffled.size) shuffled[i] else templates[random.nextInt(templates.size)]
-                request("house_$i", template, false, fallbacks)
+                // 大型テンプレートが置けず小型フォールバックへ落ちた場合も、同一種への集中を避けて種類数を保ちます。
+                val rotatedFallbacks = if (fallbacks.isEmpty()) emptyList() else {
+                    val shift = i % fallbacks.size
+                    fallbacks.drop(shift) + fallbacks.take(shift)
+                }
+                request("house_$i", template, false, rotatedFallbacks)
             }
         }
         return when (id) {
