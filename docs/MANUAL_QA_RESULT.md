@@ -284,3 +284,15 @@ Cleanup: client + server stopped, config/ops/whitelist/server.properties restore
 
 ## Task 25 follow-up re-check (master d53b4c9)
 `gradlew build test --no-daemon` BUILD SUCCESSFUL, 298 tests, 0 failures/skipped. `smoke-test.ps1 -SkipBuild -Commands 'ec validate','ec reload'` PASS: `EC_CONTENT_VALIDATION_SUCCESS`, 0 ERROR, Paper process stopped, ports 25565/25580 closed. One non-blocking script glitch after PASS: `smoke-test.ps1:74` PropertyNotFound on `ParentProcessId` (race with a short-lived java process). No real-client rerun (not requested; first real run on b8c91ee). Audit details in docs/reviews/2026-11-22_task25_claude.md.
+
+## Overworld mode live QA (master b88a0c4, Paper 26.3-257), 2026-11-23
+Setup: clean `world` + fresh plugin data (originals moved aside and restored afterwards), jar built from b88a0c4, `world: { mode: overworld }` appended to config. Scripts: `scripts/client/qa-ow-setup.ps1`, `qa-ow-restore.ps1`.
+
+| Item | Result | Evidence |
+|---|---|---|
+| 1. Clean Overworld first generation (9/9 sites) | **FAIL (High, blocker)** | 12 s after "Adventure systems are ready" the generation aborts: `IllegalStateException: Site sampling chunk repeatedly unloaded at -223,18` (`OverworldSiteSearch.kt:54`, via `loadCandidate` after 6 attempts). No `.etherealchronicle-overworld.json` is written, no site placed, no portals, no Lumina spawn. Reproduced on a second boot (same coordinates, deterministic). Cause: a chunk loaded with `getChunkAtAsync` and no ticket is not loaded one tick later on real Paper; MockBukkit never unloads. Reported to Codex with a suggested fix (sample inside the completion callback or hold a plugin chunk ticket; skip an unloadable candidate instead of failing everything) |
+| 2. Restart idempotency | **NOT-RUN** | blocked by item 1 (nothing reaches `COMPLETED`) |
+| 3. Real-client Overworld checks (spawn, town heights, dungeon round trip, abnormal-quit recovery, `/ec sites`, `/ec dungeon release`) | **NOT-RUN** | blocked by item 1; no client was started, no screenshots (`overworld-live-qa` folder not created) |
+| 4. Default `dedicated_ec_world` regression | **PASS** | clean start with no `world.mode`: `Created ec_world from bundled schematics (terrain v6)`, `Adventure systems are ready`, `EC_CONTENT_VALIDATION_SUCCESS`, 0 ERROR, TPS 20.0 |
+
+Server up time to failure and TPS during the failed run were not meaningful (failure at +12 s, server stayed healthy). Rerun items 1-3 once the sampling fix is on master. Cleanup: server stopped, original `world`, `plugins/EtherealChronicle`, server.properties, ops.json, whitelist, config restored; ports closed; the failed run's world was kept as `world.qa-run-overworld-failed` under dev/server.

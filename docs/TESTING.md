@@ -288,3 +288,6 @@ Screenshots: `D:\test\mcmmo-client-qa\shots\f01..f35*.png` (not in repo).
 | Server log | PASS | 0 ERROR/Exception; WARN only `Skipping Entity with id minecraft:*` + offline-mode notice |
 | TPS / memory | PASS | 20.0/20.0/20.0, mspt avg 1.4 (max 18.7/1 min), server java ~1 GB |
 New helper: `scripts/client/qa-helpers.ps1`.
+
+- Overworld live QA (b88a0c4): first-generation FAIL on real Paper (site sampling chunk unloaded); default mode PASS. Details in docs/MANUAL_QA_RESULT.md (Overworld mode live QA).
+
