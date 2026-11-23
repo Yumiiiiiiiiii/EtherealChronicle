@@ -1,6 +1,7 @@
 package net.nakaymi.etherealchronicle.core
 
 import java.util.Random
+import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -17,18 +18,18 @@ data class OverworldSite(val id: String, val x: Int, val y: Int, val z: Int, val
 object OverworldSiteLocator {
     private data class Spec(val id: String, val minRadius: Int, val maxRadius: Int, val biomes: Set<String>, val frostRelative: Boolean = false)
     private val specs = listOf(
-        Spec("ec:area_lumina_port", 0, 384, setOf("PLAINS", "MEADOW", "BEACH", "RIVER", "SUNFLOWER_PLAINS")),
-        Spec("ec:area_ashwood_forest", 220, 650, setOf("FOREST", "BIRCH_FOREST", "DARK_FOREST", "TAIGA", "FLOWER_FOREST", "OLD_GROWTH_BIRCH_FOREST")),
-        Spec("ec:area_weeping_mine", 320, 880, setOf("WINDSWEPT_HILLS", "STONY_PEAKS", "MEADOW", "SAVANNA_PLATEAU", "WINDSWEPT_GRAVELLY_HILLS")),
-        Spec("ec:area_stargazer_hill", 400, 1020, setOf("MEADOW", "CHERRY_GROVE", "WINDSWEPT_HILLS", "SUNFLOWER_PLAINS")),
-        Spec("ec:area_void_sanctum", 500, 1200, setOf("DARK_FOREST", "BADLANDS", "SWAMP", "PALE_GARDEN", "JAGGED_PEAKS", "WINDSWEPT_GRAVELLY_HILLS")),
-        Spec("ec:area_frostpeak_outpost", 600, 1500, setOf("SNOWY_PLAINS", "SNOWY_TAIGA", "GROVE", "TAIGA")),
-        Spec("ec:area_glacier_ridge", 180, 480, setOf("SNOWY_PLAINS", "SNOWY_TAIGA", "GROVE", "FROZEN_PEAKS", "JAGGED_PEAKS", "SNOWY_SLOPES"), true),
-        Spec("ec:area_crystalline_cavern", 180, 480, setOf("SNOWY_PLAINS", "SNOWY_TAIGA", "GROVE", "FROZEN_PEAKS", "JAGGED_PEAKS", "SNOWY_SLOPES"), true),
-        Spec("ec:area_glacial_citadel", 180, 480, setOf("SNOWY_PLAINS", "SNOWY_TAIGA", "GROVE", "FROZEN_PEAKS", "JAGGED_PEAKS", "SNOWY_SLOPES"), true),
+        Spec(OverworldSiteIds.LUMINA_PORT, 0, 384, setOf("PLAINS", "MEADOW", "BEACH", "RIVER", "SUNFLOWER_PLAINS")),
+        Spec(OverworldSiteIds.ASHWOOD_FOREST, 220, 650, setOf("FOREST", "BIRCH_FOREST", "DARK_FOREST", "TAIGA", "FLOWER_FOREST", "OLD_GROWTH_BIRCH_FOREST")),
+        Spec(OverworldSiteIds.WEEPING_MINE, 320, 880, setOf("WINDSWEPT_HILLS", "STONY_PEAKS", "MEADOW", "SAVANNA_PLATEAU", "WINDSWEPT_GRAVELLY_HILLS")),
+        Spec(OverworldSiteIds.STARGAZER_HILL, 400, 1020, setOf("MEADOW", "CHERRY_GROVE", "WINDSWEPT_HILLS", "SUNFLOWER_PLAINS")),
+        Spec(OverworldSiteIds.VOID_SANCTUM, 500, 1200, setOf("DARK_FOREST", "BADLANDS", "SWAMP", "PALE_GARDEN", "JAGGED_PEAKS", "WINDSWEPT_GRAVELLY_HILLS")),
+        Spec(OverworldSiteIds.FROSTPEAK_OUTPOST, 600, 1500, setOf("SNOWY_PLAINS", "SNOWY_TAIGA", "GROVE", "TAIGA")),
+        Spec(OverworldSiteIds.GLACIER_RIDGE, 180, 480, setOf("SNOWY_PLAINS", "SNOWY_TAIGA", "GROVE", "FROZEN_PEAKS", "JAGGED_PEAKS", "SNOWY_SLOPES"), true),
+        Spec(OverworldSiteIds.CRYSTALLINE_CAVERN, 180, 480, setOf("SNOWY_PLAINS", "SNOWY_TAIGA", "GROVE", "FROZEN_PEAKS", "JAGGED_PEAKS", "SNOWY_SLOPES"), true),
+        Spec(OverworldSiteIds.GLACIAL_CITADEL, 180, 480, setOf("SNOWY_PLAINS", "SNOWY_TAIGA", "GROVE", "FROZEN_PEAKS", "JAGGED_PEAKS", "SNOWY_SLOPES"), true),
     )
     private const val CANDIDATE_COUNT = 256
-    private val coldSiteIds = setOf("ec:area_frostpeak_outpost", "ec:area_glacier_ridge", "ec:area_crystalline_cavern")
+    private const val EARLY_TIER_ONE_COUNT = 24
 
     /** 地形照会を注入して同じseedから同じ順序と結果を再現します。 */
     fun locate(seed: Long, terrainAt: (Int, Int) -> SiteTerrain): List<OverworldSite> {
@@ -46,7 +47,12 @@ object OverworldSiteLocator {
         private var center = 0 to 0
         private var candidates = candidatePoints(seed, specs.first(), center)
         private val samples = mutableListOf<Triple<Int, Int, SiteTerrain>>()
+        private var strongCount = 0
         private var awaiting: Pair<Int, Int>? = null
+
+        /** テストや診断用に、現在評価中の地域IDを返します。 */
+        val currentSiteId: String get() = specs[sites.size].id
+        internal fun selected(): List<OverworldSite> = sites.toList()
 
         /** 次に必要な座標を一つだけ予約し、完了時はnullを返します。 */
         fun nextCandidate(): Pair<Int, Int>? {
@@ -59,9 +65,13 @@ object OverworldSiteLocator {
         fun accept(sample: SiteTerrain) {
             val (x, z) = checkNotNull(awaiting) { "No terrain sample was requested" }
             awaiting = null
-            samples += Triple(x, z, sample)
-            if (samples.size != candidates.size) return
+            // バイオーム名は候補の受理時に一度だけ正規化します。
+            val normalized = sample.copy(biome = sample.biome.uppercase(Locale.ROOT))
+            samples += Triple(x, z, normalized)
             val rule = specs[sites.size]
+            if (eligible(normalized, 1, rule.biomes) && separated(x, z, sites, 160) &&
+                (!rule.frostRelative || nearColdSites(x, z, sites))) strongCount++
+            if (samples.size != candidates.size && strongCount < EARLY_TIER_ONE_COUNT) return
             val chosen = (1..3).firstNotNullOfOrNull { tier ->
                 samples.asSequence().filter { (sx, sz, terrain) -> eligible(terrain, tier, rule.biomes) &&
                     separated(sx, sz, sites, if (tier == 3) 120 else 160) && (!rule.frostRelative || nearColdSites(sx, sz, sites)) }
@@ -71,10 +81,11 @@ object OverworldSiteLocator {
             sites += chosen
             if (sites.size == specs.size) return
             val next = specs[sites.size]
-            center = if (next.frostRelative) sites.first { it.id == "ec:area_frostpeak_outpost" }.let { it.x to it.z }
+            center = if (next.frostRelative) sites.first { it.id == OverworldSiteIds.FROSTPEAK_OUTPOST }.let { it.x to it.z }
                 else sites.first().let { it.x to it.z }
             candidates = candidatePoints(seed, next, center)
             samples.clear()
+            strongCount = 0
         }
 
         /** 全地点の選択が完了したときだけ防御コピーを返します。 */
@@ -96,9 +107,10 @@ object OverworldSiteLocator {
 
     /** 各段階で水面・海洋を除き、高度と優先バイオームを判定します。 */
     private fun eligible(sample: SiteTerrain, tier: Int, preferred: Set<String>): Boolean {
-        if (!sample.dryLand || sample.biome.uppercase().contains("OCEAN")) return false
+        val biome = sample.biome
+        if (!sample.dryLand || biome.contains("OCEAN")) return false
         return when (tier) {
-            1 -> sample.y in 63..145 && sample.relief <= 8 && sample.biome.uppercase() in preferred
+            1 -> sample.y in 63..145 && sample.relief <= 8 && biome in preferred
             2 -> sample.y in 62..165
             else -> sample.y in 62..180
         }
@@ -112,7 +124,7 @@ object OverworldSiteLocator {
     }
 
     /** 氷雪地域の地点同士を近すぎず離れすぎない範囲に収めます。 */
-    private fun nearColdSites(x: Int, z: Int, existing: List<OverworldSite>): Boolean = existing.filter { it.id in coldSiteIds }.all {
+    private fun nearColdSites(x: Int, z: Int, existing: List<OverworldSite>): Boolean = existing.filter { it.id in OverworldSiteIds.frostCluster }.all {
         val dx = x.toLong() - it.x
         val dz = z.toLong() - it.z
         dx * dx + dz * dz in 180L * 180..480L * 480
@@ -121,7 +133,7 @@ object OverworldSiteLocator {
     /** 平坦性を重視し、港の水辺と北部の雪原に小さな優先点を加えます。 */
     private fun score(sample: SiteTerrain, rule: Spec, relativeZ: Int): Int =
         -sample.relief.coerceAtLeast(0) * 10 +
-            (if (sample.biome.uppercase() in rule.biomes) 100 else 0) +
-            (if (rule.id == "ec:area_lumina_port" && sample.nearbyWater) 30 else 0) +
-            (if (rule.id == "ec:area_frostpeak_outpost" && relativeZ < 0) 10 else 0)
+            (if (sample.biome in rule.biomes) 100 else 0) +
+            (if (rule.id == OverworldSiteIds.LUMINA_PORT && sample.nearbyWater) 30 else 0) +
+            (if (rule.id == OverworldSiteIds.FROSTPEAK_OUTPOST && relativeZ < 0) 10 else 0)
 }

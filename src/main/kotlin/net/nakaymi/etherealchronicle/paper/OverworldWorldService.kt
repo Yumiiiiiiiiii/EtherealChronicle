@@ -1,6 +1,8 @@
 package net.nakaymi.etherealchronicle.paper
 
 import net.nakaymi.etherealchronicle.core.OverworldSite
+import net.nakaymi.etherealchronicle.core.OverworldSiteIds
+import net.nakaymi.etherealchronicle.core.OverworldDungeonIds
 import org.bukkit.Bukkit
 import org.bukkit.Chunk
 import org.bukkit.Location
@@ -9,6 +11,8 @@ import org.bukkit.World
 import org.bukkit.plugin.Plugin
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.logging.Level
 
 /** 探索、建設journalとtick予算付き配置をつなぎます。起動・停止はメインスレッドから呼びます。 */
 class OverworldWorldService internal constructor(
@@ -26,11 +30,12 @@ class OverworldWorldService internal constructor(
     private var active: CompletableFuture<OverworldLayout>? = null
     private var assets: OverworldAssets? = null
     @Volatile private var layout: OverworldLayout? = null
-    private var closed = false
+    @Volatile private var closed = false
+    private var siteSearch: OverworldSiteSearch? = null
 
     /** 起動済み状態の読み出しと新規ワールドの事前検証を開始します。 */
     fun start(onSiteReady: (OverworldLayout) -> Unit = {}): CompletableFuture<OverworldLayout> {
-        check(Bukkit.isPrimaryThread() && !closed && active == null)
+        checkAvailable()
         val result = CompletableFuture<OverworldLayout>()
         active = result
         CompletableFuture.supplyAsync({
@@ -49,7 +54,8 @@ class OverworldWorldService internal constructor(
                     plugin.logger.warning("Overworld generation was interrupted; automatic rebuilding is disabled. An administrator must inspect and request repair.")
                     finish(result, existing)
                 }
-                null -> OverworldSiteSearch(plugin, world).start().whenComplete { sites, error -> main(result) {
+                null -> OverworldSiteSearch(plugin, world).also { siteSearch = it }.start().whenComplete { sites, error -> main(result) {
+                    siteSearch = null
                     if (error != null) return@main fail(result, error)
                     val initial = OverworldLayout(worldId = worldId.toString(), worldName = worldName, seed = worldSeed,
                         status = OverworldBuildStatus.IN_PROGRESS, sites = sites.map { OverworldSiteLayout(it, OverworldSiteStatus.PENDING) })
@@ -60,26 +66,30 @@ class OverworldWorldService internal constructor(
         return result
     }
 
-    /** 管理者による明示的な復旧を開始し、完了済みの拠点を再配置しません。 */
+    /** 管理者による明示的な復旧を開始し、保留中の拠点のみ再配置します。 */
     fun repair(onSiteReady: (OverworldLayout) -> Unit = {}): CompletableFuture<OverworldLayout> {
-        check(Bukkit.isPrimaryThread() && !closed && active == null)
+        checkAvailable()
         val current = checkNotNull(layout) { "No overworld journal is loaded" }
         check(current.status == OverworldBuildStatus.IN_PROGRESS) { "Overworld generation is already complete" }
         check(current.sites.none { it.status == OverworldSiteStatus.GENERATING || it.status == OverworldSiteStatus.FAILED }) {
             "Interrupted site requires administrator inspection and explicit cleanup confirmation before repair"
         }
-        val loadedAssets = checkNotNull(assets) { "Required overworld schematics are unavailable" }
+        checkNotNull(assets) { "Required overworld schematics are unavailable" }
         val result = CompletableFuture<OverworldLayout>()
         active = result
         // 中断した敷地は自動破壊せず再検査し、既存建築が障害になれば復旧を止めます。
-        assets = loadedAssets
-        generateNext(current, result, onSiteReady)
+        try {
+            generateNext(current, result, onSiteReady)
+        } catch (error: Throwable) {
+            if (error is OutOfMemoryError) throw error
+            fail(result, error)
+        }
         return result
     }
 
     /** 管理者が中断敷地を手動復旧した後、次回repair対象として記録します。 */
     fun acknowledgeCleanup(siteId: String): CompletableFuture<OverworldLayout> {
-        check(Bukkit.isPrimaryThread() && !closed && active == null)
+        checkAvailable()
         val current = checkNotNull(layout) { "No overworld journal is loaded" }
         check(current.status == OverworldBuildStatus.IN_PROGRESS)
         val site = current.sites.singleOrNull { it.site.id == siteId } ?: error("Unknown overworld site: $siteId")
@@ -95,6 +105,14 @@ class OverworldWorldService internal constructor(
     /** 読込済みの進捗を参照します。 */
     fun current(): OverworldLayout? = layout
 
+    /** 公開操作はメインスレッドで直列に実行し、停止後の再開を防ぎます。 */
+    private fun checkAvailable() {
+        check(Bukkit.isPrimaryThread()) { "Overworld service must be called on the primary thread" }
+        check(!closed) { "Overworld service is closed" }
+        check(active == null) { "Overworld operation is already active" }
+    }
+
+    /** 次の未完成拠点へ進み、全拠点が揃った場合だけ完了マーカーを書きます。 */
     private fun generateNext(current: OverworldLayout, result: CompletableFuture<OverworldLayout>, onSiteReady: (OverworldLayout) -> Unit) {
         val next = current.sites.firstOrNull { it.status != OverworldSiteStatus.READY }
         if (next == null) {
@@ -105,30 +123,40 @@ class OverworldWorldService internal constructor(
             }
             return
         }
-        loadChunks(next.site, result) {
-                val assembler = OverworldTownAssembler(checkNotNull(assets))
-                val planning = assembler.planning(world, next.site, worldSeed)
-                advancePlanning(planning, result) { plan ->
-                    val withAnchors = replaceSite(current, next.copy(status = OverworldSiteStatus.GENERATING, anchors = plan.anchors))
-                        .copy(portals = current.portals.filterNot { it.areaId == next.site.id } + plan.portals)
-                    save(withAnchors, result) {
-                        val operations = assembler.actions(world, plan)
-                        applyOperations(operations, result) {
-                            val spawn = if (next.site.id == "ec:area_lumina_port") findPlazaSpawn(plan.anchors) else null
-                            val finalAnchors = if (spawn == null) plan.anchors else plan.anchors + ("spawn" to spawn)
-                            val ready = replaceSite(withAnchors, next.copy(status = OverworldSiteStatus.READY, anchors = finalAnchors))
-                            if (spawn != null && (!isSafeSpawn(spawn) || !world.setSpawnLocation(Location(world, spawn.x + 0.5, spawn.y.toDouble(), spawn.z + 0.5, 0f, 0f)))) {
-                                val failed = replaceSite(withAnchors, next.copy(status = OverworldSiteStatus.FAILED, anchors = finalAnchors))
-                                return@applyOperations save(failed, result) { fail(result, IllegalStateException("Could not set a safe Lumina spawn")) }
-                            }
-                            save(ready, result) {
-                                releaseTickets()
-                                onSiteReady(ready)
-                                generateNext(ready, result, onSiteReady)
-                            }
-                        }
-                    }
+        loadChunks(next.site, result) { planSite(current, next, result, onSiteReady) }
+    }
+
+    /** 地形計画を分割実行し、成功した計画だけを建設ジャーナルへ渡します。 */
+    private fun planSite(current: OverworldLayout, next: OverworldSiteLayout, result: CompletableFuture<OverworldLayout>, onSiteReady: (OverworldLayout) -> Unit) {
+        val assembler = OverworldTownAssembler(checkNotNull(assets))
+        advancePlanning(assembler.planning(world, next.site, worldSeed), result) { plan ->
+            val generating = replaceSite(current, next.copy(status = OverworldSiteStatus.GENERATING, anchors = plan.anchors))
+                .copy(portals = current.portals.filterNot { it.areaId == next.site.id } + plan.portals)
+            save(generating, result) {
+                applyOperations(assembler.actions(world, plan), result) {
+                    finishSite(generating, next, plan, result, onSiteReady)
                 }
+            }
+        }
+    }
+
+    /** 配置終了後のスポーンを検証し、READY 保存と共有スポーン反映を順に行います。 */
+    private fun finishSite(generating: OverworldLayout, next: OverworldSiteLayout, plan: OverworldTownPlan,
+        result: CompletableFuture<OverworldLayout>, onSiteReady: (OverworldLayout) -> Unit,
+    ) {
+        val spawn = if (next.site.id == OverworldSiteIds.LUMINA_PORT) findPlazaSpawn(plan.anchors) else null
+        val anchors = if (spawn == null) plan.anchors else plan.anchors + ("spawn" to spawn)
+        val ready = replaceSite(generating, next.copy(status = OverworldSiteStatus.READY, anchors = anchors))
+        if (spawn != null) check(isSafeSpawn(spawn)) { "Lumina spawn became unsafe before READY save" }
+        save(ready, result) {
+            if (spawn != null && (!isSafeSpawn(spawn) || !world.setSpawnLocation(Location(world, spawn.x + 0.5, spawn.y.toDouble(), spawn.z + 0.5, 0f, 0f)))) {
+                val failed = replaceSite(ready, next.copy(status = OverworldSiteStatus.FAILED, anchors = anchors))
+                save(failed, result) { fail(result, IllegalStateException("Could not set Lumina spawn")) }
+                return@save
+            }
+            releaseTickets()
+            onSiteReady(ready)
+            generateNext(ready, result, onSiteReady)
         }
     }
 
@@ -158,33 +186,43 @@ class OverworldWorldService internal constructor(
                 planning.steps.next()
             }
             main(result, 1L) { advancePlanning(planning, result, done) }
-        } catch (error: Exception) {
+        } catch (error: Throwable) {
+            if (error is OutOfMemoryError) throw error
             fail(result, error)
         }
     }
 
-    /** 一度に一つのチャンクだけ要求し、建設中は明示的に保持します。 */
+    /** 少数のチャンクを並列取得し、建設中は明示的に保持します。 */
     private fun loadChunks(site: OverworldSite, result: CompletableFuture<OverworldLayout>, done: () -> Unit) {
-        val minX = (site.x - SITE_RADIUS) shr 4
-        val maxX = (site.x + SITE_RADIUS) shr 4
-        val minZ = (site.z - SITE_RADIUS) shr 4
-        val maxZ = (site.z + SITE_RADIUS) shr 4
+        val minX = (site.x - SITE_RADIUS) shr CHUNK_SHIFT
+        val maxX = (site.x + SITE_RADIUS) shr CHUNK_SHIFT
+        val minZ = (site.z - SITE_RADIUS) shr CHUNK_SHIFT
+        val maxZ = (site.z + SITE_RADIUS) shr CHUNK_SHIFT
         val positions = (minX..maxX).flatMap { x -> (minZ..maxZ).map { z -> x to z } }.iterator()
-        fun next() {
+        var inFlight = 0
+        fun pump() {
             if (result.isDone) return
-            if (!positions.hasNext()) { done(); return }
-            val (x, z) = positions.next()
-            fun request() {
-                world.getChunkAtAsync(x, z, true).whenComplete { chunk, error -> main(result, 1L) {
-                    if (error != null) return@main fail(result, error)
-                    if (!world.isChunkLoaded(x, z)) { request(); return@main }
-                    if (chunk.addPluginChunkTicket(plugin)) tickets += chunk
-                    next()
-                } }
+            if (!positions.hasNext() && inFlight == 0) { done(); return }
+            while (inFlight < CHUNK_REQUEST_WINDOW && positions.hasNext()) {
+                val (x, z) = positions.next()
+                inFlight++
+                fun request(attempt: Int) {
+                    world.getChunkAtAsync(x, z, true).whenComplete { chunk, error -> main(result, 1L) {
+                        if (error != null) return@main fail(result, error)
+                        if (!world.isChunkLoaded(x, z)) {
+                            if (attempt < MAX_CHUNK_RETRIES) request(attempt + 1)
+                            else fail(result, IllegalStateException("Overworld chunk repeatedly unloaded at $x,$z"))
+                            return@main
+                        }
+                        if (chunk.addPluginChunkTicket(plugin)) tickets += chunk
+                        inFlight--
+                        pump()
+                    } }
+                }
+                request(0)
             }
-            request()
         }
-        next()
+        pump()
     }
 
     /** 毎tickの処理数を制限し、例外時はjournalを未完了のまま残します。 */
@@ -196,7 +234,8 @@ class OverworldWorldService internal constructor(
                     operations.next().invoke()
                 }
                 main(result, 1L, ::tick)
-            } catch (error: Exception) {
+            } catch (error: Throwable) {
+                if (error is OutOfMemoryError) throw error
                 fail(result, error)
             }
         }
@@ -215,12 +254,17 @@ class OverworldWorldService internal constructor(
         } }
     }
 
+    /** 非同期完了処理をメインスレッドへ戻し、例外時のチケット解放へつなぎます。 */
     private fun main(result: CompletableFuture<OverworldLayout>, delay: Long = 0, action: () -> Unit) {
         if (result.isDone || closed) return
         try {
-            val task = Runnable { if (!result.isDone && !closed) try { action() } catch (error: Exception) { fail(result, error) } }
+            val task = Runnable { if (!result.isDone && !closed) try { action() } catch (error: Throwable) {
+                if (error is OutOfMemoryError) throw error
+                fail(result, error)
+            } }
             if (delay == 0L) plugin.server.scheduler.runTask(plugin, task) else plugin.server.scheduler.runTaskLater(plugin, task, delay)
-        } catch (error: Exception) {
+        } catch (error: Throwable) {
+            if (error is OutOfMemoryError) throw error
             // スケジューラ停止中に非同期コールバックが到着しても、そこでBukkitへ触れません。
             if (Bukkit.isPrimaryThread()) fail(result, error) else result.completeExceptionally(error)
         }
@@ -234,7 +278,7 @@ class OverworldWorldService internal constructor(
     private fun fail(result: CompletableFuture<OverworldLayout>, error: Throwable) {
         releaseTickets()
         active = null
-        plugin.logger.severe("Overworld generation stopped without marking completion: ${error.message}")
+        plugin.logger.log(Level.SEVERE, "Overworld generation stopped without marking completion", error)
         result.completeExceptionally(error)
     }
 
@@ -245,18 +289,27 @@ class OverworldWorldService internal constructor(
 
     /** 保持中チャンクと非同期I/Oを閉じます。 */
     override fun close() {
-        check(Bukkit.isPrimaryThread())
+        check(Bukkit.isPrimaryThread()) { "Overworld service must close on the primary thread" }
         closed = true
+        siteSearch?.cancel()
+        siteSearch = null
         releaseTickets()
         active?.completeExceptionally(IllegalStateException("Overworld service stopped"))
         active = null
         io.shutdown()
+        if (!io.awaitTermination(IO_CLOSE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+            plugin.logger.warning("Overworld journal writer did not stop within the close timeout")
+        }
     }
 
     private companion object {
         const val SITE_RADIUS = 112
+        const val CHUNK_SHIFT = 4
         const val PLANNING_STEPS_PER_TICK = 32
         const val OPERATIONS_PER_TICK = 500
+        const val IO_CLOSE_TIMEOUT_SECONDS = 2L
+        const val MAX_CHUNK_RETRIES = 5
+        const val CHUNK_REQUEST_WINDOW = 4
         val unsafeSpawnFloors = setOf(Material.MAGMA_BLOCK, Material.CACTUS, Material.CAMPFIRE, Material.SOUL_CAMPFIRE)
     }
 }
