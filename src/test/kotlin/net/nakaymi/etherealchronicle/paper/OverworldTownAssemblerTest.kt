@@ -297,6 +297,61 @@ class OverworldTownAssemblerTest {
     }
 
     @Test
+    fun `actions safely skip clearance lights and decorations flooded by natural water`() {
+        val server = MockBukkit.mock()
+        try {
+            val world = server.addSimpleWorld("overworld-water-inflow")
+            val assets = OverworldAssets.load { SchematicData(1, 1, 1, listOf("minecraft:stone"), intArrayOf(0)) }
+            val assembler = OverworldTownAssembler(assets)
+            val site = OverworldSite(OverworldSiteIds.ASHWOOD_FOREST, 0, 61, 0, 1, "FOREST")
+
+            // QA #7 Run 2 再現: 低地の LEAF_LITTER や空きマスに水流が流れ込んで WATER になった場合
+            world.getBlockAt(0, 61, 0).type = Material.WATER       // roadClearance: LEAF_LITTER -> WATER
+            world.getBlockAt(1, 61, 0).type = Material.SHORT_GRASS // 後続の通常クリアランスは継続実行される
+            world.getBlockAt(2, 61, 0).type = Material.WATER       // 街灯支柱 (y+1) が浸水 -> 支柱・ランタンともスキップ
+            world.getBlockAt(2, 62, 0).type = Material.AIR
+            world.getBlockAt(3, 61, 0).type = Material.AIR         // 街灯ランタン (y+2) が浸水 -> 支柱・ランタンともスキップ
+            world.getBlockAt(3, 62, 0).type = Material.WATER
+            world.getBlockAt(4, 61, 0).type = Material.WATER       // 装飾予定地が浸水 -> スキップ
+
+            val plan = OverworldTownPlan(
+                site = site,
+                buildings = emptyList(),
+                road = emptyList(),
+                roadClearance = listOf(
+                    OverworldTerrainChange(OverworldPoint(0, 61, 0), Material.LEAF_LITTER, Material.AIR),
+                    OverworldTerrainChange(OverworldPoint(1, 61, 0), Material.SHORT_GRASS, Material.AIR),
+                ),
+                pond = emptyList(),
+                lights = listOf(
+                    OverworldTerrainChange(OverworldPoint(2, 61, 0), Material.AIR, Material.SPRUCE_FENCE),
+                    OverworldTerrainChange(OverworldPoint(2, 62, 0), Material.AIR, Material.LANTERN),
+                    OverworldTerrainChange(OverworldPoint(3, 61, 0), Material.AIR, Material.SPRUCE_FENCE),
+                    OverworldTerrainChange(OverworldPoint(3, 62, 0), Material.AIR, Material.LANTERN),
+                ),
+                decorations = listOf(
+                    OverworldTerrainChange(OverworldPoint(4, 61, 0), Material.AIR, Material.SNOW),
+                ),
+                anchors = emptyMap(),
+                portals = emptyList(),
+                prepared = emptyMap(),
+            )
+
+            assembler.actions(world, plan).forEachRemaining { it() }
+
+            assertEquals(Material.WATER, world.getBlockAt(0, 61, 0).type, "Flooded clearance cell must keep WATER")
+            assertEquals(Material.AIR, world.getBlockAt(1, 61, 0).type, "Subsequent clearance cells must still run")
+            assertEquals(Material.WATER, world.getBlockAt(2, 61, 0).type, "Flooded lantern fence cell must stay WATER")
+            assertEquals(Material.AIR, world.getBlockAt(2, 62, 0).type, "Lantern above flooded fence must not float")
+            assertEquals(Material.AIR, world.getBlockAt(3, 61, 0).type, "Fence below flooded lantern must be skipped")
+            assertEquals(Material.WATER, world.getBlockAt(3, 62, 0).type, "Flooded lantern cell must stay WATER")
+            assertEquals(Material.WATER, world.getBlockAt(4, 61, 0).type, "Flooded decoration cell must stay WATER")
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
     fun `actions still reject artificial hazardous or unexpected terrain changes`() {
         val server = MockBukkit.mock()
         try {
@@ -387,8 +442,9 @@ class OverworldTownAssemblerTest {
             assertTrue(supportErr.message.orEmpty().contains("support changed"), "Unexpected message: ${supportErr.message}")
             assertEquals(Material.DIRT, world.getBlockAt(6, 62, 0).type)
 
-            // 街灯・装飾位置に人工ブロックや植物が現れた場合は拒否し、上書きしない
+            // 街灯・装飾位置に人工ブロックや植物が現れた場合は、相方が水でも拒否し上書きしない
             world.getBlockAt(3, 64, 0).type = Material.BRICKS
+            world.getBlockAt(3, 65, 0).type = Material.WATER
             assertThrows<IllegalStateException> {
                 assembler.actions(world, emptyPlan(lights = listOf(
                     OverworldTerrainChange(OverworldPoint(3, 64, 0), Material.AIR, Material.SPRUCE_FENCE),

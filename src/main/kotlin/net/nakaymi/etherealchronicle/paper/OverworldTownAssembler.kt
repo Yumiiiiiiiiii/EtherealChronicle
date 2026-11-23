@@ -436,6 +436,8 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
         plan.roadClearance.forEach { change -> yield {
             val p = change.position
             val block = world.getBlockAt(p.x, p.y, p.z)
+            // 計画〜適用間に自然水が流入した低地セルは、水流を壊さず生成も止めずにスキップします。
+            if (block.type == Material.WATER) return@yield
             check(block.type == change.before || isNaturalClearance(block.type)) {
                 "Road clearance changed at ${p.x},${p.y},${p.z}: expected ${change.before}, got ${block.type}"
             }
@@ -473,14 +475,20 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
         plan.lights.forEach { change -> yield {
             val p = change.position
             val block = world.getBlockAt(p.x, p.y, p.z)
+            if (block.type == Material.WATER) return@yield
             check(isNaturalOpenSpace(block.type) || block.type == change.after) {
                 "Lantern location changed at ${p.x},${p.y},${p.z}: expected ${change.before}, got ${block.type}"
             }
+            // 支柱またはランタンの相方セルへ自然水が流入した場合は、浮遊ランタンや水中支柱を残さず一式スキップします。
+            if ((change.after == Material.SPRUCE_FENCE && p.y + 1 < world.maxHeight && world.getBlockAt(p.x, p.y + 1, p.z).type == Material.WATER) ||
+                (change.after == Material.LANTERN && p.y - 1 >= world.minHeight && world.getBlockAt(p.x, p.y - 1, p.z).type == Material.WATER)
+            ) return@yield
             block.setType(change.after, false)
         } }
         plan.decorations.forEach { change -> yield {
             val p = change.position
             val block = world.getBlockAt(p.x, p.y, p.z)
+            if (block.type == Material.WATER) return@yield
             check(isNaturalOpenSpace(block.type) || block.type == change.after) {
                 "Decoration location changed at ${p.x},${p.y},${p.z}: expected ${change.before}, got ${block.type}"
             }
