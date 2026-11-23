@@ -3,14 +3,12 @@
 Target: Paper 26.3 (build 257 STABLE), Java 25, Kotlin 2.4.21, Gradle 9.9.2 (wrapper). Plugin id `EtherealChronicle`, base package `net.nakaymi.etherealchronicle`.
 Build: `./gradlew build` -> `build/libs/EtherealChronicle-<ver>.jar`. Test server: `dev/server` (Paper jar present; EULA NOT auto-accepted).
 
-## Roles & Balanced Harness Rotation
-- Distribute work evenly across **`codex`**, **`claude`**, and **`antigravity`** so no single harness dominates.
-  - **All three harnesses** share implementation, refactoring, test writing, QA, and review via rotation rather than pinning all implementation to one harness.
-  - When running parallel tasks, assign each concurrent task to a **different harness** (`codex`, `claude`, `antigravity`) and check rate-limit headroom before choosing.
-  - Typical balanced model configs:
-    - `codex`: `gpt-6-sol` (`low`/`medium`), `gpt-6-luna` (`high` for tests), or `gpt-6.1-terra` / `gpt-6.1-sol` for heavy work.
-    - `claude`: `sonnet` (`medium`/`high`), or `opus` for heavy work.
-    - `antigravity`: `gemini-4-neon` (`medium`/`high`), `gemini-4-hydrogen` (`high`), or `gemini-3.8-flash` for light tasks.
+## Roles & Balanced / Cost-Aware Harness Rotation
+- Distribute work across **`codex`**, **`claude`**, and **`antigravity`** while keeping Codex consumption low:
+  - **`codex`**: default strictly to **`gpt-6-luna` / `low`** for focused, small-to-medium tasks (avoid `gpt-6-sol` / `gpt-6.1-terra` and `medium+` effort unless explicitly requested; run at most 1 Codex worker at a time and archive retired ones cleanly).
+  - **`antigravity`**: `gemini-4-neon` (`medium`; `high` only when complex) or `gemini-3.8-flash` (`high` for light tasks). Prefer for heavy multi-file refactors and broad checks.
+  - **`claude`**: `sonnet` (`medium`), monitoring the 7-day quota cap.
+- When running parallel tasks, assign each concurrent task to a **different harness** (`antigravity`, `claude`, `codex`) and check rate-limit headroom before choosing.
 - Lead coordinates integration, balance, release judgement, and `docs/*` consolidation.
 - `Implementer != Reviewer` (mandatory). Work on separate git branches/worktrees; merge via lead. Never edit files owned by another active task.
 
