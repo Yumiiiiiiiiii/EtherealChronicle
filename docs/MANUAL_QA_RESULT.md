@@ -337,3 +337,27 @@ Fresh world, seed -690295443989269238: search + build finished by ~21:14:13 (sta
 | 5 | NPC dialogue / shop (Pip at (-120,63,345)) | **PASS** | right-click opens the Japanese dialogue; choice 1 opens the shop menu with 3 entries and the currency line "35G" (16, 17); 0 ERROR |
 
 Cleanup: client and server stopped, dev world/plugin data/server.properties/ops/whitelist/config restored, `pauseOnLostFocus` restored to true, ports closed.
+
+## Overworld live QA #5 - fishing pond and warning regression (jar ea9a364, SHA1 D88578CA0599917DA26A69786CC5B54D490D3AEB), 2026-11-23
+SHA1 verified in both build/libs and dev/server/plugins before and after server start. Fresh world, seed 4528502914240555028: search started 22:44:37, 9/9 COMPLETED 22:46:34 (about 2 min), TPS 20.0, 0 ERROR/SEVERE, 0 "Could not project position" WARN (the downgrade is confirmed).
+
+| Item | Result | Evidence |
+|---|---|---|
+| 1. Generation and log | PASS with 2 WARN | WARN 1: `town ec:area_lumina_port placed 8 houses (8 distinct; target 10/5): bounds=3555 overlap=2704 road=965 water=3135 terrain=3 last='Obstructed foundation at 28,60,221: MAGMA_BLOCK'`. WARN 2: `No safe fishing pool found for ec:area_lumina_port; continuing without a pool`. Lumina is at (-27, 64, 255), biome BEACH; the journal has plaza, spawn, pier (-11,63,217) and the other anchors but NO `fishing_water` anchor |
+| 2. Cast fishing in the built pond | NOT REACHABLE on this seed (FAIL for the goal) | no pond was built (WARN 2), so there is no fishing_water. A real cast at the natural water beside the Lumina pier (-10.5, 66, 217.5, facing south) gave "No fish are visible in these waters." (01_pond_cast.png): no session started, so bite and reel were not reached. That natural water is about 66 blocks from the projected spot centre. Debug reel was verified in QA #4 |
+
+Verdict: NO-GO for "cast fishing works at Overworld Lumina" on this seed. When the pool fallback leaves Lumina without fishing water, the fishing spot (tied to the projected centre) has no usable water, and natural water elsewhere reports "no fish visible". It needs either a seed where a pool is placed, or the spot projected onto real water, or a guaranteed pond. Screenshots are in `C:\Users\Ymii\.traycer\epics\132bc8e7-97a8-4d19-af01-669c4ba69b04\artifacts\overworld-live-qa-fishing\` (01_pond_cast, 04_spot_topdown (dark underground view), 05_pier_water_view).
+Cleanup: server and client stopped, dev files and pauseOnLostFocus restored, ports closed.
+
+
+## Overworld live QA #6 - BEACH seed pond fix (jar 4b8f4f7, SHA1 00D43823D93D4A378C2BDA84F5A400E5ADA96CF9), 2026-11-23
+SHA1 verified in build/libs and dev/server/plugins before and after server start. `level-seed=4528502914240555028` (the QA #5 BEACH seed), `world.mode: overworld`, clean world.
+
+| Item | Result | Evidence |
+|---|---|---|
+| 1. Generation + log | PASS on run 2, **run 1 FAILED (flake)** | Run 2: search 23:27:46, 9/9 COMPLETED 23:29:49 (about 2 min), 9 READY, 4 portals, TPS 20.0/19.9/19.9, 0 ERROR, 0 "Could not project position", 0 "No safe fishing pool". Remaining WARN: the Lumina house shortfall (`placed 8 houses (8 distinct; target 10/5) ... last='Obstructed foundation at 28,60,221: MAGMA_BLOCK'`). Lumina (-27,64,255) BEACH, journal `anchors.fishing_water` = (-7, 63, 245) (artificial pond; no fallback log needed). **Run 1 (identical seed and jar)**: ERROR `IllegalStateException: Road terrain changed at -480,63,44` (`OverworldTownAssembler.kt:446` via `OverworldWorldService.applyOperations`) while building Ashwood; journal stayed IN_PROGRESS (Lumina READY, Ashwood GENERATING, 7 PENDING) and generation stopped. A restart on a fresh world with the same seed completed, so the road check is intermittent (a block changed between planning and applying, e.g. a natural update such as water/vegetation or another chunk load) |
+| 2. Real cast at `fishing_water` | **PASS** | (tested on run 1's world, where Lumina was READY) the pond is built and grounded beside the plaza (01_pond_overview). Right-click on the water: bobber `ItemDisplay` appears, BossBar "Searching for fish...", ActionBar "Tension 32% / Progress 0% Right-click to pull." (02_cast_active), `ec debug fish status`: `phase=WAITING ... bossbar=true`. Bite: title "Bite! Right-click to hook it!" then BossBar "Fighting [Steady] Progress 4%" (03). First attempt escaped (late hook, `ESCAPED_BITE`); second attempt reeled to `ended reason=CAUGHT fish=ec:fish_sky_salmon progress=100%`. No vanilla bobber/catch seen; the vanilla-fishing suppression was not tested separately. |
+
+Verdict: GO for the pond fix (fishing_water now exists and casting works end to end on the BEACH seed), with one open issue: intermittent `Road terrain changed` aborts generation and leaves the journal IN_PROGRESS (needs retry/tolerance and a recovery message). Screenshots: `C:\Users\Ymii\.traycer\epics\132bc8e7-97a8-4d19-af01-669c4ba69b04\artifacts\overworld-live-qa-fishing-v2\` (01_pond_overview, 02_cast_active, 03_bite_or_reeling).
+Cleanup: server/client stopped, dev world/plugins/server.properties (level-seed restored)/ops/whitelist/config and pauseOnLostFocus restored, ports closed.
+
