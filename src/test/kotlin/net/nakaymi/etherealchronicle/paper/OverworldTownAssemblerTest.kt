@@ -225,4 +225,133 @@ class OverworldTownAssemblerTest {
             MockBukkit.unmock()
         }
     }
+
+    @Test
+    fun `actions tolerate natural terrain drift between planning and applying`() {
+        val server = MockBukkit.mock()
+        try {
+            val world = server.addSimpleWorld("overworld-natural-drift")
+            val assets = OverworldAssets.load { SchematicData(1, 1, 1, listOf("minecraft:stone"), intArrayOf(0)) }
+            val assembler = OverworldTownAssembler(assets)
+            val site = OverworldSite(OverworldSiteIds.ASHWOOD_FOREST, 0, 63, 0, 1, "FOREST")
+
+            // 計画〜適用間に起きる自然変化（草↔土、水↔氷、降雪、葉の自然消滅）を再現します。
+            world.getBlockAt(0, 63, 0).type = Material.DIRT          // GRASS_BLOCK -> DIRT (羊採食・影枯れ)
+            world.getBlockAt(1, 63, 0).type = Material.GRASS_BLOCK   // DIRT -> GRASS_BLOCK (草伝播)
+            world.getBlockAt(2, 63, 0).type = Material.ICE           // WATER -> ICE (凍結)
+            world.getBlockAt(0, 64, 0).type = Material.SNOW          // SHORT_GRASS -> SNOW (降雪)
+            world.getBlockAt(1, 64, 0).type = Material.AIR           // OAK_LEAVES -> AIR (葉消滅)
+            world.getBlockAt(5, 63, 0).type = Material.DIRT          // 池予定地: GRASS_BLOCK -> DIRT
+            world.getBlockAt(6, 63, 0).type = Material.SNOW          // 池予定地: AIR -> SNOW
+            world.getBlockAt(8, 64, 0).type = Material.SNOW          // 街灯予定地: AIR -> SNOW
+            world.getBlockAt(10, 64, 0).type = Material.SNOW         // 装飾予定地: AIR -> SNOW
+
+            val plan = OverworldTownPlan(
+                site = site,
+                buildings = emptyList(),
+                road = listOf(
+                    OverworldTerrainChange(OverworldPoint(0, 63, 0), Material.GRASS_BLOCK, Material.COBBLESTONE),
+                    OverworldTerrainChange(OverworldPoint(1, 63, 0), Material.DIRT, Material.GRAVEL),
+                    OverworldTerrainChange(OverworldPoint(2, 63, 0), Material.WATER, Material.SPRUCE_PLANKS),
+                ),
+                roadClearance = listOf(
+                    OverworldTerrainChange(OverworldPoint(0, 64, 0), Material.SHORT_GRASS, Material.AIR),
+                    OverworldTerrainChange(OverworldPoint(1, 64, 0), Material.OAK_LEAVES, Material.AIR),
+                ),
+                pond = listOf(
+                    OverworldTerrainChange(OverworldPoint(5, 63, 0), Material.GRASS_BLOCK, Material.WATER),
+                    OverworldTerrainChange(OverworldPoint(6, 63, 0), Material.AIR, Material.WATER),
+                ),
+                lights = listOf(
+                    OverworldTerrainChange(OverworldPoint(8, 64, 0), Material.AIR, Material.SPRUCE_FENCE),
+                ),
+                decorations = listOf(
+                    OverworldTerrainChange(OverworldPoint(10, 64, 0), Material.AIR, Material.AMETHYST_BLOCK),
+                ),
+                anchors = emptyMap(),
+                portals = emptyList(),
+                prepared = emptyMap(),
+            )
+
+            assembler.actions(world, plan).forEachRemaining { it() }
+
+            assertEquals(Material.COBBLESTONE, world.getBlockAt(0, 63, 0).type)
+            assertEquals(Material.GRAVEL, world.getBlockAt(1, 63, 0).type)
+            assertEquals(Material.SPRUCE_PLANKS, world.getBlockAt(2, 63, 0).type)
+            assertEquals(Material.AIR, world.getBlockAt(0, 64, 0).type)
+            assertEquals(Material.AIR, world.getBlockAt(1, 64, 0).type)
+            assertEquals(Material.WATER, world.getBlockAt(5, 63, 0).type)
+            assertEquals(Material.WATER, world.getBlockAt(6, 63, 0).type)
+            assertEquals(Material.SPRUCE_FENCE, world.getBlockAt(8, 64, 0).type)
+            assertEquals(Material.AMETHYST_BLOCK, world.getBlockAt(10, 64, 0).type)
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
+    fun `actions still reject artificial or hazardous block changes`() {
+        val server = MockBukkit.mock()
+        try {
+            val world = server.addSimpleWorld("overworld-artificial-reject")
+            val assets = OverworldAssets.load { SchematicData(1, 1, 1, listOf("minecraft:stone"), intArrayOf(0)) }
+            val assembler = OverworldTownAssembler(assets)
+            val site = OverworldSite(OverworldSiteIds.ASHWOOD_FOREST, 0, 63, 0, 1, "FOREST")
+
+            fun emptyPlan(
+                road: List<OverworldTerrainChange> = emptyList(),
+                roadClearance: List<OverworldTerrainChange> = emptyList(),
+                pond: List<OverworldTerrainChange> = emptyList(),
+                lights: List<OverworldTerrainChange> = emptyList(),
+                decorations: List<OverworldTerrainChange> = emptyList(),
+            ) = OverworldTownPlan(site, emptyList(), road, roadClearance, pond, lights, decorations, emptyMap(), emptyList(), emptyMap())
+
+            // 道路に人工ブロックが置かれた場合は拒否し、上書きしない
+            world.getBlockAt(0, 63, 0).type = Material.BRICKS
+            val roadErr = assertThrows<IllegalStateException> {
+                assembler.actions(world, emptyPlan(road = listOf(
+                    OverworldTerrainChange(OverworldPoint(0, 63, 0), Material.GRASS_BLOCK, Material.COBBLESTONE),
+                ))).forEachRemaining { it() }
+            }
+            assertTrue(roadErr.message.orEmpty().contains("got BRICKS"), "Unexpected message: ${roadErr.message}")
+            assertEquals(Material.BRICKS, world.getBlockAt(0, 63, 0).type)
+
+            // 道路クリアランスに人工ブロックまたは地盤が現れた場合は拒否する
+            world.getBlockAt(1, 64, 0).type = Material.OAK_PLANKS
+            assertThrows<IllegalStateException> {
+                assembler.actions(world, emptyPlan(roadClearance = listOf(
+                    OverworldTerrainChange(OverworldPoint(1, 64, 0), Material.SHORT_GRASS, Material.AIR),
+                ))).forEachRemaining { it() }
+            }
+            assertEquals(Material.OAK_PLANKS, world.getBlockAt(1, 64, 0).type)
+
+            // 池に溶岩や人工ブロックが現れた場合は拒否する
+            world.getBlockAt(2, 63, 0).type = Material.LAVA
+            assertThrows<IllegalStateException> {
+                assembler.actions(world, emptyPlan(pond = listOf(
+                    OverworldTerrainChange(OverworldPoint(2, 63, 0), Material.GRASS_BLOCK, Material.WATER),
+                ))).forEachRemaining { it() }
+            }
+            assertEquals(Material.LAVA, world.getBlockAt(2, 63, 0).type)
+
+            // 街灯・装飾位置に人工ブロックが置かれた場合は拒否する
+            world.getBlockAt(3, 64, 0).type = Material.BRICKS
+            assertThrows<IllegalStateException> {
+                assembler.actions(world, emptyPlan(lights = listOf(
+                    OverworldTerrainChange(OverworldPoint(3, 64, 0), Material.AIR, Material.SPRUCE_FENCE),
+                ))).forEachRemaining { it() }
+            }
+            assertEquals(Material.BRICKS, world.getBlockAt(3, 64, 0).type)
+
+            world.getBlockAt(4, 64, 0).type = Material.CHEST
+            assertThrows<IllegalStateException> {
+                assembler.actions(world, emptyPlan(decorations = listOf(
+                    OverworldTerrainChange(OverworldPoint(4, 64, 0), Material.AIR, Material.SNOW),
+                ))).forEachRemaining { it() }
+            }
+            assertEquals(Material.CHEST, world.getBlockAt(4, 64, 0).type)
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
 }

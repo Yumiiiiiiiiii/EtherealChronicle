@@ -436,14 +436,18 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
         plan.roadClearance.forEach { change -> yield {
             val p = change.position
             val block = world.getBlockAt(p.x, p.y, p.z)
-            check(block.type == change.before || block.type.isAir) { "Road clearance changed at ${p.x},${p.y},${p.z}" }
+            check(block.type == change.before || isNaturalClearance(block.type)) {
+                "Road clearance changed at ${p.x},${p.y},${p.z}: expected ${change.before}, got ${block.type}"
+            }
             block.setType(Material.AIR, false)
         } }
         plan.road.forEach { change ->
             yield {
                 val p = change.position
                 val block = world.getBlockAt(p.x, p.y, p.z)
-                check(block.type == change.before || block.type == change.after) { "Road terrain changed at ${p.x},${p.y},${p.z}" }
+                check(block.type == change.before || block.type == change.after || isNaturalRoadTerrain(block.type)) {
+                    "Road terrain changed at ${p.x},${p.y},${p.z}: expected ${change.before}, got ${block.type}"
+                }
                 block.setType(change.after, false)
                 change.facing?.let { facing ->
                     val data = block.blockData as Directional
@@ -455,22 +459,42 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
         plan.pond.forEach { change -> yield {
             val p = change.position
             val block = world.getBlockAt(p.x, p.y, p.z)
-            check(block.type == change.before || block.type == change.after) { "Fishing pool terrain changed at ${p.x},${p.y},${p.z}" }
+            check(block.type == change.before || block.type == change.after || isNaturalPondTerrain(block.type)) {
+                "Fishing pool terrain changed at ${p.x},${p.y},${p.z}: expected ${change.before}, got ${block.type}"
+            }
             block.setType(change.after, false)
         } }
         plan.lights.forEach { change -> yield {
             val p = change.position
             val block = world.getBlockAt(p.x, p.y, p.z)
-            check(block.type.isAir || block.type == change.after) { "Lantern location changed at ${p.x},${p.y},${p.z}" }
+            check(isNaturalOpenSpace(block.type) || block.type == change.after) {
+                "Lantern location changed at ${p.x},${p.y},${p.z}: expected ${change.before}, got ${block.type}"
+            }
             block.setType(change.after, false)
         } }
         plan.decorations.forEach { change -> yield {
             val p = change.position
             val block = world.getBlockAt(p.x, p.y, p.z)
-            check(block.type.isAir || block.type == change.after) { "Decoration location changed at ${p.x},${p.y},${p.z}" }
+            check(isNaturalOpenSpace(block.type) || block.type == change.after) {
+                "Decoration location changed at ${p.x},${p.y},${p.z}: expected ${change.before}, got ${block.type}"
+            }
             block.setType(change.after, false)
         } }
     }.iterator()
+
+    /** 計画〜適用間の自然なブロック変化（草↔土・水↔氷・降雪・植物・葉消滅など）を許容し、人工ブロックや溶岩は拒否します。 */
+    private fun isNaturalRoadTerrain(type: Material): Boolean =
+        type in OverworldMaterials.ground || type == Material.WATER
+
+    private fun isNaturalClearance(type: Material): Boolean =
+        type.isAir || Tag.LOGS.isTagged(type) || Tag.LEAVES.isTagged(type) || type in OverworldMaterials.plants ||
+            Tag.FLOWERS.isTagged(type) || Tag.SAPLINGS.isTagged(type) || Tag.CAVE_VINES.isTagged(type)
+
+    private fun isNaturalPondTerrain(type: Material): Boolean =
+        type in OverworldMaterials.ground || type.isAir || type == Material.WATER || type in OverworldMaterials.plants
+
+    private fun isNaturalOpenSpace(type: Material): Boolean =
+        type.isAir || type in OverworldMaterials.plants
 
     /** 雪や水晶の目印は建物・道・池を避け、空きブロックにだけ加えます。 */
     private fun decorations(world: World, site: OverworldSite, occupied: List<Rect>, road: Set<Long>, pond: Set<Long>, snow: Boolean): List<OverworldTerrainChange> {
