@@ -445,7 +445,7 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
             yield {
                 val p = change.position
                 val block = world.getBlockAt(p.x, p.y, p.z)
-                check(block.type == change.before || block.type == change.after || isNaturalRoadTerrain(block.type)) {
+                check(block.type == change.before || block.type == change.after || isNaturalRoadTerrain(change.before, block.type)) {
                     "Road terrain changed at ${p.x},${p.y},${p.z}: expected ${change.before}, got ${block.type}"
                 }
                 block.setType(change.after, false)
@@ -459,8 +459,14 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
         plan.pond.forEach { change -> yield {
             val p = change.position
             val block = world.getBlockAt(p.x, p.y, p.z)
-            check(block.type == change.before || block.type == change.after || isNaturalPondTerrain(block.type)) {
+            val isBottom = change.after == Material.GRAVEL || change.after == Material.PACKED_ICE
+            check(block.type == change.before || block.type == change.after || isNaturalPondDrift(change.before, block.type)) {
                 "Fishing pool terrain changed at ${p.x},${p.y},${p.z}: expected ${change.before}, got ${block.type}"
+            }
+            if (isBottom) {
+                check(isStableSolid(world, p.x, p.y - 1, p.z)) {
+                    "Fishing pool support changed below ${p.x},${p.y},${p.z}"
+                }
             }
             block.setType(change.after, false)
         } }
@@ -482,19 +488,28 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
         } }
     }.iterator()
 
-    /** 計画〜適用間の自然なブロック変化（草↔土・水↔氷・降雪・植物・葉消滅など）を許容し、人工ブロックや溶岩は拒否します。 */
-    private fun isNaturalRoadTerrain(type: Material): Boolean =
-        type in OverworldMaterials.ground || type == Material.WATER
+    /** 計画〜適用間の自然なブロック変化（草↔土・水↔氷・降雪・葉消滅など）だけを元の種別に応じて許容し、人工ブロックや空洞化・溶岩は拒否します。 */
+    private fun isNaturalRoadTerrain(before: Material, actual: Material): Boolean = when {
+        before == Material.WATER -> actual == Material.WATER || actual == Material.ICE
+        before == Material.ICE -> actual == Material.ICE || actual == Material.WATER || actual in OverworldMaterials.ground
+        before in OverworldMaterials.ground -> actual in OverworldMaterials.ground
+        else -> false
+    }
 
     private fun isNaturalClearance(type: Material): Boolean =
         type.isAir || Tag.LOGS.isTagged(type) || Tag.LEAVES.isTagged(type) || type in OverworldMaterials.plants ||
             Tag.FLOWERS.isTagged(type) || Tag.SAPLINGS.isTagged(type) || Tag.CAVE_VINES.isTagged(type)
 
-    private fun isNaturalPondTerrain(type: Material): Boolean =
-        type in OverworldMaterials.ground || type.isAir || type == Material.WATER || type in OverworldMaterials.plants
+    private fun isNaturalPondDrift(before: Material, actual: Material): Boolean = when {
+        before == Material.WATER -> actual == Material.WATER || actual == Material.ICE
+        before == Material.ICE -> actual == Material.ICE || actual == Material.WATER || actual in OverworldMaterials.ground
+        before in OverworldMaterials.ground -> actual in OverworldMaterials.ground
+        before.isAir -> actual.isAir || actual == Material.SNOW
+        else -> false
+    }
 
     private fun isNaturalOpenSpace(type: Material): Boolean =
-        type.isAir || type in OverworldMaterials.plants
+        type.isAir || type == Material.SNOW
 
     /** 雪や水晶の目印は建物・道・池を避け、空きブロックにだけ加えます。 */
     private fun decorations(world: World, site: OverworldSite, occupied: List<Rect>, road: Set<Long>, pond: Set<Long>, snow: Boolean): List<OverworldTerrainChange> {
