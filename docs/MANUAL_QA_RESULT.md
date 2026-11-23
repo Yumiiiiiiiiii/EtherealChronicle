@@ -296,3 +296,15 @@ Setup: clean `world` + fresh plugin data (originals moved aside and restored aft
 | 4. Default `dedicated_ec_world` regression | **PASS** | clean start with no `world.mode`: `Created ec_world from bundled schematics (terrain v6)`, `Adventure systems are ready`, `EC_CONTENT_VALIDATION_SUCCESS`, 0 ERROR, TPS 20.0 |
 
 Server up time to failure and TPS during the failed run were not meaningful (failure at +12 s, server stayed healthy). Rerun items 1-3 once the sampling fix is on master. Cleanup: server stopped, original `world`, `plugins/EtherealChronicle`, server.properties, ops.json, whitelist, config restored; ports closed; the failed run's world was kept as `world.qa-run-overworld-failed` under dev/server.
+
+## Overworld mode live QA rerun (master 1517a0c jar), 2026-11-23
+Harness note: `scripts/client/server-host.ps1` re-installs `<worktree>/build/libs` into `dev/server/plugins` on every start, so the supplied jar (`D:\test\mcmmo\build\libs`) had to be copied into the qa-harness `build/libs` first (the first rerun accidentally ran the old b88a0c4 build and reproduced the old "chunk repeatedly unloaded" error; discarded). Verified by SHA1 5A8396A6 before the runs below.
+
+| Item | Result | Evidence |
+|---|---|---|
+| 1. Clean Overworld generation (9/9) | **FAIL (High, blocker)** | Chunk-sampling fix works (no unload error), but after ~4.5-5 min of search the town planner aborts: `IllegalArgumentException: Insufficient distinct grounded plots for ec:area_lumina_port` (`OverworldTownAssembler.planBuildings`, line 332: Lumina needs >= 10 `house_` buildings with >= 5 distinct templates). Reproduced on two independent clean worlds (seeds 2697034697951946031 at 10:46:16 after start 10:41:21, and 9212233920172711728 at 10:51:31 after start 10:47:33). Journal `.etherealchronicle-overworld.json` not written, no site placed, no portal, no Lumina spawn. TPS stayed 20.0/20.0/20.0 and no "Can't keep up" lines during the ~5 min search |
+| 2. Restart idempotency | **NOT-RUN** | nothing reaches COMPLETED |
+| 3. Real-client checks + screenshots | **NOT-RUN** | blocked by item 1 (no client started; `overworld-live-qa` folder not created) |
+
+Observations: generation takes ~5 min of wall time before it can even fail; the log gives no progress lines between "Adventure systems are ready" and the final error, and the failure message does not say which site/plots were rejected or why (candidate count, slope/water rejections). Suggest logging per-site candidate evaluation and the number of grounded plots found, and making the Lumina house minimum fall back to a weaker site candidate rather than failing the whole generation.
+Cleanup: server stopped, dev `world`, `plugins/EtherealChronicle`, server.properties, ops.json, whitelist, config restored, failed-run folders deleted, ports closed.
