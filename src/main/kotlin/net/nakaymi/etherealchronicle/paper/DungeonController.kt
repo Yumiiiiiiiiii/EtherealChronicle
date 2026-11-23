@@ -32,6 +32,16 @@ import org.bukkit.event.player.PlayerRespawnEvent
 import org.bukkit.event.player.PlayerTeleportEvent
 import java.util.UUID
 
+/** 管理者によるダンジョンスロット手動解放コマンドの結果です。 */
+internal enum class DungeonSlotReleaseResult {
+    CLEANING,
+    RELEASED,
+    NOT_OVERWORLD,
+    ACTIVE,
+    CLEANING_IN_PROGRESS,
+    NOT_FOUND,
+}
+
 /** 制限数付きの複数ダンジョン instance、wave、帰還地点、空中スロットのライフサイクルを管理します。 */
 class DungeonController internal constructor(
     private val plugin: RpgPlugin,
@@ -158,12 +168,14 @@ class DungeonController internal constructor(
         }
     }
 
-    /** 起動時に永続化された所有スロットを点検し、未帰還記録ありは保護、孤立スロットは自動撤去します。 */
+    /** 起動時に永続化された所有スロットを点検し、未帰還記録ありは保護、未書込は記録削除のみ、配置済み孤立は自動撤去します。 */
     private fun reconcileOwnedSlotsOnStartup() {
         if (shuttingDown || !plugin.isEnabled) return
         ownedSlots.values.toList().forEach { owned ->
             if (hasPendingReturnForOwnedSlot(owned)) {
                 slotTracker.protect(owned.slot)
+            } else if (!owned.placementStarted) {
+                removeOwnedSlotAndRelease(owned.slot)
             } else {
                 startOwnedSlotCleanup(owned.slot)
             }
@@ -480,6 +492,7 @@ class DungeonController internal constructor(
             minX = bounds.minX,
             minY = bounds.minY,
             minZ = bounds.minZ,
+            placementStarted = false,
         )
         store.putOwnedSlot(owned).whenComplete { _, writeError ->
             plugin.sync {
@@ -518,6 +531,7 @@ class DungeonController internal constructor(
                 bounds = bounds,
                 schematic = session.schematic,
                 scanOperation = scanOperation,
+                beforeFirstWrite = { proceed -> markPlacementStarted(slot, proceed) },
             ) { placementOperation, success, error ->
                 handlePlacementResult(session, index, slot, placementOperation, success, error)
             }
@@ -526,6 +540,34 @@ class DungeonController internal constructor(
             plugin.logger.warning("Dungeon placement could not start for slot $slot: ${error.message}")
             removeOwnedSlotAndRelease(slot) {
                 tryCandidate(session, index + 1)
+            }
+        }
+    }
+
+    /** 事前チャンク検証の通過後・最初のブロック書込直前に placementStarted=true を永続化します。 */
+    private fun markPlacementStarted(slot: Int, proceed: (Boolean) -> Unit) {
+        if (shuttingDown || !plugin.isEnabled || journalFailed) {
+            proceed(false)
+            return
+        }
+        val current = ownedSlots[slot]
+        val store = returnStore
+        if (current == null || store == null) {
+            proceed(false)
+            return
+        }
+        val started = current.copy(placementStarted = true)
+        store.putOwnedSlot(started).whenComplete { _, error ->
+            plugin.sync {
+                if (error != null || shuttingDown || !plugin.isEnabled || ownedSlots[slot] != current) {
+                    if (error != null) {
+                        plugin.logger.severe("Failed to mark dungeon placement started for slot $slot: ${error.message}")
+                    }
+                    proceed(false)
+                } else {
+                    ownedSlots[slot] = started
+                    proceed(true)
+                }
             }
         }
     }
@@ -1278,6 +1320,10 @@ class DungeonController internal constructor(
             }
             return
         }
+        if (!owned.placementStarted) {
+            removeOwnedSlotAndRelease(slot)
+            return
+        }
         val world = Bukkit.getWorld(owned.world)
         if (world == null) {
             slotTracker.protect(slot)
@@ -1286,7 +1332,8 @@ class DungeonController internal constructor(
         }
         if (!slotTracker.tryBeginCleaning(slot)) return
         val bounds = DungeonInstanceBounds(owned.minX, owned.minY, owned.minZ)
-        val cellIndices = retainedPlacedCells.remove(slot)
+        val retained = retainedPlacedCells.remove(slot)
+        val cellIndices = retained ?: resolveSchematicNonAirCellIndices(owned.dungeonId)
         val (_, currentPlacement) = ensureOverworldTools(world)
         try {
             val handle = currentPlacement.clearBounds(bounds, cellIndices) { cleared, error ->
@@ -1297,15 +1344,167 @@ class DungeonController internal constructor(
                     if (error != null) {
                         plugin.logger.warning("Dungeon owned slot cleanup failed for slot $slot: ${error.message}")
                     }
-                    if (cellIndices != null) retainedPlacedCells[slot] = cellIndices
+                    if (retained != null) retainedPlacedCells[slot] = retained
                     slotTracker.protect(slot)
                 }
             }
             cleaningHandles[slot] = handle
         } catch (error: Exception) {
-            if (cellIndices != null) retainedPlacedCells[slot] = cellIndices
+            if (retained != null) retainedPlacedCells[slot] = retained
             slotTracker.protect(slot)
             plugin.logger.warning("Could not start owned dungeon slot cleanup for slot $slot: ${error.message}")
+        }
+    }
+
+    /** 起動時孤立回収の対象をスキーマの非空気セルのみに限定するため、dungeonId から非空気セル配列を再導出します。 */
+    private fun resolveSchematicNonAirCellIndices(dungeonId: String): IntArray? {
+        val path = WorldSchematicLayout.dungeonPath(dungeonId) ?: return null
+        val schematic = loadedSchematics[path] ?: runCatching { SchematicResources.load(path) }
+            .onFailure { plugin.logger.warning("Could not load dungeon schematic $path for cleanup: ${it.message}") }
+            .getOrNull()?.also { loadedSchematics[path] = it } ?: return null
+        if (schematic.width != OverworldDungeonInstanceLayout.ARENA_WIDTH ||
+            schematic.height != OverworldDungeonInstanceLayout.ARENA_HEIGHT ||
+            schematic.length != OverworldDungeonInstanceLayout.ARENA_WIDTH
+        ) {
+            return null
+        }
+        return OverworldDungeonPlacement.nonAirCellIndices(schematic)
+    }
+
+    /** 管理者補完向けに、非稼働の保護中・所有済みスロット番号一覧を返します。 */
+    internal fun releasableSlots(): List<Int> {
+        if (!plugin.activeWorldProjection.registry.isOverworldMode()) return emptyList()
+        val candidates = mutableSetOf<Int>()
+        candidates += ownedSlots.keys
+        for (slot in 0 until OverworldDungeonInstanceLayout.MAX_CANDIDATE_SLOTS) {
+            if (slotTracker.stateOf(slot) == DungeonSlotState.PROTECTED) candidates += slot
+        }
+        candidates.removeAll(instances.keys)
+        candidates.removeIf { slot ->
+            val state = slotTracker.stateOf(slot)
+            state == DungeonSlotState.ACTIVE || state == DungeonSlotState.RESERVED || state == DungeonSlotState.CLEANING
+        }
+        return candidates.sorted()
+    }
+
+    /**
+     * 管理者コマンドから非稼働スロットの保護状態・残留所有証跡・未帰還記録を安全に解放・撤去します。
+     * ジャーナル二重破損時（journalFailed）でも指定スロットの残骸撤去を実行できます。
+     */
+    internal fun releaseProtectedSlot(slot: Int): DungeonSlotReleaseResult {
+        if (!plugin.activeWorldProjection.registry.isOverworldMode()) {
+            return DungeonSlotReleaseResult.NOT_OVERWORLD
+        }
+        if (slot in instances) return DungeonSlotReleaseResult.ACTIVE
+        val state = slotTracker.stateOf(slot)
+        if (state == DungeonSlotState.ACTIVE || state == DungeonSlotState.RESERVED) {
+            return DungeonSlotReleaseResult.ACTIVE
+        }
+        if (state == DungeonSlotState.CLEANING) {
+            return DungeonSlotReleaseResult.CLEANING_IN_PROGRESS
+        }
+
+        val owned = ownedSlots[slot]
+        val worldName = owned?.world ?: plugin.activeWorldProjection.worldName()
+        val world = Bukkit.getWorld(worldName)
+        if (world != null) resolveOverworldLayout(world, logValidation = false)
+        val slotCenter = if (owned != null) {
+            DungeonInstanceCenter(
+                x = owned.minX + OverworldDungeonInstanceLayout.ARENA_RADIUS,
+                y = owned.minY + OverworldDungeonInstanceLayout.FLOOR_OFFSET,
+                z = owned.minZ + OverworldDungeonInstanceLayout.ARENA_RADIUS,
+            )
+        } else {
+            overworldLayout.center(slot)
+        }
+        val staleReturnIds = pendingReturns.entries
+            .filter { (_, record) ->
+                record.world == worldName &&
+                    record.slotX == slotCenter.x &&
+                    record.slotY == slotCenter.y &&
+                    record.slotZ == slotCenter.z
+            }
+            .map { it.key }
+            .toSet()
+        val isProtected = state == DungeonSlotState.PROTECTED
+        if (owned == null && staleReturnIds.isEmpty() && !isProtected && !journalFailed) {
+            return DungeonSlotReleaseResult.NOT_FOUND
+        }
+
+        // 解放対象スロットにオンラインプレイヤーが残っていれば床を消す前に安全な地上へ退避します。
+        if (world != null) {
+            val fallback = lazy { resolveForcedSafeFallback(world) }
+            world.players.forEach { online ->
+                if (online.isOnline && isInsideDungeonSlotMargin(slotCenter, online.location.x, online.location.y, online.location.z)) {
+                    online.teleport(fallback.value)
+                }
+            }
+        }
+
+        if (staleReturnIds.isNotEmpty()) {
+            staleReturnIds.forEach { id ->
+                pendingReturns.remove(id)
+                pendingReturnFreezeSince.remove(id)
+                recoveringPlayers.remove(id)
+            }
+            val store = returnStore
+            if (store != null && !journalFailed) {
+                store.removeAll(staleReturnIds).whenComplete { _, error ->
+                    if (error != null) {
+                        plugin.sync {
+                            plugin.logger.warning(
+                                "Failed to remove stale dungeon return records during manual release of slot $slot: ${error.message}",
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        if (owned != null) {
+            if (!owned.placementStarted && placedOperations[slot] == null) {
+                removeOwnedSlotAndRelease(slot)
+                return DungeonSlotReleaseResult.RELEASED
+            }
+            startOwnedSlotCleanup(slot)
+            return if (slotTracker.stateOf(slot) == DungeonSlotState.CLEANING) {
+                DungeonSlotReleaseResult.CLEANING
+            } else {
+                DungeonSlotReleaseResult.RELEASED
+            }
+        }
+
+        if (world == null || shuttingDown || !plugin.isEnabled) {
+            retainedPlacedCells.remove(slot)
+            slotTracker.release(slot)
+            return DungeonSlotReleaseResult.RELEASED
+        }
+        if (!slotTracker.tryBeginCleaning(slot)) {
+            return DungeonSlotReleaseResult.CLEANING_IN_PROGRESS
+        }
+        val bounds = overworldLayout.bounds(slot)
+        val retained = retainedPlacedCells.remove(slot)
+        val (_, currentPlacement) = ensureOverworldTools(world)
+        try {
+            val handle = currentPlacement.clearBounds(bounds, retained) { cleared, error ->
+                cleaningHandles.remove(slot)
+                if (cleared) {
+                    slotTracker.release(slot)
+                } else {
+                    if (error != null) {
+                        plugin.logger.warning("Manual cleanup failed for dungeon slot $slot: ${error.message}")
+                    }
+                    if (retained != null) retainedPlacedCells[slot] = retained
+                    slotTracker.protect(slot)
+                }
+            }
+            cleaningHandles[slot] = handle
+            return DungeonSlotReleaseResult.CLEANING
+        } catch (error: Exception) {
+            if (retained != null) retainedPlacedCells[slot] = retained
+            slotTracker.protect(slot)
+            plugin.logger.warning("Could not start manual cleanup for dungeon slot $slot: ${error.message}")
+            return DungeonSlotReleaseResult.RELEASED
         }
     }
 

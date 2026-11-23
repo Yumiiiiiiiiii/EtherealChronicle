@@ -36,6 +36,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal lateinit var activeWorldProjection: ActiveWorldProjection
     private data class ProjectionCacheKey(val position: Position, val areaId: String?, val allowWater: Boolean)
     private val projectedPositions = mutableMapOf<ProjectionCacheKey, Position>()
+    private val failedProjectionPositions = mutableSetOf<ProjectionCacheKey>()
     private var appliedReadyAnchors: Map<String, OverworldSiteAnchor> = emptyMap()
     private val invUiInventoryAdapter by lazy { InvUiInventoryAdapter(uiTheme) { stack -> item(stack)?.itemModel } }
     internal lateinit var adventure: AdventureController
@@ -95,6 +96,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
 
     private fun rebuildWorldProjection(registry: OverworldSiteRegistry = activeWorldProjection.registry) {
         projectedPositions.clear()
+        failedProjectionPositions.clear()
         safeAreaSnapshot = null
         activeWorldProjection = ActiveWorldProjection(registry, snapshot.world.areas.values) { x, z ->
             val world = server.getWorld(registry.activeWorldName()) ?: error("ec.error.world_unavailable")
@@ -178,6 +180,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal fun projectedPosition(position: Position, areaId: String? = null, allowWater: Boolean = false): Position? {
         val cacheKey = ProjectionCacheKey(position, areaId, allowWater)
         projectedPositions[cacheKey]?.let { return it }
+        if (cacheKey in failedProjectionPositions) return null
         val projection = activeWorldProjection.projector
         val horizontal = if (areaId == null) projection.projectHorizontal(position) else projection.projectHorizontal(position, areaId)
         horizontal ?: return null
@@ -185,7 +188,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val world = server.getWorld(horizontal.world) ?: return null
         val chunk = ChunkCoordinates.fromPosition(horizontal.x, horizontal.z)
         if (!world.isChunkLoaded(chunk.x, chunk.z)) return null
-        return runCatching {
+        val result = runCatching {
             if (allowWater) {
                 val bx = kotlin.math.floor(horizontal.x).toInt()
                 val bz = kotlin.math.floor(horizontal.z).toInt()
@@ -195,7 +198,16 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             } else {
                 projection.project(position, areaId)
             }
-        }.getOrNull()?.also { projectedPositions[cacheKey] = it }
+        }
+        result.onFailure { error ->
+            if (failedProjectionPositions.add(cacheKey)) {
+                logger.warning(
+                    "Could not project position (${horizontal.world} ${horizontal.x},${horizontal.z}, " +
+                        "area=${areaId ?: "auto"}, allowWater=$allowWater): ${error.message}",
+                )
+            }
+        }
+        return result.getOrNull()?.also { projectedPositions[cacheKey] = it }
     }
 
     /** 対象ワールドだけをゲームコントローラーに公開します。 */
@@ -1210,6 +1222,10 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 snapshot.world.areas.keys.map { it.removePrefix("ec:area_") }
             args.firstOrNull() == "travel" && args.size == 2 && sender.hasPermission("etherealchronicle.admin") ->
                 snapshot.world.areas.keys.map { it.removePrefix("ec:area_") }
+            args.firstOrNull() == "dungeon" && args.size == 2 ->
+                listOf("enter", "leave", "records") + listOf("release").takeIf { sender.hasPermission("etherealchronicle.admin") }.orEmpty()
+            args.firstOrNull() == "dungeon" && args.size == 3 && args[1] == "release" && sender.hasPermission("etherealchronicle.admin") ->
+                if (::dungeons.isInitialized) dungeons.releasableSlots().map { it.toString() } else emptyList()
             args.firstOrNull() == "class" && sender.hasPermission("etherealchronicle.admin") && args.size == 2 -> server.onlinePlayers.map { it.name }
             args.firstOrNull() == "class" && sender.hasPermission("etherealchronicle.admin") && args.size == 3 -> snapshot.classes.all().map { it.id }
             else -> emptyList()
@@ -1222,13 +1238,18 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             sender.sendMessage(message(sender,"ec.startup.starting"))
             return true
         }
-        if (args.firstOrNull() in setOf("sites", "travel")) {
+        if (args.firstOrNull() in setOf("sites", "travel") ||
+            (args.firstOrNull() == "dungeon" && args.getOrNull(1) == "release")
+        ) {
             try {
-                if (args[0] == "sites") simulationCommands.sites(sender, args.toList())
-                else {
-                    require(sender.hasPermission("etherealchronicle.admin")) { "ec.command.no_permission" }
-                    require(args.size == 2) { "ec.sites.travel_usage" }
-                    simulationCommands.travel(sender as? Player ?: error("ec.error.player_required"), args[1])
+                when (args[0]) {
+                    "sites" -> simulationCommands.sites(sender, args.toList())
+                    "dungeon" -> simulationCommands.releaseDungeonSlot(sender, args.toList())
+                    else -> {
+                        require(sender.hasPermission("etherealchronicle.admin")) { "ec.command.no_permission" }
+                        require(args.size == 2) { "ec.sites.travel_usage" }
+                        simulationCommands.travel(sender as? Player ?: error("ec.error.player_required"), args[1])
+                    }
                 }
             } catch (error: Exception) {
                 sender.sendMessage(message(sender, "ec.command.failed", "reason" to diagnostic(sender, error.message.orEmpty())))

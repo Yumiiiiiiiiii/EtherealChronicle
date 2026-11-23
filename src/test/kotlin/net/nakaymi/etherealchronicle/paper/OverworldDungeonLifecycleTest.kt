@@ -982,4 +982,245 @@ class OverworldDungeonLifecycleTest {
             MockBukkit.unmock()
         }
     }
+
+    @Test
+    fun `startup orphan cleanup skips blocks when placementStarted is false and limits removal to schematic non-air cells when true`() {
+        val server = MockBukkit.mock()
+        try {
+            val layout = OverworldDungeonInstanceLayout(baseX = 512, baseY = 220, baseZ = 512, spacing = 128)
+            val slot0Center = layout.center(0)
+            val slot0Bounds = layout.bounds(0)
+            val slot1Center = layout.center(1)
+            val slot1Bounds = layout.bounds(1)
+            val (plugin, world, dungeons) = setupOverworldPlugin(
+                server,
+                beforeControllerInit = { target ->
+                    val w = server.getWorld("overworld_lifecycle") as AsyncChunkWorldMock
+                    // スロット 0: placementStarted = false -> 既存地形ブロックを一切削らず所有記録だけ削除されるべき
+                    val c0x = slot0Center.x shr 4
+                    val c0z = slot0Center.z shr 4
+                    w.generatedChunks += c0x to c0z
+                    w.loadChunk(c0x, c0z)
+                    w.getBlockAt(slot0Center.x, slot0Center.y, slot0Center.z).type = Material.OAK_PLANKS
+
+                    // スロット 1: placementStarted = true -> スキーマの床セル (y=slot1Center.y) のみ撤去し、スキーマ外セル (y=slot1Center.y+5) は保持されるべき
+                    val c1x = slot1Center.x shr 4
+                    val c1z = slot1Center.z shr 4
+                    w.generatedChunks += c1x to c1z
+                    w.loadChunk(c1x, c1z)
+                    w.getBlockAt(slot1Center.x, slot1Center.y, slot1Center.z).type = Material.STONE_BRICKS
+                    w.getBlockAt(slot1Center.x, slot1Center.y + 5, slot1Center.z).type = Material.DIAMOND_BLOCK
+
+                    val journal = target.dataFolder.toPath().resolve("dungeon-returns.json")
+                    DungeonReturnStore(journal).use { store ->
+                        store.putOwnedSlot(
+                            DungeonOwnedSlot(
+                                slot = 0,
+                                world = w.name,
+                                dungeonId = "ec:dungeon_novice_arena",
+                                minX = slot0Bounds.minX,
+                                minY = slot0Bounds.minY,
+                                minZ = slot0Bounds.minZ,
+                                placementStarted = false,
+                            ),
+                        ).get(5, TimeUnit.SECONDS)
+                        store.putOwnedSlot(
+                            DungeonOwnedSlot(
+                                slot = 1,
+                                world = w.name,
+                                dungeonId = "ec:dungeon_novice_arena",
+                                minX = slot1Bounds.minX,
+                                minY = slot1Bounds.minY,
+                                minZ = slot1Bounds.minZ,
+                                placementStarted = true,
+                            ),
+                        ).get(5, TimeUnit.SECONDS)
+                    }
+                },
+            )
+
+            assertTrue(
+                server.pump(10_000) {
+                    dungeons.slotState(0) == null && dungeons.slotState(1) == null && dungeons.activeCount() == 0
+                },
+                "Startup reconciliation did not complete for slots 0 and 1",
+            )
+            // スロット 0 (placementStarted = false) は自然地形・既存建築を破壊しないこと
+            assertEquals(
+                Material.OAK_PLANKS,
+                world.getBlockAt(slot0Center.x, slot0Center.y, slot0Center.z).type,
+                "Orphan slot with placementStarted=false must not destroy existing blocks",
+            )
+            // スロット 1 (placementStarted = true) はスキーマ床だけ撤去し、スキーマ外のブロックは保持すること
+            assertTrue(
+                world.getBlockAt(slot1Center.x, slot1Center.y, slot1Center.z).type.isAir,
+                "Orphan slot with placementStarted=true must clear schematic floor blocks",
+            )
+            assertEquals(
+                Material.DIAMOND_BLOCK,
+                world.getBlockAt(slot1Center.x, slot1Center.y + 5, slot1Center.z).type,
+                "Orphan slot cleanup must preserve non-schematic blocks inside slot bounds",
+            )
+
+            val journal = plugin.dataFolder.toPath().resolve("dungeon-returns.json")
+            val persisted = DungeonReturnStore(journal).use { it.readState().get(5, TimeUnit.SECONDS) }
+            assertTrue(persisted.ownedSlots.isEmpty(), "Both reconciled ownedSlots should be removed from journal")
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
+    fun `admin dungeon release enforces permission, rejects active slots, releases protected slots for reuse, and recovers after journal corruption`() {
+        val server = MockBukkit.mock()
+        try {
+            val (plugin, world, dungeons) = setupOverworldPlugin(server)
+            val commands = SimulationCommandController(plugin)
+            val layout = OverworldDungeonInstanceLayout(baseX = 512, baseY = 220, baseZ = 512, spacing = 128)
+            val slot0Center = layout.center(0)
+
+            val regular = joinPlayer(server, plugin, world, "ReleaseUser")
+            regular.isOp = false
+            val admin = joinPlayer(server, plugin, world, "ReleaseAdmin")
+            admin.isOp = true
+
+            // 1. 非管理者は拒否されること
+            val noPerm = assertThrows(IllegalArgumentException::class.java) {
+                commands.releaseDungeonSlot(regular, listOf("dungeon", "release", "0"))
+            }
+            assertEquals("ec.command.no_permission", noPerm.message)
+
+            // 2. 稼働中 (ACTIVE) のスロットは解放拒否され、アリーナもプレイヤーも影響を受けないこと
+            dungeons.enter(regular, "ec:dungeon_novice_arena")
+            assertTrue(server.pump(10_000) { dungeons.containsPlayer(regular.uniqueId) })
+            assertEquals(DungeonSlotState.ACTIVE, dungeons.slotState(0))
+            while (admin.nextComponentMessage() != null) { /* 既存メッセージをクリア */ }
+            commands.releaseDungeonSlot(admin, listOf("dungeon", "release", "0"))
+            val activeExpected = plain.serialize(plugin.message(admin, "ec.dungeon.release_active", "slot" to 0))
+            val activeMsgs = generateSequence { admin.nextComponentMessage() }.map(plain::serialize).toList()
+            assertTrue(activeExpected in activeMsgs, "Expected release_active notice '$activeExpected', got $activeMsgs")
+            assertTrue(dungeons.containsPlayer(regular.uniqueId))
+            assertEquals(Material.STONE_BRICKS, world.getBlockAt(slot0Center.x, slot0Center.y, slot0Center.z).type)
+
+            // 3. 切断後に PROTECTED となったスロットを管理者が解放すると撤去・記録削除され、再利用可能になること
+            dungeons.quit(PlayerQuitEvent(regular, Component.empty(), PlayerQuitEvent.QuitReason.DISCONNECTED))
+            assertEquals(DungeonSlotState.PROTECTED, dungeons.slotState(0))
+            assertTrue(dungeons.hasPendingReturn(regular.uniqueId))
+            assertEquals(listOf(0), dungeons.releasableSlots())
+
+            while (admin.nextComponentMessage() != null) { /* 既存メッセージをクリア */ }
+            commands.releaseDungeonSlot(admin, listOf("dungeon", "release", "0"))
+            val startedExpected = plain.serialize(plugin.message(admin, "ec.dungeon.release_started", "slot" to 0))
+            val startedMsgs = generateSequence { admin.nextComponentMessage() }.map(plain::serialize).toList()
+            assertTrue(startedExpected in startedMsgs, "Expected release_started notice '$startedExpected', got $startedMsgs")
+
+            assertTrue(
+                server.pump(10_000) {
+                    dungeons.slotState(0) == null &&
+                        !dungeons.hasPendingReturn(regular.uniqueId) &&
+                        dungeons.activeCount() == 0
+                },
+                "Manual release did not finish cleaning protected slot 0 (state=${dungeons.slotState(0)})",
+            )
+            assertTrue(
+                world.getBlockAt(slot0Center.x, slot0Center.y, slot0Center.z).type.isAir,
+                "Manual release did not clear arena floor blocks to AIR",
+            )
+
+            // スロット 0 が即座に再利用できること
+            dungeons.enter(admin, "ec:dungeon_novice_arena")
+            assertTrue(server.pump(10_000) { dungeons.containsPlayer(admin.uniqueId) })
+            assertTrue(
+                kotlin.math.abs(admin.location.x - slot0Center.x) < 30.0,
+                "Expected manually released slot 0 to be reused, got ${admin.location}",
+            )
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
+    fun `admin dungeon release can manually clear leftover sky blocks after journal double corruption`() {
+        val server = MockBukkit.mock()
+        try {
+            val layout = OverworldDungeonInstanceLayout(baseX = 512, baseY = 220, baseZ = 512, spacing = 128)
+            val slot0Center = layout.center(0)
+            val (plugin, world, dungeons) = setupOverworldPlugin(server, beforeControllerInit = { target ->
+                val journal = target.dataFolder.toPath().resolve("dungeon-returns.json")
+                val backup = target.dataFolder.toPath().resolve("dungeon-returns.json.bak")
+                Files.createDirectories(journal.parent)
+                Files.writeString(journal, "{corrupt-primary")
+                Files.writeString(backup, "{corrupt-backup")
+            })
+            assertTrue(dungeons.isJournalFailed())
+            val cx = slot0Center.x shr 4
+            val cz = slot0Center.z shr 4
+            world.generatedChunks += cx to cz
+            world.loadChunk(cx, cz)
+            world.getBlockAt(slot0Center.x, slot0Center.y, slot0Center.z).type = Material.STONE_BRICKS
+
+            val admin = joinPlayer(server, plugin, world, "CorruptAdmin")
+            admin.isOp = true
+            SimulationCommandController(plugin).releaseDungeonSlot(admin, listOf("dungeon", "release", "0"))
+            assertTrue(
+                server.pump(10_000) {
+                    dungeons.slotState(0) == null && world.getBlockAt(slot0Center.x, slot0Center.y, slot0Center.z).type.isAir
+                },
+                "Manual release after journal corruption did not clear leftover slot 0 blocks",
+            )
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
+    fun `projectedPosition negatively caches failed surface lookups until anchors refresh`() {
+        val server = MockBukkit.mock()
+        try {
+            val (plugin, world, _) = setupOverworldPlugin(server)
+            var surfaceLookups = 0
+            val registry = plugin.activeWorldProjection.registry
+            plugin.activeWorldProjection = ActiveWorldProjection(registry, plugin.snapshot.world.areas.values) { x, z ->
+                surfaceLookups++
+                plugin.resolveProjectionSurfaceY(world, x, z)
+            }
+
+            val waterX = 35
+            val waterZ = 35
+            world.generatedChunks += (waterX shr 4) to (waterZ shr 4)
+            world.loadChunk(waterX shr 4, waterZ shr 4)
+            world.getBlockAt(waterX, 60, waterZ).type = Material.STONE
+            for (y in 61..64) world.getBlockAt(waterX, y, waterZ).type = Material.WATER
+            for (y in 65..70) world.getBlockAt(waterX, y, waterZ).type = Material.AIR
+
+            val luminaArea = plugin.snapshot.world.areas.getValue("ec:area_lumina_port")
+            val areaCenterX = (luminaArea.minX + luminaArea.maxX) / 2.0
+            val areaCenterZ = (luminaArea.minZ + luminaArea.maxZ) / 2.0
+            val sourcePos = Position(luminaArea.world, areaCenterX + (waterX - 10), 65.0, areaCenterZ + (waterZ - 10))
+
+            // 1 回目は失敗して負キャッシュされる
+            assertNull(plugin.projectedPosition(sourcePos, "ec:area_lumina_port", allowWater = false))
+            assertEquals(1, surfaceLookups, "First failed projection should invoke surfaceLookup once")
+
+            // 2 回目以降は負キャッシュにより surfaceLookup を再計算しないこと
+            assertNull(plugin.projectedPosition(sourcePos, "ec:area_lumina_port", allowWater = false))
+            assertNull(plugin.projectedPosition(sourcePos, "ec:area_lumina_port", allowWater = false))
+            assertEquals(1, surfaceLookups, "Negative cache must prevent repeated surfaceLookup recomputation")
+
+            // 同一座標でも allowWater = true は別キーとして成功すること
+            val fishingPos = plugin.projectedPosition(sourcePos, "ec:area_lumina_port", allowWater = true)
+            assertNotNull(fishingPos)
+            assertEquals(65.0, fishingPos!!.y)
+
+            // 地形を固体へ直してもアンカー更新までは負キャッシュが効き、refreshWorldAnchors() でクリアされて投影が成功すること
+            for (y in 61..64) world.getBlockAt(waterX, y, waterZ).type = Material.STONE
+            assertNull(plugin.projectedPosition(sourcePos, "ec:area_lumina_port", allowWater = false))
+            plugin.refreshWorldAnchors()
+            val recovered = plugin.projectedPosition(sourcePos, "ec:area_lumina_port", allowWater = false)
+            assertNotNull(recovered, "refreshWorldAnchors must clear negative projection cache")
+            assertEquals(65.0, recovered!!.y)
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
 }

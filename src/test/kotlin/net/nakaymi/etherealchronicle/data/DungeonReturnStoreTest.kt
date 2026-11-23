@@ -255,6 +255,39 @@ class DungeonReturnStoreTest {
         }
     }
 
+    @Test
+    fun `owned slot persists placementStarted flag and defaults missing v2 field to true`(@TempDir directory: Path) {
+        val file = directory.resolve("returns-placement-flag.json")
+        val pendingSlot = DungeonOwnedSlot(
+            slot = 1,
+            world = "world",
+            dungeonId = "ec:dungeon_novice_arena",
+            minX = 613,
+            minY = 216,
+            minZ = 485,
+            placementStarted = false,
+        )
+        DungeonReturnStore(file).use { store ->
+            store.putOwnedSlot(pendingSlot).await()
+        }
+        DungeonReturnStore(file).use { reloaded ->
+            val state = reloaded.readState().await()
+            assertEquals(pendingSlot, state.ownedSlots[1])
+            assertFalse(state.ownedSlots.getValue(1).placementStarted)
+        }
+
+        // 旧 v2 JSON（placementStarted フィールド欠落）は後方互換で true 扱いになること
+        val legacyV2 = directory.resolve("legacy-v2-missing-flag.json")
+        Files.writeString(
+            legacyV2,
+            """{"schemaVersion":2,"records":{},"ownedSlots":{"0":{"slot":0,"world":"world","dungeonId":"ec:dungeon_novice_arena","minX":485,"minY":216,"minZ":485}}}""",
+        )
+        DungeonReturnStore(legacyV2).use { store ->
+            val state = store.readState().await()
+            assertTrue(state.ownedSlots.getValue(0).placementStarted)
+        }
+    }
+
     private fun record(dungeonId: String, slotX: Int, slotZ: Int) = DungeonReturnRecord(
         dungeonId = dungeonId,
         world = "world",

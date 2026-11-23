@@ -40,6 +40,7 @@ internal class OverworldDungeonPlacement(
         private val scanOperation: OverworldDungeonScanner.Operation,
         private val maxBlocksPerTick: Int,
         private val timeBudgetNanos: Long,
+        private val beforeFirstWrite: ((Boolean) -> Unit) -> Unit,
         private val complete: (Operation, Boolean, Throwable?) -> Unit,
     ) : CleanupHandle {
         private var task: BukkitTask? = null
@@ -79,8 +80,20 @@ internal class OverworldDungeonPlacement(
                     finish(true, null)
                     return@ensureAllChunksReadyForPlacement
                 }
-                var cursor = 0
-                task = plugin.server.scheduler.runTaskTimer(plugin, Runnable {
+                beforeFirstWrite { allowed ->
+                    if (released || closed) return@beforeFirstWrite
+                    if (!allowed) {
+                        finish(false, null)
+                        return@beforeFirstWrite
+                    }
+                    startWriteLoop()
+                }
+            }
+        }
+
+        private fun startWriteLoop() {
+            var cursor = 0
+            task = plugin.server.scheduler.runTaskTimer(plugin, Runnable {
                     try {
                         val deadline = System.nanoTime() + timeBudgetNanos
                         var processed = 0
@@ -99,11 +112,10 @@ internal class OverworldDungeonPlacement(
                             if (processed >= MIN_BLOCKS_PER_TICK && System.nanoTime() >= deadline) break
                         }
                         if (cursor == nonAirCells.size) finish(true, null)
-                    } catch (failure: Exception) {
-                        finish(false, failure)
-                    }
-                }, PaperTaskIntervals.NEXT_TICK_DELAY, PaperTaskIntervals.NEXT_TICK_DELAY)
-            }
+                } catch (failure: Exception) {
+                    finish(false, failure)
+                }
+            }, PaperTaskIntervals.NEXT_TICK_DELAY, PaperTaskIntervals.NEXT_TICK_DELAY)
         }
 
         /**
@@ -301,12 +313,13 @@ internal class OverworldDungeonPlacement(
         scanOperation: OverworldDungeonScanner.Operation,
         maxBlocksPerTick: Int = DEFAULT_BLOCK_BUDGET,
         timeBudgetNanos: Long = DEFAULT_TIME_BUDGET_NANOS,
+        beforeFirstWrite: ((Boolean) -> Unit) -> Unit = { proceed -> proceed(true) },
         complete: (Operation, Boolean, Throwable?) -> Unit,
     ): Operation {
         check(!closed)
         require(maxBlocksPerTick > 0)
         require(timeBudgetNanos > 0L)
-        val operation = Operation(bounds, schematic, scanOperation, maxBlocksPerTick, timeBudgetNanos, complete)
+        val operation = Operation(bounds, schematic, scanOperation, maxBlocksPerTick, timeBudgetNanos, beforeFirstWrite, complete)
         operations += operation
         try {
             operation.start()
@@ -361,5 +374,24 @@ internal class OverworldDungeonPlacement(
 
         /** 遅い tick でも必ず前進させる最小処理ブロック数。 */
         private const val MIN_BLOCKS_PER_TICK = 1
+
+        /** schematic 内の非空気セルのブロックインデックス配列を返します。 */
+        internal fun nonAirCellIndices(schematic: SchematicData): IntArray {
+            require(
+                schematic.width == OverworldDungeonInstanceLayout.ARENA_WIDTH &&
+                    schematic.height == OverworldDungeonInstanceLayout.ARENA_HEIGHT &&
+                    schematic.length == OverworldDungeonInstanceLayout.ARENA_WIDTH,
+            )
+            val nonAirPalette = BooleanArray(schematic.palette.size) { index -> !isAir(schematic.palette[index]) }
+            val indices = IntArray(DungeonInstanceBounds.BLOCK_COUNT)
+            var count = 0
+            for (index in 0 until DungeonInstanceBounds.BLOCK_COUNT) {
+                val paletteIndex = schematic.paletteIndexAt(index)
+                if (paletteIndex in nonAirPalette.indices && nonAirPalette[paletteIndex]) {
+                    indices[count++] = index
+                }
+            }
+            return indices.copyOf(count)
+        }
     }
 }

@@ -46,6 +46,7 @@ data class DungeonOwnedSlot(
     val minX: Int,
     val minY: Int,
     val minZ: Int,
+    val placementStarted: Boolean = true,
 ) {
     init {
         require(slot >= 0) { "Owned dungeon slot must be non-negative" }
@@ -418,6 +419,13 @@ class DungeonReturnStore(
                 .getOrElse { error("Invalid $name") }
         }
 
+        fun optionalBoolean(name: String, default: Boolean): Boolean {
+            val raw = fields[name] ?: return default
+            val element = raw as? JsonPrimitive ?: error("Invalid $name")
+            require(element.isBoolean) { "Invalid $name" }
+            return element.asBoolean
+        }
+
         return DungeonOwnedSlot(
             slot = integer("slot"),
             world = string("world"),
@@ -425,12 +433,14 @@ class DungeonReturnStore(
             minX = integer("minX"),
             minY = integer("minY"),
             minZ = integer("minZ"),
+            placementStarted = optionalBoolean("placementStarted", default = true),
         )
     }
 
     private fun readPrimitive(json: JsonReader, fieldName: String): JsonPrimitive = when (json.peek()) {
         JsonToken.STRING -> JsonPrimitive(json.nextString())
         JsonToken.NUMBER -> JsonPrimitive(BigDecimal(json.nextString()))
+        JsonToken.BOOLEAN -> JsonPrimitive(json.nextBoolean())
         else -> error("Invalid value type for $fieldName")
     }
 
@@ -467,6 +477,7 @@ class DungeonReturnStore(
                 addProperty("minX", owned.minX)
                 addProperty("minY", owned.minY)
                 addProperty("minZ", owned.minZ)
+                addProperty("placementStarted", owned.placementStarted)
             }
             ownedSlotsObject.add(slot.toString(), entry)
         }

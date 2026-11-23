@@ -82,6 +82,24 @@ internal class SimulationCommandController(private val plugin: RpgPlugin) {
         }
     }
 
+    /** 管理者向けに非稼働ダンジョンスロットの保護状態・残留証跡を手動で撤去・解放します。 */
+    fun releaseDungeonSlot(sender: CommandSender, args: List<String>) {
+        require(sender.hasPermission(ADMIN_PERMISSION)) { "ec.command.no_permission" }
+        require(args.size == 3 && args[0] == "dungeon" && args[1] == "release") { "ec.dungeon.release_usage" }
+        val slot = args[2].toIntOrNull()
+            ?.takeIf { it in 0 until OverworldDungeonInstanceLayout.MAX_CANDIDATE_SLOTS }
+            ?: error("ec.dungeon.release_invalid_slot")
+        val key = when (plugin.dungeons.releaseProtectedSlot(slot)) {
+            DungeonSlotReleaseResult.CLEANING -> "ec.dungeon.release_started"
+            DungeonSlotReleaseResult.RELEASED -> "ec.dungeon.release_done"
+            DungeonSlotReleaseResult.NOT_OVERWORLD -> "ec.dungeon.release_not_overworld"
+            DungeonSlotReleaseResult.ACTIVE -> "ec.dungeon.release_active"
+            DungeonSlotReleaseResult.CLEANING_IN_PROGRESS -> "ec.dungeon.release_cleaning"
+            DungeonSlotReleaseResult.NOT_FOUND -> "ec.dungeon.release_not_found"
+        }
+        sender.sendMessage(plugin.message(sender, key, "slot" to slot))
+    }
+
     /** 地点 ID の短縮形を解決します。曖昧な省略形は受け付けません。 */
     fun resolveSiteId(input: String): String? {
         val short = input.lowercase().removePrefix("ec:").removePrefix("area_")
