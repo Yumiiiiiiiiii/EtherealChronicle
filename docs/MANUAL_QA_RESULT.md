@@ -361,3 +361,15 @@ SHA1 verified in build/libs and dev/server/plugins before and after server start
 Verdict: GO for the pond fix (fishing_water now exists and casting works end to end on the BEACH seed), with one open issue: intermittent `Road terrain changed` aborts generation and leaves the journal IN_PROGRESS (needs retry/tolerance and a recovery message). Screenshots: `C:\Users\Ymii\.traycer\epics\132bc8e7-97a8-4d19-af01-669c4ba69b04\artifacts\overworld-live-qa-fishing-v2\` (01_pond_overview, 02_cast_active, 03_bite_or_reeling).
 Cleanup: server/client stopped, dev world/plugins/server.properties (level-seed restored)/ops/whitelist/config and pauseOnLostFocus restored, ports closed.
 
+
+## Overworld generation smoke QA #7 (master 4bd75c1, jar SHA1 82FC49831E0BD44C124A54E2EFB736641377CD08), 2026-11-24
+Server only, clean world per run, `world.mode: overworld`; SHA1 matched before start, after start and after restore. Script: `scripts/client/qa-ow-genrun.ps1`.
+
+| Run | Seed | Result | Details |
+|---|---|---|---|
+| 1 | 4528502914240555028 (BEACH) | **PASS** | 01:52:38 -> 01:54:32 (~1m54s), COMPLETED, 9 READY, 4 portals, 0 ERROR, 0 "Could not project", 0 "No safe fishing pool", TPS 20.0/19.9/19.9. Lumina (-27,64,255) BEACH, fishing_water (-7,63,245). Only WARN: Lumina 8 houses (target 10/5) |
+| 2 | random (-4201517772407501229) | **FAIL (intermittent abort)** | after ~1m41s: `ERROR Overworld construction failed: Road clearance changed at 364,61,-242: expected LEAF_LITTER, got WATER`; journal IN_PROGRESS, 3 READY, 2 portals. Lumina (93,62,160) SPARSE_JUNGLE with fishing_water (113,64,140). A different re-check ("road clearance", not "road terrain") with a natural block transition (leaf litter replaced by water, i.e. flow/replacement), which the new transition list does not cover |
+| 3 | random (339731399320507952) | **PASS** | 01:58:16 -> 02:00:14 (~1m58s), COMPLETED, 9 READY, 4 portals, 0 ERROR, 0 WARN of interest, TPS 20.0/19.9/19.9. Lumina (338,63,66) PLAINS, fishing_water (328,62,96) |
+
+Verdict: PARTIAL / NO-GO for "no more intermittent aborts": the QA #6 repro seed now passes, but a new random seed hit another actions re-check (`Road clearance changed ... expected LEAF_LITTER, got WATER`). Suggest treating decorative/replaceable blocks (leaf litter, flowers, snow layers, vegetation) vs water/air as tolerable in the clearance check, or re-planning that road tile instead of aborting the whole generation. Run 2's world was not kept, so the failing site/stack is not recorded (only the message).
+Cleanup: server stopped, dev world, plugin data, server.properties (level-seed blank), ops, whitelist, config restored; ports closed.
