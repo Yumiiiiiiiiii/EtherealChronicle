@@ -373,3 +373,14 @@ Server only, clean world per run, `world.mode: overworld`; SHA1 matched before s
 
 Verdict: PARTIAL / NO-GO for "no more intermittent aborts": the QA #6 repro seed now passes, but a new random seed hit another actions re-check (`Road clearance changed ... expected LEAF_LITTER, got WATER`). Suggest treating decorative/replaceable blocks (leaf litter, flowers, snow layers, vegetation) vs water/air as tolerable in the clearance check, or re-planning that road tile instead of aborting the whole generation. Run 2's world was not kept, so the failing site/stack is not recorded (only the message).
 Cleanup: server stopped, dev world, plugin data, server.properties (level-seed blank), ops, whitelist, config restored; ports closed.
+
+## Overworld generation smoke QA #8 (master 6922c90, jar SHA1 6C22BFCD988F8FC353EBFAA64B0330767DB117EC), 2026-11-24
+Server only, clean world per run, `world.mode: overworld`; SHA1 matched before start, after start and after restore (`scripts/client/qa-ow-genrun.ps1`).
+
+| Run | Seed | Result | Details |
+|---|---|---|---|
+| 1 | -4201517772407501229 (QA #7 failing seed) | **PASS** | 02:26:41 -> 02:28:49 (~2m08s), COMPLETED, 9 READY, 4 portals, 0 ERROR, 0 "Could not project", 0 "No safe fishing pool", no Road clearance/terrain errors, TPS 20.0/19.9/19.9. Lumina (93,62,160) SPARSE_JUNGLE, fishing_water (113,64,140) |
+| 2 | random (-9169136779061013934) | **PASS** | 02:29:50 -> 02:31:45 (~1m55s), COMPLETED, 9 READY, 4 portals, 0 ERROR, 0 projection/pool WARN, TPS 20.0/19.9/19.9. Lumina (73,64,96) PLAINS, fishing_water (83,65,76) |
+
+Verdict: GO (2/2). Combined with QA #7 run 3 this is 3 consecutive clean generations after the transition fixes; the sample is small, so intermittent aborts are not ruled out.
+Cleanup: server stopped, dev world/plugin data/server.properties (level-seed blank)/ops/whitelist/config restored, ports closed.
