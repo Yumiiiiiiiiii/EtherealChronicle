@@ -34,7 +34,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private val simulationCommands by lazy { SimulationCommandController(this) }
     private var overworldBootstrap: OverworldBootstrapPort? = null
     internal lateinit var activeWorldProjection: ActiveWorldProjection
-    private val projectedPositions = mutableMapOf<Pair<Position, String?>, Position>()
+    private data class ProjectionCacheKey(val position: Position, val areaId: String?, val allowWater: Boolean)
+    private val projectedPositions = mutableMapOf<ProjectionCacheKey, Position>()
     private var appliedReadyAnchors: Map<String, OverworldSiteAnchor> = emptyMap()
     private val invUiInventoryAdapter by lazy { InvUiInventoryAdapter(uiTheme) { stack -> item(stack)?.itemModel } }
     internal lateinit var adventure: AdventureController
@@ -102,14 +103,36 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         }
     }
 
-    /** Engine の OverworldTerrain.surfaceY と同様に葉・丸太の上や水底を避けて地表 Y+1 を返します。 */
-    internal fun resolveProjectionSurfaceY(world: World, x: Int, z: Int): Int {
+    /**
+     * Engine の OverworldTerrain.surfaceY を基準に葉・丸太の上を避けて地表 Y+1 を返します。
+     * 通常投影（allowWater = false）では水面・溶岩面・水没地表を固体地表として採用しません。
+     */
+    internal fun resolveProjectionSurfaceY(world: World, x: Int, z: Int, allowWater: Boolean = false): Int {
         var y = runCatching { OverworldTerrain.surfaceY(world, x, z) }
             .getOrElse { world.getHighestBlockYAt(x, z) }
         while (y >= world.minHeight) {
             val type = world.getBlockAt(x, y, z).type
             val isTree = runCatching { Tag.LOGS.isTagged(type) || Tag.LEAVES.isTagged(type) }.getOrDefault(false)
-            if (!isTree && (type.isSolid || type == Material.WATER)) break
+            if (isTree) {
+                y--
+                continue
+            }
+            if (type == Material.WATER) {
+                check(allowWater) { "Water surface is not valid solid ground" }
+                break
+            }
+            if (type == Material.LAVA) {
+                error("Lava surface is not valid ground")
+            }
+            if (type.isSolid) {
+                if (!allowWater && y + 1 < world.maxHeight) {
+                    val above = world.getBlockAt(x, y + 1, z).type
+                    check(above != Material.WATER && above != Material.LAVA) {
+                        "Submerged surface is not valid solid ground"
+                    }
+                }
+                break
+            }
             y--
         }
         check(y >= world.minHeight && y + 2 < world.maxHeight) { "No usable surface" }
@@ -151,9 +174,10 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         }
     }
 
-    /** 未ロードチャンクを同期ロードせず、利用可能な配置だけを返します。 */
-    internal fun projectedPosition(position: Position, areaId: String? = null): Position? {
-        projectedPositions[position to areaId]?.let { return it }
+    /** 未ロードチャンクを同期ロードせず、利用可能な配置だけを返します。釣り場のみ allowWater = true を指定します。 */
+    internal fun projectedPosition(position: Position, areaId: String? = null, allowWater: Boolean = false): Position? {
+        val cacheKey = ProjectionCacheKey(position, areaId, allowWater)
+        projectedPositions[cacheKey]?.let { return it }
         val projection = activeWorldProjection.projector
         val horizontal = if (areaId == null) projection.projectHorizontal(position) else projection.projectHorizontal(position, areaId)
         horizontal ?: return null
@@ -162,8 +186,16 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val chunk = ChunkCoordinates.fromPosition(horizontal.x, horizontal.z)
         if (!world.isChunkLoaded(chunk.x, chunk.z)) return null
         return runCatching {
-            if (areaId == null) projection.project(position) else projection.project(position, areaId)
-        }.getOrNull()?.also { projectedPositions[position to areaId] = it }
+            if (allowWater) {
+                val bx = kotlin.math.floor(horizontal.x).toInt()
+                val bz = kotlin.math.floor(horizontal.z).toInt()
+                horizontal.copy(y = resolveProjectionSurfaceY(world, bx, bz, allowWater = true).toDouble())
+            } else if (areaId == null) {
+                projection.project(position)
+            } else {
+                projection.project(position, areaId)
+            }
+        }.getOrNull()?.also { projectedPositions[cacheKey] = it }
     }
 
     /** 対象ワールドだけをゲームコントローラーに公開します。 */

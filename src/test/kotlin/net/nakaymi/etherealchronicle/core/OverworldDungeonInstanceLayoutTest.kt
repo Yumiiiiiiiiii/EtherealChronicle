@@ -39,13 +39,16 @@ class OverworldDungeonInstanceLayoutTest {
     }
 
     @Test
-    fun `height fit includes the bottom and exclusive maximum boundary`() {
+    fun `height fit includes the bottom and exclusive maximum boundary and checks terrain clearance`() {
         val layout = OverworldDungeonInstanceLayout(baseY = 220)
 
         assertTrue(layout.fitsHeight(minHeight = 210, maxHeight = 244))
         assertFalse(layout.fitsHeight(minHeight = 211, maxHeight = 244))
         assertFalse(layout.fitsHeight(minHeight = 210, maxHeight = 243))
         assertTrue(layout.fitsHeight(minHeight = 0, maxHeight = 320))
+        assertTrue(layout.hasTerrainClearance())
+        assertTrue(OverworldDungeonInstanceLayout(baseY = OverworldDungeonInstanceLayout.RECOMMENDED_MIN_BASE_Y).hasTerrainClearance())
+        assertFalse(OverworldDungeonInstanceLayout(baseY = OverworldDungeonInstanceLayout.RECOMMENDED_MIN_BASE_Y - 1).hasTerrainClearance())
     }
 
     @Test
@@ -85,7 +88,7 @@ class OverworldDungeonInstanceLayoutTest {
     }
 
     @Test
-    fun `slot tracker enforces RESERVED to ACTIVE to CLEANING to release without leaks or double reservation`() {
+    fun `slot tracker enforces RESERVED, ACTIVE, PROTECTED, CLEANING transitions safely without throwing`() {
         val tracker = DungeonSlotTracker()
         assertEquals(0, tracker.activeCount())
         assertTrue(tracker.tryReserve(0))
@@ -96,10 +99,13 @@ class OverworldDungeonInstanceLayoutTest {
         assertEquals(1, tracker.activeCount())
 
         // RESERVED -> ACTIVE -> CLEANING -> 解放 -> 再利用
-        tracker.activate(0)
+        assertTrue(tracker.activate(0))
+        assertFalse(tracker.activate(0))
         assertEquals(DungeonSlotState.ACTIVE, tracker.stateOf(0))
         assertEquals(1, tracker.activeCount())
         assertTrue(tracker.beginCleaning(0))
+        assertFalse(tracker.beginCleaning(0))
+        assertFalse(tracker.protect(0))
         assertEquals(DungeonSlotState.CLEANING, tracker.stateOf(0))
         assertFalse(tracker.tryReserve(0))
         tracker.release(0)
@@ -107,11 +113,28 @@ class OverworldDungeonInstanceLayoutTest {
         assertEquals(0, tracker.activeCount())
         assertTrue(tracker.tryReserve(0))
 
-        // placement 失敗・中断時の RESERVED からの直接解放
+        // placement 失敗・中断時の RESERVED からの直接解放と異常遷移ガード
         tracker.release(0)
         assertEquals(0, tracker.activeCount())
-        assertThrows(IllegalStateException::class.java) { tracker.activate(0) }
+        assertFalse(tracker.activate(0))
         assertFalse(tracker.beginCleaning(0))
+
+        // PROTECTED 状態は再利用を禁止しつつ activeCount を増やさず、CLEANING へ移行できる
+        assertTrue(tracker.protect(3))
+        assertEquals(DungeonSlotState.PROTECTED, tracker.stateOf(3))
+        assertFalse(tracker.tryReserve(3))
+        assertEquals(setOf(3), tracker.occupiedSlots())
+        assertEquals(0, tracker.activeCount())
+        assertTrue(tracker.beginCleaning(3))
+        assertEquals(1, tracker.activeCount())
+        tracker.release(3)
+
+        // 起動時の孤立スロット回収（未追跡 -> CLEANING）
+        assertTrue(tracker.tryBeginCleaning(5))
+        assertEquals(DungeonSlotState.CLEANING, tracker.stateOf(5))
+        assertFalse(tracker.tryBeginCleaning(5))
+        tracker.release(5)
+        assertEquals(0, tracker.activeCount())
     }
 
     @Test
@@ -143,12 +166,17 @@ class OverworldDungeonInstanceLayoutTest {
     }
 
     @Test
-    fun `return acknowledgement requires a safe distant ground position below the slot`() {
+    fun `return acknowledgement and sky-slot margin detection classify sky vs safe ground consistently`() {
         val slot = OverworldDungeonInstanceLayout().center(0)
         assertTrue(canAcknowledgeDungeonReturn(slot, 120.5, 70.0, -30.5, true, true))
         assertFalse(canAcknowledgeDungeonReturn(slot, slot.x + 2.0, 70.0, slot.z + 2.0, true, true))
         assertFalse(canAcknowledgeDungeonReturn(slot, 120.5, slot.y.toDouble(), -30.5, true, true))
         assertFalse(canAcknowledgeDungeonReturn(slot, 120.5, 70.0, -30.5, false, true))
         assertFalse(canAcknowledgeDungeonReturn(slot, 120.5, 70.0, -30.5, true, false))
+
+        assertTrue(isInsideDungeonSlotMargin(slot, slot.x + 0.5, slot.y + 1.0, slot.z + 0.5))
+        assertTrue(isInsideDungeonSlotMargin(slot, slot.x + 40.0, slot.y - 20.0, slot.z + 40.0))
+        assertFalse(isInsideDungeonSlotMargin(slot, slot.x + 0.5, 70.0, slot.z + 0.5))
+        assertFalse(isInsideDungeonSlotMargin(slot, 120.5, slot.y + 1.0, -30.5))
     }
 }

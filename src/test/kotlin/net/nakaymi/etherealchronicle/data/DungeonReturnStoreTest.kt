@@ -14,33 +14,74 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 
-/** ダンジョン帰還ジャーナルの一括保存、バックアップ復旧、破損退避と終了後挙動を確認します。 */
+/** ダンジョン帰還ジャーナルの一括保存、所有スロット永続化、v1 後方互換、破損退避上限と終了後挙動を確認します。 */
 class DungeonReturnStoreTest {
     @Test
-    fun `party return records persist atomically across store restart`(@TempDir directory: Path) {
+    fun `party return records and owned slots persist atomically across store restart`(@TempDir directory: Path) {
         val file = directory.resolve("returns.yml")
         val records = linkedMapOf(
             UUID.randomUUID() to record("ec:dungeon_novice_arena", slotX = 100, slotZ = -200),
             UUID.randomUUID() to record("ec:dungeon_void_sanctum", slotX = 356, slotZ = -200),
         )
+        val owned0 = DungeonOwnedSlot(
+            slot = 0,
+            world = "world",
+            dungeonId = "ec:dungeon_novice_arena",
+            minX = 73,
+            minY = 210,
+            minZ = -227,
+        )
 
         DungeonReturnStore(file).use { store ->
+            store.putOwnedSlot(owned0).await()
             store.putAll(records).await()
             assertEquals(records, store.readAll().await())
+            val state = store.readState().await()
+            assertEquals(records, state.records)
+            assertEquals(mapOf(0 to owned0), state.ownedSlots)
             assertTrue(Files.exists(file))
-            assertTrue(Files.exists(file.resolveSibling("returns.yml.bak")).not())
             assertTrue(Files.exists(file.resolveSibling("returns.yml.tmp")).not())
         }
 
         DungeonReturnStore(file).use { restarted ->
-            assertEquals(records, restarted.readAll().await())
+            val state = restarted.readState().await()
+            assertEquals(records, state.records)
+            assertEquals(mapOf(0 to owned0), state.ownedSlots)
             restarted.removeAll(records.keys.take(1).toSet()).await()
+            restarted.removeOwnedSlot(0).await()
         }
 
         DungeonReturnStore(file).use { restartedAgain ->
-            assertEquals(records.keys.drop(1).associateWith(records::get), restartedAgain.readAll().await())
+            val state = restartedAgain.readState().await()
+            assertEquals(records.keys.drop(1).associateWith(records::get), state.records)
+            assertEquals(emptyMap<Int, DungeonOwnedSlot>(), state.ownedSlots)
         }
         assertTrue(Files.exists(file.resolveSibling("returns.yml.bak")))
+    }
+
+    @Test
+    fun `legacy v1 journal format loads cleanly and upgrades to v2 on write`(@TempDir directory: Path) {
+        val file = directory.resolve("returns.json")
+        val player = UUID.randomUUID()
+        val expected = record("ec:dungeon_novice_arena", slotX = 512, slotZ = 512)
+        Files.writeString(
+            file,
+            """{"$player":{"dungeonId":"ec:dungeon_novice_arena","world":"world","x":12.5,"y":70.0,"z":-8.25,"yaw":90.0,"pitch":0.0,"slotX":512,"slotY":220,"slotZ":512}}""",
+        )
+
+        val owned = DungeonOwnedSlot(0, "world", "ec:dungeon_novice_arena", 485, 210, 485)
+        DungeonReturnStore(file).use { store ->
+            val loaded = store.readState().await()
+            assertEquals(mapOf(player to expected), loaded.records)
+            assertEquals(emptyMap<Int, DungeonOwnedSlot>(), loaded.ownedSlots)
+            store.putOwnedSlot(owned).await()
+        }
+
+        DungeonReturnStore(file).use { restarted ->
+            val loaded = restarted.readState().await()
+            assertEquals(mapOf(player to expected), loaded.records)
+            assertEquals(mapOf(0 to owned), loaded.ownedSlots)
+        }
     }
 
     @Test
@@ -81,6 +122,24 @@ class DungeonReturnStoreTest {
                 store.putAll(mapOf(UUID.randomUUID() to record("ec:dungeon_novice_arena", 100, 100))).await()
             }
         }
+    }
+
+    @Test
+    fun `quarantined corrupt files are capped to latest five`(@TempDir directory: Path) {
+        val file = directory.resolve("returns.json")
+        repeat(7) { attempt ->
+            Files.writeString(file, "{corrupt-$attempt")
+            DungeonReturnStore(file).use { store ->
+                assertThrows(ExecutionException::class.java) { store.readState().await() }
+            }
+        }
+        val quarantined = Files.list(directory).use { stream ->
+            stream.filter { it.fileName.toString().startsWith("returns.json.corrupt-") }.toList()
+        }
+        assertEquals(DungeonReturnStore.MAX_QUARANTINED_FILES, quarantined.size)
+        val contents = quarantined.map(Files::readString).toSet()
+        assertTrue("{corrupt-6" in contents, "Latest quarantined file must be kept: $contents")
+        assertFalse("{corrupt-0" in contents, "Oldest quarantined file must be pruned: $contents")
     }
 
     @Test
@@ -142,12 +201,18 @@ class DungeonReturnStoreTest {
         store.close()
 
         val readFuture = store.readAll()
+        val readStateFuture = store.readState()
         val putFuture = store.putAll(mapOf(UUID.randomUUID() to record("ec:dungeon_novice_arena", 100, 100)))
         val removeFuture = store.removeAll(setOf(UUID.randomUUID()))
+        val putOwnedFuture = store.putOwnedSlot(DungeonOwnedSlot(0, "world", "ec:dungeon_novice_arena", 0, 210, 0))
+        val removeOwnedFuture = store.removeOwnedSlot(0)
 
         assertTrue(readFuture.isCompletedExceptionally)
+        assertTrue(readStateFuture.isCompletedExceptionally)
         assertTrue(putFuture.isCompletedExceptionally)
         assertTrue(removeFuture.isCompletedExceptionally)
+        assertTrue(putOwnedFuture.isCompletedExceptionally)
+        assertTrue(removeOwnedFuture.isCompletedExceptionally)
     }
 
     @Test

@@ -403,20 +403,37 @@ class GatheringController(private val plugin: RpgPlugin) : Listener {
                 if (stillPending.isNotEmpty()) pendingPointsByChunk[chunkCoord] = stillPending
             }
         }
-        sitesByChunk[chunkCoord].orEmpty().filter { it.location.world == e.world.name }.forEach(::renderSite)
+        sitesByChunk[chunkCoord].orEmpty().filter { it.location.world == e.world.name }.forEach { site ->
+            runCatching { renderSite(site) }.onFailure { error ->
+                plugin.logger.warning("Could not render gathering node ${site.node.id}/${site.location.id}: ${error.message}")
+            }
+        }
     }
 
-    private fun isProtected(location: Location): Boolean {
+    internal fun isProtected(location: Location): Boolean {
         if (!plugin.isActiveWorld(location.world)) return false
         val x = location.blockX
         val y = location.blockY
         val z = location.blockZ
-        return sitesById.values.any { s ->
-            s.location.world == location.world.name &&
-                kotlin.math.abs(s.location.x - x) <= 1 &&
-                kotlin.math.abs(s.location.y - y) <= 1 &&
-                kotlin.math.abs(s.location.z - z) <= 1
+        val minChunkX = (x - 1) shr 4
+        val maxChunkX = (x + 1) shr 4
+        val minChunkZ = (z - 1) shr 4
+        val maxChunkZ = (z + 1) shr 4
+        for (cx in minChunkX..maxChunkX) {
+            for (cz in minChunkZ..maxChunkZ) {
+                val bucket = sitesByChunk[ChunkCoordinates(cx, cz)] ?: continue
+                if (bucket.any { s ->
+                        s.location.world == location.world.name &&
+                            kotlin.math.abs(s.location.x - x) <= 1 &&
+                            kotlin.math.abs(s.location.y - y) <= 1 &&
+                            kotlin.math.abs(s.location.z - z) <= 1
+                    }
+                ) {
+                    return true
+                }
+            }
         }
+        return false
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

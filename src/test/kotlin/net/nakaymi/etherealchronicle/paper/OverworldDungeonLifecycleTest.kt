@@ -1,13 +1,17 @@
 package net.nakaymi.etherealchronicle.paper
 
+import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import net.nakaymi.etherealchronicle.core.ActiveWorldProjection
+import net.nakaymi.etherealchronicle.core.DungeonSlotState
 import net.nakaymi.etherealchronicle.core.OverworldDungeonInstanceLayout
 import net.nakaymi.etherealchronicle.core.OverworldDungeonPortal
 import net.nakaymi.etherealchronicle.core.OverworldRepairResult
 import net.nakaymi.etherealchronicle.core.OverworldSiteAnchor
 import net.nakaymi.etherealchronicle.core.OverworldSiteRegistry
 import net.nakaymi.etherealchronicle.core.OverworldSiteStatus
+import net.nakaymi.etherealchronicle.core.Position
+import net.nakaymi.etherealchronicle.data.DungeonOwnedSlot
 import net.nakaymi.etherealchronicle.data.DungeonReturnRecord
 import net.nakaymi.etherealchronicle.data.DungeonReturnStore
 import org.bukkit.Chunk
@@ -15,9 +19,14 @@ import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.World
 import org.bukkit.event.player.PlayerMoveEvent
+import org.bukkit.event.player.PlayerQuitEvent
+import org.bukkit.event.player.PlayerTeleportEvent
+import org.bukkit.event.world.ChunkLoadEvent
 import org.bukkit.plugin.Plugin
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -29,10 +38,12 @@ import java.nio.file.Files
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
+import kotlin.math.floor
 
 /**
  * オーバーワールド統合ダンジョンの主要回帰テストです。
- * スロット再利用・撤去・タイムアウト・破損ジャーナル非ブロック・視点回転復旧・移動凍結タイムアウト・権限境界を検証します。
+ * スロット再利用・撤去・タイムアウト・破損ジャーナル非ブロック・視点回転復旧・移動凍結タイムアウト・権限境界に加え、
+ * 切断・テレポート離脱・孤立スロット回収・配置途中ロールバック・強制避難・水面投影・採取保護索引を検証します。
  */
 class OverworldDungeonLifecycleTest {
     private val plain = PlainTextComponentSerializer.plainText()
@@ -308,13 +319,19 @@ class OverworldDungeonLifecycleTest {
             while (player.nextComponentMessage() != null) { /* 既存メッセージをクリア */ }
 
             dungeons.enter(player, "ec:dungeon_novice_arena")
+            val preparingMsg = plain.serialize(
+                plugin.message(player, "ec.dungeon.preparing", "name" to plugin.contentName(player, "ec:dungeon_novice_arena")),
+            )
+            val failureMsg = plain.serialize(plugin.message(player, "ec.error.dungeon_full"))
+            val observed = mutableListOf<String>()
             assertTrue(
                 server.pump(10_000) {
-                    val msgs = generateSequence { player.nextComponentMessage() }.map(plain::serialize).toList()
-                    msgs.isNotEmpty()
+                    observed += generateSequence { player.nextComponentMessage() }.map(plain::serialize).toList()
+                    failureMsg in observed
                 },
-                "Placement failure must notify the player rather than silently aborting",
+                "Placement failure must notify the player rather than silently aborting (observed=$observed)",
             )
+            assertTrue(preparingMsg in observed, "Expected preparing notice before failure (observed=$observed)")
             assertEquals(0, dungeons.activeCount(), "All reserved slots must be released after placement failures")
             assertFalse(dungeons.containsPlayer(player.uniqueId))
         } finally {
@@ -536,6 +553,431 @@ class OverworldDungeonLifecycleTest {
             world.getBlockAt(tx, 67, tz).type = Material.OAK_LEAVES
             world.getBlockAt(tx, 68, tz).type = Material.OAK_LEAVES
             assertEquals(65, plugin.resolveProjectionSurfaceY(world, tx, tz))
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
+    fun `overworld quit protects slot until reconnect rescue then cleans up and reuses slot zero`() {
+        val server = MockBukkit.mock()
+        try {
+            val (plugin, world, dungeons) = setupOverworldPlugin(server)
+            val player = joinPlayer(server, plugin, world, "QuitRescue")
+            val layout = OverworldDungeonInstanceLayout(baseX = 512, baseY = 220, baseZ = 512, spacing = 128)
+            val slot0Center = layout.center(0)
+            while (player.nextComponentMessage() != null) { /* 既存メッセージをクリア */ }
+
+            // 入場開始時に準備メッセージが通知されること
+            dungeons.enter(player, "ec:dungeon_novice_arena")
+            val expectedPrep = plain.serialize(
+                plugin.message(player, "ec.dungeon.preparing", "name" to plugin.contentName(player, "ec:dungeon_novice_arena")),
+            )
+            val initialMsgs = generateSequence { player.nextComponentMessage() }.map(plain::serialize).toList()
+            assertTrue(
+                initialMsgs.any { it == expectedPrep },
+                "Expected preparing message '$expectedPrep', got $initialMsgs",
+            )
+            assertTrue(server.pump(10_000) { dungeons.containsPlayer(player.uniqueId) }, "Player did not enter dungeon")
+            assertEquals(DungeonSlotState.ACTIVE, dungeons.slotState(0))
+            assertEquals(Material.STONE_BRICKS, world.getBlockAt(slot0Center.x, slot0Center.y, slot0Center.z).type)
+
+            // 切断時は床を残したまま PROTECTED 状態へ移行し、未帰還記録がある間は再利用・撤去しないこと
+            dungeons.quit(PlayerQuitEvent(player, Component.empty(), PlayerQuitEvent.QuitReason.DISCONNECTED))
+            assertFalse(dungeons.containsPlayer(player.uniqueId))
+            assertEquals(DungeonSlotState.PROTECTED, dungeons.slotState(0))
+            assertEquals(0, dungeons.activeCount(), "PROTECTED slot with offline player must not block activeCount/reload")
+            assertTrue(dungeons.hasPendingReturn(player.uniqueId))
+            assertEquals(
+                Material.STONE_BRICKS,
+                world.getBlockAt(slot0Center.x, slot0Center.y, slot0Center.z).type,
+                "Floor blocks must stay intact while return record is pending",
+            )
+
+            // 再接続救出で最後の帰還記録が消えた瞬間に自動撤去が走り、スロット 0 が再利用可能になること
+            dungeons.recover(player)
+            assertTrue(
+                server.pump(10_000) {
+                    player.location.y < 100.0 &&
+                        !dungeons.hasPendingReturn(player.uniqueId) &&
+                        dungeons.slotState(0) == null &&
+                        dungeons.activeCount() == 0
+                },
+                "Reconnect rescue did not clean up slot 0 (loc=${player.location}, state=${dungeons.slotState(0)})",
+            )
+            assertTrue(
+                world.getBlockAt(slot0Center.x, slot0Center.y, slot0Center.z).type.isAir,
+                "Slot 0 floor was not cleared to AIR after reconnect rescue",
+            )
+
+            // 再入場でスロット 0 が再利用されること
+            dungeons.enter(player, "ec:dungeon_novice_arena")
+            assertTrue(server.pump(10_000) { dungeons.containsPlayer(player.uniqueId) }, "Player could not re-enter after quit rescue")
+            assertTrue(
+                kotlin.math.abs(player.location.x - slot0Center.x) < 30.0,
+                "Expected slot 0 reuse after quit cleanup, but player landed at ${player.location}",
+            )
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
+    fun `safe ground teleport exit acknowledges return immediately and cleans arena blocks`() {
+        val server = MockBukkit.mock()
+        try {
+            val (plugin, world, dungeons) = setupOverworldPlugin(server)
+            val player = joinPlayer(server, plugin, world, "SafeTeleportExit")
+            val layout = OverworldDungeonInstanceLayout(baseX = 512, baseY = 220, baseZ = 512, spacing = 128)
+            val slot0Center = layout.center(0)
+
+            dungeons.enter(player, "ec:dungeon_novice_arena")
+            assertTrue(server.pump(10_000) { dungeons.containsPlayer(player.uniqueId) }, "Player did not enter dungeon")
+            while (player.nextComponentMessage() != null) { /* 既存メッセージをクリア */ }
+
+            // 地上安全座標へ外部テレポートで離脱しても、即座に帰還記録が解除されアリーナが撤去されること
+            val from = player.location.clone()
+            val safeGround = Location(world, 40.5, 65.0, 40.5)
+            player.teleport(safeGround)
+            dungeons.teleport(PlayerTeleportEvent(player, from, safeGround, PlayerTeleportEvent.TeleportCause.PLUGIN))
+
+            assertTrue(
+                server.pump(10_000) {
+                    !dungeons.containsPlayer(player.uniqueId) &&
+                        !dungeons.hasPendingReturn(player.uniqueId) &&
+                        dungeons.slotState(0) == null &&
+                        dungeons.activeCount() == 0
+                },
+                "Safe teleport exit did not clear record and clean slot 0 (pending=${dungeons.hasPendingReturn(player.uniqueId)}, state=${dungeons.slotState(0)})",
+            )
+            assertTrue(
+                world.getBlockAt(slot0Center.x, slot0Center.y, slot0Center.z).type.isAir,
+                "Slot 0 blocks were not cleaned after safe ground teleport exit",
+            )
+            val reloginPrompt = plain.serialize(plugin.message(player, "ec.dungeon.relogin_required"))
+            val msgs = generateSequence { player.nextComponentMessage() }.map(plain::serialize).toList()
+            assertFalse(msgs.any { it == reloginPrompt }, "Safe ground teleport must not require relogin: $msgs")
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
+    fun `startup automatically cleans orphaned owned slot with no pending return records`() {
+        val server = MockBukkit.mock()
+        try {
+            val layout = OverworldDungeonInstanceLayout(baseX = 512, baseY = 220, baseZ = 512, spacing = 128)
+            val slot0Center = layout.center(0)
+            val slot0Bounds = layout.bounds(0)
+            val (plugin, world, dungeons) = setupOverworldPlugin(
+                server,
+                beforeControllerInit = { target ->
+                    val w = server.getWorld("overworld_lifecycle") as AsyncChunkWorldMock
+                    val cx = slot0Center.x shr 4
+                    val cz = slot0Center.z shr 4
+                    w.generatedChunks += cx to cz
+                    w.loadChunk(cx, cz)
+                    w.getBlockAt(slot0Center.x, slot0Center.y, slot0Center.z).type = Material.STONE_BRICKS
+                    w.getBlockAt(slot0Center.x + 1, slot0Center.y, slot0Center.z).type = Material.STONE_BRICKS
+
+                    val journal = target.dataFolder.toPath().resolve("dungeon-returns.json")
+                    DungeonReturnStore(journal).use { store ->
+                        store.putOwnedSlot(
+                            DungeonOwnedSlot(
+                                slot = 0,
+                                world = w.name,
+                                dungeonId = "ec:dungeon_novice_arena",
+                                minX = slot0Bounds.minX,
+                                minY = slot0Bounds.minY,
+                                minZ = slot0Bounds.minZ,
+                            ),
+                        ).get(5, TimeUnit.SECONDS)
+                    }
+                },
+            )
+
+            assertTrue(
+                server.pump(10_000) { dungeons.slotState(0) == null && dungeons.activeCount() == 0 },
+                "Startup did not finish cleaning orphaned owned slot 0 (state=${dungeons.slotState(0)})",
+            )
+            assertTrue(world.getBlockAt(slot0Center.x, slot0Center.y, slot0Center.z).type.isAir)
+            assertTrue(world.getBlockAt(slot0Center.x + 1, slot0Center.y, slot0Center.z).type.isAir)
+
+            // ジャーナルからも ownedSlot が削除されていること
+            val journal = plugin.dataFolder.toPath().resolve("dungeon-returns.json")
+            val persisted = DungeonReturnStore(journal).use { it.readState().get(5, TimeUnit.SECONDS) }
+            assertTrue(persisted.ownedSlots.isEmpty(), "Expected ownedSlots to be empty after orphan cleanup, got ${persisted.ownedSlots}")
+
+            // スロット 0 が直ちに再利用可能であること
+            val player = joinPlayer(server, plugin, world, "OrphanReuse")
+            dungeons.enter(player, "ec:dungeon_novice_arena")
+            assertTrue(server.pump(10_000) { dungeons.containsPlayer(player.uniqueId) })
+            assertTrue(
+                kotlin.math.abs(player.location.x - slot0Center.x) < 30.0,
+                "Expected orphan-cleaned slot 0 to be reused, got ${player.location}",
+            )
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
+    fun `mid-placement failure rolls back placed blocks and releases slot zero before succeeding on slot one`() {
+        val server = MockBukkit.mock()
+        try {
+            val (plugin, world, dungeons) = setupOverworldPlugin(server)
+            val player = joinPlayer(server, plugin, world, "MidPlaceRollback")
+            val layout = OverworldDungeonInstanceLayout(baseX = 512, baseY = 220, baseZ = 512, spacing = 128)
+            val slot0Bounds = layout.bounds(0)
+            val slot0Center = layout.center(0)
+            val slot1Center = layout.center(1)
+
+            dungeons.enter(player, "ec:dungeon_novice_arena")
+
+            // スロット 0 の配置が 1 tick 分進んだ直後（placed > 0）に後半セルへ障害物を差し込んで途中失敗させる
+            assertTrue(
+                server.pump(10_000) {
+                    world.getBlockAt(slot0Bounds.minX, slot0Center.y, slot0Bounds.minZ).type == Material.STONE_BRICKS
+                },
+                "Slot 0 placement did not begin writing blocks",
+            )
+            assertTrue(
+                world.getBlockAt(slot0Bounds.maxX, slot0Center.y, slot0Bounds.maxZ).type.isAir,
+                "Expected trailing floor cell to still be air after first placement tick",
+            )
+            world.getBlockAt(slot0Bounds.maxX, slot0Center.y, slot0Bounds.maxZ).type = Material.OBSIDIAN
+
+            // スロット 0 の既配置ブロックがロールバックされ、スロット 1 で入場成功すること
+            assertTrue(
+                server.pump(10_000) { dungeons.containsPlayer(player.uniqueId) },
+                "Player did not fall back to slot 1 after mid-placement failure",
+            )
+            assertTrue(
+                kotlin.math.abs(player.location.x - slot1Center.x) < 30.0,
+                "Expected fallback to slot 1 (${slot1Center.x}), got ${player.location}",
+            )
+            assertTrue(
+                world.getBlockAt(slot0Bounds.minX, slot0Center.y, slot0Bounds.minZ).type.isAir,
+                "Mid-placement rollback did not clear previously placed slot 0 blocks",
+            )
+            assertEquals(
+                Material.OBSIDIAN,
+                world.getBlockAt(slot0Bounds.maxX, slot0Center.y, slot0Bounds.maxZ).type,
+                "Rollback must not destroy pre-existing obstacle block",
+            )
+            assertNull(dungeons.slotState(0), "Rolled-back slot 0 must be released")
+            assertEquals(1, dungeons.activeCount())
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
+    fun `timeout evacuation retries and escalates to forced safe fallback when exit chunk stalls`() {
+        val server = MockBukkit.mock()
+        try {
+            var now = 10_000_000L
+            val (plugin, world, dungeons) = setupOverworldPlugin(server, clock = { now })
+            val player = joinPlayer(server, plugin, world, "TimeoutEscalate")
+
+            dungeons.enter(player, "ec:dungeon_novice_arena")
+            assertTrue(server.pump(10_000) { dungeons.containsPlayer(player.uniqueId) }, "Player did not enter dungeon")
+
+            // 帰還先チャンク (0, 0) の非同期読込を停滞させ、通常帰還が失敗し続ける状況を再現する
+            world.stalledChunks += 0 to 0
+
+            while (player.nextComponentMessage() != null) { /* 既存メッセージをクリア */ }
+            val timeoutMsg = plain.serialize(plugin.message(player, "ec.dungeon.timeout"))
+            val maxTicks = ((plugin.snapshot.world.tuning.instanceTimeout / PaperTaskIntervals.PLAYER_UPDATE_TICKS) + 5).toInt()
+            var timedOut = false
+            for (i in 0 until maxTicks) {
+                dungeons.tick()
+                val msgs = generateSequence { player.nextComponentMessage() }.map(plain::serialize).toList()
+                if (timeoutMsg in msgs) {
+                    timedOut = true
+                    break
+                }
+            }
+            assertTrue(timedOut, "Expected ec.dungeon.timeout notice on attempt 1")
+            // 1 回目は通常帰還のチャンク応答待ちでまだ脱出できない
+            assertTrue(dungeons.containsPlayer(player.uniqueId), "Expected player to still be awaiting stalled exit chunk on attempt 1")
+
+            // 離脱タイムアウト超過後に 2 回目（再試行: +40 ticks）でもチャンクが停滞し続けるため脱出できない
+            now += 11_000L
+            repeat(2) { dungeons.tick() }
+            assertTrue(dungeons.containsPlayer(player.uniqueId), "Expected attempt 2 retry to still stall on exit chunk")
+
+            // 3 回目（さらに +40 ticks）で強制安全フォールバックへエスカレーションして救出・撤去されること
+            now += 11_000L
+            repeat(2) { dungeons.tick() }
+            assertTrue(
+                server.pump(10_000) {
+                    !dungeons.containsPlayer(player.uniqueId) &&
+                        dungeons.activeCount() == 0 &&
+                        dungeons.slotState(0) == null
+                },
+                "Timeout retry escalation did not force-evacuate player and release slot 0",
+            )
+            assertTrue(player.location.y < 100.0, "Player remained stranded in sky after forced fallback: ${player.location}")
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
+    fun `double-corrupted journal still rescues player logging in inside sky dungeon slot`() {
+        val server = MockBukkit.mock()
+        try {
+            val (plugin, world, dungeons) = setupOverworldPlugin(server, beforeControllerInit = { target ->
+                val journal = target.dataFolder.toPath().resolve("dungeon-returns.json")
+                val backup = target.dataFolder.toPath().resolve("dungeon-returns.json.bak")
+                Files.createDirectories(journal.parent)
+                Files.writeString(journal, "{corrupt-primary")
+                Files.writeString(backup, "{corrupt-backup")
+            })
+            assertTrue(dungeons.isJournalReady())
+            assertTrue(dungeons.isJournalFailed())
+
+            val stranded = joinPlayer(server, plugin, world, "CorruptStranded")
+            stranded.teleport(Location(world, 512.5, 221.0, 512.5))
+            dungeons.recover(stranded)
+
+            assertTrue(
+                server.pump(5000) { stranded.location.y < 100.0 },
+                "Stranded sky player was not rescued when journal failed: ${stranded.location}",
+            )
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
+    fun `resolveProjectionSurfaceY rejects water lava and submerged ground unless allowWater is true for fishing`() {
+        val server = MockBukkit.mock()
+        try {
+            val (plugin, world, _) = setupOverworldPlugin(server)
+            val waterX = 30
+            val waterZ = 30
+            world.generatedChunks += (waterX shr 4) to (waterZ shr 4)
+            world.loadChunk(waterX shr 4, waterZ shr 4)
+
+            // 1. 水面: 通常投影は拒否、釣り用 allowWater = true は水面 + 1 を返す
+            world.getBlockAt(waterX, 60, waterZ).type = Material.STONE
+            for (y in 61..64) world.getBlockAt(waterX, y, waterZ).type = Material.WATER
+            for (y in 65..70) world.getBlockAt(waterX, y, waterZ).type = Material.AIR
+            assertThrows(IllegalStateException::class.java) {
+                plugin.resolveProjectionSurfaceY(world, waterX, waterZ)
+            }
+            assertEquals(65, plugin.resolveProjectionSurfaceY(world, waterX, waterZ, allowWater = true))
+
+            // projectedPosition でも allowWater = false は null、allowWater = true は y = 65.0 を返す
+            val luminaArea = plugin.snapshot.world.areas.getValue("ec:area_lumina_port")
+            val areaCenterX = (luminaArea.minX + luminaArea.maxX) / 2.0
+            val areaCenterZ = (luminaArea.minZ + luminaArea.maxZ) / 2.0
+            val sourcePos = Position(luminaArea.world, areaCenterX + (waterX - 10), 65.0, areaCenterZ + (waterZ - 10))
+            assertNull(
+                plugin.projectedPosition(sourcePos, "ec:area_lumina_port", allowWater = false),
+                "Normal projection must reject water surface",
+            )
+            val waterProjected = plugin.projectedPosition(sourcePos, "ec:area_lumina_port", allowWater = true)
+            assertNotNull(waterProjected, "Fishing projection with allowWater=true must succeed on water")
+            assertEquals(65.0, waterProjected!!.y)
+
+            // 2. 溶岩面: allowWater の有無に関わらず常に拒否
+            val lavaX = 31
+            world.getBlockAt(lavaX, 60, waterZ).type = Material.STONE
+            for (y in 61..64) world.getBlockAt(lavaX, y, waterZ).type = Material.LAVA
+            assertThrows(IllegalStateException::class.java) {
+                plugin.resolveProjectionSurfaceY(world, lavaX, waterZ, allowWater = false)
+            }
+            assertThrows(IllegalStateException::class.java) {
+                plugin.resolveProjectionSurfaceY(world, lavaX, waterZ, allowWater = true)
+            }
+
+            // 3. 樹冠直下が水没している固体地表: 通常投影は拒否、allowWater = true は水面 + 1 を返す
+            val submergedX = 32
+            world.getBlockAt(submergedX, 60, waterZ).type = Material.STONE
+            world.getBlockAt(submergedX, 61, waterZ).type = Material.WATER
+            world.getBlockAt(submergedX, 62, waterZ).type = Material.OAK_LEAVES
+            assertThrows(IllegalStateException::class.java) {
+                plugin.resolveProjectionSurfaceY(world, submergedX, waterZ, allowWater = false)
+            }
+            assertEquals(62, plugin.resolveProjectionSurfaceY(world, submergedX, waterZ, allowWater = true))
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
+    fun `gathering controller registers pending sites on ChunkLoadEvent and protects cross-chunk neighbors`() {
+        val server = MockBukkit.mock()
+        try {
+            val (plugin, world, _) = setupOverworldPlugin(server)
+            val targetPoint = plugin.snapshot.world.gatheringNodes.values
+                .flatMap { node -> node.locations.map { node to it } }
+                .first { it.second.area == "ec:area_lumina_port" }
+            val point = targetPoint.second
+            val baseHorizontal = plugin.activeWorldProjection.projector.projectHorizontal(
+                Position(point.world, point.x.toDouble(), point.y.toDouble(), point.z.toDouble()),
+                point.area,
+            )
+            assertNotNull(baseHorizontal, "Gathering point must project horizontally in overworld mode")
+
+            // 対象採取地点がチャンク境界 (x = 63, z = 63: チャンク (3, 3) の東端・南端) に乗るようアンカーを調整する
+            val desiredX = 63
+            val desiredZ = 63
+            val shiftX = desiredX - floor(baseHorizontal!!.x).toInt()
+            val shiftZ = desiredZ - floor(baseHorizontal.z).toInt()
+            val shiftedAnchor = OverworldSiteAnchor(
+                areaId = "ec:area_lumina_port",
+                centerX = 10 + shiftX,
+                surfaceY = 65,
+                centerZ = 10 + shiftZ,
+                biomeKey = "PLAINS",
+                status = OverworldSiteStatus.READY,
+                plazaSpawnX = 10 + shiftX,
+                plazaSpawnY = 65,
+                plazaSpawnZ = 10 + shiftZ,
+            )
+            val shiftedRegistry = object : OverworldSiteRegistry {
+                override fun activeWorldName(): String = world.name
+                override fun isOverworldMode(): Boolean = true
+                override fun isReady(): Boolean = true
+                override fun siteForArea(areaId: String): OverworldSiteAnchor? = shiftedAnchor.takeIf { it.areaId == areaId }
+                override fun allSites(): List<OverworldSiteAnchor> = listOf(shiftedAnchor)
+                override fun portalForDungeon(dungeonId: String): OverworldDungeonPortal? = null
+                override fun allPortals(): List<OverworldDungeonPortal> = emptyList()
+                override fun triggerRepair(): OverworldRepairResult = OverworldRepairResult.UNAVAILABLE
+            }
+            plugin.activeWorldProjection = ActiveWorldProjection(shiftedRegistry, plugin.snapshot.world.areas.values) { x, z ->
+                plugin.resolveProjectionSurfaceY(world, x, z)
+            }
+
+            // チャンク (3, 3) が未ロードの状態で GatheringController を再構築し、pendingPointsByChunk に積ませる
+            val targetChunkX = desiredX shr 4
+            val targetChunkZ = desiredZ shr 4
+            assertFalse(world.isChunkLoaded(targetChunkX, targetChunkZ), "Target chunk must be unloaded before reload")
+            plugin.gathering.reload()
+            assertFalse(
+                plugin.gathering.isProtected(Location(world, desiredX.toDouble(), 65.0, desiredZ.toDouble())),
+                "Unloaded gathering point must not be registered before ChunkLoadEvent",
+            )
+
+            // チャンク (3, 3) を生成・ロードして ChunkLoadEvent を発火すると登録され、チャンク跨ぎ隣接セル (64, 65, 63) も保護されること
+            prepareSafeGround(world, desiredX, 64, desiredZ, radius = 1)
+            plugin.gathering.chunk(ChunkLoadEvent(world.getChunkAt(targetChunkX, targetChunkZ), false))
+            assertTrue(
+                plugin.gathering.isProtected(Location(world, desiredX.toDouble(), 65.0, desiredZ.toDouble())),
+                "Gathering point was not registered on ChunkLoadEvent",
+            )
+            assertTrue(
+                plugin.gathering.isProtected(Location(world, (desiredX + 1).toDouble(), 65.0, desiredZ.toDouble())),
+                "Cross-chunk adjacent block (64, 65, 63) must be protected by chunk-indexed isProtected",
+            )
+            assertFalse(
+                plugin.gathering.isProtected(Location(world, (desiredX + 3).toDouble(), 65.0, desiredZ.toDouble())),
+                "Distant block must not be protected",
+            )
         } finally {
             MockBukkit.unmock()
         }

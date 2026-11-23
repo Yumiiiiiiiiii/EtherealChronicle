@@ -89,7 +89,7 @@
 | `ec.dungeon.entry` | <message> | <message> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<message>` |
 | `ec.dungeon.first_rank_reward` | 初回ランク報酬を受け取りました。 | You received the first-clear rank reward. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
 | `ec.dungeon.no_records` | 試練の記録はまだありません。 | No trial records yet. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
-| `ec.dungeon.preparing` | <name> を準備しています。 | Preparing <name>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt | `<name>` |
+| `ec.dungeon.preparing` | <name> を準備しています。 | Preparing <name>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<name>` |
 | `ec.dungeon.record` | <name>: <seconds>秒 / ランク<rank> | <name>: <seconds>s / Rank <rank> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<name>`, `<rank>`, `<seconds>` |
 | `ec.dungeon.relogin_required` | 帰還記録の安全確認には再ログインが必要です。確認まで次の試練には入場できません。 | Reconnect to verify your return. You cannot enter another trial until it is confirmed. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
 | `ec.dungeon.result` | <message> 記録 <seconds>秒 / ランク<rank>（自己ベスト <best_seconds>秒 / <best_rank>） | <message> Time <seconds>s / Rank <rank> (best <best_seconds>s / <best_rank>) | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt | `<best_rank>`, `<best_seconds>`, `<message>`, `<rank>`, `<seconds>` |

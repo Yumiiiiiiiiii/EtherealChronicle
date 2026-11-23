@@ -24,7 +24,7 @@ internal class OverworldDungeonScanner(private val plugin: Plugin, private val w
     inner class Operation internal constructor(
         internal val bounds: DungeonInstanceBounds,
         private val budget: Int,
-        private val complete: (DungeonBoxScanResult?, Throwable?) -> Unit,
+        private val complete: (Operation, DungeonBoxScanResult?, Throwable?) -> Unit,
     ) {
         private val allPositions: List<Pair<Int, Int>> = bounds.chunkX.flatMap { x -> bounds.chunkZ.map { z -> x to z } }
         private val acquired = linkedSetOf<Pair<Int, Int>>()
@@ -49,7 +49,7 @@ internal class OverworldDungeonScanner(private val plugin: Plugin, private val w
                                     check(world.isChunkLoaded(position.first, position.second)) {
                                         "Dungeon chunk unloaded during preparation"
                                     }
-                                    if (acquired.add(position)) acquire(position)
+                                    if (acquired.add(position)) acquireTicket(position)
                                 }
                             }
                             if (acquired.isEmpty()) {
@@ -115,7 +115,7 @@ internal class OverworldDungeonScanner(private val plugin: Plugin, private val w
                                 check(world.isChunkLoaded(position.first, position.second)) {
                                     "Dungeon chunk unloaded during placement preparation"
                                 }
-                                if (acquired.add(position)) acquire(position)
+                                if (acquired.add(position)) acquireTicket(position)
                             }
                             val missingSet = missing.toSet()
                             val verifyScan = DungeonBoxScan(bounds)
@@ -156,7 +156,7 @@ internal class OverworldDungeonScanner(private val plugin: Plugin, private val w
             task?.cancel()
             task = null
             if (result != DungeonBoxScanResult.EMPTY) release()
-            complete(result, failure)
+            complete(this, result, failure)
         }
 
         /** 検査を取り消し、保持中のチケットをすべて解放します。 */
@@ -172,7 +172,11 @@ internal class OverworldDungeonScanner(private val plugin: Plugin, private val w
     }
 
     /** 検査はメインスレッドで開始し、各回のブロック数を budget 以下に抑えます。 */
-    fun scan(bounds: DungeonInstanceBounds, budget: Int, complete: (DungeonBoxScanResult?, Throwable?) -> Unit): Operation {
+    fun scan(
+        bounds: DungeonInstanceBounds,
+        budget: Int,
+        complete: (Operation, DungeonBoxScanResult?, Throwable?) -> Unit,
+    ): Operation {
         check(!closed)
         require(budget > 0)
         require(bounds.minY >= world.minHeight && bounds.maxY < world.maxHeight) { "Dungeon candidate is outside world height" }
@@ -193,13 +197,13 @@ internal class OverworldDungeonScanner(private val plugin: Plugin, private val w
         return operation
     }
 
-    private fun acquire(position: Pair<Int, Int>) {
+    internal fun acquireTicket(position: Pair<Int, Int>) {
         val count = ticketReferences[position] ?: 0
         if (count == 0) check(world.addPluginChunkTicket(position.first, position.second, plugin)) { "Dungeon chunk ticket unavailable" }
         ticketReferences[position] = count + 1
     }
 
-    private fun releaseTicket(position: Pair<Int, Int>) {
+    internal fun releaseTicket(position: Pair<Int, Int>) {
         val count = ticketReferences[position] ?: return
         if (count <= 1) {
             ticketReferences.remove(position)

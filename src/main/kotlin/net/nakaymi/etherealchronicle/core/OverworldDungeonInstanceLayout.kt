@@ -29,6 +29,9 @@ data class OverworldDungeonInstanceLayout(
         return bottom >= minHeight && bottom + ARENA_HEIGHT <= maxHeight
     }
 
+    /** 通常地形や山岳との衝突リスクを抑える推奨高度以上かを返します。 */
+    fun hasTerrainClearance(): Boolean = baseY >= RECOMMENDED_MIN_BASE_Y
+
     /** 指定スロットの 4 隅がワールドボーダー内に収まるか確認します。 */
     fun fitsBorder(slot: Int, borderCenterX: Double, borderCenterZ: Double, borderSize: Double): Boolean {
         if (!borderCenterX.isFinite() || !borderCenterZ.isFinite() || !borderSize.isFinite() || borderSize <= 0.0) {
@@ -77,6 +80,9 @@ data class OverworldDungeonInstanceLayout(
 
         /** 既定の床 Y 座標（地表建築や山岳の上空、かつ Y=320 上限に余裕がある高さ）。 */
         const val DEFAULT_BASE_Y = 220
+
+        /** 地形・山岳との衝突リスクを避けるための推奨最小床 Y 座標。 */
+        const val RECOMMENDED_MIN_BASE_Y = 160
 
         /** 既定の配置原点 Z（通常プレイ圏から十分離れた遠方空域）。 */
         const val DEFAULT_BASE_Z = 100_000
@@ -224,13 +230,16 @@ enum class DungeonSlotState {
     /** プレイヤーが攻略中の稼働インスタンス。 */
     ACTIVE,
 
-    /** 通常終了後のブロック撤去（AIR 戻し）を実行中。 */
+    /** 未帰還メンバーまたは帰還記録の完了待ちのため床を残して再利用を禁止中。 */
+    PROTECTED,
+
+    /** 通常終了・最後の帰還確認・孤立回収に伴うブロック撤去（AIR 戻し）を実行中。 */
     CLEANING,
 }
 
 /**
- * オーバーワールド空中スロットの状態遷移（`RESERVED` → `ACTIVE` → `CLEANING` → 解放）を一元管理します。
- * 予約と稼働と撤去を同一マップで管理することで、二重計上や同時入場時の同一スロット競合を防ぎます。
+ * オーバーワールド空中スロットの状態遷移（`RESERVED` → `ACTIVE` → `PROTECTED` / `CLEANING` → 解放）を一元管理します。
+ * 予約・稼働・保護・撤去を同一マップで管理することで、二重計上や同時入場時の同一スロット競合を防ぎます。
  */
 class DungeonSlotTracker {
     private val states = mutableMapOf<Int, DungeonSlotState>()
@@ -238,10 +247,13 @@ class DungeonSlotTracker {
     /** 指定スロットの現在状態を返します。空きなら null です。 */
     fun stateOf(slot: Int): DungeonSlotState? = states[slot]
 
-    /** 予約・稼働・撤去中の全スロット数を二重計上なしで返します。 */
-    fun activeCount(): Int = states.size
+    /** 予約・稼働・撤去中のアクティブなスロット数を二重計上なしで返します（静的な PROTECTED は含めません）。 */
+    fun activeCount(): Int = states.values.count { it != DungeonSlotState.PROTECTED }
 
-    /** 現在占有されているスロット番号のスナップショットを返します。 */
+    /** 予約・稼働・撤去中のアクティブなスロット番号のスナップショットを返します。 */
+    fun activeSlots(): Set<Int> = states.filterValues { it != DungeonSlotState.PROTECTED }.keys.toSet()
+
+    /** 現在占有されている全スロット番号（PROTECTED を含む）のスナップショットを返します。 */
     fun occupiedSlots(): Set<Int> = states.keys.toSet()
 
     /** 空きスロットを原子的に `RESERVED` として確保します。既に占有中なら false を返します。 */
@@ -251,18 +263,40 @@ class DungeonSlotTracker {
         return true
     }
 
-    /** 配置と帰還記録が完了した `RESERVED` スロットを `ACTIVE` へ遷移させます。 */
-    fun activate(slot: Int) {
-        check(states[slot] == DungeonSlotState.RESERVED) {
-            "Slot $slot cannot activate from state ${states[slot]}"
-        }
+    /**
+     * 配置と帰還記録が完了した `RESERVED` スロットを `ACTIVE` へ遷移させます。
+     * 予約状態でない場合は例外を投げずに false を返します。
+     */
+    fun activate(slot: Int): Boolean {
+        if (states[slot] != DungeonSlotState.RESERVED) return false
         states[slot] = DungeonSlotState.ACTIVE
+        return true
     }
 
-    /** 撤去処理を開始するスロットを `CLEANING` へ遷移させます。既に解放済みなら false です。 */
+    /**
+     * 未帰還メンバーが残るスロットを `PROTECTED` として保護し、再利用を防ぎます。
+     * 既に撤去中（`CLEANING`）の場合は false を返します。
+     */
+    fun protect(slot: Int): Boolean {
+        if (states[slot] == DungeonSlotState.CLEANING) return false
+        states[slot] = DungeonSlotState.PROTECTED
+        return true
+    }
+
+    /** 占有中スロットを `CLEANING` へ遷移させます。未占有または既に撤去中なら false です。 */
     fun beginCleaning(slot: Int): Boolean {
         val current = states[slot] ?: return false
         if (current == DungeonSlotState.CLEANING) return false
+        states[slot] = DungeonSlotState.CLEANING
+        return true
+    }
+
+    /**
+     * 起動時の孤立スロット回収など、未追跡スロットも含めて `CLEANING` へ遷移させます。
+     * 既に `CLEANING` の場合のみ false を返します。
+     */
+    fun tryBeginCleaning(slot: Int): Boolean {
+        if (states[slot] == DungeonSlotState.CLEANING) return false
         states[slot] = DungeonSlotState.CLEANING
         return true
     }
@@ -298,6 +332,24 @@ fun canAcknowledgeDungeonReturn(
         OverworldDungeonInstanceLayout.FLOOR_OFFSET -
         OverworldDungeonInstanceLayout.RECOVERY_VERTICAL_MARGIN_BLOCKS
     return !nearSlot && belowInstance
+}
+
+/** 指定座標が空中ダンジョンスロット（およびその保護マージン）内に留まっているかを判定します。 */
+fun isInsideDungeonSlotMargin(
+    slot: DungeonInstanceCenter,
+    x: Double,
+    y: Double,
+    z: Double,
+): Boolean {
+    if (!x.isFinite() || !y.isFinite() || !z.isFinite()) return false
+    val horizontalMargin = OverworldDungeonInstanceLayout.ARENA_RADIUS +
+        OverworldDungeonInstanceLayout.RECOVERY_HORIZONTAL_MARGIN_BLOCKS
+    val minY = slot.y.toDouble() -
+        OverworldDungeonInstanceLayout.FLOOR_OFFSET -
+        OverworldDungeonInstanceLayout.RECOVERY_VERTICAL_MARGIN_BLOCKS
+    return abs(x - slot.x) <= horizontalMargin &&
+        abs(z - slot.z) <= horizontalMargin &&
+        y >= minY
 }
 
 /** 既存ブロックの検査結果を保持し、各 tick の検査数を制限します。 */

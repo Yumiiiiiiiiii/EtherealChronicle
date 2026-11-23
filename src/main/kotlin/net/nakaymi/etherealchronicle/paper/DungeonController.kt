@@ -12,8 +12,10 @@ import net.nakaymi.etherealchronicle.core.OverworldDungeonPortal
 import net.nakaymi.etherealchronicle.core.OverworldSiteStatus
 import net.nakaymi.etherealchronicle.core.canAcknowledgeDungeonReturn
 import net.nakaymi.etherealchronicle.core.firstClearRanks
+import net.nakaymi.etherealchronicle.core.isInsideDungeonSlotMargin
 import net.nakaymi.etherealchronicle.core.recordChallenge
 import net.nakaymi.etherealchronicle.core.returnToMailbox
+import net.nakaymi.etherealchronicle.data.DungeonOwnedSlot
 import net.nakaymi.etherealchronicle.data.DungeonReturnRecord
 import net.nakaymi.etherealchronicle.data.DungeonReturnStore
 import org.bukkit.Bukkit
@@ -68,9 +70,11 @@ class DungeonController internal constructor(
         val overworld: Boolean = false,
         var timingOut: Boolean = false,
         val unreturnedMembers: MutableSet<UUID> = if (overworld) members.toMutableSet() else mutableSetOf(),
+        var timeoutRetryAttempts: Int = 0,
+        var lastTimeoutRetryTick: Long = Long.MIN_VALUE,
     )
 
-    /** オーバーワールド入場フローの非同期ステップ間で共有する不変セッション情報です。 */
+    /** オーバーワールド入場フローの非同期ステップ間で共有するセッション情報です。 */
     private data class OverworldEntrySession(
         val leader: Player,
         val dungeonId: String,
@@ -83,22 +87,28 @@ class DungeonController internal constructor(
         val candidates: List<Int>,
         val scanner: OverworldDungeonScanner,
         val placement: OverworldDungeonPlacement,
+        var consecutiveOccupiedSlots: Int = 0,
     )
 
     private val instances = mutableMapOf<Int, Instance>()
+    private val memberToSlot = mutableMapOf<UUID, Int>()
     private var tick = 0L
     private val builtPalette = mutableMapOf<Int, List<String>>()
     private val loadedSchematics = mutableMapOf<String, SchematicData>()
     private val schematicSlots = mutableSetOf<Int>()
     private val slotTracker = DungeonSlotTracker()
     private val pendingReturns = mutableMapOf<UUID, DungeonReturnRecord>()
+    private val ownedSlots = mutableMapOf<Int, DungeonOwnedSlot>()
+    private val retainedPlacedCells = mutableMapOf<Int, IntArray>()
     private val pendingReturnFreezeSince = mutableMapOf<UUID, Long>()
     private val recoveringPlayers = mutableSetOf<UUID>()
     private val enteringPlayers = mutableSetOf<UUID>()
-    private val leavingPlayers = mutableSetOf<UUID>()
+    private val leavingPlayers = mutableMapOf<UUID, Long>()
+    private val leaveAttemptTokens = mutableMapOf<UUID, Long>()
+    private var leaveAttemptSequence = 0L
     private val journalWaiters = mutableListOf<() -> Unit>()
     private val placedOperations = mutableMapOf<Int, OverworldDungeonPlacement.Operation>()
-    private val cleaningOperations = mutableMapOf<Int, OverworldDungeonPlacement.Operation>()
+    private val cleaningHandles = mutableMapOf<Int, OverworldDungeonPlacement.CleanupHandle>()
     private var overworldLayout: OverworldDungeonInstanceLayout = OverworldDungeonInstanceLayout()
     private var overworldLayoutWorldName: String? = null
     private var returnStore: DungeonReturnStore? = null
@@ -118,7 +128,7 @@ class DungeonController internal constructor(
         }
     }
 
-    /** オーバーワールド稼働時のみ帰還ジャーナルと空中レイアウト検証を遅延初期化します。 */
+    /** オーバーワールド稼働時のみ帰還ジャーナル・所有スロット回収・空中レイアウト検証を初期化します。 */
     private fun initializeOverworldRuntime() {
         Bukkit.getWorld(plugin.activeWorldProjection.registry.activeWorldName())?.let { world ->
             resolveOverworldLayout(world, logValidation = true)
@@ -128,7 +138,7 @@ class DungeonController internal constructor(
             onWarning = { message -> plugin.logger.warning(message) },
         )
         returnStore = store
-        store.readAll().whenComplete { records, error ->
+        store.readState().whenComplete { state, error ->
             plugin.sync {
                 if (error != null) {
                     plugin.logger.severe(
@@ -138,10 +148,24 @@ class DungeonController internal constructor(
                     journalReady = true
                     drainJournalWaiters()
                 } else {
-                    pendingReturns.putAll(records)
+                    pendingReturns.putAll(state.records)
+                    ownedSlots.putAll(state.ownedSlots)
+                    reconcileOwnedSlotsOnStartup()
                     journalReady = true
                     drainJournalWaiters()
                 }
+            }
+        }
+    }
+
+    /** 起動時に永続化された所有スロットを点検し、未帰還記録ありは保護、孤立スロットは自動撤去します。 */
+    private fun reconcileOwnedSlotsOnStartup() {
+        if (shuttingDown || !plugin.isEnabled) return
+        ownedSlots.values.toList().forEach { owned ->
+            if (hasPendingReturnForOwnedSlot(owned)) {
+                slotTracker.protect(owned.slot)
+            } else {
+                startOwnedSlotCleanup(owned.slot)
             }
         }
     }
@@ -152,8 +176,8 @@ class DungeonController internal constructor(
         waiters.forEach { it() }
     }
 
-    /** 稼働中・予約中・撤去中の全ダンジョン枠数を二重計上なしで返します。 */
-    fun activeCount(): Int = (instances.keys + slotTracker.occupiedSlots()).size
+    /** 稼働中・予約中・撤去中のアクティブなダンジョン枠数を二重計上なしで返します。 */
+    fun activeCount(): Int = (instances.keys + slotTracker.activeSlots()).size
 
     /** 指定スロットのオーバーワールド状態（テスト・診断用）を返します。 */
     internal fun slotState(slot: Int): DungeonSlotState? = slotTracker.stateOf(slot)
@@ -174,8 +198,10 @@ class DungeonController internal constructor(
     fun hasPendingReturn(id: UUID): Boolean = plugin.activeWorldProjection.registry.isOverworldMode() &&
         (!journalReady || id in pendingReturns)
 
-    /** リスポーン処理の振り分けに、現在の参加状態を同期的に公開します。 */
-    fun containsPlayer(id: UUID): Boolean = instances.values.any { id in it.members }
+    /** リスポーン処理の振り分けに、現在の参加状態を O(1) で公開します。 */
+    fun containsPlayer(id: UUID): Boolean = id in memberToSlot
+
+    private fun instanceForPlayer(id: UUID): Instance? = memberToSlot[id]?.let { instances[it] }
 
     internal fun currentWave(slot: Int) = instances[slot]?.waveIndex
     internal fun currentBoss(slot: Int) = instances[slot]?.boss
@@ -190,7 +216,7 @@ class DungeonController internal constructor(
             return
         }
         val definition = plugin.snapshot.world.dungeons[dungeonId] ?: error("ec.error.dungeon_missing: $dungeonId")
-        require(instances.values.none { player.uniqueId in it.members }) { "ec.error.dungeon_already_inside" }
+        require(!containsPlayer(player.uniqueId)) { "ec.error.dungeon_already_inside" }
         val party = adventure.parties.party(player.uniqueId)
         require(party == null || party.leader == player.uniqueId) { "ec.error.party_leader_required" }
         val players = adventure.parties.members(player.uniqueId).map {
@@ -238,6 +264,7 @@ class DungeonController internal constructor(
             builtPalette[slot] = definition.palette.toList()
         }
         instances[slot] = instance
+        instance.members.forEach { memberToSlot[it] = slot }
         try {
             spawnWave(instance, world, x, z)
         } catch (error: Exception) {
@@ -270,10 +297,15 @@ class DungeonController internal constructor(
         }
     }
 
-    /** 地上入口から空中枠を全域検査し、帰還記録の永続化後だけ転送します。 */
+    /** 地上入口から空中枠を全域検査し、所有証跡と帰還記録の永続化後だけ転送します。 */
     private fun enterOverworld(player: Player, dungeonId: String) {
         val session = prepareOverworldEntry(player, dungeonId)
         enteringPlayers.addAll(session.returns.keys)
+        session.players.forEach { member ->
+            member.sendMessage(
+                plugin.message(member, "ec.dungeon.preparing", "name" to plugin.contentName(member, session.dungeonId)),
+            )
+        }
         tryCandidate(session, 0)
     }
 
@@ -326,6 +358,7 @@ class DungeonController internal constructor(
         val candidates = fitting.filter { slot ->
             slotTracker.stateOf(slot) == null &&
                 slot !in instances &&
+                slot !in ownedSlots &&
                 !hasPendingReturnAtSlot(layout, slot)
         }
         check(candidates.isNotEmpty()) { "ec.error.dungeon_full" }
@@ -342,8 +375,7 @@ class DungeonController internal constructor(
         check(returns.values.all { destination -> SafeStandingSpot.isSafe(destination) }) {
             "ec.error.world_unavailable"
         }
-        val currentScanner = scanner ?: OverworldDungeonScanner(plugin, world).also { scanner = it }
-        val currentPlacement = placement ?: OverworldDungeonPlacement(plugin, world).also { placement = it }
+        val (currentScanner, currentPlacement) = ensureOverworldTools(world)
         return OverworldEntrySession(
             leader = player,
             dungeonId = dungeonId,
@@ -359,9 +391,15 @@ class DungeonController internal constructor(
         )
     }
 
+    private fun ensureOverworldTools(world: World): Pair<OverworldDungeonScanner, OverworldDungeonPlacement> {
+        val currentScanner = scanner ?: OverworldDungeonScanner(plugin, world).also { scanner = it }
+        val currentPlacement = placement ?: OverworldDungeonPlacement(plugin, world, currentScanner).also { placement = it }
+        return currentScanner to currentPlacement
+    }
+
     /** 候補スロットを先頭から原子的に予約し、空域検査と配置を順次進めます。 */
     private fun tryCandidate(session: OverworldEntrySession, index: Int) {
-        if (!plugin.isEnabled) {
+        if (!plugin.isEnabled || shuttingDown) {
             finishEntry(session)
             return
         }
@@ -375,15 +413,14 @@ class DungeonController internal constructor(
             tryCandidate(session, index + 1)
             return
         }
-        if (slot in instances || hasPendingReturnAtSlot(overworldLayout, slot)) {
+        if (slot in instances || slot in ownedSlots || hasPendingReturnAtSlot(overworldLayout, slot)) {
             slotTracker.release(slot)
             tryCandidate(session, index + 1)
             return
         }
         val bounds = overworldLayout.bounds(slot)
-        lateinit var scanOperation: OverworldDungeonScanner.Operation
         try {
-            scanOperation = session.scanner.scan(bounds, SCAN_BUDGET) { result, failure ->
+            session.scanner.scan(bounds, SCAN_BUDGET) { scanOperation, result, failure ->
                 handleScanResult(session, index, slot, bounds, scanOperation, result, failure)
             }
         } catch (error: Exception) {
@@ -393,7 +430,7 @@ class DungeonController internal constructor(
         }
     }
 
-    /** スキャン結果を受け、空き枠ならチャンクチケットを配置工程へ引き継ぎます。 */
+    /** スキャン結果を受け、空き枠なら所有証跡を永続化してから配置工程へ引き継ぎます。 */
     private fun handleScanResult(
         session: OverworldEntrySession,
         index: Int,
@@ -406,12 +443,21 @@ class DungeonController internal constructor(
         if (failure != null || result != DungeonBoxScanResult.EMPTY) {
             scanOperation.release()
             slotTracker.release(slot)
-            if (failure != null) {
+            if (result == DungeonBoxScanResult.OCCUPIED) {
+                session.consecutiveOccupiedSlots++
+                if (session.consecutiveOccupiedSlots == CONSECUTIVE_OCCUPIED_WARN_THRESHOLD) {
+                    plugin.logger.warning(
+                        "Overworld dungeon entry encountered ${session.consecutiveOccupiedSlots} consecutive OCCUPIED slots " +
+                            "in '${session.world.name}' (baseY=${overworldLayout.baseY}); check terrain clearance or leftover blocks.",
+                    )
+                }
+            } else if (failure != null) {
                 plugin.logger.warning("Dungeon slot scan failed for slot $slot: ${failure.message}")
             }
             tryCandidate(session, index + 1)
             return
         }
+        session.consecutiveOccupiedSlots = 0
         if (!isEntryStillValid(session)) {
             scanOperation.release()
             slotTracker.release(slot)
@@ -419,24 +465,72 @@ class DungeonController internal constructor(
             notifyEntryFailure(session, "ec.error.world_unavailable")
             return
         }
-        lateinit var placementOperation: OverworldDungeonPlacement.Operation
+        val store = returnStore
+        if (store == null || journalFailed) {
+            scanOperation.release()
+            slotTracker.release(slot)
+            finishEntry(session)
+            notifyEntryFailure(session, "ec.error.world_unavailable")
+            return
+        }
+        val owned = DungeonOwnedSlot(
+            slot = slot,
+            world = session.world.name,
+            dungeonId = session.dungeonId,
+            minX = bounds.minX,
+            minY = bounds.minY,
+            minZ = bounds.minZ,
+        )
+        store.putOwnedSlot(owned).whenComplete { _, writeError ->
+            plugin.sync {
+                if (writeError != null || shuttingDown || !plugin.isEnabled) {
+                    scanOperation.release()
+                    slotTracker.release(slot)
+                    if (writeError != null) {
+                        plugin.logger.severe("Dungeon owned slot journal write failed for slot $slot: ${writeError.message}")
+                    }
+                    finishEntry(session)
+                    notifyEntryFailure(session, "ec.error.world_unavailable")
+                    return@sync
+                }
+                ownedSlots[slot] = owned
+                if (!isEntryStillValid(session)) {
+                    scanOperation.release()
+                    finishEntry(session)
+                    removeOwnedSlotAndRelease(slot)
+                    notifyEntryFailure(session, "ec.error.world_unavailable")
+                    return@sync
+                }
+                startPlacement(session, index, slot, bounds, scanOperation)
+            }
+        }
+    }
+
+    private fun startPlacement(
+        session: OverworldEntrySession,
+        index: Int,
+        slot: Int,
+        bounds: DungeonInstanceBounds,
+        scanOperation: OverworldDungeonScanner.Operation,
+    ) {
         try {
-            placementOperation = session.placement.place(
+            session.placement.place(
                 bounds = bounds,
                 schematic = session.schematic,
                 scanOperation = scanOperation,
-            ) { success, error ->
+            ) { placementOperation, success, error ->
                 handlePlacementResult(session, index, slot, placementOperation, success, error)
             }
         } catch (error: Exception) {
             scanOperation.release()
-            slotTracker.release(slot)
             plugin.logger.warning("Dungeon placement could not start for slot $slot: ${error.message}")
-            tryCandidate(session, index + 1)
+            removeOwnedSlotAndRelease(slot) {
+                tryCandidate(session, index + 1)
+            }
         }
     }
 
-    /** スキーマ配置完了後に帰還ジャーナルを永続化し、失敗時は枠を解放して次候補へ進みます。 */
+    /** スキーマ配置完了後に帰還ジャーナルを永続化し、途中失敗時は配置済みセルを撤去して次候補へ進みます。 */
     private fun handlePlacementResult(
         session: OverworldEntrySession,
         index: Int,
@@ -446,17 +540,28 @@ class DungeonController internal constructor(
         error: Throwable?,
     ) {
         if (!success) {
-            slotTracker.release(slot)
             if (error != null) {
                 plugin.logger.warning("Dungeon placement failed for slot $slot: ${error.message}")
             }
-            tryCandidate(session, index + 1)
+            if (operation.placedCount() > 0 && !shuttingDown && plugin.isEnabled) {
+                rollbackFailedPlacement(session, index, slot, operation)
+            } else {
+                operation.release(warnIfRetained = false)
+                if (!shuttingDown && plugin.isEnabled) {
+                    removeOwnedSlotAndRelease(slot) {
+                        tryCandidate(session, index + 1)
+                    }
+                } else {
+                    slotTracker.release(slot)
+                    finishEntry(session)
+                }
+            }
             return
         }
         placedOperations[slot] = operation
         if (!isEntryStillValid(session)) {
             finishEntry(session)
-            cleanupOrAbandonSlot(slot)
+            cleanupPlacedSlot(slot)
             notifyEntryFailure(session, "ec.error.world_unavailable")
             return
         }
@@ -478,13 +583,43 @@ class DungeonController internal constructor(
         val store = returnStore
         if (store == null || journalFailed) {
             finishEntry(session)
-            cleanupOrAbandonSlot(slot)
+            cleanupPlacedSlot(slot)
             notifyEntryFailure(session, "ec.error.world_unavailable")
             return
         }
         store.putAll(records).whenComplete { _, writeError ->
             plugin.sync {
                 handleReturnPersisted(session, slot, center, records, writeError)
+            }
+        }
+    }
+
+    /** 配置途中で失敗したスロットの配置済みセルを CLEANING 状態で撤去してから次候補へ進みます。 */
+    private fun rollbackFailedPlacement(
+        session: OverworldEntrySession,
+        index: Int,
+        slot: Int,
+        operation: OverworldDungeonPlacement.Operation,
+    ) {
+        if (!slotTracker.beginCleaning(slot)) {
+            operation.release(warnIfRetained = true)
+            slotTracker.protect(slot)
+            tryCandidate(session, index + 1)
+            return
+        }
+        cleaningHandles[slot] = operation
+        operation.clear { cleared, clearError ->
+            cleaningHandles.remove(slot)
+            if (cleared) {
+                removeOwnedSlotAndRelease(slot) {
+                    tryCandidate(session, index + 1)
+                }
+            } else {
+                if (clearError != null) {
+                    plugin.logger.warning("Dungeon placement rollback failed for slot $slot: ${clearError.message}")
+                }
+                slotTracker.protect(slot)
+                tryCandidate(session, index + 1)
             }
         }
     }
@@ -499,7 +634,7 @@ class DungeonController internal constructor(
     ) {
         if (writeError != null) {
             finishEntry(session)
-            cleanupOrAbandonSlot(slot)
+            cleanupPlacedSlot(slot)
             plugin.logger.severe("Dungeon return journal write failed: ${writeError.message}")
             notifyEntryFailure(session, "ec.error.world_unavailable")
             return
@@ -510,11 +645,17 @@ class DungeonController internal constructor(
             session.returns.values.any { !SafeStandingSpot.isSafe(it) }
         ) {
             clearReturnRecords(records.keys, notifyOnFailure = false)
-            cleanupOrAbandonSlot(slot)
+            cleanupPlacedSlot(slot)
             notifyEntryFailure(session, "ec.error.world_unavailable")
             return
         }
-        slotTracker.activate(slot)
+        if (!slotTracker.activate(slot)) {
+            plugin.logger.warning("Dungeon slot $slot could not activate from state ${slotTracker.stateOf(slot)}.")
+            clearReturnRecords(records.keys, notifyOnFailure = false)
+            cleanupPlacedSlot(slot)
+            notifyEntryFailure(session, "ec.error.world_unavailable")
+            return
+        }
         val instance = Instance(
             slot = slot,
             definition = session.definition,
@@ -524,6 +665,7 @@ class DungeonController internal constructor(
             overworld = true,
         )
         instances[slot] = instance
+        instance.members.forEach { memberToSlot[it] = slot }
         try {
             spawnWave(instance, session.world, center.x, center.z)
         } catch (error: Exception) {
@@ -571,6 +713,7 @@ class DungeonController internal constructor(
     private fun isEntryStillValid(session: OverworldEntrySession, checkPending: Boolean = true): Boolean {
         val registry = plugin.activeWorldProjection.registry
         return plugin.isEnabled &&
+            !shuttingDown &&
             !journalFailed &&
             registry.isReady() &&
             registry.portalForDungeon(session.dungeonId) == session.portal &&
@@ -597,7 +740,27 @@ class DungeonController internal constructor(
         return pendingReturns.values.any { record -> record.slotX == center.x && record.slotZ == center.z }
     }
 
-    /** 設定値とワールドボーダー・高さ制限に合わせて空中レイアウトを解決し、必要時に警告を出します。 */
+    private fun hasPendingReturnForOwnedSlot(owned: DungeonOwnedSlot): Boolean {
+        val centerX = owned.minX + OverworldDungeonInstanceLayout.ARENA_RADIUS
+        val centerY = owned.minY + OverworldDungeonInstanceLayout.FLOOR_OFFSET
+        val centerZ = owned.minZ + OverworldDungeonInstanceLayout.ARENA_RADIUS
+        return pendingReturns.values.any { record ->
+            record.world == owned.world &&
+                record.slotX == centerX &&
+                record.slotY == centerY &&
+                record.slotZ == centerZ
+        }
+    }
+
+    private fun findOwnedSlotForRecord(record: DungeonReturnRecord): Int? =
+        ownedSlots.values.firstOrNull { owned ->
+            owned.world == record.world &&
+                owned.minX + OverworldDungeonInstanceLayout.ARENA_RADIUS == record.slotX &&
+                owned.minY + OverworldDungeonInstanceLayout.FLOOR_OFFSET == record.slotY &&
+                owned.minZ + OverworldDungeonInstanceLayout.ARENA_RADIUS == record.slotZ
+        }?.slot
+
+    /** 設定値とワールドボーダー・高さ制限・地形クリアランスに合わせて空中レイアウトを解決します。 */
     private fun resolveOverworldLayout(world: World, logValidation: Boolean): OverworldDungeonInstanceLayout {
         if (overworldLayoutWorldName == world.name && !logValidation) return overworldLayout
         val cfg = plugin.config
@@ -627,6 +790,12 @@ class DungeonController internal constructor(
                 plugin.logger.warning(
                     "Overworld dungeon layout baseY=${resolved.baseY} does not fit world '${world.name}' " +
                         "height range [${world.minHeight}, ${world.maxHeight}).",
+                )
+            } else if (!resolved.hasTerrainClearance()) {
+                plugin.logger.warning(
+                    "Overworld dungeon layout baseY=${resolved.baseY} is below recommended minimum " +
+                        "${OverworldDungeonInstanceLayout.RECOMMENDED_MIN_BASE_Y} in '${world.name}'; " +
+                        "sky arenas may collide with tall terrain.",
                 )
             }
             val fitting = resolved.fittingSlots(cap, border.center.x, border.center.z, border.size)
@@ -829,7 +998,7 @@ class DungeonController internal constructor(
     }
 
     private fun leaveInternal(player: Player, forceFallback: Boolean) {
-        val instance = instances.values.firstOrNull { player.uniqueId in it.members } ?: return
+        val instance = instanceForPlayer(player.uniqueId) ?: return
         if (instance.overworld) {
             leaveOverworld(player, instance, forceFallback)
             return
@@ -838,23 +1007,30 @@ class DungeonController internal constructor(
             if (destination.world != null) player.teleport(destination)
         }
         instance.members.remove(player.uniqueId)
+        memberToSlot.remove(player.uniqueId, instance.slot)
         if (instance.members.isEmpty()) close(instance)
     }
 
     /** 地上チャンクを非同期で確保し、安全な地上帰還の完了後に非同期で帰還記録を解除します。 */
     private fun leaveOverworld(player: Player, instance: Instance, forceFallback: Boolean) {
         val id = player.uniqueId
-        if (!leavingPlayers.add(id)) return
+        val now = clock()
+        val inFlightSince = leavingPlayers[id]
+        if (inFlightSince != null && now - inFlightSince < LEAVE_TIMEOUT_MILLIS) return
+        leavingPlayers[id] = now
+        val token = ++leaveAttemptSequence
+        leaveAttemptTokens[id] = token
         val destination = instance.returns[id]
         val world = destination?.world ?: instanceWorld(instance) ?: run {
-            leavingPlayers.remove(id)
+            clearLeavingState(id)
             return
         }
         val targetChunkX = (destination?.blockX ?: world.spawnLocation.blockX) shr 4
         val targetChunkZ = (destination?.blockZ ?: world.spawnLocation.blockZ) shr 4
         plugin.withChunk(world, targetChunkX, targetChunkZ) { failure ->
+            if (leaveAttemptTokens[id] != token) return@withChunk
             if (instances[instance.slot] !== instance || id !in instance.members) {
-                leavingPlayers.remove(id)
+                clearLeavingState(id)
                 return@withChunk
             }
             if (!player.isOnline) {
@@ -863,18 +1039,18 @@ class DungeonController internal constructor(
             }
             val safeTarget = when {
                 failure == null && destination != null && SafeStandingSpot.isSafe(destination) -> destination
-                forceFallback -> plugin.luminaSpawn() ?: world.spawnLocation
+                forceFallback -> resolveForcedSafeFallback(world)
                 else -> null
             }
             if (safeTarget == null) {
-                leavingPlayers.remove(id)
+                clearLeavingState(id)
                 player.sendMessage(plugin.message(player, "ec.error.teleport_destination"))
                 return@withChunk
             }
             val teleported = runCatching { player.teleport(safeTarget) }.getOrDefault(false) ||
-                (forceFallback && runCatching { player.teleport(world.spawnLocation) }.getOrDefault(false))
+                (forceFallback && runCatching { player.teleport(resolveForcedSafeFallback(world)) }.getOrDefault(false))
             if (!teleported) {
-                leavingPlayers.remove(id)
+                clearLeavingState(id)
                 player.sendMessage(plugin.message(player, "ec.error.teleport_destination"))
                 return@withChunk
             }
@@ -884,23 +1060,85 @@ class DungeonController internal constructor(
         }
     }
 
-    /** 地上帰還完了後に永続ジャーナルから対象プレイヤーの帰還記録を非同期削除します。 */
+    /** タイムアウト再試行上限超過時に、停滞中チャンク待機を上書きして安全地表へ強制帰還させます。 */
+    private fun forceEvacuateOverworldPlayer(player: Player, instance: Instance) {
+        val id = player.uniqueId
+        val world = instanceWorld(instance) ?: player.world
+        val hub = plugin.luminaSpawn()
+        if (hub != null) {
+            clearLeavingState(id)
+            if (runCatching { player.teleport(hub) }.getOrDefault(false)) {
+                instance.unreturnedMembers.remove(id)
+                detach(instance, id)
+                clearReturnRecords(setOf(id), notifyOnFailure = true)
+                return
+            }
+        }
+        val spawn = world.spawnLocation
+        val token = ++leaveAttemptSequence
+        leavingPlayers[id] = clock()
+        leaveAttemptTokens[id] = token
+        plugin.withChunk(world, spawn.blockX shr 4, spawn.blockZ shr 4) { _ ->
+            if (leaveAttemptTokens[id] != token) return@withChunk
+            clearLeavingState(id)
+            if (instances[instance.slot] !== instance || id !in instance.members) return@withChunk
+            if (!player.isOnline) {
+                detach(instance, id)
+                return@withChunk
+            }
+            val fallback = resolveForcedSafeFallback(world)
+            if (runCatching { player.teleport(fallback) }.getOrDefault(false)) {
+                instance.unreturnedMembers.remove(id)
+                detach(instance, id)
+                clearReturnRecords(setOf(id), notifyOnFailure = true)
+            } else {
+                player.sendMessage(plugin.message(player, "ec.error.teleport_destination"))
+            }
+        }
+    }
+
+    /** ルミナ港広場・安全なワールドスポーン・最高安全乾燥地表の順で強制帰還先を解決します。 */
+    private fun resolveForcedSafeFallback(world: World): Location {
+        plugin.luminaSpawn()?.let { return it }
+        val spawn = world.spawnLocation
+        if (world.isChunkLoaded(spawn.blockX shr 4, spawn.blockZ shr 4)) {
+            if (SafeStandingSpot.isSafe(spawn)) return spawn
+            val surfaceY = runCatching {
+                plugin.resolveProjectionSurfaceY(world, spawn.blockX, spawn.blockZ, allowWater = false)
+            }.getOrNull()
+            if (surfaceY != null) {
+                val candidate = Location(world, spawn.blockX + 0.5, surfaceY.toDouble(), spawn.blockZ + 0.5)
+                if (SafeStandingSpot.isSafe(candidate)) return candidate
+            }
+        }
+        return spawn
+    }
+
+    private fun clearLeavingState(id: UUID) {
+        leavingPlayers.remove(id)
+        leaveAttemptTokens.remove(id)
+    }
+
+    /** 地上帰還完了後に永続ジャーナルから対象プレイヤーの帰還記録を非同期削除し、最後の記録なら枠を撤去します。 */
     private fun clearReturnRecords(ids: Set<UUID>, notifyOnFailure: Boolean) {
         if (ids.isEmpty()) return
+        val snapshotRecords = ids.mapNotNull { pendingReturns[it] }
         val store = returnStore ?: run {
             ids.forEach {
                 pendingReturns.remove(it)
                 pendingReturnFreezeSince.remove(it)
             }
+            maybeCleanupOwnedSlotsForRecords(snapshotRecords)
             return
         }
         store.removeAll(ids).whenComplete { _, removeError ->
             plugin.sync {
                 if (removeError == null) {
-                    ids.forEach {
-                        pendingReturns.remove(it)
-                        pendingReturnFreezeSince.remove(it)
+                    val removed = ids.mapNotNull { id ->
+                        pendingReturnFreezeSince.remove(id)
+                        pendingReturns.remove(id)
                     }
+                    maybeCleanupOwnedSlotsForRecords(removed.ifEmpty { snapshotRecords })
                 } else {
                     plugin.logger.warning("Dungeon return record cleanup failed: ${removeError.message}")
                     if (notifyOnFailure) {
@@ -915,23 +1153,40 @@ class DungeonController internal constructor(
         }
     }
 
+    private fun maybeCleanupOwnedSlotsForRecords(records: List<DungeonReturnRecord>) {
+        if (shuttingDown || !plugin.isEnabled || records.isEmpty()) return
+        val affectedSlots = records.mapNotNull(::findOwnedSlotForRecord).toSet()
+        affectedSlots.forEach { slot ->
+            val owned = ownedSlots[slot] ?: return@forEach
+            if (slot in instances) return@forEach
+            if (slotTracker.stateOf(slot) == DungeonSlotState.CLEANING) return@forEach
+            if (hasPendingReturnForOwnedSlot(owned)) return@forEach
+            startOwnedSlotCleanup(slot)
+        }
+    }
+
     private fun detach(instance: Instance, id: UUID) {
         instance.members.remove(id)
-        leavingPlayers.remove(id)
+        memberToSlot.remove(id, instance.slot)
+        clearLeavingState(id)
         if (instance.members.isEmpty()) close(instance)
     }
 
     private fun close(instance: Instance) {
         if (instances.remove(instance.slot) !== instance) return
+        instance.members.forEach { memberToSlot.remove(it, instance.slot) }
+        instance.returns.keys.forEach { memberToSlot.remove(it, instance.slot) }
         instance.entities.forEach { Bukkit.getEntity(it)?.remove() }
         instance.entities.clear()
         instance.boss = null
         enemies.removeParticipants(instance.returns.keys)
         if (instance.overworld) {
             if (instance.unreturnedMembers.isEmpty() && !shuttingDown && plugin.isEnabled) {
-                cleanupOrAbandonSlot(instance.slot)
+                cleanupPlacedSlot(instance.slot)
+            } else if (!shuttingDown && plugin.isEnabled) {
+                protectSlotForPendingReturns(instance.slot)
             } else {
-                abandonSlot(instance.slot)
+                abandonSlotOnShutdown(instance.slot)
             }
             return
         }
@@ -949,33 +1204,138 @@ class DungeonController internal constructor(
         }
     }
 
-    /** 自身が配置した空中アリーナを CLEANING 状態で非同期分割撤去し、完了後に枠を解放します。 */
-    private fun cleanupOrAbandonSlot(slot: Int) {
+    /** 稼働中・予約中に保持していた配置ハンドルを使って非空気セルを撤去し、所有証跡と枠を解放します。 */
+    private fun cleanupPlacedSlot(slot: Int) {
         val operation = placedOperations.remove(slot)
-        if (operation == null || shuttingDown || !plugin.isEnabled) {
-            operation?.release()
+        if (operation == null) {
+            if (slot in ownedSlots && !shuttingDown && plugin.isEnabled) {
+                startOwnedSlotCleanup(slot)
+            } else {
+                slotTracker.release(slot)
+            }
+            return
+        }
+        if (shuttingDown || !plugin.isEnabled) {
+            operation.release(warnIfRetained = false)
             slotTracker.release(slot)
             return
         }
         if (!slotTracker.beginCleaning(slot)) {
-            operation.release()
-            slotTracker.release(slot)
+            operation.release(warnIfRetained = false)
             return
         }
-        cleaningOperations[slot] = operation
+        retainedPlacedCells.remove(slot)
+        cleaningHandles[slot] = operation
         operation.clear { cleared, error ->
-            cleaningOperations.remove(slot)
-            slotTracker.release(slot)
-            if (!cleared && error != null) {
-                plugin.logger.warning("Dungeon arena cleanup failed for slot $slot: ${error.message}")
+            cleaningHandles.remove(slot)
+            if (cleared) {
+                removeOwnedSlotAndRelease(slot)
+            } else {
+                if (error != null) {
+                    plugin.logger.warning("Dungeon arena cleanup failed for slot $slot: ${error.message}")
+                }
+                slotTracker.protect(slot)
             }
         }
     }
 
-    /** クラッシュ・未帰還切断・終了時は残存ブロックを壊さずチケットとスロット状態だけ解放します。 */
-    private fun abandonSlot(slot: Int) {
-        placedOperations.remove(slot)?.release()
-        cleaningOperations.remove(slot)?.release()
+    /** 未帰還メンバーが残るスロットは床を壊さず PROTECTED に保ち、非空気座標を保持してチケットのみ解放します。 */
+    private fun protectSlotForPendingReturns(slot: Int) {
+        val operation = placedOperations.remove(slot)
+        if (operation != null) {
+            val cells = operation.placedCellIndices()
+            if (cells.isNotEmpty()) retainedPlacedCells[slot] = cells
+            operation.release(warnIfRetained = false)
+        }
+        slotTracker.protect(slot)
+    }
+
+    /** 保護解除後または起動時の孤立した所有スロットを非同期撤去し、完了後に所有証跡と枠を解放します。 */
+    private fun startOwnedSlotCleanup(slot: Int) {
+        if (shuttingDown || !plugin.isEnabled) return
+        val owned = ownedSlots[slot] ?: run {
+            slotTracker.release(slot)
+            return
+        }
+        val activeOp = placedOperations.remove(slot)
+        if (activeOp != null) {
+            if (!slotTracker.tryBeginCleaning(slot)) {
+                activeOp.release(warnIfRetained = false)
+                return
+            }
+            retainedPlacedCells.remove(slot)
+            cleaningHandles[slot] = activeOp
+            activeOp.clear { cleared, error ->
+                cleaningHandles.remove(slot)
+                if (cleared) {
+                    removeOwnedSlotAndRelease(slot)
+                } else {
+                    if (error != null) {
+                        plugin.logger.warning("Dungeon arena cleanup failed for slot $slot: ${error.message}")
+                    }
+                    slotTracker.protect(slot)
+                }
+            }
+            return
+        }
+        val world = Bukkit.getWorld(owned.world)
+        if (world == null) {
+            slotTracker.protect(slot)
+            plugin.logger.warning("World '${owned.world}' unavailable for owned dungeon slot $slot cleanup; keeping slot protected.")
+            return
+        }
+        if (!slotTracker.tryBeginCleaning(slot)) return
+        val bounds = DungeonInstanceBounds(owned.minX, owned.minY, owned.minZ)
+        val cellIndices = retainedPlacedCells.remove(slot)
+        val (_, currentPlacement) = ensureOverworldTools(world)
+        try {
+            val handle = currentPlacement.clearBounds(bounds, cellIndices) { cleared, error ->
+                cleaningHandles.remove(slot)
+                if (cleared) {
+                    removeOwnedSlotAndRelease(slot)
+                } else {
+                    if (error != null) {
+                        plugin.logger.warning("Dungeon owned slot cleanup failed for slot $slot: ${error.message}")
+                    }
+                    if (cellIndices != null) retainedPlacedCells[slot] = cellIndices
+                    slotTracker.protect(slot)
+                }
+            }
+            cleaningHandles[slot] = handle
+        } catch (error: Exception) {
+            if (cellIndices != null) retainedPlacedCells[slot] = cellIndices
+            slotTracker.protect(slot)
+            plugin.logger.warning("Could not start owned dungeon slot cleanup for slot $slot: ${error.message}")
+        }
+    }
+
+    /** 撤去完了後に永続ジャーナルから所有証跡を除去し、完了後にスロットを完全に解放します。 */
+    private fun removeOwnedSlotAndRelease(slot: Int, onDone: () -> Unit = {}) {
+        val store = returnStore
+        if (store == null || journalFailed || slot !in ownedSlots) {
+            ownedSlots.remove(slot)
+            retainedPlacedCells.remove(slot)
+            slotTracker.release(slot)
+            onDone()
+            return
+        }
+        store.removeOwnedSlot(slot).whenComplete { _, error ->
+            plugin.sync {
+                if (error != null) {
+                    plugin.logger.warning("Failed to remove owned dungeon slot $slot from journal: ${error.message}")
+                }
+                ownedSlots.remove(slot)
+                retainedPlacedCells.remove(slot)
+                slotTracker.release(slot)
+                onDone()
+            }
+        }
+    }
+
+    /** シャットダウン時は永続化された所有証跡を残したままチケットとメモリ状態のみ解放します。 */
+    private fun abandonSlotOnShutdown(slot: Int) {
+        placedOperations.remove(slot)?.release(warnIfRetained = false)
+        cleaningHandles.remove(slot)?.release()
         slotTracker.release(slot)
     }
 
@@ -988,7 +1348,7 @@ class DungeonController internal constructor(
         if (player.world.name == DemoWorld.NAME &&
             player.x >= DungeonArenaLayout.RECOVERY_MIN_COORDINATE &&
             player.z >= DungeonArenaLayout.RECOVERY_MIN_COORDINATE &&
-            instances.values.none { player.uniqueId in it.members }
+            !containsPlayer(player.uniqueId)
         ) {
             player.teleport(player.world.spawnLocation)
         }
@@ -997,10 +1357,15 @@ class DungeonController internal constructor(
     /**
      * 再ログイン時に現在位置（視点回転に左右されない）で地上安全を確認し、
      * 上空残留時は保存先または安全なフォールバックへ救出して記録を解除します。
+     * ジャーナル二重破損などで記録が無い場合も、空中スロット内ログインを検知して救出します。
      */
     private fun recoverOverworld(player: Player) {
         val id = player.uniqueId
-        val record = pendingReturns[id] ?: return
+        val record = pendingReturns[id]
+        if (record == null) {
+            recoverStrandedOverworldPlayer(player)
+            return
+        }
         val world = Bukkit.getWorld(record.world) ?: return
         if (!recoveringPlayers.add(id)) return
         pendingReturnFreezeSince.putIfAbsent(id, clock())
@@ -1051,13 +1416,49 @@ class DungeonController internal constructor(
                 }
                 val rescueTarget = when {
                     loadError == null && SafeStandingSpot.isSafe(destination) -> destination
-                    else -> plugin.luminaSpawn() ?: world.spawnLocation
+                    else -> resolveForcedSafeFallback(world)
                 }
                 if (runCatching { player.teleport(rescueTarget) }.getOrDefault(false)) {
                     clearReturnRecords(setOf(id), notifyOnFailure = false)
                 } else {
                     plugin.requestHubSpawn(player)
                 }
+            }
+        }
+    }
+
+    /** 帰還記録が無い状態でも、設定済み空中ダンジョン枠内に残留してログインしたプレイヤーを安全地上へ救出します。 */
+    private fun recoverStrandedOverworldPlayer(player: Player) {
+        val id = player.uniqueId
+        if (containsPlayer(id) || id in enteringPlayers) return
+        val world = player.world
+        if (world.name != plugin.activeWorldProjection.worldName()) return
+        val layout = resolveOverworldLayout(world, logValidation = false)
+        val location = player.location
+        val insideAnySlot = (0 until OverworldDungeonInstanceLayout.MAX_CANDIDATE_SLOTS).any { slot ->
+            val center = runCatching { layout.center(slot) }.getOrNull() ?: return@any false
+            isInsideDungeonSlotMargin(center, location.x, location.y, location.z)
+        }
+        if (!insideAnySlot) return
+        if (!recoveringPlayers.add(id)) return
+        plugin.logger.warning(
+            "Rescuing player ${player.name} ($id) stranded in overworld dungeon airspace without a pending return record.",
+        )
+        val hub = plugin.luminaSpawn()
+        if (hub != null) {
+            recoveringPlayers.remove(id)
+            if (!runCatching { player.teleport(hub) }.getOrDefault(false)) {
+                plugin.requestHubSpawn(player)
+            }
+            return
+        }
+        val spawn = world.spawnLocation
+        plugin.withChunk(world, spawn.blockX shr 4, spawn.blockZ shr 4) { _ ->
+            recoveringPlayers.remove(id)
+            if (!player.isOnline || containsPlayer(id)) return@withChunk
+            val fallback = resolveForcedSafeFallback(world)
+            if (!runCatching { player.teleport(fallback) }.getOrDefault(false)) {
+                plugin.requestHubSpawn(player)
             }
         }
     }
@@ -1072,35 +1473,58 @@ class DungeonController internal constructor(
         DungeonArenaLayout.originForSlot(instance.slot).let { it.x to it.z }
     }
 
-    /** 制限時間超過インスタンスの全メンバーを安全に帰還させ、全員完了後にのみ close します。 */
+    /** 制限時間超過インスタンスの全メンバーを安全に帰還させ、失敗時は再試行と強制フォールバックを行います。 */
     fun tick() {
         tick += PaperTaskIntervals.PLAYER_UPDATE_TICKS
+        val now = clock()
+        val expiredLeaves = leavingPlayers.entries
+            .filter { (_, startedAt) -> now - startedAt >= LEAVE_TIMEOUT_MILLIS }
+            .map { it.key }
+        expiredLeaves.forEach(::clearLeavingState)
+
         val timeout = plugin.snapshot.world.tuning.instanceTimeout
         instances.values.toList()
-            .filter { !it.timingOut && tick - it.started >= timeout }
+            .filter { tick - it.started >= timeout }
             .forEach { instance ->
-                instance.timingOut = true
-                val members = instance.members.toList()
-                if (members.isEmpty()) {
-                    close(instance)
+                if (!instance.timingOut) {
+                    instance.timingOut = true
+                    instance.lastTimeoutRetryTick = tick
+                    instance.timeoutRetryAttempts = 1
+                    attemptTimeoutEvacuation(instance, notify = true, forceImmediateFallback = false)
                     return@forEach
                 }
-                members.forEach { memberId ->
-                    val player = Bukkit.getPlayer(memberId)
-                    if (player != null && player.isOnline) {
-                        player.sendMessage(plugin.message(player, "ec.dungeon.timeout"))
-                        leaveInternal(player, forceFallback = true)
-                    } else {
-                        detach(instance, memberId)
-                    }
-                }
+                if (tick - instance.lastTimeoutRetryTick < TIMEOUT_RETRY_INTERVAL_TICKS) return@forEach
+                instance.lastTimeoutRetryTick = tick
+                instance.timeoutRetryAttempts++
+                val escalateFallback = instance.timeoutRetryAttempts >= MAX_TIMEOUT_RETRY_ATTEMPTS
+                attemptTimeoutEvacuation(instance, notify = false, forceImmediateFallback = escalateFallback)
             }
+    }
+
+    private fun attemptTimeoutEvacuation(instance: Instance, notify: Boolean, forceImmediateFallback: Boolean) {
+        val members = instance.members.toList()
+        if (members.isEmpty()) {
+            close(instance)
+            return
+        }
+        members.forEach { memberId ->
+            val player = Bukkit.getPlayer(memberId)
+            if (player == null || !player.isOnline) {
+                detach(instance, memberId)
+            } else if (forceImmediateFallback && instance.overworld) {
+                forceEvacuateOverworldPlayer(player, instance)
+            } else {
+                if (notify) player.sendMessage(plugin.message(player, "ec.dungeon.timeout"))
+                leaveInternal(player, forceFallback = true)
+            }
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     fun teleport(e: PlayerTeleportEvent) {
-        if (e.player.uniqueId in leavingPlayers) return
-        val instance = instances.values.firstOrNull { e.player.uniqueId in it.members } ?: return
+        val id = e.player.uniqueId
+        if (id in leavingPlayers) return
+        val instance = instanceForPlayer(id) ?: return
         val to = e.to
         val inside = if (instance.overworld) {
             val bounds = overworldLayout.bounds(instance.slot)
@@ -1113,9 +1537,22 @@ class DungeonController internal constructor(
         }
         if (!inside) {
             if (instance.overworld) {
+                val expectedWorld = plugin.activeWorldProjection.worldName()
+                val sameWorld = to.world?.name == expectedWorld
+                val toSafe = sameWorld &&
+                    to.world != null &&
+                    to.world.isChunkLoaded(to.blockX shr 4, to.blockZ shr 4) &&
+                    SafeStandingSpot.isSafe(to)
+                val slotCenter = overworldLayout.center(instance.slot)
+                if (canAcknowledgeDungeonReturn(slotCenter, to.x, to.y, to.z, sameWorld, toSafe)) {
+                    instance.unreturnedMembers.remove(id)
+                    detach(instance, id)
+                    clearReturnRecords(setOf(id), notifyOnFailure = true)
+                    return
+                }
                 e.player.sendMessage(plugin.message(e.player, "ec.dungeon.relogin_required"))
             }
-            detach(instance, e.player.uniqueId)
+            detach(instance, id)
         }
     }
 
@@ -1124,20 +1561,20 @@ class DungeonController internal constructor(
         val id = e.player.uniqueId
         pendingReturnFreezeSince.remove(id)
         recoveringPlayers.remove(id)
-        val instance = instances.values.firstOrNull { id in it.members } ?: return
+        val instance = instanceForPlayer(id) ?: return
         if (instance.overworld) detach(instance, id) else leave(e.player)
     }
 
     @EventHandler
     fun respawn(e: PlayerRespawnEvent) {
         val id = e.player.uniqueId
-        val instance = instances.values.firstOrNull { id in it.members } ?: return
+        val instance = instanceForPlayer(id) ?: return
         val destination = instance.returns[id]
         if (instance.overworld) {
             val target = if (destination != null && SafeStandingSpot.isSafe(destination)) {
                 destination
             } else {
-                plugin.luminaSpawn() ?: e.player.world.spawnLocation
+                resolveForcedSafeFallback(e.player.world)
             }
             e.respawnLocation = target
             instance.unreturnedMembers.remove(id)
@@ -1171,10 +1608,8 @@ class DungeonController internal constructor(
                 )
                 pendingReturnFreezeSince.remove(id)
                 recoveringPlayers.remove(id)
-                val fallback = plugin.luminaSpawn()
-                    ?: Bukkit.getWorld(pending.world)?.spawnLocation
-                    ?: e.player.world.spawnLocation
-                e.to = fallback
+                val targetWorld = Bukkit.getWorld(pending.world) ?: e.player.world
+                e.to = resolveForcedSafeFallback(targetWorld)
                 clearReturnRecords(setOf(id), notifyOnFailure = false)
                 return
             }
@@ -1182,7 +1617,7 @@ class DungeonController internal constructor(
             e.to = e.from
             return
         }
-        val instance = instances.values.firstOrNull { id in it.members }
+        val instance = instanceForPlayer(id)
         if (instance?.overworld == true && e.to.y < overworldLayout.bounds(instance.slot).minY) {
             val center = overworldLayout.center(instance.slot)
             e.to = Location(e.player.world, center.x + 0.5, center.y + 2.0, center.z + 0.5)
@@ -1202,15 +1637,18 @@ class DungeonController internal constructor(
             }
             close(instance)
         }
-        placedOperations.values.toList().forEach { it.release() }
+        memberToSlot.clear()
+        placedOperations.values.toList().forEach { it.release(warnIfRetained = false) }
         placedOperations.clear()
-        cleaningOperations.values.toList().forEach { it.release() }
-        cleaningOperations.clear()
+        cleaningHandles.values.toList().forEach { it.release() }
+        cleaningHandles.clear()
+        retainedPlacedCells.clear()
         slotTracker.clear()
         pendingReturnFreezeSince.clear()
         recoveringPlayers.clear()
         enteringPlayers.clear()
         leavingPlayers.clear()
+        leaveAttemptTokens.clear()
         placement?.close()
         scanner?.close()
         returnStore?.close()
@@ -1221,5 +1659,9 @@ class DungeonController internal constructor(
         const val RETURN_JOURNAL_FILE = "dungeon-returns.json"
         const val SCAN_BUDGET = 4_096
         const val RECOVERY_FREEZE_TIMEOUT_MILLIS = 10_000L
+        const val LEAVE_TIMEOUT_MILLIS = 10_000L
+        const val TIMEOUT_RETRY_INTERVAL_TICKS = 40L
+        const val MAX_TIMEOUT_RETRY_ATTEMPTS = 3
+        const val CONSECUTIVE_OCCUPIED_WARN_THRESHOLD = 3
     }
 }
