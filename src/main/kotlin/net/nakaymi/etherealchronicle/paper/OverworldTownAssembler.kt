@@ -139,10 +139,21 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
                     if (candidate != null) { pool = candidate; break }
                 }
             }
-            if (site.id in OverworldSiteIds.towns && pool == null) Bukkit.getLogger().warning("No safe fishing pool found for ${site.id}; continuing without a pool")
             val pond = pool?.second.orEmpty()
             val pondColumns = pond.mapTo(HashSet()) { columnKey(it.position.x, it.position.z) }
-            pool?.first?.let { anchors["fishing_water"] = it }
+            if (pool != null) {
+                anchors["fishing_water"] = pool.first
+            } else if (site.id in OverworldSiteIds.towns) {
+                val naturalWater = findNaturalFishingWater(world, site, anchors["pier"])
+                if (naturalWater != null) {
+                    anchors["fishing_water"] = naturalWater
+                    Bukkit.getLogger().info(
+                        "No safe fishing pool found for ${site.id}; anchored fishing_water to nearby natural water at ${naturalWater.x},${naturalWater.y},${naturalWater.z}",
+                    )
+                } else {
+                    Bukkit.getLogger().warning("No safe fishing pool or open natural water found for ${site.id}; continuing without a pool")
+                }
+            }
             val (roadChanges, roadClearance) = planRoads(world, clearRoad, portals)
             yield(Unit)
             val lights = planLights(world, site, roadChanges, clearRoadColumns, pondColumns, occupied)
@@ -481,54 +492,102 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
         }
     }
 
-    /** 他の敷地と重ならない平坦地を探し、池の全ブロックを先に検査します。 */
+    /** 砂・砂利でも下に空洞がなく非重力固体で支えられていれば、隣接更新による崩落は起きません。 */
+    private fun isStableSolid(world: World, x: Int, y: Int, z: Int): Boolean {
+        if (y < world.minHeight) return false
+        val type = world.getBlockAt(x, y, z).type
+        if (!type.isSolid) return false
+        if (type != Material.GRAVEL && type != Material.SAND && type != Material.RED_SAND) return true
+        var py = y - 1
+        repeat(GRAVITY_SUPPORT_DEPTH) {
+            if (py < world.minHeight) return false
+            val below = world.getBlockAt(x, py, z).type
+            if (!below.isSolid) return false
+            if (below != Material.GRAVEL && below != Material.SAND && below != Material.RED_SAND) return true
+            py--
+        }
+        return false
+    }
+
+    /** 他の敷地と重ならない平坦地を探し、池の全ブロックを先に検査します。大型池が置けない場合は小型へ縮小します。 */
     private fun planPond(world: World, site: OverworldSite, occupied: List<Rect>, road: Set<OverworldPoint>, random: Random, snow: Boolean, near: OverworldPoint?, facing: StructureRotation?): Sequence<Pair<OverworldPoint, List<OverworldTerrainChange>>?> {
-        val radius = if (near != null) 4 else 2
+        val radii = if (near != null) listOf(4, 2) else listOf(2)
         val roadColumns = road.mapTo(HashSet()) { columnKey(it.x, it.z) }
-        val limit = plotRadius(site.id) - radius - 2
-        val grid = (-limit..limit step POND_GRID_STEP)
-        val shuffled = grid.flatMap { dx -> grid.map { dz -> site.x + dx to site.z + dz } }.shuffled(random)
-        val candidates = if (near == null || facing == null) shuffled else {
-            val (dx, dz) = frontDirection(facing)
-            shuffled.sortedBy { (x, z) ->
-                val along = (x - near.x) * dx + (z - near.z) * dz
-                val across = abs((x - near.x) * dz - (z - near.z) * dx)
-                abs(along) + across * 3 + if (along < 0) 1000 else 0
-            }
-        }
-        return candidates.asSequence().map { (cx, cz) ->
-            val bounds = Rect(cx - radius - 1, cx + radius + 1, cz - radius - 1, cz + radius + 1)
-            if (!withinSite(site, bounds.minX, bounds.minZ) || !withinSite(site, bounds.minX, bounds.maxZ) ||
-                !withinSite(site, bounds.maxX, bounds.minZ) || !withinSite(site, bounds.maxX, bounds.maxZ)) return@map null
-            if (occupied.any(bounds::overlaps) || containsColumn(bounds, roadColumns)) return@map null
-            val cells = (-radius..radius).flatMap { dx -> (-radius..radius).mapNotNull { dz -> if (dx * dx + dz * dz <= radius * radius + 1) cx + dx to cz + dz else null } }
-            val heights = cells.map { (x, z) -> surfaceY(world, x, z) }
-            if (heights.max() - heights.min() > 1) return@map null
-            val y = heights.min()
-            // 外周の地表と底面が固体でない場所は水が横や下へ漏れるため除外します。
-            for (x in bounds.minX..bounds.maxX) for (z in bounds.minZ..bounds.maxZ) {
-                if (x !in cx - radius..cx + radius || z !in cz - radius..cz + radius) {
-                    val rim = world.getBlockAt(x, y, z).type
-                    if (surfaceY(world, x, z) < y || !rim.isSolid || rim == Material.GRAVEL || rim == Material.SAND || rim == Material.RED_SAND) return@map null
+        return radii.asSequence().flatMap { radius ->
+            val limit = plotRadius(site.id) - radius - 2
+            val grid = (-limit..limit step POND_GRID_STEP)
+            val shuffled = grid.flatMap { dx -> grid.map { dz -> site.x + dx to site.z + dz } }.shuffled(random)
+            val candidates = if (near == null || facing == null) shuffled else {
+                val (dx, dz) = frontDirection(facing)
+                shuffled.sortedBy { (x, z) ->
+                    val along = (x - near.x) * dx + (z - near.z) * dz
+                    val across = abs((x - near.x) * dz - (z - near.z) * dx)
+                    abs(along) + across * 3 + if (along < 0) 1000 else 0
                 }
             }
-            if (cells.any { (x, z) -> !world.getBlockAt(x, y - 2, z).type.isSolid }) return@map null
-            val changes = mutableListOf<OverworldTerrainChange>()
-            for ((cell, top) in cells.zip(heights)) {
-                val (x, z) = cell
-                for (py in y - 1..top) {
-                    val before = world.getBlockAt(x, py, z).type
-                    if (before !in OverworldMaterials.ground && !before.isAir && before != Material.WATER) return@map null
-                    val after = when {
-                        py < y -> if (snow) Material.PACKED_ICE else Material.GRAVEL
-                        py == y -> Material.WATER
-                        else -> Material.AIR
+            candidates.asSequence().map { (cx, cz) ->
+                val bounds = Rect(cx - radius - 1, cx + radius + 1, cz - radius - 1, cz + radius + 1)
+                if (!withinSite(site, bounds.minX, bounds.minZ) || !withinSite(site, bounds.minX, bounds.maxZ) ||
+                    !withinSite(site, bounds.maxX, bounds.minZ) || !withinSite(site, bounds.maxX, bounds.maxZ)) return@map null
+                if (occupied.any(bounds::overlaps) || containsColumn(bounds, roadColumns)) return@map null
+                val cells = (-radius..radius).flatMap { dx -> (-radius..radius).mapNotNull { dz -> if (dx * dx + dz * dz <= radius * radius + 1) cx + dx to cz + dz else null } }
+                val heights = cells.map { (x, z) -> surfaceY(world, x, z) }
+                if (heights.max() - heights.min() > 1) return@map null
+                val y = heights.min()
+                // 外周の地表と底面が安定した固体でない場所は水が横や下へ漏れるため除外します。
+                for (x in bounds.minX..bounds.maxX) for (z in bounds.minZ..bounds.maxZ) {
+                    if (x !in cx - radius..cx + radius || z !in cz - radius..cz + radius) {
+                        if (surfaceY(world, x, z) < y || !isStableSolid(world, x, y, z)) return@map null
                     }
-                    changes += OverworldTerrainChange(OverworldPoint(x, py, z), before, after)
+                }
+                if (cells.any { (x, z) -> !isStableSolid(world, x, y - 2, z) }) return@map null
+                val changes = mutableListOf<OverworldTerrainChange>()
+                for ((cell, top) in cells.zip(heights)) {
+                    val (x, z) = cell
+                    for (py in y - 1..top) {
+                        val before = world.getBlockAt(x, py, z).type
+                        if (before !in OverworldMaterials.ground && !before.isAir && before != Material.WATER) return@map null
+                        val after = when {
+                            py < y -> if (snow) Material.PACKED_ICE else Material.GRAVEL
+                            py == y -> Material.WATER
+                            else -> Material.AIR
+                        }
+                        changes += OverworldTerrainChange(OverworldPoint(x, py, z), before, after)
+                    }
+                }
+                OverworldPoint(cx, y, cz) to changes
+            }
+        }
+    }
+
+    /** 人工池を配置できなかった町でも釣れるよう、桟橋または拠点中心の近傍から開いた自然水面を探します。 */
+    private suspend fun SequenceScope<Unit>.findNaturalFishingWater(
+        world: World,
+        site: OverworldSite,
+        near: OverworldPoint?,
+    ): OverworldPoint? {
+        val originX = near?.x ?: site.x
+        val originZ = near?.z ?: site.z
+        val maxOffset = loadRadius(site.id) - 4
+        for (radius in 2..NATURAL_WATER_SEARCH_RADIUS step 2) {
+            yield(Unit)
+            for (dx in -radius..radius step 2) {
+                for (dz in -radius..radius step 2) {
+                    if (abs(dx) != radius && abs(dz) != radius) continue
+                    val px = originX + dx
+                    val pz = originZ + dz
+                    if (abs(px - site.x) > maxOffset || abs(pz - site.z) > maxOffset) continue
+                    val y = surfaceY(world, px, pz)
+                    if (y + 1 >= world.maxHeight) continue
+                    if (world.getBlockAt(px, y, pz).type == Material.WATER &&
+                        world.getBlockAt(px, y + 1, pz).type.isAir
+                    ) {
+                        return OverworldPoint(px, y, pz)
+                    }
                 }
             }
-            OverworldPoint(cx, y, cz) to changes
         }
+        return null
     }
 
     /** 地域別の構成と個別住宅をシード順で選びます。 */
@@ -709,6 +768,8 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
         private const val BUILDING_MARGIN = 1
         private const val PLOT_GRID_STEP = 8
         private const val POND_GRID_STEP = 10
+        private const val GRAVITY_SUPPORT_DEPTH = 8
+        private const val NATURAL_WATER_SEARCH_RADIUS = 48
         private const val MAX_VALID_SAMPLES_PER_BUILDING = 4
         private const val LUMINA_TARGET_HOUSES = 10
         private const val LUMINA_TARGET_DISTINCT_HOUSES = 5

@@ -156,4 +156,73 @@ class OverworldTownAssemblerTest {
             MockBukkit.unmock()
         }
     }
+
+    @Test
+    fun `lumina town planning builds a fishing pond on beach sand supported by sandstone`() {
+        val server = MockBukkit.mock()
+        try {
+            val world = server.addSimpleWorld("overworld-lumina-beach")
+            // Frostpeak より広い Lumina の plotRadius(86) 全体を砂 + 砂岩支持で敷設します。
+            for (x in -90..90) for (z in -90..90) {
+                world.getBlockAt(x, 61, z).type = Material.SANDSTONE
+                world.getBlockAt(x, 62, z).type = Material.SAND
+                world.getBlockAt(x, 63, z).type = Material.SAND
+            }
+            val assets = OverworldAssets.load { SchematicData(1, 1, 1, listOf("minecraft:stone"), intArrayOf(0)) }
+            val assembler = OverworldTownAssembler(assets)
+            val site = OverworldSite(OverworldSiteIds.LUMINA_PORT, 0, 63, 0, 1, "BEACH")
+            val planning = assembler.planning(world, site, 4528502914240555028L)
+            while (planning.steps.hasNext()) planning.steps.next()
+            val plan = planning.result()
+            assertTrue(plan.pond.isNotEmpty(), "Expected supported BEACH sand terrain to allow a fishing pond")
+            val waterAnchor = plan.anchors["fishing_water"]
+            assertTrue(waterAnchor != null, "Expected fishing_water anchor on BEACH terrain")
+            assertTrue(
+                plan.pond.any { it.position == waterAnchor && it.after == Material.WATER },
+                "Expected fishing_water anchor $waterAnchor to match a pond water block",
+            )
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
+    fun `town planning skips pond over hollow ground and falls back to open natural water`() {
+        val server = MockBukkit.mock()
+        try {
+            val world = server.addSimpleWorld("overworld-frostpeak-natural-water")
+            // 池底面 y - 2 (61) は既定の AIR のままにし、人工池を安全スキップさせる
+            for (x in -76..76) for (z in -76..76) {
+                world.getBlockAt(x, 62, z).type = Material.STONE
+                world.getBlockAt(x, 63, z).type = Material.GRASS_BLOCK
+            }
+            // 北側を凍結海、南東側を開水面にして、開水面だけが選ばれることを検証する
+            for (x in -30..30) for (z in -40..-16) {
+                world.getBlockAt(x, 63, z).type = Material.ICE
+            }
+            for (x in 16..44) for (z in 16..44) {
+                world.getBlockAt(x, 63, z).type = Material.WATER
+            }
+            val assets = OverworldAssets.load { SchematicData(1, 1, 1, listOf("minecraft:stone"), intArrayOf(0)) }
+            val assembler = OverworldTownAssembler(assets)
+            val site = OverworldSite(OverworldSiteIds.FROSTPEAK_OUTPOST, 0, 63, 0, 1, "SNOWY_PLAINS")
+            val planning = assembler.planning(world, site, 123456789L)
+            while (planning.steps.hasNext()) planning.steps.next()
+            val plan = planning.result()
+            assertTrue(plan.pond.isEmpty(), "Expected pond to be skipped over hollow y-2 ground")
+            val waterAnchor = plan.anchors["fishing_water"]
+            assertTrue(waterAnchor != null, "Expected fallback to nearby open natural water")
+            assertEquals(
+                Material.WATER,
+                world.getBlockAt(waterAnchor!!.x, waterAnchor.y, waterAnchor.z).type,
+                "Fallback fishing_water must point to open WATER",
+            )
+            assertTrue(
+                world.getBlockAt(waterAnchor.x, waterAnchor.y + 1, waterAnchor.z).type.isAir,
+                "Fallback fishing_water must have AIR above it",
+            )
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
 }

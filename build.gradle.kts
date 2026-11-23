@@ -34,7 +34,10 @@ dependencies {
 
 kotlin { jvmToolchain(25) }
 
-tasks.test { useJUnitPlatform() }
+tasks.test {
+    useJUnitPlatform()
+    maxHeapSize = "1g"
+}
 
 val generateContentIndex = tasks.register("generateContentIndex") {
     val content = layout.projectDirectory.dir("src/main/resources/content")
