@@ -23,6 +23,22 @@ class OverworldSiteLocatorTest {
     }
 
     @Test
+    fun `peekCandidates previews upcoming points without mutating search state`() {
+        val search = OverworldSiteLocator.Search(77L)
+        val preview = search.peekCandidates(4)
+        assertEquals(4, preview.size)
+        assertEquals(preview, search.peekCandidates(4))
+        assertTrue(search.peekCandidates(0).isEmpty())
+        preview.forEach { expected ->
+            assertEquals(expected, search.nextCandidate())
+            search.accept(SiteTerrain(70, "PLAINS", true, relief = 0))
+        }
+        val nextPreview = search.peekCandidates(2)
+        assertEquals(2, nextPreview.size)
+        assertEquals(nextPreview.first(), search.nextCandidate())
+    }
+
+    @Test
     fun `multiple seeds remain deterministic with mixed regional biomes`() {
         for (seed in listOf(0L, 3L, 4815162342L)) {
             assertEquals(locateBySiteTerrain(seed), locateBySiteTerrain(seed))
