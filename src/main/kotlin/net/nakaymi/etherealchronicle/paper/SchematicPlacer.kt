@@ -73,7 +73,7 @@ object SchematicPlacer {
         return preparation.result()
     }
 
-    /** 接地確認を列単位で進め、全列に成功するまで配置手順を公開しません。 */
+    /** 接地確認と足跡検査を列単位で進め、全列に成功するまで配置手順を公開しません。 */
     internal fun prepareStepped(schematic: SchematicData, world: World, originX: Int, originY: Int, originZ: Int, options: SchematicPlacementOptions,
         warning: (String, Throwable?) -> Unit = ::defaultWarning,
     ): SchematicPreparation {
@@ -97,16 +97,20 @@ object SchematicPlacer {
                 }
                 require(foundations.isNotEmpty()) { "Schematic has no solid foundation blocks" }
             }
-            // 建物の全セルを変更前に調べ、後続セルの障害物で部分建築を残さないようにします。
-            if (options.protectExisting) for (y in 0 until schematic.height) for (z in 0 until schematic.length) for (x in 0 until schematic.width) {
+            // 建物の全列を変更前に調べ、後続セルの障害物で部分建築を残さないようにします（列単位でyieldし計画時間を抑えます）。
+            if (options.protectExisting) for (z in 0 until schematic.length) for (x in 0 until schematic.width) {
                 yield(Unit)
-                val index = schematic.paletteIndexAt(y * schematic.length * schematic.width + z * schematic.width + x)
-                if (structureVoid[index] || (options.skipAir && air[index])) continue
-                val target = blockData[index] ?: error("Unresolved protected schematic palette")
-                val point = transformLocalPoint(schematic, options.rotation, x, y, z)
-                val block = world.getBlockAt(originX + point.x, originY + y, originZ + point.z)
-                require(OverworldMaterials.replaceable(block.type) || block.blockData == target) {
-                    "Schematic footprint obstructed at ${block.x},${block.y},${block.z}: ${block.type}"
+                val basePoint = transformLocalPoint(schematic, options.rotation, x, 0, z)
+                val wx = originX + basePoint.x
+                val wz = originZ + basePoint.z
+                for (y in 0 until schematic.height) {
+                    val index = schematic.paletteIndexAt(y * schematic.length * schematic.width + z * schematic.width + x)
+                    if (structureVoid[index] || (options.skipAir && air[index])) continue
+                    val target = blockData[index] ?: error("Unresolved protected schematic palette")
+                    val block = world.getBlockAt(wx, originY + y, wz)
+                    require(OverworldMaterials.replaceable(block.type) || block.blockData == target) {
+                        "Schematic footprint obstructed at ${block.x},${block.y},${block.z}: ${block.type}"
+                    }
                 }
             }
             complete = true

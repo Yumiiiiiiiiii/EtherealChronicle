@@ -2,7 +2,6 @@ package net.nakaymi.etherealchronicle.paper
 
 import net.nakaymi.etherealchronicle.core.OverworldSite
 import net.nakaymi.etherealchronicle.core.OverworldSiteIds
-import net.nakaymi.etherealchronicle.core.OverworldDungeonIds
 import org.bukkit.Bukkit
 import org.bukkit.Chunk
 import org.bukkit.Location
@@ -178,12 +177,15 @@ class OverworldWorldService internal constructor(
             world.getBlockAt(point.x, point.y + 1, point.z).type.isAir
     }
 
-    /** 敷地候補の検証を1 tickに1回ずつ実行します。 */
+    /** 敷地候補の検証を tick 時間予算と上限ステップの範囲内で進めます。 */
     private fun advancePlanning(planning: OverworldTownPlanning, result: CompletableFuture<OverworldLayout>, done: (OverworldTownPlan) -> Unit) {
         try {
-            repeat(PLANNING_STEPS_PER_TICK) {
+            val deadline = System.nanoTime() + PLANNING_TIME_BUDGET_NANOS
+            var steps = 0
+            while (steps < MAX_PLANNING_STEPS_PER_TICK && (steps == 0 || System.nanoTime() < deadline)) {
                 if (!planning.steps.hasNext()) { done(planning.result()); return }
                 planning.steps.next()
+                steps++
             }
             main(result, 1L) { advancePlanning(planning, result, done) }
         } catch (error: Throwable) {
@@ -225,13 +227,16 @@ class OverworldWorldService internal constructor(
         pump()
     }
 
-    /** 毎tickの処理数を制限し、例外時はjournalを未完了のまま残します。 */
+    /** 毎tickの配置操作を時間予算（2ms）と列操作上限で制限し、TPS スパイクを防ぎます。 */
     private fun applyOperations(operations: Iterator<() -> Unit>, result: CompletableFuture<OverworldLayout>, done: () -> Unit) {
         fun tick() {
             try {
-                repeat(OPERATIONS_PER_TICK) {
+                val deadline = System.nanoTime() + OPERATIONS_TIME_BUDGET_NANOS
+                var ops = 0
+                while (ops < MAX_OPERATIONS_PER_TICK && (ops == 0 || System.nanoTime() < deadline)) {
                     if (!operations.hasNext()) { done(); return }
                     operations.next().invoke()
+                    ops++
                 }
                 main(result, 1L, ::tick)
             } catch (error: Throwable) {
@@ -305,8 +310,12 @@ class OverworldWorldService internal constructor(
     private companion object {
         const val SITE_RADIUS = 112
         const val CHUNK_SHIFT = 4
-        const val PLANNING_STEPS_PER_TICK = 32
-        const val OPERATIONS_PER_TICK = 500
+        /** 1 tick あたりの計画時間予算（2ms）と上限ステップ数です。 */
+        const val PLANNING_TIME_BUDGET_NANOS = 2_000_000L
+        const val MAX_PLANNING_STEPS_PER_TICK = 256
+        /** 列単位の配置操作は1操作で複数ブロックを書くため、時間予算（2ms）と上限64列で制限します。 */
+        const val OPERATIONS_TIME_BUDGET_NANOS = 2_000_000L
+        const val MAX_OPERATIONS_PER_TICK = 64
         const val IO_CLOSE_TIMEOUT_SECONDS = 2L
         const val MAX_CHUNK_RETRIES = 5
         const val CHUNK_REQUEST_WINDOW = 4

@@ -5,8 +5,10 @@ import org.bukkit.block.BlockFace
 import org.bukkit.block.data.Directional
 import org.bukkit.block.structure.StructureRotation
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
 import org.mockbukkit.mockbukkit.MockBukkit
@@ -42,6 +44,52 @@ class SchematicPlacerTest {
             }
             assertEquals(Material.AIR, world.getBlockAt(0, 64, 0).type)
             assertEquals(Material.GOLD_BLOCK, world.getBlockAt(1, 64, 0).type)
+        } finally { MockBukkit.unmock() }
+    }
+
+    @Test
+    fun `protected footprint preflight yields per column rather than per cell`() {
+        val server = MockBukkit.mock()
+        try {
+            val world = server.addSimpleWorld("schematic-column-steps")
+            val data = SchematicData(2, 10, 3, listOf("minecraft:stone"), IntArray(2 * 10 * 3))
+            val preparation = SchematicPlacer.prepareStepped(data, world, 0, 64, 0,
+                SchematicPlacementOptions(protectExisting = true))
+            var steps = 0
+            while (preparation.steps.hasNext()) {
+                preparation.steps.next()
+                steps++
+            }
+            assertEquals(6, steps, "2x10x3 footprint preflight should yield once per (x,z) column")
+        } finally { MockBukkit.unmock() }
+    }
+
+    @Test
+    fun `natural overworld flora and terrain are replaceable while artificial blocks stay protected`() {
+        val server = MockBukkit.mock()
+        try {
+            listOf(
+                Material.SWEET_BERRY_BUSH,
+                Material.SUGAR_CANE,
+                Material.MOSS_CARPET,
+                Material.POWDER_SNOW,
+                Material.LILY_PAD,
+                Material.KELP,
+                Material.OAK_SAPLING,
+                Material.POPPY,
+                Material.DRIPSTONE_BLOCK,
+            ).forEach { material ->
+                assertTrue(OverworldMaterials.replaceable(material), "Expected natural material to be replaceable: $material")
+            }
+            listOf(
+                Material.OAK_PLANKS,
+                Material.STONE_BRICKS,
+                Material.GOLD_BLOCK,
+                Material.CHEST,
+                Material.OBSIDIAN,
+            ).forEach { material ->
+                assertFalse(OverworldMaterials.replaceable(material), "Expected artificial block to stay protected: $material")
+            }
         } finally { MockBukkit.unmock() }
     }
 
