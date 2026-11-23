@@ -91,9 +91,25 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
 
     private fun columnKey(x: Int, z: Int): Long = (x.toLong() shl 32) xor (z.toLong() and 0xffffffffL)
 
-    private data class Request(val name: String, val template: String, val required: Boolean = true)
+    private data class Request(
+        val name: String,
+        val template: String,
+        val required: Boolean = true,
+        val fallbacks: List<String> = emptyList(),
+    )
     private data class Rect(val minX: Int, val maxX: Int, val minZ: Int, val maxZ: Int) {
         fun overlaps(other: Rect): Boolean = minX <= other.maxX && maxX >= other.minX && minZ <= other.maxZ && maxZ >= other.minZ
+    }
+    private class RejectionStats {
+        var outOfBounds = 0
+        var overlap = 0
+        var road = 0
+        var water = 0
+        var terrain = 0
+        var portal = 0
+        var lastFailure: String? = null
+        fun summary(): String = "bounds=$outOfBounds overlap=$overlap road=$road water=$water terrain=$terrain portal=$portal" +
+            (lastFailure?.let { " last='$it'" } ?: "")
     }
 
     /** 全必須建物の敷地を確定し、書き込み前に基礎と敷地衝突を検証します。 */
@@ -214,7 +230,8 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
             val entry = anchors.getValue(building.name)
             val nearest = road.minByOrNull { abs(it.x - entry.x) + abs(it.z - entry.z) } ?: return@forEach
             val (width, length) = SchematicPlacer.rotatedDimensions(assets[building.template], building.rotation)
-            val own = Rect(building.origin.x - 2, building.origin.x + width + 1, building.origin.z - 2, building.origin.z + length + 1)
+            val own = Rect(building.origin.x - BUILDING_MARGIN, building.origin.x + width - 1 + BUILDING_MARGIN,
+                building.origin.z - BUILDING_MARGIN, building.origin.z + length - 1 + BUILDING_MARGIN)
             val footprint = Rect(building.origin.x, building.origin.x + width - 1, building.origin.z, building.origin.z + length - 1)
             var x = entry.x
             var z = entry.z
@@ -246,72 +263,116 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
         val anchors = linkedMapOf<String, OverworldPoint>()
         val portals = mutableListOf<OverworldPortal>()
         val prepared = mutableMapOf<String, Iterator<() -> Unit>>()
+        val totalStats = RejectionStats()
         requests.forEachIndexed { index, request ->
-            val schematic = assets[request.template]
+            val templatesToTry = (listOf(request.template) + request.fallbacks).distinct()
             val candidates = if (index == 0) centerCandidates(site) else plotCandidates(site, random)
             var building: OverworldBuildingPlan? = null
             var bestRect: Rect? = null
-            var bestRank = Int.MAX_VALUE
             var bestPreparation: SchematicPreparation? = null
-            var lastFailure: IllegalArgumentException? = null
+            var chosenTemplate = request.template
+            val reqStats = RejectionStats()
             val waterFacility = request.name == "pier" || request.name == "lighthouse"
-            for (candidate in candidates) {
-                // 1候補ごとに制御を返し、大量の区画探索を1 tickに詰め込みません。
-                yield(Unit)
-                val (cx, cz, rotation) = candidate
-                val (width, length) = SchematicPlacer.rotatedDimensions(schematic, rotation)
-                val ox = cx - width / 2
-                val oz = cz - length / 2
-                val rect = Rect(ox - 2, ox + width + 1, oz - 2, oz + length + 1)
-                if (!withinSite(site, rect.minX, rect.minZ) || !withinSite(site, rect.minX, rect.maxZ) ||
-                    !withinSite(site, rect.maxX, rect.minZ) || !withinSite(site, rect.maxX, rect.maxZ)) continue
-                if (occupied.any(rect::overlaps)) continue
-                if (index > 0 && containsColumn(rect, roadColumns)) continue
-                val y = surfaceY(world, cx, cz)
-                val swaps = palette(random, snow)
-                val options = options(rotation, swaps, snow)
-                val preparation = try {
-                    SchematicPlacer.prepareStepped(schematic, world, ox, y, oz, options)
-                } catch (failure: IllegalArgumentException) {
-                    lastFailure = failure
-                    continue
-                }
-                var valid = true
-                while (true) {
-                    val hasNext = try { preparation.steps.hasNext() } catch (failure: IllegalArgumentException) {
-                        lastFailure = failure
-                        valid = false
-                        false
-                    }
-                    if (!hasNext) break
-                    preparation.steps.next()
+
+            for (template in templatesToTry) {
+                val schematic = assets[template]
+                var bestRank = Int.MAX_VALUE
+                var validFound = 0
+                for (candidate in candidates) {
+                    // 1候補ごとに制御を返し、大量の区画探索を1 tickに詰め込みません。
                     yield(Unit)
+                    val (cx, cz, rotation) = candidate
+                    val (width, length) = SchematicPlacer.rotatedDimensions(schematic, rotation)
+                    val ox = cx - width / 2
+                    val oz = cz - length / 2
+                    val rect = Rect(
+                        ox - BUILDING_MARGIN,
+                        ox + width - 1 + BUILDING_MARGIN,
+                        oz - BUILDING_MARGIN,
+                        oz + length - 1 + BUILDING_MARGIN,
+                    )
+                    if (!withinSite(site, rect.minX, rect.minZ) || !withinSite(site, rect.minX, rect.maxZ) ||
+                        !withinSite(site, rect.maxX, rect.minZ) || !withinSite(site, rect.maxX, rect.maxZ)) {
+                        reqStats.outOfBounds++
+                        continue
+                    }
+                    if (occupied.any(rect::overlaps)) {
+                        reqStats.overlap++
+                        continue
+                    }
+                    if (index > 0 && containsColumn(rect, roadColumns)) {
+                        reqStats.road++
+                        continue
+                    }
+                    val y = surfaceY(world, cx, cz)
+                    if (!waterFacility && world.getBlockAt(cx, y, cz).type == Material.WATER) {
+                        reqStats.water++
+                        continue
+                    }
+                    val swaps = palette(random, snow)
+                    val options = options(rotation, swaps, snow)
+                    val preparation = try {
+                        SchematicPlacer.prepareStepped(schematic, world, ox, y, oz, options)
+                    } catch (failure: IllegalArgumentException) {
+                        reqStats.terrain++
+                        reqStats.lastFailure = failure.message
+                        continue
+                    }
+                    var valid = true
+                    while (true) {
+                        val hasNext = try { preparation.steps.hasNext() } catch (failure: IllegalArgumentException) {
+                            reqStats.terrain++
+                            reqStats.lastFailure = failure.message
+                            valid = false
+                            false
+                        }
+                        if (!hasNext) break
+                        preparation.steps.next()
+                        yield(Unit)
+                    }
+                    if (!valid) continue
+                    val candidateBuilding = OverworldBuildingPlan(request.name, template, OverworldPoint(ox, y, oz), rotation, swaps, snow)
+                    val dungeon = dungeonIds[template]
+                    if (dungeon != null) try {
+                        portal(world, site.id, dungeon, schematic, candidateBuilding, door(schematic, candidateBuilding))
+                    } catch (failure: IllegalArgumentException) {
+                        reqStats.portal++
+                        reqStats.lastFailure = failure.message
+                        continue
+                    }
+                    val heights = listOf(ox to oz, ox + width - 1 to oz, ox to oz + length - 1, ox + width - 1 to oz + length - 1)
+                        .map { (px, pz) -> surfaceY(world, px, pz) }
+                    val relief = heights.max() - heights.min()
+                    val waterDistance = if (waterFacility) nearbyWaterDistance(world, site, cx, cz) else 0
+                    val rank = relief * RELIEF_WEIGHT + waterDistance - if (request.name == "lighthouse") y / LIGHTHOUSE_HEIGHT_DIVISOR else 0
+                    validFound++
+                    if (rank < bestRank) {
+                        bestRank = rank
+                        bestRect = rect
+                        building = candidateBuilding
+                        bestPreparation = preparation
+                        chosenTemplate = template
+                    }
+                    if ((!waterFacility && (relief <= 2 || validFound >= MAX_VALID_SAMPLES_PER_BUILDING)) ||
+                        (waterFacility && waterDistance <= WATERFRONT_DISTANCE && relief <= WATERFRONT_RELIEF)) break
                 }
-                if (!valid) continue
-                val candidateBuilding = OverworldBuildingPlan(request.name, request.template, OverworldPoint(ox, y, oz), rotation, swaps, snow)
-                val dungeon = dungeonIds[request.template]
-                if (dungeon != null) try {
-                    portal(world, site.id, dungeon, schematic, candidateBuilding, door(schematic, candidateBuilding))
-                } catch (failure: IllegalArgumentException) {
-                    lastFailure = failure
-                    continue
-                }
-                val heights = listOf(ox to oz, ox + width - 1 to oz, ox to oz + length - 1, ox + width - 1 to oz + length - 1)
-                    .map { (px, pz) -> surfaceY(world, px, pz) }
-                val relief = heights.max() - heights.min()
-                val waterDistance = if (waterFacility) nearbyWaterDistance(world, cx, cz) else 0
-                val rank = relief * RELIEF_WEIGHT + waterDistance - if (request.name == "lighthouse") y / LIGHTHOUSE_HEIGHT_DIVISOR else 0
-                if (rank < bestRank) {
-                    bestRank = rank
-                    bestRect = rect
-                    building = candidateBuilding
-                    bestPreparation = preparation
-                }
-                if ((!waterFacility && (index > 0 || relief == 0)) || (waterFacility && waterDistance <= WATERFRONT_DISTANCE && relief <= WATERFRONT_RELIEF)) break
+                if (building != null) break
             }
+
+            totalStats.outOfBounds += reqStats.outOfBounds
+            totalStats.overlap += reqStats.overlap
+            totalStats.road += reqStats.road
+            totalStats.water += reqStats.water
+            totalStats.terrain += reqStats.terrain
+            totalStats.portal += reqStats.portal
+            if (reqStats.lastFailure != null) totalStats.lastFailure = reqStats.lastFailure
+
             if (building == null) {
-                check(!request.required) { "No grounded plot for ${request.name} at ${site.id}: ${lastFailure?.message ?: "all candidates overlap or leave the site"}" }
+                check(!request.required) {
+                    "No grounded plot for ${request.name} (${request.template}) at ${site.id}: ${reqStats.summary()}"
+                }
             } else {
+                val schematic = assets[chosenTemplate]
                 occupied += checkNotNull(bestRect)
                 buildings += building
                 prepared[building.name] = checkNotNull(bestPreparation).result()
@@ -324,15 +385,33 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
                     val center = SchematicPlacer.transformLocalPoint(schematic, building.rotation, schematic.width / 2, minOf(1, schematic.height - 1), schematic.length / 2)
                     anchors["plaza_center"] = OverworldPoint(building.origin.x + center.x, building.origin.y + center.y, building.origin.z + center.z)
                 }
-                dungeonIds[request.template]?.let { dungeon -> portals += portal(world, site.id, dungeon, schematic, building, door) }
+                dungeonIds[chosenTemplate]?.let { dungeon -> portals += portal(world, site.id, dungeon, schematic, building, door) }
             }
         }
         if (site.id == OverworldSiteIds.LUMINA_PORT) {
             val houses = buildings.filter { it.name.startsWith("house_") }
-            require(houses.size >= 10 && houses.map { it.template }.toSet().size >= 5) { "Insufficient distinct grounded plots for ${site.id}" }
+            val distinct = houses.map { it.template }.toSet().size
+            require(houses.size >= LUMINA_MIN_HOUSES && distinct >= LUMINA_MIN_DISTINCT_HOUSES) {
+                "Insufficient distinct grounded plots for ${site.id}: placed=${houses.size} distinct=$distinct " +
+                    "(required>=$LUMINA_MIN_HOUSES/$LUMINA_MIN_DISTINCT_HOUSES) rejections=[${totalStats.summary()}]"
+            }
+            if (houses.size < LUMINA_TARGET_HOUSES || distinct < LUMINA_TARGET_DISTINCT_HOUSES) {
+                Bukkit.getLogger().warning(
+                    "Overworld town ${site.id} placed ${houses.size} houses ($distinct distinct; target $LUMINA_TARGET_HOUSES/$LUMINA_TARGET_DISTINCT_HOUSES): ${totalStats.summary()}",
+                )
+            }
         }
-        if (site.id == OverworldSiteIds.FROSTPEAK_OUTPOST) require(buildings.count { it.name.startsWith("house_") } >= 5) {
-            "Insufficient grounded plots for ${site.id}"
+        if (site.id == OverworldSiteIds.FROSTPEAK_OUTPOST) {
+            val houses = buildings.count { it.name.startsWith("house_") }
+            require(houses >= FROSTPEAK_MIN_HOUSES) {
+                "Insufficient grounded plots for ${site.id}: placed=$houses (required>=$FROSTPEAK_MIN_HOUSES) " +
+                    "rejections=[${totalStats.summary()}]"
+            }
+            if (houses < FROSTPEAK_TARGET_HOUSES) {
+                Bukkit.getLogger().warning(
+                    "Overworld town ${site.id} placed $houses houses (target $FROSTPEAK_TARGET_HOUSES): ${totalStats.summary()}",
+                )
+            }
         }
         return BuildingSelection(occupied, buildings, anchors, portals, prepared)
     }
@@ -406,7 +485,9 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
     private fun planPond(world: World, site: OverworldSite, occupied: List<Rect>, road: Set<OverworldPoint>, random: Random, snow: Boolean, near: OverworldPoint?, facing: StructureRotation?): Sequence<Pair<OverworldPoint, List<OverworldTerrainChange>>?> {
         val radius = if (near != null) 4 else 2
         val roadColumns = road.mapTo(HashSet()) { columnKey(it.x, it.z) }
-        val shuffled = (-60..60 step 12).flatMap { dx -> (-60..60 step 12).map { dz -> site.x + dx to site.z + dz } }.shuffled(random)
+        val limit = plotRadius(site.id) - radius - 2
+        val grid = (-limit..limit step POND_GRID_STEP)
+        val shuffled = grid.flatMap { dx -> grid.map { dz -> site.x + dx to site.z + dz } }.shuffled(random)
         val candidates = if (near == null || facing == null) shuffled else {
             val (dx, dz) = frontDirection(facing)
             shuffled.sortedBy { (x, z) ->
@@ -452,17 +533,41 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
 
     /** 地域別の構成と個別住宅をシード順で選びます。 */
     private fun requests(id: String, random: Random): List<Request> {
-        fun request(name: String, template: String, required: Boolean = true) = Request(name, template, required)
+        fun request(name: String, template: String, required: Boolean = true, fallbacks: List<String> = emptyList()) =
+            Request(name, template, required, fallbacks)
         val temperate = listOf("house_timber_small_a", "house_timber_small_b", "house_coastal_cottage", "house_l_shaped_manor", "house_stone_bakery", "house_alchemist_tower", "house_snow_cabin_a", "house_snow_longhouse")
-        fun homes(templates: List<String>, count: Int): List<Request> {
+        val smallTemperate = listOf("house_timber_small_a", "house_timber_small_b", "house_coastal_cottage")
+        val smallSnow = listOf("house_snow_cabin_a", "house_timber_small_a", "house_timber_small_b")
+        fun homes(templates: List<String>, count: Int, fallbacks: List<String>): List<Request> {
             val shuffled = templates.shuffled(random)
-            return List(count) { i -> request("house_$i", if (i < shuffled.size) shuffled[i] else templates[random.nextInt(templates.size)], false) }
+            return List(count) { i ->
+                val template = if (i < shuffled.size) shuffled[i] else templates[random.nextInt(templates.size)]
+                request("house_$i", template, false, fallbacks)
+            }
         }
         return when (id) {
-            OverworldSiteIds.LUMINA_PORT -> listOf(request("plaza", "civic_market_plaza"), request("guild_hall", "civic_guild_hall"), request("blacksmith", "civic_blacksmith_forge"), request("tavern", "civic_tavern_inn"), request("lighthouse", "civic_lighthouse"), request("pier", "civic_harbor_pier"), request("watchtower", "civic_watchtower"), request("waystone", "prop_waystone"), request("well", "prop_well"), request("stall", "prop_stall_a", false)) + homes(temperate, 10 + random.nextInt(5))
-            OverworldSiteIds.FROSTPEAK_OUTPOST -> listOf(request("command_hall", "civic_frost_command_hall"), request("watchtower", "civic_watchtower"), request("watchtower_2", "civic_watchtower"), request("plaza", "civic_market_plaza"), request("waystone", "prop_waystone"), request("well", "prop_well", false)) + homes(listOf("house_snow_cabin_a", "house_snow_longhouse", "house_timber_small_a", "house_timber_small_b"), 5 + random.nextInt(4))
-            OverworldSiteIds.ASHWOOD_FOREST -> listOf(request("camp", "landmark_ashwood_camp"), request("entrance", "entrance_novice_arena"), request("waystone", "prop_waystone")) + homes(temperate.take(3), 2)
-            OverworldSiteIds.WEEPING_MINE -> listOf(request("mine", "landmark_mine_headframe"), request("waystone", "prop_waystone")) + homes(listOf("house_timber_small_b", "house_stone_bakery"), 2)
+            OverworldSiteIds.LUMINA_PORT -> listOf(
+                request("plaza", "civic_market_plaza"),
+                request("guild_hall", "civic_guild_hall"),
+                request("blacksmith", "civic_blacksmith_forge"),
+                request("tavern", "civic_tavern_inn"),
+                request("lighthouse", "civic_lighthouse"),
+                request("pier", "civic_harbor_pier"),
+                request("watchtower", "civic_watchtower"),
+                request("waystone", "prop_waystone"),
+                request("well", "prop_well"),
+                request("stall", "prop_stall_a", false),
+            ) + homes(temperate, 12 + random.nextInt(4), smallTemperate)
+            OverworldSiteIds.FROSTPEAK_OUTPOST -> listOf(
+                request("command_hall", "civic_frost_command_hall"),
+                request("watchtower", "civic_watchtower"),
+                request("watchtower_2", "civic_watchtower"),
+                request("plaza", "civic_market_plaza"),
+                request("waystone", "prop_waystone"),
+                request("well", "prop_well", false),
+            ) + homes(listOf("house_snow_cabin_a", "house_snow_longhouse", "house_timber_small_a", "house_timber_small_b"), 6 + random.nextInt(3), smallSnow)
+            OverworldSiteIds.ASHWOOD_FOREST -> listOf(request("camp", "landmark_ashwood_camp"), request("entrance", "entrance_novice_arena"), request("waystone", "prop_waystone")) + homes(temperate.take(3), 2, smallTemperate)
+            OverworldSiteIds.WEEPING_MINE -> listOf(request("mine", "landmark_mine_headframe"), request("waystone", "prop_waystone")) + homes(listOf("house_timber_small_b", "house_stone_bakery"), 2, smallTemperate)
             OverworldSiteIds.STARGAZER_HILL -> listOf(request("observatory", "landmark_stargazer_observatory"), request("entrance", "entrance_aether_crucible"), request("waystone", "prop_waystone"), request("tower", "house_alchemist_tower"))
             OverworldSiteIds.VOID_SANCTUM -> listOf(request("entrance", "entrance_void_sanctum"), request("waystone", "prop_waystone"))
             OverworldSiteIds.GLACIER_RIDGE, OverworldSiteIds.CRYSTALLINE_CAVERN -> listOf(request("watchtower", "civic_watchtower"), request("cabin", "house_snow_cabin_a"), request("waystone", "prop_waystone"))
@@ -477,19 +582,22 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
     private fun containsColumn(rect: Rect, columns: Set<Long>): Boolean =
         (rect.minX..rect.maxX).any { x -> (rect.minZ..rect.maxZ).any { z -> columnKey(x, z) in columns } }
 
-    /** Tier 3の120ブロック間隔でも、隣接拠点の建築が重ならない半径に収めます。 */
+    /** 拠点規模に応じた建築半径を返し、Tier 3の最小間隔150でも隣接拠点と重ならない範囲に収めます。 */
     private fun withinSite(site: OverworldSite, x: Int, z: Int): Boolean {
+        val radius = plotRadius(site.id).toLong()
         val dx = x.toLong() - site.x
         val dz = z.toLong() - site.z
-        return dx * dx + dz * dz <= SITE_PLOT_RADIUS.toLong() * SITE_PLOT_RADIUS
+        return dx * dx + dz * dz <= radius * radius
     }
 
-    /** 灯台と桟橋は近くの自然水域を優先し、なければ人工の池へフォールバックします。 */
-    private fun nearbyWaterDistance(world: World, x: Int, z: Int): Int {
+    /** 灯台と桟橋は近くの自然水域を優先し、保持済みチャンク範囲内だけで探索します。 */
+    private fun nearbyWaterDistance(world: World, site: OverworldSite, x: Int, z: Int): Int {
+        val maxOffset = loadRadius(site.id) - 4
         val directions = listOf(1 to 0, -1 to 0, 0 to 1, 0 to -1, 1 to 1, 1 to -1, -1 to 1, -1 to -1)
         for (distance in listOf(8, 16, 24)) for ((dx, dz) in directions) {
             val px = x + dx * distance
             val pz = z + dz * distance
+            if (abs(px - site.x) > maxOffset || abs(pz - site.z) > maxOffset) continue
             val y = surfaceY(world, px, pz)
             if (world.getBlockAt(px, y, pz).type == Material.WATER) return distance
         }
@@ -502,18 +610,23 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
             .sortedBy { abs(it.x - site.x) + abs(it.z - site.z) }
 
     /** 敷地候補を四方向に並べ、入口を中心側へ向けます。 */
-    private fun plotCandidates(site: OverworldSite, random: Random): List<Candidate> =
-        (-60..60 step 12).flatMap { dx -> (-60..60 step 12).mapNotNull { dz ->
-            if (abs(dx) < 12 && abs(dz) < 12) return@mapNotNull null
-            val rotation = if (abs(dx) > abs(dz)) {
-                if (dx > 0) StructureRotation.CLOCKWISE_90 else StructureRotation.COUNTERCLOCKWISE_90
-            } else if (dz > 0) StructureRotation.CLOCKWISE_180 else StructureRotation.NONE
-            Candidate(site.x + dx, site.z + dz, rotation)
-        } }.shuffled(random)
+    private fun plotCandidates(site: OverworldSite, random: Random): List<Candidate> {
+        val limit = (plotRadius(site.id) / PLOT_GRID_STEP) * PLOT_GRID_STEP
+        return (-limit..limit step PLOT_GRID_STEP).flatMap { dx ->
+            (-limit..limit step PLOT_GRID_STEP).mapNotNull { dz ->
+                if (abs(dx) < 12 && abs(dz) < 12) return@mapNotNull null
+                val rotation = if (abs(dx) > abs(dz)) {
+                    if (dx > 0) StructureRotation.CLOCKWISE_90 else StructureRotation.COUNTERCLOCKWISE_90
+                } else if (dz > 0) StructureRotation.CLOCKWISE_180 else StructureRotation.NONE
+                Candidate(site.x + dx, site.z + dz, rotation)
+            }
+        }.shuffled(random)
+    }
 
     /** 自然地形の表面に沿う4本の緩やかな曲線を作ります。 */
     private fun roads(world: World, site: OverworldSite, random: Random): Sequence<OverworldPoint> = sequence {
-        val length = 35 + random.nextInt(21)
+        val baseLength = if (site.id == OverworldSiteIds.LUMINA_PORT) 48 else 35
+        val length = baseLength + random.nextInt(21)
         for ((dx, dz) in listOf(1 to 0, -1 to 0, 0 to 1, 0 to -1)) {
             var bend = 0
             for (step in 0..length) {
@@ -573,13 +686,35 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
             StructureRotation.COUNTERCLOCKWISE_90 -> 1 to 0
     }
 
-    private companion object {
-        // Tier 3 の拠点間隔120から、両側の建築が重ならない余白を残します。
-        const val SITE_PLOT_RADIUS = 59
-        const val RELIEF_WEIGHT = 4
-        const val LIGHTHOUSE_HEIGHT_DIVISOR = 8
-        const val WATERFRONT_DISTANCE = 8
-        const val WATERFRONT_RELIEF = 2
-        val dungeonIds = mapOf("entrance_novice_arena" to OverworldDungeonIds.NOVICE_ARENA, "entrance_void_sanctum" to OverworldDungeonIds.VOID_SANCTUM, "entrance_aether_crucible" to OverworldDungeonIds.AETHER_CRUCIBLE, "entrance_glacial_citadel" to OverworldDungeonIds.GLACIAL_CITADEL)
+    internal companion object {
+        /** 拠点規模別の建築配置半径です（Tier 3最小間隔150でも隣接拠点と重なりません）。 */
+        fun plotRadius(siteId: String): Int = when (siteId) {
+            OverworldSiteIds.LUMINA_PORT -> 86
+            OverworldSiteIds.FROSTPEAK_OUTPOST -> 72
+            else -> 64
+        }
+
+        /** 建設時にチャンクチケットで保持する半径です（水域探索や道路接続を含む）。 */
+        fun loadRadius(siteId: String): Int = when (siteId) {
+            OverworldSiteIds.LUMINA_PORT -> 112
+            OverworldSiteIds.FROSTPEAK_OUTPOST -> 96
+            else -> 88
+        }
+
+        private const val BUILDING_MARGIN = 1
+        private const val PLOT_GRID_STEP = 8
+        private const val POND_GRID_STEP = 10
+        private const val MAX_VALID_SAMPLES_PER_BUILDING = 4
+        private const val LUMINA_TARGET_HOUSES = 10
+        private const val LUMINA_TARGET_DISTINCT_HOUSES = 5
+        private const val LUMINA_MIN_HOUSES = 6
+        private const val LUMINA_MIN_DISTINCT_HOUSES = 4
+        private const val FROSTPEAK_TARGET_HOUSES = 5
+        private const val FROSTPEAK_MIN_HOUSES = 3
+        private const val RELIEF_WEIGHT = 4
+        private const val LIGHTHOUSE_HEIGHT_DIVISOR = 8
+        private const val WATERFRONT_DISTANCE = 8
+        private const val WATERFRONT_RELIEF = 2
+        private val dungeonIds = mapOf("entrance_novice_arena" to OverworldDungeonIds.NOVICE_ARENA, "entrance_void_sanctum" to OverworldDungeonIds.VOID_SANCTUM, "entrance_aether_crucible" to OverworldDungeonIds.AETHER_CRUCIBLE, "entrance_glacial_citadel" to OverworldDungeonIds.GLACIAL_CITADEL)
     }
 }

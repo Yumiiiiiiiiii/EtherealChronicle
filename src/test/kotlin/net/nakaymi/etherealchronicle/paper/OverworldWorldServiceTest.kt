@@ -81,6 +81,7 @@ class OverworldWorldServiceTest {
             val plugin = MockBukkit.createMockPlugin()
             val world = Proxy.newProxyInstance(World::class.java.classLoader, arrayOf(World::class.java)) { _, method, _ ->
                 when (method.name) {
+                    "getName" -> "overworld-cancel"
                     "getSeed" -> 42L
                     "getChunkAtAsync" -> CompletableFuture<Chunk>()
                     else -> error("Unexpected search access: ${method.name}")
@@ -101,9 +102,11 @@ class OverworldWorldServiceTest {
             val pending = ArrayDeque<Pair<Pair<Int, Int>, CompletableFuture<Chunk>>>()
             val loadedDuringCallback = mutableSetOf<Pair<Int, Int>>()
             var firstCoord: Pair<Int, Int>? = null
+            var maxInFlight = 0
             val grassBlock = blockStub(Material.GRASS_BLOCK)
             val world = Proxy.newProxyInstance(World::class.java.classLoader, arrayOf(World::class.java)) { _, method, args ->
                 when (method.name) {
+                    "getName" -> "overworld-unload"
                     "getSeed" -> 12345L
                     "getMinHeight" -> -64
                     "getChunkAtAsync" -> {
@@ -111,6 +114,7 @@ class OverworldWorldServiceTest {
                         if (firstCoord == null) firstCoord = pos
                         val future = CompletableFuture<Chunk>()
                         pending.addLast(pos to future)
+                        if (pending.size > maxInFlight) maxInFlight = pending.size
                         future
                     }
                     "isChunkLoaded" -> ((args[0] as Int) to (args[1] as Int)) in loadedDuringCallback
@@ -124,8 +128,10 @@ class OverworldWorldServiceTest {
             val result = OverworldSiteSearch(plugin, world).start()
             var ticks = 0
             while (!result.isDone && ticks < 5000) {
-                while (pending.isNotEmpty()) {
-                    val (pos, future) = pending.removeFirst()
+                // 逆順（LIFO）に完了させても決定順で受理されることも併せて検証します。
+                val batch = pending.toList().reversed()
+                pending.clear()
+                for ((pos, future) in batch) {
                     val chunk = chunkStub(pos.first, pos.second)
                     // 最初の候補だけ永続的にアンロード状態を再現し、他は完了コールバック中のみ読込済み（実Paper挙動）にします。
                     if (pos != firstCoord) loadedDuringCallback += pos
@@ -138,6 +144,7 @@ class OverworldWorldServiceTest {
             }
             assertTrue(result.isDone, "Site search should finish within tick limit")
             assertFalse(result.isCompletedExceptionally, "Site search must survive immediate post-callback unload")
+            assertTrue(maxInFlight > 1, "Site search should pipeline multiple async chunk requests")
             assertEquals(9, result.join().size)
         } finally { MockBukkit.unmock() }
     }

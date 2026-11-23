@@ -12,41 +12,93 @@ import org.bukkit.plugin.Plugin
 import java.util.Locale
 import java.util.concurrent.CompletableFuture
 
-/** Paperの非同期チャンク取得とtick単位の地形サンプリングを接続します。 */
+/** Paperの非同期チャンク取得と並列先読み・決定順の地形サンプリングを接続します。 */
 internal class OverworldSiteSearch(private val plugin: Plugin, private val world: World) {
     private val search = OverworldSiteLocator.Search(world.seed)
     private val result = CompletableFuture<List<OverworldSite>>()
+    private val sampled = mutableMapOf<Pair<Int, Int>, SiteTerrain>()
+    private val inFlight = mutableSetOf<Pair<Int, Int>>()
+    private var siteEpoch = 0
+    private var pumpScheduled = false
 
-    /** メインスレッドから探索を開始し、1 tickに最大1チャンクの地形を判定します。 */
+    /** メインスレッドから探索を開始し、少数のチャンクを並列先読みしつつ決定順で地形を判定します。 */
     fun start(): CompletableFuture<List<OverworldSite>> {
-        advance()
+        plugin.logger.info("Overworld site search started for world '${world.name}' (seed=${world.seed})")
+        pump()
         return result
     }
 
     /** サービス終了後の非同期コールバックが探索を再開しないよう停止します。 */
     fun cancel() { result.cancel(false) }
 
-    /** 次のチャンクが生成・読込できてからメインスレッドで地形を読みます。 */
-    private fun advance() {
+    /** 完了済みサンプルを決定順で受理し、不足分を非同期先読みウィンドウへ補充します。 */
+    private fun pump() {
         if (result.isDone) return
-        val point = runCatching { search.nextCandidate() }.getOrElse { result.completeExceptionally(it); return }
-        if (point == null) {
-            runCatching { search.result() }.onSuccess(result::complete).onFailure(result::completeExceptionally)
-            return
+        try {
+            while (!result.isDone) {
+                val next = search.peekCandidates(1).firstOrNull()
+                if (next == null) {
+                    runCatching { search.result() }.onSuccess(result::complete).onFailure(result::completeExceptionally)
+                    return
+                }
+                val terrain = sampled.remove(next) ?: break
+                val prevCount = search.selected().size
+                val candidate = search.nextCandidate() ?: break
+                check(candidate == next) { "Site search candidate order diverged" }
+                search.accept(terrain)
+                val after = search.selected()
+                if (after.size > prevCount) {
+                    val chosen = after.last()
+                    plugin.logger.info(
+                        "Overworld site located (${after.size}/9): ${chosen.id} at (${chosen.x}, ${chosen.y}, ${chosen.z}) " +
+                            "tier=${chosen.tier} biome=${chosen.biome}",
+                    )
+                    siteEpoch++
+                    sampled.clear()
+                    inFlight.clear()
+                    if (search.peekCandidates(1).isEmpty()) {
+                        runCatching { search.result() }.onSuccess(result::complete).onFailure(result::completeExceptionally)
+                        return
+                    }
+                }
+            }
+            val epoch = siteEpoch
+            val upcoming = search.peekCandidates(CHUNK_PREFETCH_WINDOW)
+            for (point in upcoming) {
+                if (result.isDone || epoch != siteEpoch) return
+                if (inFlight.size >= CHUNK_PREFETCH_WINDOW) break
+                if (point in sampled || !inFlight.add(point)) continue
+                loadCandidate(point.first, point.second, epoch, 0)
+            }
+        } catch (error: Exception) {
+            result.completeExceptionally(error)
         }
-        val (x, z) = point
-        loadCandidate(x, z, 0)
+    }
+
+    private fun schedulePump() {
+        if (pumpScheduled || result.isDone) return
+        pumpScheduled = true
+        try {
+            plugin.server.scheduler.runTaskLater(plugin, Runnable {
+                pumpScheduled = false
+                pump()
+            }, 1L)
+        } catch (error: Exception) {
+            pumpScheduled = false
+            result.completeExceptionally(error)
+        }
     }
 
     /** 非同期読込の完了コールバック内で即時に地形を読み取り、次候補への進行のみ次tickへ送ります。 */
-    private fun loadCandidate(x: Int, z: Int, attempt: Int) {
-        if (result.isDone) return
+    private fun loadCandidate(x: Int, z: Int, epoch: Int, attempt: Int) {
+        if (result.isDone || epoch != siteEpoch) return
         val cx = x shr 4
         val cz = z shr 4
+        val point = x to z
         world.getChunkAtAsync(cx, cz, true).whenComplete { chunk, failure ->
             if (result.isDone) return@whenComplete
             val handle: () -> Unit = {
-                if (!result.isDone) {
+                if (!result.isDone && epoch == siteEpoch) {
                     try {
                         if (failure != null) {
                             result.completeExceptionally(failure)
@@ -54,19 +106,23 @@ internal class OverworldSiteSearch(private val plugin: Plugin, private val world
                             if (attempt < MAX_CHUNK_RETRIES) {
                                 plugin.server.scheduler.runTaskLater(
                                     plugin,
-                                    Runnable { loadCandidate(x, z, attempt + 1) },
+                                    Runnable {
+                                        if (!result.isDone && epoch == siteEpoch) loadCandidate(x, z, epoch, attempt + 1)
+                                    },
                                     1L,
                                 )
                             } else {
                                 plugin.logger.warning(
                                     "Skipping unloaded overworld site candidate at $x,$z after ${MAX_CHUNK_RETRIES + 1} attempts",
                                 )
-                                search.accept(SiteTerrain(y = world.minHeight, biome = "UNAVAILABLE", dryLand = false))
-                                plugin.server.scheduler.runTaskLater(plugin, Runnable { advance() }, 1L)
+                                sampled[point] = SiteTerrain(y = world.minHeight, biome = "UNAVAILABLE", dryLand = false)
+                                inFlight.remove(point)
+                                schedulePump()
                             }
                         } else {
-                            search.accept(sample(x, z))
-                            plugin.server.scheduler.runTaskLater(plugin, Runnable { advance() }, 1L)
+                            sampled[point] = sample(x, z)
+                            inFlight.remove(point)
+                            schedulePump()
                         }
                     } catch (error: Exception) {
                         result.completeExceptionally(error)
@@ -103,7 +159,10 @@ internal class OverworldSiteSearch(private val plugin: Plugin, private val world
         )
     }
 
-    private companion object { const val MAX_CHUNK_RETRIES = 5 }
+    private companion object {
+        const val MAX_CHUNK_RETRIES = 5
+        const val CHUNK_PREFETCH_WINDOW = 8
+    }
 }
 
 /** 樹冠や幹の頂点ではなく、その下の地面を基準に施設の高さを決めます。 */

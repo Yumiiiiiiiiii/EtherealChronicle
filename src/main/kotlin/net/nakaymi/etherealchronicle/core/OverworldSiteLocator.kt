@@ -28,8 +28,9 @@ object OverworldSiteLocator {
         Spec(OverworldSiteIds.CRYSTALLINE_CAVERN, 180, 480, setOf("SNOWY_PLAINS", "SNOWY_TAIGA", "GROVE", "FROZEN_PEAKS", "JAGGED_PEAKS", "SNOWY_SLOPES"), true),
         Spec(OverworldSiteIds.GLACIAL_CITADEL, 180, 480, setOf("SNOWY_PLAINS", "SNOWY_TAIGA", "GROVE", "FROZEN_PEAKS", "JAGGED_PEAKS", "SNOWY_SLOPES"), true),
     )
-    private const val CANDIDATE_COUNT = 256
+    private const val CANDIDATE_COUNT = 96
     private const val EARLY_TIER_ONE_COUNT = 24
+    private const val TIER_THREE_MIN_SEPARATION = 150
 
     /** 地形照会を注入して同じseedから同じ順序と結果を再現します。 */
     fun locate(seed: Long, terrainAt: (Int, Int) -> SiteTerrain): List<OverworldSite> {
@@ -54,6 +55,13 @@ object OverworldSiteLocator {
         val currentSiteId: String get() = specs[sites.size].id
         internal fun selected(): List<OverworldSite> = sites.toList()
 
+        /** 現在評価中の拠点について、未受理の候補座標を先頭から最大 limit 件だけ参照します（状態は変更しません）。 */
+        fun peekCandidates(limit: Int): List<Pair<Int, Int>> {
+            if (sites.size == specs.size || limit <= 0) return emptyList()
+            val end = minOf(candidates.size, samples.size + limit)
+            return candidates.subList(samples.size, end).toList()
+        }
+
         /** 次に必要な座標を一つだけ予約し、完了時はnullを返します。 */
         fun nextCandidate(): Pair<Int, Int>? {
             check(awaiting == null) { "Previous terrain sample has not been supplied" }
@@ -74,7 +82,8 @@ object OverworldSiteLocator {
             if (samples.size != candidates.size && strongCount < EARLY_TIER_ONE_COUNT) return
             val chosen = (1..3).firstNotNullOfOrNull { tier ->
                 samples.asSequence().filter { (sx, sz, terrain) -> eligible(terrain, tier, rule.biomes) &&
-                    separated(sx, sz, sites, if (tier == 3) 120 else 160) && (!rule.frostRelative || nearColdSites(sx, sz, sites)) }
+                    separated(sx, sz, sites, if (tier == 3) TIER_THREE_MIN_SEPARATION else 160) &&
+                    (!rule.frostRelative || nearColdSites(sx, sz, sites)) }
                     .maxByOrNull { (_, sz, terrain) -> score(terrain, rule, sz - center.second) }
                     ?.let { (sx, sz, terrain) -> OverworldSite(rule.id, sx, terrain.y, sz, tier, terrain.biome) }
             } ?: error("No dry site found for ${rule.id}; world generation was not started")

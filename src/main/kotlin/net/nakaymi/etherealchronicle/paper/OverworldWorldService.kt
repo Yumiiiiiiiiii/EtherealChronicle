@@ -122,6 +122,10 @@ class OverworldWorldService internal constructor(
             }
             return
         }
+        val readyCount = current.sites.count { it.status == OverworldSiteStatus.READY }
+        plugin.logger.info(
+            "Preparing overworld site (${readyCount + 1}/${current.sites.size}): ${next.site.id} at (${next.site.x}, ${next.site.y}, ${next.site.z})",
+        )
         loadChunks(next.site, result) { planSite(current, next, result, onSiteReady) }
     }
 
@@ -153,6 +157,11 @@ class OverworldWorldService internal constructor(
                 save(failed, result) { fail(result, IllegalStateException("Could not set Lumina spawn")) }
                 return@save
             }
+            val readyCount = ready.sites.count { it.status == OverworldSiteStatus.READY }
+            plugin.logger.info(
+                "Overworld site ready ($readyCount/${ready.sites.size}): ${next.site.id} " +
+                    "(buildings=${plan.buildings.size}, portals=${plan.portals.size})",
+            )
             releaseTickets()
             onSiteReady(ready)
             generateNext(ready, result, onSiteReady)
@@ -196,10 +205,11 @@ class OverworldWorldService internal constructor(
 
     /** 少数のチャンクを並列取得し、完了コールバック内で即時チケット確保して建設中保持します。 */
     private fun loadChunks(site: OverworldSite, result: CompletableFuture<OverworldLayout>, done: () -> Unit) {
-        val minX = (site.x - SITE_RADIUS) shr CHUNK_SHIFT
-        val maxX = (site.x + SITE_RADIUS) shr CHUNK_SHIFT
-        val minZ = (site.z - SITE_RADIUS) shr CHUNK_SHIFT
-        val maxZ = (site.z + SITE_RADIUS) shr CHUNK_SHIFT
+        val radius = OverworldTownAssembler.loadRadius(site.id)
+        val minX = (site.x - radius) shr CHUNK_SHIFT
+        val maxX = (site.x + radius) shr CHUNK_SHIFT
+        val minZ = (site.z - radius) shr CHUNK_SHIFT
+        val maxZ = (site.z + radius) shr CHUNK_SHIFT
         val positions = (minX..maxX).flatMap { x -> (minZ..maxZ).map { z -> x to z } }.iterator()
         var inFlight = 0
         var pumpScheduled = false
@@ -337,7 +347,6 @@ class OverworldWorldService internal constructor(
     }
 
     private companion object {
-        const val SITE_RADIUS = 112
         const val CHUNK_SHIFT = 4
         /** 1 tick あたりの計画時間予算（2ms）と上限ステップ数です。 */
         const val PLANNING_TIME_BUDGET_NANOS = 2_000_000L
@@ -347,7 +356,7 @@ class OverworldWorldService internal constructor(
         const val MAX_OPERATIONS_PER_TICK = 64
         const val IO_CLOSE_TIMEOUT_SECONDS = 2L
         const val MAX_CHUNK_RETRIES = 5
-        const val CHUNK_REQUEST_WINDOW = 4
+        const val CHUNK_REQUEST_WINDOW = 8
         val unsafeSpawnFloors = setOf(Material.MAGMA_BLOCK, Material.CACTUS, Material.CAMPFIRE, Material.SOUL_CAMPFIRE)
     }
 }
