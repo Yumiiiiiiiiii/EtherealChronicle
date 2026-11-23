@@ -235,7 +235,7 @@ class OverworldTownAssemblerTest {
             val assembler = OverworldTownAssembler(assets)
             val site = OverworldSite(OverworldSiteIds.ASHWOOD_FOREST, 0, 63, 0, 1, "FOREST")
 
-            // 計画〜適用間に起きる自然変化（草↔土、水↔氷、降雪、葉の自然消滅）を再現します。
+            // 計画〜適用間に起きる具体的な自然遷移（草↔土、水↔氷、降雪、葉の自然消滅）を再現します。
             world.getBlockAt(0, 63, 0).type = Material.DIRT          // GRASS_BLOCK -> DIRT (羊採食・影枯れ)
             world.getBlockAt(1, 63, 0).type = Material.GRASS_BLOCK   // DIRT -> GRASS_BLOCK (草伝播)
             world.getBlockAt(2, 63, 0).type = Material.ICE           // WATER -> ICE (凍結)
@@ -297,7 +297,7 @@ class OverworldTownAssemblerTest {
     }
 
     @Test
-    fun `actions still reject artificial hazardous or seal-breaking block changes`() {
+    fun `actions still reject artificial hazardous or unexpected terrain changes`() {
         val server = MockBukkit.mock()
         try {
             val world = server.addSimpleWorld("overworld-artificial-reject")
@@ -313,7 +313,7 @@ class OverworldTownAssemblerTest {
                 decorations: List<OverworldTerrainChange> = emptyList(),
             ) = OverworldTownPlan(site, emptyList(), road, roadClearance, pond, lights, decorations, emptyMap(), emptyList(), emptyMap())
 
-            // 道路に人工ブロックが置かれた場合は拒否し、上書きしない
+            // 道路に人工ブロックや非自然な地盤変化（STONE -> DIRT / ICE -> STONE）が起きた場合は拒否し、上書きしない
             world.getBlockAt(0, 63, 0).type = Material.BRICKS
             val roadErr = assertThrows<IllegalStateException> {
                 assembler.actions(world, emptyPlan(road = listOf(
@@ -322,6 +322,22 @@ class OverworldTownAssemblerTest {
             }
             assertTrue(roadErr.message.orEmpty().contains("got BRICKS"), "Unexpected message: ${roadErr.message}")
             assertEquals(Material.BRICKS, world.getBlockAt(0, 63, 0).type)
+
+            world.getBlockAt(7, 63, 0).type = Material.DIRT
+            assertThrows<IllegalStateException> {
+                assembler.actions(world, emptyPlan(road = listOf(
+                    OverworldTerrainChange(OverworldPoint(7, 63, 0), Material.STONE, Material.COBBLESTONE),
+                ))).forEachRemaining { it() }
+            }
+            assertEquals(Material.DIRT, world.getBlockAt(7, 63, 0).type)
+
+            world.getBlockAt(8, 63, 0).type = Material.STONE
+            assertThrows<IllegalStateException> {
+                assembler.actions(world, emptyPlan(road = listOf(
+                    OverworldTerrainChange(OverworldPoint(8, 63, 0), Material.ICE, Material.COBBLESTONE),
+                ))).forEachRemaining { it() }
+            }
+            assertEquals(Material.STONE, world.getBlockAt(8, 63, 0).type)
 
             // 道路クリアランスに人工ブロックが現れた場合は拒否する
             world.getBlockAt(1, 64, 0).type = Material.OAK_PLANKS
@@ -332,7 +348,7 @@ class OverworldTownAssemblerTest {
             }
             assertEquals(Material.OAK_PLANKS, world.getBlockAt(1, 64, 0).type)
 
-            // 池に溶岩が現れた場合は拒否する
+            // 池に溶岩や非自然な地盤変化（STONE -> DIRT）が現れた場合は拒否する
             world.getBlockAt(2, 63, 0).type = Material.LAVA
             assertThrows<IllegalStateException> {
                 assembler.actions(world, emptyPlan(pond = listOf(
@@ -340,6 +356,15 @@ class OverworldTownAssemblerTest {
                 ))).forEachRemaining { it() }
             }
             assertEquals(Material.LAVA, world.getBlockAt(2, 63, 0).type)
+
+            world.getBlockAt(9, 61, 0).type = Material.STONE
+            world.getBlockAt(9, 62, 0).type = Material.DIRT
+            assertThrows<IllegalStateException> {
+                assembler.actions(world, emptyPlan(pond = listOf(
+                    OverworldTerrainChange(OverworldPoint(9, 62, 0), Material.STONE, Material.GRAVEL),
+                ))).forEachRemaining { it() }
+            }
+            assertEquals(Material.DIRT, world.getBlockAt(9, 62, 0).type)
 
             // 池の底面予定地が空気・植物へ変化した場合は封水保護のため拒否する
             world.getBlockAt(5, 61, 0).type = Material.STONE

@@ -445,7 +445,7 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
             yield {
                 val p = change.position
                 val block = world.getBlockAt(p.x, p.y, p.z)
-                check(block.type == change.before || block.type == change.after || isNaturalRoadTerrain(change.before, block.type)) {
+                check(block.type == change.before || block.type == change.after || isNaturalTerrainDrift(change.before, block.type)) {
                     "Road terrain changed at ${p.x},${p.y},${p.z}: expected ${change.before}, got ${block.type}"
                 }
                 block.setType(change.after, false)
@@ -488,11 +488,13 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
         } }
     }.iterator()
 
-    /** 計画〜適用間の自然なブロック変化（草↔土・水↔氷・降雪・葉消滅など）だけを元の種別に応じて許容し、人工ブロックや空洞化・溶岩は拒否します。 */
-    private fun isNaturalRoadTerrain(before: Material, actual: Material): Boolean = when {
-        before == Material.WATER -> actual == Material.WATER || actual == Material.ICE
-        before == Material.ICE -> actual == Material.ICE || actual == Material.WATER || actual in OverworldMaterials.ground
-        before in OverworldMaterials.ground -> actual in OverworldMaterials.ground
+    /** 計画〜適用間にバニラ仕様で起こり得る具体的な自然遷移ペア（草↔土・菌糸↔土・耕地/道→土・水↔氷）のみ許容します。 */
+    private fun isNaturalTerrainDrift(before: Material, actual: Material): Boolean = when (before) {
+        Material.GRASS_BLOCK, Material.MYCELIUM -> actual == Material.DIRT
+        Material.DIRT -> actual == Material.GRASS_BLOCK || actual == Material.MYCELIUM
+        Material.FARMLAND, Material.DIRT_PATH -> actual == Material.DIRT || actual == Material.GRASS_BLOCK
+        Material.WATER -> actual == Material.ICE
+        Material.ICE -> actual == Material.WATER
         else -> false
     }
 
@@ -500,13 +502,8 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
         type.isAir || Tag.LOGS.isTagged(type) || Tag.LEAVES.isTagged(type) || type in OverworldMaterials.plants ||
             Tag.FLOWERS.isTagged(type) || Tag.SAPLINGS.isTagged(type) || Tag.CAVE_VINES.isTagged(type)
 
-    private fun isNaturalPondDrift(before: Material, actual: Material): Boolean = when {
-        before == Material.WATER -> actual == Material.WATER || actual == Material.ICE
-        before == Material.ICE -> actual == Material.ICE || actual == Material.WATER || actual in OverworldMaterials.ground
-        before in OverworldMaterials.ground -> actual in OverworldMaterials.ground
-        before.isAir -> actual.isAir || actual == Material.SNOW
-        else -> false
-    }
+    private fun isNaturalPondDrift(before: Material, actual: Material): Boolean =
+        isNaturalTerrainDrift(before, actual) || (before.isAir && actual == Material.SNOW)
 
     private fun isNaturalOpenSpace(type: Material): Boolean =
         type.isAir || type == Material.SNOW
