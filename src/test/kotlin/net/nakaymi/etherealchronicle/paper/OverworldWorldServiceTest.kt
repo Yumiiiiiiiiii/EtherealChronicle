@@ -456,6 +456,26 @@ class OverworldWorldServiceTest {
             // チャンク (5, 0): 氷上は引き続き非乾燥陸地として除外
             fillChunk(5, 0, Material.PACKED_ICE)
             assertFalse(search.sample(88, 8).dryLand, "Ice surface must remain rejected")
+
+            // チャンク (6, 0)〜(9, 0): バニラ村の道 (DIRT_PATH)・耕地 (FARMLAND) は中心・隅とも除外
+            fillChunk(6, 0, Material.DIRT_PATH)
+            assertFalse(search.sample(104, 8).dryLand, "Village DIRT_PATH center must be rejected")
+
+            fillChunk(7, 0, Material.GRASS_BLOCK)
+            world.getBlockAt(112 + 2, 64, 2).type = Material.DIRT_PATH
+            assertFalse(search.sample(120, 8).dryLand, "Chunk containing village DIRT_PATH at corner must be rejected")
+
+            fillChunk(8, 0, Material.FARMLAND)
+            assertFalse(search.sample(136, 8).dryLand, "Village FARMLAND center must be rejected")
+
+            fillChunk(9, 0, Material.GRASS_BLOCK)
+            world.getBlockAt(144 + 13, 64, 13).type = Material.FARMLAND
+            assertFalse(search.sample(152, 8).dryLand, "Chunk containing village FARMLAND at corner must be rejected")
+
+            // チャンク (10, 0): 遺跡由来の SUSPICIOUS_SAND が隅に含まれる場合も除外
+            fillChunk(10, 0, Material.SAND)
+            world.getBlockAt(160 + 2, 64, 13).type = Material.SUSPICIOUS_SAND
+            assertFalse(search.sample(168, 8).dryLand, "Chunk containing archaeology SUSPICIOUS_SAND must be rejected")
         } finally {
             MockBukkit.unmock()
         }

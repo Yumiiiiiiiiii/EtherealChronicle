@@ -127,7 +127,7 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
                 yield(Unit)
             }
             val road = roadPoints.toList()
-            val selected = planBuildings(world, site, random, snow, road, requests)
+            val selected = planBuildings(world, site, seed, random, snow, road, requests)
             val (occupied, buildings, anchors, portals, prepared) = selected
             val clearRoad = connectRoads(world, road, occupied, buildings, anchors)
             val clearRoadColumns = clearRoad.mapTo(HashSet()) { columnKey(it.x, it.z) }
@@ -265,7 +265,7 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
     )
 
     /** 候補を段階的に検査し、建物と入口の確定結果を返します。 */
-    private suspend fun SequenceScope<Unit>.planBuildings(world: World, site: OverworldSite, random: Random, snow: Boolean,
+    private suspend fun SequenceScope<Unit>.planBuildings(world: World, site: OverworldSite, seed: Long, random: Random, snow: Boolean,
         road: List<OverworldPoint>, requests: List<Request>,
     ): BuildingSelection {
         val roadColumns = road.mapTo(HashSet()) { columnKey(it.x, it.z) }
@@ -280,8 +280,9 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
             val candidateBatches: Sequence<List<Candidate>> = if (index == 0) {
                 sequence {
                     yield(centerCandidates(site))
-                    // 中心 ±24 がバニラ構造物や地形障害で全滅した場合のみ、拠点半径内の敷地候補へ中心近傍順でフォールバックします。
-                    yield(plotCandidates(site, random).sortedBy { abs(it.x - site.x) + abs(it.z - site.z) })
+                    // 中心 ±24 がバニラ構造物や地形障害で全滅した場合のみ、独立 RNG を使って拠点半径内の敷地候補へ中心近傍順でフォールバックします。
+                    val fallbackRandom = Random(seed xor site.id.hashCode().toLong() xor FALLBACK_RANDOM_SALT)
+                    yield(plotCandidates(site, fallbackRandom).sortedBy { abs(it.x - site.x) + abs(it.z - site.z) })
                 }
             } else {
                 sequenceOf(plotCandidates(site, random))
@@ -836,6 +837,7 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
         private const val LIGHTHOUSE_HEIGHT_DIVISOR = 8
         private const val WATERFRONT_DISTANCE = 8
         private const val WATERFRONT_RELIEF = 2
+        private const val FALLBACK_RANDOM_SALT = 0x517cc1b727220a95L
         private val dungeonIds = mapOf("entrance_novice_arena" to OverworldDungeonIds.NOVICE_ARENA, "entrance_void_sanctum" to OverworldDungeonIds.VOID_SANCTUM, "entrance_aether_crucible" to OverworldDungeonIds.AETHER_CRUCIBLE, "entrance_glacial_citadel" to OverworldDungeonIds.GLACIAL_CITADEL)
     }
 }

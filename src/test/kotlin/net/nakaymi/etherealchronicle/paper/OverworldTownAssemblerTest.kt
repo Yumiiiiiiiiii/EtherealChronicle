@@ -482,6 +482,12 @@ class OverworldTownAssemblerTest {
             val fallbackPlanning = assembler.planning(obstructed, site, -4167603268941691095L)
             while (fallbackPlanning.steps.hasNext()) fallbackPlanning.steps.next()
             val fallbackPlan = fallbackPlanning.result()
+            val fallbackRepeat = assembler.planning(obstructed, site, -4167603268941691095L)
+            while (fallbackRepeat.steps.hasNext()) fallbackRepeat.steps.next()
+            val fallbackRepeatPlan = fallbackRepeat.result()
+            assertEquals(fallbackPlan.buildings, fallbackRepeatPlan.buildings, "Fallback placement must be deterministic for the same seed")
+            assertEquals(fallbackPlan.portals, fallbackRepeatPlan.portals, "Fallback portals must be deterministic for the same seed")
+
             val entrance = fallbackPlan.buildings.single { it.name == "entrance" }
             assertTrue(fallbackPlan.buildings.any { it.name == "waystone" }, "Expected waystone alongside fallback entrance")
             assertEquals(1, fallbackPlan.portals.size, "Fallback entrance must still register its dungeon portal")
@@ -496,7 +502,7 @@ class OverworldTownAssemblerTest {
                 "Fallback placement must not overwrite obstructed center structure blocks",
             )
 
-            // 中心が正常な自然地表であれば、従来どおり中心近傍（centerCandidates / Rotation.NONE）に配置されます。
+            // 中心が正常な自然地表であれば、従来どおり中心近傍（centerCandidates / Rotation.NONE）に配置され、同シードで完全に決定論的です。
             val clear = server.addSimpleWorld("overworld-void-center-clear")
             for (x in -60..60) for (z in -60..60) {
                 clear.getBlockAt(x, 62, z).type = Material.STONE
@@ -505,6 +511,11 @@ class OverworldTownAssemblerTest {
             val centerPlanning = assembler.planning(clear, site, -4167603268941691095L)
             while (centerPlanning.steps.hasNext()) centerPlanning.steps.next()
             val centerPlan = centerPlanning.result()
+            val centerRepeat = assembler.planning(clear, site, -4167603268941691095L)
+            while (centerRepeat.steps.hasNext()) centerRepeat.steps.next()
+            val centerRepeatPlan = centerRepeat.result()
+            assertEquals(centerPlan.buildings, centerRepeatPlan.buildings, "Clear center buildings must be deterministic for the same seed")
+            assertEquals(centerPlan.anchors, centerRepeatPlan.anchors, "Clear center anchors must be deterministic for the same seed")
             val centerEntrance = centerPlan.buildings.single { it.name == "entrance" }
             assertEquals(StructureRotation.NONE, centerEntrance.rotation, "Clear center should stay on centerCandidates")
             assertTrue(

@@ -151,11 +151,8 @@ internal class OverworldSiteSearch(private val plugin: Plugin, private val world
         val surfaces = points.zip(heights).map { (point, y) -> world.getBlockAt(point.first, y, point.second).type }
         val surface = surfaces.first()
         val water = surfaces.any { it == Material.WATER }
-        // バニラ構造物（森の洋館・村・前哨基地・遺跡）や溶岩・マグマが混ざるチャンクは候補から除外します。
-        val naturalDryLand = surface.isSolid &&
-            surface in OverworldMaterials.ground &&
-            surface !in nonDryGround &&
-            surfaces.all(OverworldMaterials::replaceable)
+        // バニラ構造物（森の洋館・村の道/畑・前哨基地・遺跡）や溶岩・マグマが混ざるチャンクは候補から除外します。
+        val naturalDryLand = isNaturalDrySurface(surface) && surfaces.all(::isNaturalChunkSurface)
         return SiteTerrain(
             y = heights.first(),
             biome = world.getBiome(x, heights.first(), z).key.key.uppercase(Locale.ROOT),
@@ -165,10 +162,22 @@ internal class OverworldSiteSearch(private val plugin: Plugin, private val world
         )
     }
 
+    private fun isNaturalDrySurface(type: Material): Boolean =
+        type.isSolid && type in OverworldMaterials.ground && type !in nonDryGround && type !in structureGround
+
+    private fun isNaturalChunkSurface(type: Material): Boolean =
+        OverworldMaterials.replaceable(type) && type !in structureGround
+
     private companion object {
         const val MAX_CHUNK_RETRIES = 5
         const val CHUNK_PREFETCH_WINDOW = 8
         val nonDryGround = setOf(Material.ICE, Material.PACKED_ICE, Material.BLUE_ICE)
+        val structureGround = setOf(
+            Material.DIRT_PATH,
+            Material.FARMLAND,
+            Material.SUSPICIOUS_SAND,
+            Material.SUSPICIOUS_GRAVEL,
+        )
     }
 }
 
