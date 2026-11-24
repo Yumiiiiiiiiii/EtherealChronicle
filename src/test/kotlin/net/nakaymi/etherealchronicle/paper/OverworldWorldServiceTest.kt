@@ -409,6 +409,116 @@ class OverworldWorldServiceTest {
         }
     }
 
+    @Test
+    fun `site search sample rejects vanilla structure roofs and chunks containing artificial blocks`() {
+        val server = MockBukkit.mock()
+        try {
+            val plugin = MockBukkit.createMockPlugin()
+            val world = server.addSimpleWorld("overworld-sample-natural")
+            val search = OverworldSiteSearch(plugin, world)
+
+            fun fillChunk(cx: Int, cz: Int, surface: Material) {
+                val ox = cx shl 4
+                val oz = cz shl 4
+                for (dx in 0..15) for (dz in 0..15) {
+                    world.getBlockAt(ox + dx, 63, oz + dz).type = Material.STONE
+                    world.getBlockAt(ox + dx, 64, oz + dz).type = surface
+                }
+            }
+
+            // チャンク (0, 0): 純粋な自然地表
+            fillChunk(0, 0, Material.GRASS_BLOCK)
+            val natural = search.sample(8, 8)
+            assertTrue(natural.dryLand, "Pure GRASS_BLOCK chunk should be accepted as dryLand")
+            assertFalse(natural.nearbyWater)
+
+            // チャンク (1, 0): 中心は自然地表、チャンク隅に自然水域（港町向け水辺判定は維持）
+            fillChunk(1, 0, Material.GRASS_BLOCK)
+            world.getBlockAt(16 + 2, 64, 2).type = Material.WATER
+            val coastal = search.sample(24, 8)
+            assertTrue(coastal.dryLand, "Natural ground chunk with water corner should stay dryLand")
+            assertTrue(coastal.nearbyWater, "Water at chunk corner should set nearbyWater=true")
+
+            // チャンク (2, 0): 中心が DARK_OAK_PLANKS（QA #9 Run 7 森の洋館屋根の再現）
+            fillChunk(2, 0, Material.DARK_OAK_PLANKS)
+            assertFalse(search.sample(40, 8).dryLand, "Vanilla structure roof (DARK_OAK_PLANKS) must be rejected")
+
+            // チャンク (3, 0): 中心は草地だが同一チャンク隅に人工ブロック（構造物隣接）
+            fillChunk(3, 0, Material.GRASS_BLOCK)
+            world.getBlockAt(48 + 13, 64, 13).type = Material.DARK_OAK_PLANKS
+            assertFalse(search.sample(56, 8).dryLand, "Chunk containing artificial block at corner must be rejected")
+
+            // チャンク (4, 0): 中心は草地だが同一チャンク隅に溶岩
+            fillChunk(4, 0, Material.GRASS_BLOCK)
+            world.getBlockAt(64 + 2, 64, 13).type = Material.LAVA
+            assertFalse(search.sample(72, 8).dryLand, "Chunk containing lava at corner must be rejected")
+
+            // チャンク (5, 0): 氷上は引き続き非乾燥陸地として除外
+            fillChunk(5, 0, Material.PACKED_ICE)
+            assertFalse(search.sample(88, 8).dryLand, "Ice surface must remain rejected")
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
+    fun `site search skips candidate chunks covered by vanilla structures and locates natural sites`() {
+        val server = MockBukkit.mock()
+        try {
+            val plugin = MockBukkit.createMockPlugin()
+            val pending = ArrayDeque<Pair<Pair<Int, Int>, CompletableFuture<Chunk>>>()
+            val loaded = mutableSetOf<Pair<Int, Int>>()
+            val blockedChunks = mutableSetOf<Pair<Int, Int>>()
+            val grassBlock = blockStub(Material.GRASS_BLOCK)
+            val planksBlock = blockStub(Material.DARK_OAK_PLANKS)
+            val world = Proxy.newProxyInstance(World::class.java.classLoader, arrayOf(World::class.java)) { _, method, args ->
+                when (method.name) {
+                    "getName" -> "overworld-skip-structures"
+                    "getSeed" -> 54321L
+                    "getMinHeight" -> -64
+                    "getChunkAtAsync" -> {
+                        val pos = (args[0] as Int) to (args[1] as Int)
+                        if (blockedChunks.size < 3) blockedChunks += pos
+                        val future = CompletableFuture<Chunk>()
+                        pending.addLast(pos to future)
+                        future
+                    }
+                    "isChunkLoaded" -> ((args[0] as Int) to (args[1] as Int)) in loaded
+                    "getHighestBlockYAt" -> 70
+                    "getBlockAt" -> {
+                        val pos = ((args[0] as Int) shr 4) to ((args[2] as Int) shr 4)
+                        if (pos in blockedChunks) planksBlock else grassBlock
+                    }
+                    "getBiome" -> Biome.PLAINS
+                    else -> error("Unexpected search world access: ${method.name}")
+                }
+            } as World
+
+            val result = OverworldSiteSearch(plugin, world).start()
+            var ticks = 0
+            while (!result.isDone && ticks < 5000) {
+                val batch = pending.toList()
+                pending.clear()
+                for ((pos, future) in batch) {
+                    loaded += pos
+                    future.complete(chunkStub(pos.first, pos.second))
+                    loaded.remove(pos)
+                }
+                server.scheduler.performOneTick()
+                ticks++
+            }
+            assertTrue(result.isDone && !result.isCompletedExceptionally)
+            val sites = result.join()
+            assertEquals(9, sites.size)
+            assertTrue(
+                sites.none { ((it.x shr 4) to (it.z shr 4)) in blockedChunks },
+                "Site search must never select a chunk covered by DARK_OAK_PLANKS",
+            )
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
     private fun blockStub(material: Material): Block = Proxy.newProxyInstance(
         Block::class.java.classLoader, arrayOf(Block::class.java),
     ) { _, method, _ ->

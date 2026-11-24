@@ -141,19 +141,25 @@ internal class OverworldSiteSearch(private val plugin: Plugin, private val world
         }
     }
 
-    /** 隣接チャンクを同期生成しないよう、地形差と水辺は同一チャンク内で測定します。 */
-    private fun sample(x: Int, z: Int): SiteTerrain {
+    /** 隣接チャンクを同期生成しないよう、地形差・水辺・自然地表の判定は同一チャンク内で測定します。 */
+    internal fun sample(x: Int, z: Int): SiteTerrain {
         val originX = (x shr 4) shl 4
         val originZ = (z shr 4) shl 4
         val points = listOf(x to z, originX + 2 to originZ + 2, originX + 13 to originZ + 2,
             originX + 2 to originZ + 13, originX + 13 to originZ + 13)
         val heights = points.map { (px, pz) -> OverworldTerrain.surfaceY(world, px, pz) }
-        val surface = world.getBlockAt(x, heights.first(), z).type
-        val water = points.zip(heights).any { (point, y) -> world.getBlockAt(point.first, y, point.second).type == Material.WATER }
+        val surfaces = points.zip(heights).map { (point, y) -> world.getBlockAt(point.first, y, point.second).type }
+        val surface = surfaces.first()
+        val water = surfaces.any { it == Material.WATER }
+        // バニラ構造物（森の洋館・村・前哨基地・遺跡）や溶岩・マグマが混ざるチャンクは候補から除外します。
+        val naturalDryLand = surface.isSolid &&
+            surface in OverworldMaterials.ground &&
+            surface !in nonDryGround &&
+            surfaces.all(OverworldMaterials::replaceable)
         return SiteTerrain(
             y = heights.first(),
             biome = world.getBiome(x, heights.first(), z).key.key.uppercase(Locale.ROOT),
-            dryLand = surface.isSolid && surface != Material.ICE && surface != Material.PACKED_ICE && surface != Material.BLUE_ICE,
+            dryLand = naturalDryLand,
             relief = heights.max() - heights.min(),
             nearbyWater = water,
         )
@@ -162,6 +168,7 @@ internal class OverworldSiteSearch(private val plugin: Plugin, private val world
     private companion object {
         const val MAX_CHUNK_RETRIES = 5
         const val CHUNK_PREFETCH_WINDOW = 8
+        val nonDryGround = setOf(Material.ICE, Material.PACKED_ICE, Material.BLUE_ICE)
     }
 }
 

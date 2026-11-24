@@ -277,7 +277,15 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
         val totalStats = RejectionStats()
         requests.forEachIndexed { index, request ->
             val templatesToTry = (listOf(request.template) + request.fallbacks).distinct()
-            val candidates = if (index == 0) centerCandidates(site) else plotCandidates(site, random)
+            val candidateBatches: Sequence<List<Candidate>> = if (index == 0) {
+                sequence {
+                    yield(centerCandidates(site))
+                    // 中心 ±24 がバニラ構造物や地形障害で全滅した場合のみ、拠点半径内の敷地候補へ中心近傍順でフォールバックします。
+                    yield(plotCandidates(site, random).sortedBy { abs(it.x - site.x) + abs(it.z - site.z) })
+                }
+            } else {
+                sequenceOf(plotCandidates(site, random))
+            }
             var building: OverworldBuildingPlan? = null
             var bestRect: Rect? = null
             var bestPreparation: SchematicPreparation? = null
@@ -285,87 +293,90 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
             val reqStats = RejectionStats()
             val waterFacility = request.name == "pier" || request.name == "lighthouse"
 
-            for (template in templatesToTry) {
-                val schematic = assets[template]
-                var bestRank = Int.MAX_VALUE
-                var validFound = 0
-                for (candidate in candidates) {
-                    // 1候補ごとに制御を返し、大量の区画探索を1 tickに詰め込みません。
-                    yield(Unit)
-                    val (cx, cz, rotation) = candidate
-                    val (width, length) = SchematicPlacer.rotatedDimensions(schematic, rotation)
-                    val ox = cx - width / 2
-                    val oz = cz - length / 2
-                    val rect = Rect(
-                        ox - BUILDING_MARGIN,
-                        ox + width - 1 + BUILDING_MARGIN,
-                        oz - BUILDING_MARGIN,
-                        oz + length - 1 + BUILDING_MARGIN,
-                    )
-                    if (!withinSite(site, rect.minX, rect.minZ) || !withinSite(site, rect.minX, rect.maxZ) ||
-                        !withinSite(site, rect.maxX, rect.minZ) || !withinSite(site, rect.maxX, rect.maxZ)) {
-                        reqStats.outOfBounds++
-                        continue
-                    }
-                    if (occupied.any(rect::overlaps)) {
-                        reqStats.overlap++
-                        continue
-                    }
-                    if (index > 0 && containsColumn(rect, roadColumns)) {
-                        reqStats.road++
-                        continue
-                    }
-                    val y = surfaceY(world, cx, cz)
-                    if (!waterFacility && world.getBlockAt(cx, y, cz).type == Material.WATER) {
-                        reqStats.water++
-                        continue
-                    }
-                    val swaps = palette(random, snow)
-                    val options = options(rotation, swaps, snow)
-                    val preparation = try {
-                        SchematicPlacer.prepareStepped(schematic, world, ox, y, oz, options)
-                    } catch (failure: IllegalArgumentException) {
-                        reqStats.terrain++
-                        reqStats.lastFailure = failure.message
-                        continue
-                    }
-                    var valid = true
-                    while (true) {
-                        val hasNext = try { preparation.steps.hasNext() } catch (failure: IllegalArgumentException) {
+            for (candidates in candidateBatches) {
+                for (template in templatesToTry) {
+                    val schematic = assets[template]
+                    var bestRank = Int.MAX_VALUE
+                    var validFound = 0
+                    for (candidate in candidates) {
+                        // 1候補ごとに制御を返し、大量の区画探索を1 tickに詰め込みません。
+                        yield(Unit)
+                        val (cx, cz, rotation) = candidate
+                        val (width, length) = SchematicPlacer.rotatedDimensions(schematic, rotation)
+                        val ox = cx - width / 2
+                        val oz = cz - length / 2
+                        val rect = Rect(
+                            ox - BUILDING_MARGIN,
+                            ox + width - 1 + BUILDING_MARGIN,
+                            oz - BUILDING_MARGIN,
+                            oz + length - 1 + BUILDING_MARGIN,
+                        )
+                        if (!withinSite(site, rect.minX, rect.minZ) || !withinSite(site, rect.minX, rect.maxZ) ||
+                            !withinSite(site, rect.maxX, rect.minZ) || !withinSite(site, rect.maxX, rect.maxZ)) {
+                            reqStats.outOfBounds++
+                            continue
+                        }
+                        if (occupied.any(rect::overlaps)) {
+                            reqStats.overlap++
+                            continue
+                        }
+                        if (index > 0 && containsColumn(rect, roadColumns)) {
+                            reqStats.road++
+                            continue
+                        }
+                        val y = surfaceY(world, cx, cz)
+                        if (!waterFacility && world.getBlockAt(cx, y, cz).type == Material.WATER) {
+                            reqStats.water++
+                            continue
+                        }
+                        val swaps = palette(random, snow)
+                        val options = options(rotation, swaps, snow)
+                        val preparation = try {
+                            SchematicPlacer.prepareStepped(schematic, world, ox, y, oz, options)
+                        } catch (failure: IllegalArgumentException) {
                             reqStats.terrain++
                             reqStats.lastFailure = failure.message
-                            valid = false
-                            false
+                            continue
                         }
-                        if (!hasNext) break
-                        preparation.steps.next()
-                        yield(Unit)
+                        var valid = true
+                        while (true) {
+                            val hasNext = try { preparation.steps.hasNext() } catch (failure: IllegalArgumentException) {
+                                reqStats.terrain++
+                                reqStats.lastFailure = failure.message
+                                valid = false
+                                false
+                            }
+                            if (!hasNext) break
+                            preparation.steps.next()
+                            yield(Unit)
+                        }
+                        if (!valid) continue
+                        val candidateBuilding = OverworldBuildingPlan(request.name, template, OverworldPoint(ox, y, oz), rotation, swaps, snow)
+                        val dungeon = dungeonIds[template]
+                        if (dungeon != null) try {
+                            portal(world, site.id, dungeon, schematic, candidateBuilding, door(schematic, candidateBuilding))
+                        } catch (failure: IllegalArgumentException) {
+                            reqStats.portal++
+                            reqStats.lastFailure = failure.message
+                            continue
+                        }
+                        val heights = listOf(ox to oz, ox + width - 1 to oz, ox to oz + length - 1, ox + width - 1 to oz + length - 1)
+                            .map { (px, pz) -> surfaceY(world, px, pz) }
+                        val relief = heights.max() - heights.min()
+                        val waterDistance = if (waterFacility) nearbyWaterDistance(world, site, cx, cz) else 0
+                        val rank = relief * RELIEF_WEIGHT + waterDistance - if (request.name == "lighthouse") y / LIGHTHOUSE_HEIGHT_DIVISOR else 0
+                        validFound++
+                        if (rank < bestRank) {
+                            bestRank = rank
+                            bestRect = rect
+                            building = candidateBuilding
+                            bestPreparation = preparation
+                            chosenTemplate = template
+                        }
+                        if ((!waterFacility && (relief <= 2 || validFound >= MAX_VALID_SAMPLES_PER_BUILDING)) ||
+                            (waterFacility && waterDistance <= WATERFRONT_DISTANCE && relief <= WATERFRONT_RELIEF)) break
                     }
-                    if (!valid) continue
-                    val candidateBuilding = OverworldBuildingPlan(request.name, template, OverworldPoint(ox, y, oz), rotation, swaps, snow)
-                    val dungeon = dungeonIds[template]
-                    if (dungeon != null) try {
-                        portal(world, site.id, dungeon, schematic, candidateBuilding, door(schematic, candidateBuilding))
-                    } catch (failure: IllegalArgumentException) {
-                        reqStats.portal++
-                        reqStats.lastFailure = failure.message
-                        continue
-                    }
-                    val heights = listOf(ox to oz, ox + width - 1 to oz, ox to oz + length - 1, ox + width - 1 to oz + length - 1)
-                        .map { (px, pz) -> surfaceY(world, px, pz) }
-                    val relief = heights.max() - heights.min()
-                    val waterDistance = if (waterFacility) nearbyWaterDistance(world, site, cx, cz) else 0
-                    val rank = relief * RELIEF_WEIGHT + waterDistance - if (request.name == "lighthouse") y / LIGHTHOUSE_HEIGHT_DIVISOR else 0
-                    validFound++
-                    if (rank < bestRank) {
-                        bestRank = rank
-                        bestRect = rect
-                        building = candidateBuilding
-                        bestPreparation = preparation
-                        chosenTemplate = template
-                    }
-                    if ((!waterFacility && (relief <= 2 || validFound >= MAX_VALID_SAMPLES_PER_BUILDING)) ||
-                        (waterFacility && waterDistance <= WATERFRONT_DISTANCE && relief <= WATERFRONT_RELIEF)) break
+                    if (building != null) break
                 }
                 if (building != null) break
             }

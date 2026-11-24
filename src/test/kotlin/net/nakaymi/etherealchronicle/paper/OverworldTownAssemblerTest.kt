@@ -463,4 +463,56 @@ class OverworldTownAssemblerTest {
             MockBukkit.unmock()
         }
     }
+
+    @Test
+    fun `first building falls back to plot candidates when center is obstructed and keeps center when clear`() {
+        val server = MockBukkit.mock()
+        try {
+            val assets = OverworldAssets.load { SchematicData(3, 3, 3, listOf("minecraft:stone"), IntArray(27)) }
+            val assembler = OverworldTownAssembler(assets)
+            val site = OverworldSite(OverworldSiteIds.VOID_SANCTUM, 0, 63, 0, 1, "DARK_FOREST")
+
+            // QA #9 Run 7 再現: 中心 ±28 がバニラ構造物（DARK_OAK_PLANKS）で埋まっている場合、拠点半径内の空き区画へフォールバックします。
+            val obstructed = server.addSimpleWorld("overworld-void-center-blocked")
+            for (x in -60..60) for (z in -60..60) {
+                obstructed.getBlockAt(x, 62, z).type = Material.STONE
+                obstructed.getBlockAt(x, 63, z).type =
+                    if (kotlin.math.abs(x) <= 28 && kotlin.math.abs(z) <= 28) Material.DARK_OAK_PLANKS else Material.GRASS_BLOCK
+            }
+            val fallbackPlanning = assembler.planning(obstructed, site, -4167603268941691095L)
+            while (fallbackPlanning.steps.hasNext()) fallbackPlanning.steps.next()
+            val fallbackPlan = fallbackPlanning.result()
+            val entrance = fallbackPlan.buildings.single { it.name == "entrance" }
+            assertTrue(fallbackPlan.buildings.any { it.name == "waystone" }, "Expected waystone alongside fallback entrance")
+            assertEquals(1, fallbackPlan.portals.size, "Fallback entrance must still register its dungeon portal")
+            assertTrue(
+                kotlin.math.abs(entrance.origin.x) > 24 || kotlin.math.abs(entrance.origin.z) > 24,
+                "Fallback entrance should be placed outside the obstructed center: ${entrance.origin}",
+            )
+            assembler.actions(obstructed, fallbackPlan).forEachRemaining { it() }
+            assertEquals(
+                Material.DARK_OAK_PLANKS,
+                obstructed.getBlockAt(0, 63, 0).type,
+                "Fallback placement must not overwrite obstructed center structure blocks",
+            )
+
+            // 中心が正常な自然地表であれば、従来どおり中心近傍（centerCandidates / Rotation.NONE）に配置されます。
+            val clear = server.addSimpleWorld("overworld-void-center-clear")
+            for (x in -60..60) for (z in -60..60) {
+                clear.getBlockAt(x, 62, z).type = Material.STONE
+                clear.getBlockAt(x, 63, z).type = Material.GRASS_BLOCK
+            }
+            val centerPlanning = assembler.planning(clear, site, -4167603268941691095L)
+            while (centerPlanning.steps.hasNext()) centerPlanning.steps.next()
+            val centerPlan = centerPlanning.result()
+            val centerEntrance = centerPlan.buildings.single { it.name == "entrance" }
+            assertEquals(StructureRotation.NONE, centerEntrance.rotation, "Clear center should stay on centerCandidates")
+            assertTrue(
+                kotlin.math.abs(centerEntrance.origin.x) <= 24 && kotlin.math.abs(centerEntrance.origin.z) <= 24,
+                "Clear center entrance should remain near site center: ${centerEntrance.origin}",
+            )
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
 }
