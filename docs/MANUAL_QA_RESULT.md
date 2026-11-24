@@ -416,3 +416,19 @@ Method: 2 clean `world.mode: overworld` runs on real Paper 26.3-257 via `qa-ow-g
 
 Verdict: **2/2 PASS** ? QA #9 Run 7 repro seed `-4167603268941691095` now completes 9/9 READY with 4 portals and 0 ERROR.
 Cleanup verified: 0 Paper java processes, ports 25565/25580 closed, 0 `*.qa-*` leftovers, `level-seed=` blank, source JAR SHA1 unchanged (`ED8A05D5CD5D4F6BCD20A8B39A33AE0F6DF55700`).
+
+## Overworld QA #11 / #11b & P2 fixes (master e49eecf, SHA1 AA840F82E15A6B7CA1972BFD2D3354A9577B3D91)
+
+Date: 2026-11-24
+Commit: `e49eecf` (`fix(p2): enforce shop distance guard, verify resourcepack assets, flush overworld chunks before READY`)
+Automated suite: `./gradlew.bat test build --no-daemon` PASS (421 tests, 0 failures, 0 errors, 2 pre-existing skips); Codex spot review (`gpt-6-luna` / `low`, archived) verdict **GO**.
+Resource pack: removed orphaned `resourcepack/assets/ec/textures/gui/transparent_slot.png` (new pack SHA-1: `797520bd4ca3eea30f46c83a98b58042dde5853d`); full asset integrity verified by `WorldUiFoundationTest`.
+
+Live Paper 26.3 smoke (`world.mode: overworld`, verifying `world.save(true)` before `READY`):
+
+| Run | Seed | Verdict | Elapsed | Lumina | TPS (1m/5m/15m) | Notes |
+|---|---|---|---|---|---|---|
+| QA #11 (random) | `8550623988298585625` | **FAIL (pre-existing site edge case)** | 199.2s | (341,70,-138) PLAINS, pond (361,67,-118) | 19.8 / 19.8 / 19.8 | `world.save(true)` succeeded across all 8 generated sites (1/9-8/9, 3 portals, 0 projection/pool WARN; Paper logged expected one-time manual-save WARN). Site 9/9 `ec:area_glacial_citadel` selected `BEACH` at `y=62` `(914,62,-1381)` and failed with `No grounded plot for entrance (entrance_glacial_citadel): bounds=188 water=246 terrain=3 portal=12 last='Unsafe portal exit'` (unrelated to P2). |
+| QA #11b (A/B baseline) | `-314835210179884212` | **PASS** | 119s gen | (-327,63,-65) SUNFLOWER_PLAINS, pond (-347,63,-55) | 19.8 / 19.8 / 19.8 | COMPLETED, 9/9 READY, 4 portals, 0 ERROR, 0 projection/pool WARN. `world.save(true)` completed cleanly before every `READY` write without TPS regression vs QA #10 baseline. |
+
+Cleanup verified after both runs: 0 Paper java processes, ports 25565/25580 closed, 0 `*.qa-*` leftovers, `level-seed=` blank.
