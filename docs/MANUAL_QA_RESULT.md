@@ -404,3 +404,15 @@ New finding from Run 7 (repro seed -4167603268941691095):
 1. OverworldSiteSearch.sample() checks surface.isSolid && surface != ICE/PACKED_ICE/BLUE_ICE without requiring natural ground (OverworldMaterials.ground), so a flat vanilla structure roof (e.g. Woodland Mansion DARK_OAK_PLANKS at Y=88 in DARK_FOREST) is accepted as 	ier=1 dry land.
 2. OverworldTownAssembler.planBuildings() restricts the first building (index == 0, e.g. entrance_void_sanctum) exclusively to centerCandidates(site) (±24 blocks, Rotation.NONE only = 169 tries) with no fallback to plotCandidates(site, random).
 Cleanup verified: 0 Paper java processes, ports 25565/25580 closed, 0 *.qa-* leftovers, level-seed= blank, source JAR SHA1 unchanged.
+
+## Overworld live QA #10 - site search natural-surface filter + first-building plot fallback (master f200eb3, JAR SHA1 ED8A05D5CD5D4F6BCD20A8B39A33AE0F6DF55700), 2026-11-24
+Automated verification: `./gradlew.bat test build --no-daemon` PASS (418 tests, 0 failures, 0 errors, 2 pre-existing skips); independent Codex review (`gpt-6-luna` / `low`, commits `82d3837` + `f200eb3`) verdict **GO**.
+Method: 2 clean `world.mode: overworld` runs on real Paper 26.3-257 via `qa-ow-genrun.ps1` (Run 1: QA #9 Run 7 repro seed `-4167603268941691095`; Run 2: fresh random 64-bit seed `-314835210179884212`), full server/world/config restore after each run. Source JAR SHA1 `ED8A05D5CD5D4F6BCD20A8B39A33AE0F6DF55700` verified.
+
+| Run | Seed | Result | Wall Time | Lumina / Fishing Water | Void Sanctum (5/9) | TPS (1m/5m/15m) | Evidence |
+|---|---|---|---|---|---|---|---|
+| 1 (repro) | `-4167603268941691095` | **PASS** | 179.2s | (145,64,1) BEACH, pond (163,63,9) | (158,67,899) FOREST, buildings=2, portals=1 | 20.0 / 19.9 / 19.9 | COMPLETED, 9 READY, 4 portals, 0 ERROR, 0 projection/pool WARN (Lumina house shortfall WARN: 8/10, 8 distinct). Previous QA #9 Woodland Mansion chunk `(-510,88,-800)` was skipped by `OverworldSiteSearch.sample()`. |
+| 2 (random) | `-314835210179884212` | **PASS** | 177.7s | (-327,63,-65) SUNFLOWER_PLAINS, pond (-347,63,-55) | (349,71,-156) DARK_FOREST, buildings=2, portals=1 | 20.0 / 19.9 / 19.9 | COMPLETED, 9 READY, 4 portals, 0 ERROR, 0 WARN. |
+
+Verdict: **2/2 PASS** ? QA #9 Run 7 repro seed `-4167603268941691095` now completes 9/9 READY with 4 portals and 0 ERROR.
+Cleanup verified: 0 Paper java processes, ports 25565/25580 closed, 0 `*.qa-*` leftovers, `level-seed=` blank, source JAR SHA1 unchanged (`ED8A05D5CD5D4F6BCD20A8B39A33AE0F6DF55700`).

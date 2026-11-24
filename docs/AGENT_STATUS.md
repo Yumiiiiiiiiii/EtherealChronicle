@@ -467,3 +467,10 @@
 - Result: **7/8 PASS** (Runs 1–6, 8 completed 9/9 READY, 4 portals, 0 ERROR, TPS 19.9–20.0). Zero Road terrain changed / Road clearance changed / projection / fishing-pool errors across all 8 runs.
 - Run 7 (repro seed -4167603268941691095) exposed a distinct failure class: ec:area_void_sanctum landed on a DARK_FOREST vanilla structure (DARK_OAK_PLANKS at y=88), accepted by OverworldSiteSearch.sample() (dryLand does not check OverworldMaterials.ground), and planBuildings() only tried the 169 centerCandidates for index == 0 without falling back to plotCandidates.
 - Cleanup verified after batch: 0 Paper processes, ports 25565/25580 closed, server.properties (level-seed=) and dev data restored.
+
+## Overworld site-search natural-surface fix & QA #10 (2026-11-24)
+- Commits `82d3837` and `f200eb3` on `master` address both root causes from QA #9 Run 7 (`-4167603268941691095`):
+  - `OverworldSiteSearch.sample()` now enforces natural dry ground (`OverworldMaterials.ground` minus ice and vanilla structure ground `DIRT_PATH`/`FARMLAND`/`SUSPICIOUS_SAND`/`SUSPICIOUS_GRAVEL`) and requires all 5 sampled chunk points to be natural replaceable surfaces while preserving coastal `nearbyWater` detection.
+  - `OverworldTownAssembler.planBuildings()` keeps `centerCandidates(site)` first for `index == 0` and falls back lazily to `plotCandidates(site, fallbackRandom)` (sorted by distance to site center, using an isolated deterministic `Random` stream) only if `centerCandidates` yields no valid plot.
+- Verification: `./gradlew.bat test build --no-daemon` PASS (418 tests, 0 failures, 0 errors, 2 pre-existing skips); independent Codex spot review (`gpt-6-luna` / `low`, retired and archived) verdict **GO**.
+- Live Paper 26.3 smoke QA #10 (JAR SHA1 `ED8A05D5CD5D4F6BCD20A8B39A33AE0F6DF55700`): **2/2 PASS** on repro seed `-4167603268941691095` (`ec:area_void_sanctum` skipped the Woodland Mansion chunk and succeeded at `(158, 67, 899)` FOREST) and random seed `-314835210179884212` ? both 9/9 READY, 4 portals, 0 ERROR, TPS 20.0/19.9/19.9. Full cleanup verified (0 Paper processes, ports 25565/25580 closed, `level-seed=` blank).
