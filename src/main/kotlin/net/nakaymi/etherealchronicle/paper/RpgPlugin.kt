@@ -226,6 +226,34 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         return result.getOrNull()?.also { projectedPositions[cacheKey] = it }
     }
 
+    /** ショップ担当NPCとの距離・ワールド一致を検証し、利用不可なら言語キーを返します。 */
+    internal fun shopAccessError(player: Player, shopId: String): String? {
+        val npcs = snapshot.world.npcs.values.filter { it.shop == shopId }
+        if (npcs.isEmpty()) return "ec.error.shop_npc_missing"
+        var sawTooFar = false
+        val maxDistanceSquared = PaperDistance.SHOP_INTERACTION_BLOCKS * PaperDistance.SHOP_INTERACTION_BLOCKS
+        for (npc in npcs) {
+            val projected = projectedPosition(npc.position)
+            if (projected != null) {
+                if (projected.world == player.world.name &&
+                    player.location.isWithinBlocks(
+                        Location(player.world, projected.x, projected.y, projected.z),
+                        PaperDistance.SHOP_INTERACTION_BLOCKS,
+                    )
+                ) return null
+                sawTooFar = true
+                continue
+            }
+            val horizontal = activeWorldProjection.projector.projectHorizontal(npc.position) ?: continue
+            val dx = player.location.x - horizontal.x
+            val dz = player.location.z - horizontal.z
+            if (horizontal.world != player.world.name || dx * dx + dz * dz > maxDistanceSquared) {
+                sawTooFar = true
+            }
+        }
+        return if (sawTooFar) "ec.error.shop_too_far" else "ec.error.world_unavailable"
+    }
+
     /** 対象ワールドだけをゲームコントローラーに公開します。 */
     internal fun isActiveWorld(world: World): Boolean = world.name == activeWorldProjection.worldName()
 
@@ -1516,9 +1544,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             }
             "shop" -> {
                 val id=args.getOrNull(1) ?: error("ec.error.usage: /ec shop <id>")
-                val npc=snapshot.world.npcs.values.firstOrNull { it.shop == id } ?: error("ec.error.shop_npc_missing")
-                val position=projectedPosition(npc.position) ?: error("ec.error.world_unavailable")
-                require(position.world == player.world.name && player.location.isWithinBlocks(Location(player.world,position.x,position.y,position.z),PaperDistance.SHOP_INTERACTION_BLOCKS)) { "ec.error.shop_too_far" }
+                shopAccessError(player, id)?.let { throw GameException(it) }
                 adventure.showShop(player,id)
             }
             "quest" -> when(args.getOrNull(1)) {

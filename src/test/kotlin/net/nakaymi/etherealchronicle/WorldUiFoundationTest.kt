@@ -20,6 +20,7 @@ import java.net.http.HttpResponse
 import java.nio.file.Files
 import java.util.UUID
 import java.util.zip.ZipFile
+import org.yaml.snakeyaml.Yaml
 
 class WorldUiFoundationTest {
     @Test
@@ -202,6 +203,130 @@ class WorldUiFoundationTest {
         } finally {
             store.close()
             directory.toFile().deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `resource pack items models fonts and textures have no missing non-atlas or orphaned assets`() {
+        val loader = javaClass.classLoader
+        val zipBytes = requireNotNull(loader.getResourceAsStream("resourcepack/etherealchronicle-resourcepack.zip"))
+            .use { it.readBytes() }
+        val temp = Files.createTempFile("ec-resource-pack-integrity", ".zip")
+        try {
+            Files.write(temp, zipBytes)
+            ZipFile(temp.toFile()).use { zip ->
+                val entries = zip.entries().asSequence().filterNot { it.isDirectory }.map { it.name }.toSet()
+                val yaml = Yaml()
+                val usedTextures = mutableSetOf<String>()
+
+                fun assertValidPng(path: String, owner: String) {
+                    assertTrue(path in entries, "Missing PNG '$path' referenced by $owner")
+                    val bytes = zip.getInputStream(zip.getEntry(path)).use { it.readBytes() }
+                    assertTrue(bytes.size >= 24, "PNG '$path' is truncated (${bytes.size} bytes)")
+                    val magic = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
+                    assertArrayEquals(magic, bytes.copyOfRange(0, 8), "Invalid PNG header in '$path'")
+                    val width = java.nio.ByteBuffer.wrap(bytes, 16, 4).int
+                    val height = java.nio.ByteBuffer.wrap(bytes, 20, 4).int
+                    assertTrue(width in 1..2048 && height in 1..2048, "Invalid PNG dimensions ${width}x${height} in '$path'")
+                }
+
+                // 1. Validate every item definition -> model JSON
+                val itemDefs = entries.filter { it.startsWith("assets/ec/items/") && it.endsWith(".json") }
+                assertTrue(itemDefs.isNotEmpty(), "Expected item definitions in resource pack")
+                itemDefs.forEach { itemPath ->
+                    @Suppress("UNCHECKED_CAST")
+                    val doc = yaml.load<Map<String, Any?>>(zip.getInputStream(zip.getEntry(itemPath)).bufferedReader())
+                    @Suppress("UNCHECKED_CAST")
+                    val modelObj = doc["model"] as? Map<String, Any?>
+                    val modelRef = modelObj?.get("model") as? String
+                    assertNotNull(modelRef, "Missing model.model in $itemPath")
+                    if (modelRef!!.startsWith("ec:")) {
+                        val target = "assets/ec/models/${modelRef.removePrefix("ec:")}.json"
+                        assertTrue(target in entries, "Missing model '$target' referenced by $itemPath")
+                    }
+                }
+
+                // 2. Validate every model JSON -> parent & default atlas textures (item/ or block/)
+                val models = entries.filter { it.startsWith("assets/ec/models/") && it.endsWith(".json") }
+                assertTrue(models.isNotEmpty(), "Expected models in resource pack")
+                models.forEach { modelPath ->
+                    @Suppress("UNCHECKED_CAST")
+                    val doc = yaml.load<Map<String, Any?>>(zip.getInputStream(zip.getEntry(modelPath)).bufferedReader())
+                    val parent = doc["parent"] as? String
+                    if (parent != null && parent.startsWith("ec:")) {
+                        val target = "assets/ec/models/${parent.removePrefix("ec:")}.json"
+                        assertTrue(target in entries, "Missing parent model '$target' referenced by $modelPath")
+                    }
+                    @Suppress("UNCHECKED_CAST")
+                    val textures = doc["textures"] as? Map<String, Any?> ?: emptyMap()
+                    textures.forEach { (layer, refObj) ->
+                        val ref = refObj as? String ?: return@forEach
+                        if (ref.startsWith("ec:")) {
+                            val rel = ref.removePrefix("ec:")
+                            assertTrue(
+                                rel.startsWith("item/") || rel.startsWith("block/"),
+                                "Model '$modelPath' layer '$layer' references non-atlas texture '$ref' (must be under item/ or block/)",
+                            )
+                            val pngPath = "assets/ec/textures/$rel.png"
+                            assertValidPng(pngPath, modelPath)
+                            usedTextures += pngPath
+                        }
+                    }
+                }
+
+                // 3. Validate every font JSON bitmap provider texture
+                val fonts = entries.filter { it.startsWith("assets/ec/font/") && it.endsWith(".json") }
+                assertTrue(fonts.isNotEmpty(), "Expected font definitions in resource pack")
+                fonts.forEach { fontPath ->
+                    @Suppress("UNCHECKED_CAST")
+                    val doc = yaml.load<Map<String, Any?>>(zip.getInputStream(zip.getEntry(fontPath)).bufferedReader())
+                    @Suppress("UNCHECKED_CAST")
+                    val providers = doc["providers"] as? List<Map<String, Any?>> ?: emptyList()
+                    providers.forEach { provider ->
+                        if (provider["type"] == "bitmap") {
+                            val fileRef = provider["file"] as? String
+                            assertNotNull(fileRef, "Missing bitmap file in $fontPath")
+                            if (fileRef!!.startsWith("ec:")) {
+                                val pngPath = "assets/ec/textures/${fileRef.removePrefix("ec:")}"
+                                assertValidPng(pngPath, fontPath)
+                                usedTextures += pngPath
+                            }
+                        }
+                    }
+                }
+
+                // 4. Validate bundled datapack wolf variant textures and detect orphaned PNGs
+                val wolfVariants = listOf("thorn_wolf", "frost_wolf", "ashwood_alpha")
+                val wolfRegex = Regex("ec:entity/wolf/[a-z0-9_]+")
+                wolfVariants.forEach { variant ->
+                    val json = requireNotNull(loader.getResourceAsStream("datapacks/etherealchronicle_core/data/ec/wolf_variant/$variant.json"))
+                        .bufferedReader().use { it.readText() }
+                    wolfRegex.findAll(json).forEach { match ->
+                        val pngPath = "assets/ec/textures/${match.value.removePrefix("ec:")}.png"
+                        assertValidPng(pngPath, "wolf_variant/$variant.json")
+                        usedTextures += pngPath
+                    }
+                }
+                val allPngs = entries.filter { it.startsWith("assets/ec/textures/") && it.endsWith(".png") }.toSet()
+                val orphaned = (allPngs - usedTextures).sorted()
+                assertTrue(orphaned.isEmpty(), "Orphaned textures in resource pack: $orphaned")
+
+                // 5. Validate every item_model referenced by bundled content YAML exists in assets/ec/items/
+                val contentIndex = requireNotNull(loader.getResourceAsStream("content-index.txt"))
+                    .bufferedReader().use { it.readLines().filter(String::isNotBlank) }
+                val itemModelRegex = Regex("""item_model:\s*['"]?(ec:[a-z0-9_]+)['"]?""")
+                contentIndex.forEach { contentPath ->
+                    val clean = contentPath.removePrefix("﻿")
+                    val text = requireNotNull(loader.getResourceAsStream(clean)).bufferedReader().use { it.readText() }
+                    itemModelRegex.findAll(text).forEach { match ->
+                        val modelId = match.groupValues[1].removePrefix("ec:")
+                        val itemDef = "assets/ec/items/$modelId.json"
+                        assertTrue(itemDef in entries, "Missing resource pack item definition '$itemDef' for content '$clean'")
+                    }
+                }
+            }
+        } finally {
+            Files.deleteIfExists(temp)
         }
     }
 }

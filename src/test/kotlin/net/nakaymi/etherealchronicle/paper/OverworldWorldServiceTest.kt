@@ -597,6 +597,222 @@ class OverworldWorldServiceTest {
         check(ready()) { "Overworld service future did not complete" }
     }
 
+
+    @Test
+    fun `finishSite flushes world chunks before persisting READY journal`() {
+        val server = MockBukkit.mock()
+        try {
+            val plugin = MockBukkit.createMockPlugin()
+            val folder = Files.createTempDirectory("overworld-flush-before-ready")
+            val worldId = UUID.nameUUIDFromBytes("overworld-flush-before-ready".toByteArray())
+            val store = OverworldLayoutStore(folder)
+            val saveArgs = mutableListOf<Boolean>()
+            var statusDuringSave: OverworldSiteStatus? = null
+            val world = Proxy.newProxyInstance(World::class.java.classLoader, arrayOf(World::class.java)) { _, method, args ->
+                when (method.name) {
+                    "getWorldFolder" -> folder.toFile()
+                    "getUID" -> worldId
+                    "getName" -> "overworld-flush-before-ready"
+                    "getSeed" -> 777L
+                    "save" -> {
+                        val flush = args?.firstOrNull() as? Boolean ?: false
+                        saveArgs += flush
+                        statusDuringSave = store.load(worldId, "overworld-flush-before-ready", 777L)
+                            ?.sites?.singleOrNull { it.site.id == SITE_IDS.last() }?.status
+                        null
+                    }
+                    else -> error("Unexpected world call: ${method.name}")
+                }
+            } as World
+
+            val sites = SITE_IDS.mapIndexed { index, id ->
+                val status = if (index == SITE_IDS.lastIndex) OverworldSiteStatus.GENERATING else OverworldSiteStatus.READY
+                val anchors = if (index == 0) mapOf(
+                    "spawn" to OverworldPoint(0, 71, 0),
+                    "plaza_min" to OverworldPoint(-2, 70, -2),
+                    "plaza_max" to OverworldPoint(2, 70, 2),
+                    "plaza_center" to OverworldPoint(0, 71, 0),
+                ) else emptyMap()
+                OverworldSiteLayout(OverworldSite(id, index * 200, 70, index * 200, 1, "PLAINS"), status, anchors)
+            }
+            val portals = listOf(
+                OverworldPortal("ec:dungeon_novice_arena", "ec:area_ashwood_forest", OverworldPoint(200, 70, 200), OverworldPoint(201, 73, 201), OverworldPoint(200, 71, 202)),
+                OverworldPortal("ec:dungeon_aether_crucible", "ec:area_stargazer_hill", OverworldPoint(600, 70, 600), OverworldPoint(601, 73, 601), OverworldPoint(600, 71, 602)),
+                OverworldPortal("ec:dungeon_void_sanctum", "ec:area_void_sanctum", OverworldPoint(800, 70, 800), OverworldPoint(801, 73, 801), OverworldPoint(800, 71, 802)),
+                OverworldPortal("ec:dungeon_glacial_citadel", "ec:area_glacial_citadel", OverworldPoint(1600, 70, 1600), OverworldPoint(1601, 73, 1601), OverworldPoint(1600, 71, 1602)),
+            )
+            val generating = OverworldLayout(
+                worldId = worldId.toString(),
+                worldName = "overworld-flush-before-ready",
+                seed = 777L,
+                status = OverworldBuildStatus.IN_PROGRESS,
+                sites = sites,
+                portals = portals,
+            )
+            store.save(generating)
+
+            val service = OverworldWorldService(plugin, world) { fixtureAssets() }
+            try {
+                val opResult = CompletableFuture<OverworldLayout>()
+                var readyCallbackStatus: OverworldSiteStatus? = null
+                val finishMethod = OverworldWorldService::class.java.getDeclaredMethod(
+                    "finishSite",
+                    OverworldLayout::class.java,
+                    OverworldSiteLayout::class.java,
+                    OverworldTownPlan::class.java,
+                    CompletableFuture::class.java,
+                    Function1::class.java,
+                ).apply { isAccessible = true }
+
+                val plan = OverworldTownPlan(
+                    site = sites.last().site,
+                    buildings = emptyList(),
+                    road = emptyList(),
+                    roadClearance = emptyList(),
+                    pond = emptyList(),
+                    lights = emptyList(),
+                    decorations = emptyList(),
+                    anchors = mapOf("center" to OverworldPoint(1600, 70, 1600)),
+                    portals = emptyList(),
+                    prepared = emptyMap(),
+                )
+                finishMethod.invoke(
+                    service,
+                    generating,
+                    sites.last(),
+                    plan,
+                    opResult,
+                    { updated: OverworldLayout ->
+                        readyCallbackStatus = updated.sites.last().status
+                    },
+                )
+                pump(server) { opResult.isDone }
+                assertFalse(opResult.isCompletedExceptionally, "finishSite should complete after flushing chunks")
+                assertEquals(listOf(true), saveArgs, "finishSite must flush world chunks with world.save(true)")
+                assertEquals(
+                    OverworldSiteStatus.GENERATING,
+                    statusDuringSave,
+                    "Journal must still be GENERATING while world.save(true) is executing",
+                )
+                assertEquals(OverworldSiteStatus.READY, readyCallbackStatus)
+                val persisted = store.load(worldId, "overworld-flush-before-ready", 777L)
+                assertEquals(OverworldSiteStatus.READY, persisted?.sites?.last()?.status)
+                assertEquals(OverworldBuildStatus.COMPLETED, persisted?.status)
+            } finally {
+                service.close()
+            }
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
+    fun `finishSite leaves journal GENERATING when world chunk flush fails`() {
+        val server = MockBukkit.mock()
+        try {
+            val plugin = MockBukkit.createMockPlugin()
+            val folder = Files.createTempDirectory("overworld-flush-failure")
+            val worldId = UUID.nameUUIDFromBytes("overworld-flush-failure".toByteArray())
+            val store = OverworldLayoutStore(folder)
+            var saveAttempted = false
+            val world = Proxy.newProxyInstance(World::class.java.classLoader, arrayOf(World::class.java)) { _, method, _ ->
+                when (method.name) {
+                    "getWorldFolder" -> folder.toFile()
+                    "getUID" -> worldId
+                    "getName" -> "overworld-flush-failure"
+                    "getSeed" -> 888L
+                    "save" -> {
+                        saveAttempted = true
+                        throw IllegalStateException("Simulated disk flush failure")
+                    }
+                    else -> error("Unexpected world call: ${method.name}")
+                }
+            } as World
+
+            val sites = SITE_IDS.mapIndexed { index, id ->
+                val status = if (index == SITE_IDS.lastIndex) OverworldSiteStatus.GENERATING else OverworldSiteStatus.READY
+                val anchors = if (index == 0) mapOf(
+                    "spawn" to OverworldPoint(0, 71, 0),
+                    "plaza_min" to OverworldPoint(-2, 70, -2),
+                    "plaza_max" to OverworldPoint(2, 70, 2),
+                    "plaza_center" to OverworldPoint(0, 71, 0),
+                ) else emptyMap()
+                OverworldSiteLayout(OverworldSite(id, index * 200, 70, index * 200, 1, "PLAINS"), status, anchors)
+            }
+            val portals = listOf(
+                OverworldPortal("ec:dungeon_novice_arena", "ec:area_ashwood_forest", OverworldPoint(200, 70, 200), OverworldPoint(201, 73, 201), OverworldPoint(200, 71, 202)),
+                OverworldPortal("ec:dungeon_aether_crucible", "ec:area_stargazer_hill", OverworldPoint(600, 70, 600), OverworldPoint(601, 73, 601), OverworldPoint(600, 71, 602)),
+                OverworldPortal("ec:dungeon_void_sanctum", "ec:area_void_sanctum", OverworldPoint(800, 70, 800), OverworldPoint(801, 73, 801), OverworldPoint(800, 71, 802)),
+                OverworldPortal("ec:dungeon_glacial_citadel", "ec:area_glacial_citadel", OverworldPoint(1600, 70, 1600), OverworldPoint(1601, 73, 1601), OverworldPoint(1600, 71, 1602)),
+            )
+            val generating = OverworldLayout(
+                worldId = worldId.toString(),
+                worldName = "overworld-flush-failure",
+                seed = 888L,
+                status = OverworldBuildStatus.IN_PROGRESS,
+                sites = sites,
+                portals = portals,
+            )
+            store.save(generating)
+
+            val service = OverworldWorldService(plugin, world) { fixtureAssets() }
+            try {
+                val opResult = CompletableFuture<OverworldLayout>()
+                val applyMethod = OverworldWorldService::class.java.getDeclaredMethod(
+                    "applyOperations",
+                    Iterator::class.java,
+                    CompletableFuture::class.java,
+                    Function0::class.java,
+                ).apply { isAccessible = true }
+                val finishMethod = OverworldWorldService::class.java.getDeclaredMethod(
+                    "finishSite",
+                    OverworldLayout::class.java,
+                    OverworldSiteLayout::class.java,
+                    OverworldTownPlan::class.java,
+                    CompletableFuture::class.java,
+                    Function1::class.java,
+                ).apply { isAccessible = true }
+                val plan = OverworldTownPlan(
+                    site = sites.last().site,
+                    buildings = emptyList(),
+                    road = emptyList(),
+                    roadClearance = emptyList(),
+                    pond = emptyList(),
+                    lights = emptyList(),
+                    decorations = emptyList(),
+                    anchors = mapOf("center" to OverworldPoint(1600, 70, 1600)),
+                    portals = emptyList(),
+                    prepared = emptyMap(),
+                )
+                applyMethod.invoke(
+                    service,
+                    emptyList<() -> Unit>().iterator(),
+                    opResult,
+                    {
+                        try {
+                            finishMethod.invoke(service, generating, sites.last(), plan, opResult, { _: OverworldLayout -> })
+                        } catch (error: java.lang.reflect.InvocationTargetException) {
+                            throw error.targetException
+                        }
+                    },
+                )
+                pump(server) { opResult.isDone }
+                assertTrue(saveAttempted, "world.save(true) should have been attempted")
+                assertTrue(opResult.isCompletedExceptionally, "Flush failure must fail the site operation")
+                val persisted = store.load(worldId, "overworld-flush-failure", 888L)
+                assertEquals(
+                    OverworldSiteStatus.GENERATING,
+                    persisted?.sites?.last()?.status,
+                    "Journal must remain GENERATING if chunk flush fails",
+                )
+            } finally {
+                service.close()
+            }
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
     private companion object {
         val SITE_IDS = listOf("ec:area_lumina_port", "ec:area_ashwood_forest", "ec:area_weeping_mine", "ec:area_stargazer_hill",
             "ec:area_void_sanctum", "ec:area_frostpeak_outpost", "ec:area_glacier_ridge", "ec:area_crystalline_cavern", "ec:area_glacial_citadel")

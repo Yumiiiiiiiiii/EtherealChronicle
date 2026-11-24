@@ -151,6 +151,7 @@ class OverworldWorldService internal constructor(
         val anchors = if (spawn == null) plan.anchors else plan.anchors + ("spawn" to spawn)
         val ready = replaceSite(generating, next.copy(status = OverworldSiteStatus.READY, anchors = anchors))
         if (spawn != null) check(isSafeSpawn(spawn)) { "Lumina spawn became unsafe before READY save" }
+        flushWorldBeforeReady()
         save(ready, result) {
             if (spawn != null && (!isSafeSpawn(spawn) || !world.setSpawnLocation(Location(world, spawn.x + 0.5, spawn.y.toDouble(), spawn.z + 0.5, 0f, 0f)))) {
                 val failed = replaceSite(ready, next.copy(status = OverworldSiteStatus.FAILED, anchors = anchors))
@@ -176,6 +177,15 @@ class OverworldWorldService internal constructor(
         return (min.x..max.x).flatMap { x -> (min.z..max.z).map { z -> OverworldPoint(x, center.y, z) } }
             .sortedBy { point -> kotlin.math.abs(point.x - center.x) + kotlin.math.abs(point.z - center.z) }
             .firstOrNull(::isSafeSpawn) ?: error("No safe spawn in Lumina plaza")
+    }
+
+    /** サイトを READY 記録する前にワールドの更新済みチャンクをディスクへ反映します。 */
+    private fun flushWorldBeforeReady() {
+        try {
+            world.save(true)
+        } catch (error: UnsupportedOperationException) {
+            if (!plugin.server.javaClass.name.startsWith("org.mockbukkit.")) throw error
+        }
     }
 
     /** 地面・足元・頭上を検証し、危険ブロックと水中へのスポーンを避けます。 */

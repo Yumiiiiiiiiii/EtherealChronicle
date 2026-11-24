@@ -68,7 +68,7 @@ class MailboxAndBoundTest {
             val world = server.addSimpleWorld(DemoWorld.NAME)
             val itemKey = NamespacedKey(plugin, "item_id"); val enemyKey = NamespacedKey(plugin, "enemy_id")
             val a = join(server, plugin, "MbxA"); val b = join(server, plugin, "MbxB")
-            a.teleport(Location(world, 0.0, 65.0, 0.0)); b.teleport(Location(world, 1.0, 65.0, 0.0))
+            a.teleport(Location(world, -5.0, 65.0, 16.0)); b.teleport(Location(world, -6.0, 65.0, 16.0))
             val pa = plugin.profiles.getValue(a.uniqueId); val pb = plugin.profiles.getValue(b.uniqueId)
             pa.level = 20; pb.level = 20; pa.currency = 1000; pb.currency = 1000
             val adv = RpgPlugin::class.java.getDeclaredField("adventure").also { it.isAccessible = true }.get(plugin)

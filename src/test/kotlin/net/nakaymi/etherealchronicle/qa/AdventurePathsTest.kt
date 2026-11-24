@@ -127,7 +127,11 @@ class AdventurePathsTest {
                 "consumed from clicked slot 1 only"
             }
             fun entrySlot(id: String) = (0..53).first { player.openInventory.topInventory.getItem(it)?.persistentDataContainer?.get(entryKey, PersistentDataType.STRING) == id }
-            fun openShop() { showShop.invoke(adv, player, "ec:shop_lumina_general") }
+            val pipLocation = org.bukkit.Location(world, -6.0, 65.0, 16.0)
+            fun openShop() {
+                player.teleport(pipLocation)
+                showShop.invoke(adv, player, "ec:shop_lumina_general")
+            }
 
             rec("A NPC click opens dialogue GUI") {
                 // reloadNpcs() itself hits an unimplemented MockBukkit call (Entity flags) -> place the NPC entity by hand with the same PDC tag.
@@ -196,6 +200,57 @@ class AdventurePathsTest {
                 assertTrue(server.pump { player.inventory.getItem(8)?.type == Material.NETHER_STAR }, "skill slot not restored on respawn")
                 assertEquals(classBefore, profile.classId); assertEquals(lvl, profile.level)
                 null
+            }
+            rec("H open shop rejects buy after moving 24 blocks away before currency check and closes menu") {
+                openShop()
+                assertEquals("shop", (player.openInventory.topInventory?.holder as? net.nakaymi.etherealchronicle.paper.RpgMenu)?.kind, "shop menu did not open near Pip")
+                profile.currency = 0
+                val had = potions()
+                val idx = entrySlot("minor_hp_potion_convenience")
+                val view = player.openInventory
+                while (player.nextMessage() != null) { }
+                player.setLocation(org.bukkit.Location(world, -6.0, 65.0, 40.0))
+                player.simulateInventoryClick(view, ClickType.LEFT, idx)
+                server.pump(800) { false }
+                assertEquals(had, potions(), "out-of-range shop buy mutated potions")
+                assertEquals(0, profile.currency, "out-of-range shop buy mutated currency")
+                assertFalse((player.openInventory.topInventory?.holder as? net.nakaymi.etherealchronicle.paper.RpgMenu)?.kind == "shop", "out-of-range shop menu stayed open after buy")
+                val msg = player.nextMessage()?.toString().orEmpty()
+                assertTrue(msg.contains("Move closer to the shop.") || msg.contains("お店の近くに移動"), "missing shop_too_far feedback on buy: $msg")
+                assertFalse(msg.contains("currency") || msg.contains("所持金"), "buy reached currency check instead of distance guard: $msg")
+                "buy rejected at 24 blocks before currency check; menu closed"
+            }
+            rec("I open shop rejects right-click sell after moving 24 blocks away and closes menu") {
+                profile.currency = 100
+                openShop()
+                val gelId = "ec:item_mat_aether_gel"
+                player.inventory.setItem(10, plugin.createItem(gelId, 2))
+                val view = player.openInventory
+                val rawGelSlot = (view.topInventory.size until view.countSlots()).first { r ->
+                    view.getItem(r)?.persistentDataContainer?.get(itemKey, PersistentDataType.STRING) == gelId
+                }
+                while (player.nextMessage() != null) { }
+                player.setLocation(org.bukkit.Location(world, -6.0, 65.0, 40.0))
+                player.simulateInventoryClick(view, ClickType.RIGHT, rawGelSlot)
+                server.pump(800) { false }
+                assertEquals(2, player.inventory.getItem(10)?.amount, "out-of-range sell consumed item")
+                assertEquals(100, profile.currency, "out-of-range sell credited currency")
+                assertFalse((player.openInventory.topInventory?.holder as? net.nakaymi.etherealchronicle.paper.RpgMenu)?.kind == "shop", "out-of-range shop menu stayed open after sell")
+                val msg = player.nextMessage()?.toString().orEmpty()
+                assertTrue(msg.contains("Move closer to the shop.") || msg.contains("お店の近くに移動"), "missing shop_too_far feedback on sell: $msg")
+                "sell rejected at 24 blocks; menu closed"
+            }
+            rec("J showShop rejects cross-world access without opening menu") {
+                val otherWorld = server.addSimpleWorld("qa_other_world")
+                player.closeInventory()
+                player.teleport(org.bukkit.Location(otherWorld, -6.0, 65.0, 16.0))
+                while (player.nextMessage() != null) { }
+                showShop.invoke(adv, player, "ec:shop_lumina_general")
+                assertFalse((player.openInventory.topInventory?.holder as? net.nakaymi.etherealchronicle.paper.RpgMenu)?.kind == "shop", "cross-world showShop opened menu")
+                val msg = player.nextMessage()?.toString().orEmpty()
+                assertTrue(msg.contains("Move closer to the shop.") || msg.contains("お店の近くに移動"), "missing shop_too_far feedback cross-world: $msg")
+                player.teleport(pipLocation)
+                "cross-world showShop rejected cleanly"
             }
             rec("G quit during pending transaction: currency consistent with file, no item loss") {
                 profile.currency = 1000; plugin.persist(profile).get()

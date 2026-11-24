@@ -172,10 +172,19 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         }
         player.showDialog(dialog)
     }
+    /** ショップ担当NPCの対話距離外なら画面を閉じて拒否メッセージを返します。 */
+    private fun ensureShopInRange(player: Player, shopId: String): Boolean {
+        val errorKey = plugin.shopAccessError(player, shopId) ?: return true
+        invUiShops.remove(player.uniqueId)
+        player.closeInventory()
+        player.sendMessage(plugin.diagnostic(player, errorKey))
+        return false
+    }
     /** 条件を満たす商品だけをショップ画面に表示します。 */
     fun showShop(player: Player,id: String) {
         val p=plugin.profiles[player.uniqueId] ?: return
         val shop=plugin.snapshot.world.shops[id] ?: throw GameException("ec.error.shop_missing")
+        if (!ensureShopInRange(player, id)) return
         val menu=RpgMenu("shop",id,title=plugin.message(player,"ec.menu.shop")).inventory
         compactVisibleShopEntries(shop.entries) { it.condition.matches(p) }.take(ChestLayout.DOUBLE_CHEST_SLOTS).forEachIndexed { index,e ->
             menu.setItem(index,plugin.createItem(e.item,e.amount).apply { itemMeta=itemMeta.apply {
@@ -248,6 +257,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     }
     private fun buyShopSlot(player: Player, shopId: String, entryId: String) {
         val profile = plugin.profiles[player.uniqueId] ?: return
+        if (!ensureShopInRange(player, shopId)) return
         val shop = plugin.snapshot.world.shops[shopId] ?: return
         val entry = shop.entries.firstOrNull { it.id == entryId }?.takeIf { it.condition.matches(profile) } ?: return
         val plan = when (val result = trades.planBuy(profile,shopId,entry.id,plugin.inventory(player),UUID.randomUUID().toString(),System.currentTimeMillis())) {
@@ -299,6 +309,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     }
     private fun sellFromInventory(player: Player, shopId: String, stack: ItemStack?, sourceSlot: Int) {
         val profile = plugin.profiles[player.uniqueId] ?: return
+        if (!ensureShopInRange(player, shopId)) return
         val id = plugin.identify(stack) ?: return
         val plan = when (val result = trades.planSell(profile,shopId,id,1,plugin.inventory(player),UUID.randomUUID().toString(),sourceSlot)) {
             is TradePlanResult.Ready -> result.plan
