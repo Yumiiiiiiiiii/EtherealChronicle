@@ -432,3 +432,18 @@ Live Paper 26.3 smoke (`world.mode: overworld`, verifying `world.save(true)` bef
 | QA #11b (A/B baseline) | `-314835210179884212` | **PASS** | 119s gen | (-327,63,-65) SUNFLOWER_PLAINS, pond (-347,63,-55) | 19.8 / 19.8 / 19.8 | COMPLETED, 9/9 READY, 4 portals, 0 ERROR, 0 projection/pool WARN. `world.save(true)` completed cleanly before every `READY` write without TPS regression vs QA #10 baseline. |
 
 Cleanup verified after both runs: 0 Paper java processes, ports 25565/25580 closed, 0 `*.qa-*` leftovers, `level-seed=` blank.
+
+## Overworld QA #12 - coastal dungeon & Lumina house packing fixes (master 14e7f60 + ce08cb4)
+
+Date: 2026-11-24
+Commits: `14e7f60` (`fix(overworld): avoid sea-level coastal sites, add entrance rotation and fine-grid house fallbacks`) + `ce08cb4` (`fix(overworld): isolate palette RNG on fallback candidate batches`)
+Automated suite: `./gradlew.bat test build --no-daemon` PASS (425 tests, 0 failures, 0 errors, 2 pre-existing skips); Codex spot review (`gpt-6-luna` / `low`, archived) verdict **GO**.
+Live Paper 26.3 smoke ran on `14e7f60` (JAR SHA-1 `EB7B9AC8831C86149DA76BE74D35ACAB10619088`; follow-up `ce08cb4` isolated fallback palette RNG only, JAR SHA-1 `95768833048638956A94338B1112E57127194366`):
+
+| Run | Seed | Verdict | Elapsed | Lumina | Glacial Citadel | TPS (1m/5m/15m) | Notes |
+|---|---|---|---|---|---|---|---|
+| 1 (QA #11 repro) | `8550623988298585625` | **PASS** | 209.1s | (341,70,-138) PLAINS, buildings=23, pond (371,65,-118) | (-727,77,114) tier=2 FOREST, buildings=4, portals=1 | 19.9 / 19.9 / 19.9 | COMPLETED, 9/9 READY, 4 portals, 0 ERROR, 0 projection/pool/house WARN. Cold cluster avoided sea-level `BEACH (y=62)`. |
+| 2 (Lumina BEACH repro) | `-4167603268941691095` | **PASS** | 187.5s | (145,64,1) tier=3 BEACH, buildings=20, pond (163,63,9) | (1176,105,755) tier=1 GROVE, buildings=4, portals=1 | 19.8 / 19.8 / 19.8 | COMPLETED, 9/9 READY, 4 portals, 0 ERROR, 0 projection/pool/house WARN. Same `(145,64,1) BEACH` coordinate improved from 8/10 houses (QA #9/#10 WARN) to 10/10 houses via 4-block fine-grid fallback. |
+
+Verdict: **2/2 PASS** - both QA #11 `BEACH (y=62)` dungeon failure and QA #9/#10 `Lumina` coastal house shortfall WARN resolved with 0 ERROR and 0 WARN.
+Cleanup verified: 0 Paper java processes, ports 25565/25580 closed, 0 `*.qa-*` leftovers, `level-seed=` blank.
