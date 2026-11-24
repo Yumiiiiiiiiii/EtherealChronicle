@@ -447,3 +447,20 @@ Live Paper 26.3 smoke ran on `14e7f60` (JAR SHA-1 `EB7B9AC8831C86149DA76BE74D35A
 
 Verdict: **2/2 PASS** - both QA #11 `BEACH (y=62)` dungeon failure and QA #9/#10 `Lumina` coastal house shortfall WARN resolved with 0 ERROR and 0 WARN.
 Cleanup verified: 0 Paper java processes, ports 25565/25580 closed, 0 `*.qa-*` leftovers, `level-seed=` blank.
+
+## Overworld QA #13 - 5-random-seed regression batch (master ce08cb4, SHA1 95768833048638956A94338B1112E57127194366)
+
+Date: 2026-11-24
+Commit: `ce08cb4` (includes `14e7f60` coastal dungeon/Lumina fixes + fallback palette RNG isolation + `e49eecf` P2 `world.save(true)`)
+Method: 5 clean `world.mode: overworld` runs on real Paper 26.3-257 via `qa-ow-genrun.ps1` with fresh 64-bit random seeds.
+
+| Run | Seed | Verdict | Elapsed | Lumina | Glacial Citadel | TPS (1m/5m/15m) | Notes |
+|---|---|---|---|---|---|---|---|
+| 1 | `-9071878686750665752` | **PASS** | ~178s | (157,66,258) JUNGLE, buildings=22 | (67,63,984) tier=2 FOREST, buildings=4, portals=1 | 19.7 / 19.8 / 19.8 | COMPLETED, 9/9 READY, 4 portals, 0 ERROR, 0 WARN. |
+| 2 | `4703186492793982268` | **PASS** | 198.1s | (156,70,11) SNOWY_PLAINS, buildings=25, pond (146,69,-19) | (-112,63,903) tier=1 SNOWY_PLAINS, buildings=4, portals=1 | 19.9 / 19.9 / 19.9 | COMPLETED, 9/9 READY, 4 portals, 0 ERROR, 0 WARN. |
+| 3 | `-1187416165039992445` | **PASS** | 177.6s | (-141,63,232) TAIGA, buildings=24, pond (-163,67,210) | (-631,97,-791) tier=2 FOREST, buildings=4, portals=1 | 19.6 / 19.8 / 19.8 | COMPLETED, 9/9 READY, 4 portals, 0 ERROR, 0 WARN. |
+| 4 | `2827251538875287594` | **PASS** | 177.6s | (203,63,-51) OLD_GROWTH_BIRCH_FOREST, buildings=22, pond (173,67,-31) | (380,101,-755) tier=2 MEADOW, buildings=4, portals=1 | 19.7 / 19.8 / 19.8 | COMPLETED, 9/9 READY, 4 portals, 0 ERROR, 0 WARN. |
+| 5 | `1181984613099147861` | **PASS** | 167.6s | (-29,68,-234) MUSHROOM_FIELDS, buildings=22, pond (-101,70,-256) | (-1347,66,-400) tier=2 SAVANNA, buildings=4, portals=1 | 19.8 / 19.8 / 19.8 | COMPLETED, 9/9 READY, 4 portals, 0 ERROR, 0 WARN. |
+
+Verdict: **5/5 PASS** (7/7 consecutive PASS combined with QA #12 repro seeds) - 9/9 READY, 4 portals, 0 ERROR, 0 house/pool/projection WARN across all 5 seeds, TPS 19.6-19.9.
+Cleanup verified: 0 Paper java processes, ports 25565/25580 closed, 0 `*.qa-*` leftovers, `level-seed=` blank, source JAR SHA1 unchanged (`95768833048638956A94338B1112E57127194366`).

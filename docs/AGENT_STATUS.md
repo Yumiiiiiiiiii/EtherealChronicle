@@ -493,3 +493,8 @@
   - `SchematicPlacer`: added a narrow MockBukkit-only guard in `rotateBlockData()` for unimplemented no-op rotation on non-orientable blocks (`org.mockbukkit.*`) so unit tests exercise all 4 rotations with real schematic footprints while real Paper always calls `data.rotate(rotation)` unconditionally.
 - Verification: `./gradlew.bat test build --no-daemon` PASS (425 tests, 0 failures, 0 errors, 2 pre-existing skips); `git diff --check` clean; independent Codex spot review (`gpt-6-luna` / `low`, archived) verdict **GO**.
 - Live Paper 26.3 smoke QA #12 (JAR SHA-1 `EB7B9AC8831C86149DA76BE74D35ACAB10619088`): **2/2 PASS** on `8550623988298585625` (`ec:area_glacial_citadel` placed inland at `(-727,77,114) FOREST`, TPS 19.9) and `-4167603268941691095` (`Lumina` on `(145,64,1) BEACH` placed 10/10 houses / 20 buildings with 0 WARN, TPS 19.8) - both 9/9 READY, 4 portals, 0 ERROR, 0 WARN. Full cleanup verified.
+
+## Overworld generation regression batch QA #13 - 5 random seeds (2026-11-24)
+- Ran 5 fresh random 64-bit seeds (`-9071878686750665752`, `4703186492793982268`, `-1187416165039992445`, `2827251538875287594`, `1181984613099147861`) on `ce08cb4` (JAR SHA-1 `95768833048638956A94338B1112E57127194366`) in clean `world.mode: overworld` Paper 26.3 runs; recorded in `docs/MANUAL_QA_RESULT.md`.
+- Result: **5/5 PASS** (7/7 consecutive PASS with QA #12 repro seeds) - every run completed 9/9 READY, 4 portals, 0 ERROR, 0 house-shortfall/pool/projection WARN, Lumina `buildings=22..25`, TPS 19.6-19.9.
+- Full cleanup verified: 0 Paper java processes, ports 25565/25580 closed, 0 `*.qa-*` leftovers, `level-seed=` blank.
