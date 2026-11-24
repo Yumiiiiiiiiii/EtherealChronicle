@@ -526,4 +526,81 @@ class OverworldTownAssemblerTest {
             MockBukkit.unmock()
         }
     }
+
+    @Test
+    fun `coastal dungeon entrance rotates away from water to place a safe portal exit`() {
+        val server = MockBukkit.mock()
+        try {
+            val world = server.addSimpleWorld("overworld-coastal-citadel")
+            // QA #11 再現: 東西に細長い半島 (z in -14..14 のみ陸地、南北は水域) に 27x27 の entrance_glacial_citadel を置き、
+            // NONE(南向き)/CLOCKWISE_180(北向き)が水没しても東西向きへ回転フォールバックできることを検証します。
+            // z in -13..13 (幅27) のみ陸地、南北は深海（基礎深度18を超える水域）にし、27x27の入口がNONE/180度でポータル退出不可となる状況を作ります。
+            for (x in -76..76) for (z in -76..76) {
+                if (z in -13..13) {
+                    world.getBlockAt(x, 61, z).type = Material.STONE
+                    world.getBlockAt(x, 62, z).type = Material.SNOW_BLOCK
+                } else {
+                    world.getBlockAt(x, 62, z).type = Material.WATER
+                }
+            }
+            val assets = realFootprintAssets()
+            val assembler = OverworldTownAssembler(assets)
+            val site = OverworldSite(OverworldSiteIds.GLACIAL_CITADEL, 0, 62, 0, 3, "BEACH")
+            val planning = assembler.planning(world, site, 8550623988298585625L)
+            while (planning.steps.hasNext()) planning.steps.next()
+            val plan = planning.result()
+            val repeat = assembler.planning(world, site, 8550623988298585625L)
+            while (repeat.steps.hasNext()) repeat.steps.next()
+            val repeatPlan = repeat.result()
+            assertEquals(plan.buildings, repeatPlan.buildings, "Coastal dungeon rotation fallback must be deterministic")
+            assertEquals(plan.portals, repeatPlan.portals, "Coastal dungeon portal fallback must be deterministic")
+            val entrance = plan.buildings.single { it.name == "entrance" }
+            assertTrue(
+                entrance.rotation == StructureRotation.CLOCKWISE_90 || entrance.rotation == StructureRotation.COUNTERCLOCKWISE_90,
+                "Entrance on E-W peninsula must rotate east/west away from north/south water, got ${entrance.rotation}",
+            )
+            assertEquals(1, plan.portals.size, "Expected glacial citadel portal to be registered")
+            val exit = plan.portals.single().exit
+            val exitFloor = world.getBlockAt(exit.x, exit.y - 1, exit.z).type
+            assertTrue(exitFloor.isSolid && exitFloor != Material.WATER, "Portal exit must rest on solid dry ground, got $exitFloor at $exit")
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
+    fun `coastal half-water lumina packs at least ten houses via fine-grid fallback with real footprints`() {
+        val server = MockBukkit.mock()
+        try {
+            val world = server.addSimpleWorld("overworld-coastal-lumina-real")
+            // 東側 (x > 16) を海域にした狭隘海岸地形でも、実スキーマチック寸法で Lumina 住宅 10 戸 / 5 種以上を確保できることを検証します。
+            for (x in -96..96) for (z in -96..96) {
+                world.getBlockAt(x, 61, z).type = Material.SANDSTONE
+                world.getBlockAt(x, 62, z).type = Material.SAND
+                world.getBlockAt(x, 63, z).type = if (x > 16) Material.WATER else Material.SAND
+            }
+            val assets = realFootprintAssets()
+            val assembler = OverworldTownAssembler(assets)
+            val site = OverworldSite(OverworldSiteIds.LUMINA_PORT, 0, 63, 0, 3, "BEACH")
+            val planning = assembler.planning(world, site, -4167603268941691095L)
+            while (planning.steps.hasNext()) planning.steps.next()
+            val plan = planning.result()
+            val repeat = assembler.planning(world, site, -4167603268941691095L)
+            while (repeat.steps.hasNext()) repeat.steps.next()
+            assertEquals(plan.buildings, repeat.result().buildings, "Coastal Lumina planning must be deterministic")
+            val houses = plan.buildings.filter { it.name.startsWith("house_") }
+            val distinct = houses.map { it.template }.toSet().size
+            assertTrue(houses.size >= 10, "Expected >= 10 houses on half-water coastal Lumina, got ${houses.size}")
+            assertTrue(distinct >= 5, "Expected >= 5 distinct house templates, got $distinct")
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    /** 同梱27スキーマチックの実寸フットプリントを保ちつつ、MockBukkitで全4方向の回転検証ができる単純パレットへ変換します。 */
+    private fun realFootprintAssets(): OverworldAssets = OverworldAssets.load { path ->
+        val real = SchematicResources.load(path) ?: return@load null
+        val height = minOf(3, real.height)
+        SchematicData(real.width, height, real.length, listOf("minecraft:stone"), IntArray(real.width * height * real.length))
+    }
 }

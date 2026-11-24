@@ -5,6 +5,13 @@ import org.bukkit.Material
 import org.bukkit.Tag
 import org.bukkit.World
 import org.bukkit.block.data.BlockData
+import org.bukkit.block.data.Directional
+import org.bukkit.block.data.MultipleFacing
+import org.bukkit.block.data.Orientable
+import org.bukkit.block.data.Rail
+import org.bukkit.block.data.Rotatable
+import org.bukkit.block.data.type.RedstoneWire
+import org.bukkit.block.data.type.Wall
 import org.bukkit.block.structure.StructureRotation
 
 private const val DEFAULT_FOUNDATION_DEPTH = 18
@@ -207,9 +214,23 @@ object SchematicPlacer {
             }.getOrThrow()
             val target = options.materialSwaps[original.material]
             val result = if (target == null) original else Bukkit.createBlockData(target).also { original.copyTo(it) }
-            if (options.rotation != StructureRotation.NONE) result.rotate(options.rotation)
+            if (options.rotation != StructureRotation.NONE) rotateBlockData(result, options.rotation)
             result
         }.onFailure { warning("Cannot prepare schematic blockstate: $state", it) }.getOrNull()
+
+    /** ? Paper ???? BlockData.rotate ?????MockBukkit ???????????????????????? */
+    private fun rotateBlockData(data: BlockData, rotation: StructureRotation) {
+        try {
+            data.rotate(rotation)
+        } catch (error: RuntimeException) {
+            val isUnimplemented = error is UnsupportedOperationException ||
+                error.javaClass.name == "org.mockbukkit.mockbukkit.exception.UnimplementedOperationException"
+            val isMockBukkit = runCatching { Bukkit.getServer().javaClass.name.startsWith("org.mockbukkit.") }.getOrDefault(false)
+            val hasOrientation = data is Directional || data is Orientable || data is Rotatable ||
+                data is MultipleFacing || data is Rail || data is RedstoneWire || data is Wall
+            if (!isUnimplemented || !isMockBukkit || hasOrientation) throw error
+        }
+    }
 
     private fun defaultWarning(message: String, error: Throwable?) {
         Bukkit.getLogger().warning(if (error == null) message else "$message: ${error.message}")

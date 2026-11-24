@@ -18,7 +18,8 @@ data class OverworldSite(val id: String, val x: Int, val y: Int, val z: Int, val
 object OverworldSiteLocator {
     private data class Spec(val id: String, val minRadius: Int, val maxRadius: Int, val biomes: Set<String>, val frostRelative: Boolean = false)
     private val specs = listOf(
-        Spec(OverworldSiteIds.LUMINA_PORT, 0, 384, setOf("PLAINS", "MEADOW", "BEACH", "RIVER", "SUNFLOWER_PLAINS")),
+        // ルミナ港は海に半分沈む砂浜直上（BEACH）を避け、水辺に近い草原・花畑・河岸を優先します。
+        Spec(OverworldSiteIds.LUMINA_PORT, 0, 384, setOf("PLAINS", "MEADOW", "RIVER", "SUNFLOWER_PLAINS")),
         Spec(OverworldSiteIds.ASHWOOD_FOREST, 220, 650, setOf("FOREST", "BIRCH_FOREST", "DARK_FOREST", "TAIGA", "FLOWER_FOREST", "OLD_GROWTH_BIRCH_FOREST")),
         Spec(OverworldSiteIds.WEEPING_MINE, 320, 880, setOf("WINDSWEPT_HILLS", "STONY_PEAKS", "MEADOW", "SAVANNA_PLATEAU", "WINDSWEPT_GRAVELLY_HILLS")),
         Spec(OverworldSiteIds.STARGAZER_HILL, 400, 1020, setOf("MEADOW", "CHERRY_GROVE", "WINDSWEPT_HILLS", "SUNFLOWER_PLAINS")),
@@ -31,6 +32,7 @@ object OverworldSiteLocator {
     private const val CANDIDATE_COUNT = 96
     private const val EARLY_TIER_ONE_COUNT = 24
     private const val TIER_THREE_MIN_SEPARATION = 150
+    private val shorelineBiomes = setOf("BEACH", "SNOWY_BEACH", "STONY_SHORE", "RIVER", "FROZEN_RIVER")
 
     /** 地形照会を注入して同じseedから同じ順序と結果を再現します。 */
     fun locate(seed: Long, terrainAt: (Int, Int) -> SiteTerrain): List<OverworldSite> {
@@ -114,13 +116,17 @@ object OverworldSiteLocator {
         }
     }
 
-    /** 各段階で水面・海洋を除き、高度と優先バイオームを判定します。 */
+    /** 砂浜・崖岸・河川など細長い水辺バイオームかを判定します。 */
+    private fun isShoreline(biome: String): Boolean =
+        biome in shorelineBiomes || biome.endsWith("_BEACH") || biome.endsWith("_SHORE") || biome.endsWith("_RIVER")
+
+    /** 各段階で水面・海洋を除き、高度と優先バイオームを判定します。Tier 2 では海面高度 y<=62 や非優先の水辺帯を除外し、内陸を優先します。 */
     private fun eligible(sample: SiteTerrain, tier: Int, preferred: Set<String>): Boolean {
         val biome = sample.biome
         if (!sample.dryLand || biome.contains("OCEAN")) return false
         return when (tier) {
             1 -> sample.y in 63..145 && sample.relief <= 8 && biome in preferred
-            2 -> sample.y in 62..165
+            2 -> sample.y in 63..165 && (biome in preferred || !isShoreline(biome))
             else -> sample.y in 62..180
         }
     }
@@ -139,10 +145,22 @@ object OverworldSiteLocator {
         dx * dx + dz * dz in 180L * 180..480L * 480
     }
 
-    /** 平坦性を重視し、港の水辺と北部の雪原に小さな優先点を加えます。 */
-    private fun score(sample: SiteTerrain, rule: Spec, relativeZ: Int): Int =
-        -sample.relief.coerceAtLeast(0) * 10 +
+    /** 平坦性を重視し、港は水辺の平地を、内陸・ダンジョン拠点は水没や狭隘海岸を避けるよう採点します。 */
+    private fun score(sample: SiteTerrain, rule: Spec, relativeZ: Int): Int {
+        val isLumina = rule.id == OverworldSiteIds.LUMINA_PORT
+        val shoreline = isShoreline(sample.biome)
+        val coastalAdjustment = if (isLumina) {
+            (if (sample.nearbyWater) 30 else 0) +
+                (if (shoreline && sample.biome !in rule.biomes) -60 else 0) +
+                (if (sample.biome == "RIVER") -15 else 0)
+        } else {
+            (if (sample.nearbyWater) -40 else 0) +
+                (if (shoreline && sample.biome !in rule.biomes) -60 else 0)
+        }
+        return -sample.relief.coerceAtLeast(0) * 10 +
             (if (sample.biome in rule.biomes) 100 else 0) +
-            (if (rule.id == OverworldSiteIds.LUMINA_PORT && sample.nearbyWater) 30 else 0) +
+            coastalAdjustment +
+            (if (sample.y <= 62) -50 else 0) +
             (if (rule.id == OverworldSiteIds.FROSTPEAK_OUTPOST && relativeZ < 0) 10 else 0)
+    }
 }

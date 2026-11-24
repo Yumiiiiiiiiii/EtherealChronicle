@@ -129,6 +129,72 @@ class OverworldSiteLocatorTest {
         }
     }
 
+    @Test
+    fun `non-lumina sites avoid sea-level beach in tier two and keep it only as tier three last resort`() {
+        val search = OverworldSiteLocator.Search(8550623988298585625L)
+        var citadelSamples = 0
+        while (search.nextCandidate() != null) {
+            val siteId = search.currentSiteId
+            val terrain = when (siteId) {
+                OverworldSiteIds.GLACIAL_CITADEL -> {
+                    citadelSamples++
+                    if (citadelSamples % 2 == 0) SiteTerrain(67, "FOREST", dryLand = true, relief = 4, nearbyWater = false)
+                    else SiteTerrain(62, "BEACH", dryLand = true, relief = 0, nearbyWater = true)
+                }
+                else -> SiteTerrain(70, preferredBiome(siteId), dryLand = true, relief = 1)
+            }
+            search.accept(terrain)
+        }
+        val citadel = search.result().single { it.id == OverworldSiteIds.GLACIAL_CITADEL }
+        assertEquals(2, citadel.tier, "Inland y=67 FOREST should win in Tier 2 over y=62 BEACH")
+        assertEquals("FOREST", citadel.biome)
+        assertEquals(67, citadel.y)
+
+        // 全候補が y=62 BEACH のみの極端な多島海シードでは Tier 3 で最終フォールバックできることを確認します。
+        val beachOnly = OverworldSiteLocator.Search(8550623988298585625L)
+        while (beachOnly.nextCandidate() != null) {
+            val siteId = beachOnly.currentSiteId
+            val terrain = if (siteId == OverworldSiteIds.GLACIAL_CITADEL) {
+                SiteTerrain(62, "BEACH", dryLand = true, relief = 0, nearbyWater = true)
+            } else {
+                SiteTerrain(70, preferredBiome(siteId), dryLand = true, relief = 1)
+            }
+            beachOnly.accept(terrain)
+        }
+        val fallbackCitadel = beachOnly.result().single { it.id == OverworldSiteIds.GLACIAL_CITADEL }
+        assertEquals(3, fallbackCitadel.tier)
+        assertEquals("BEACH", fallbackCitadel.biome)
+    }
+
+    @Test
+    fun `lumina prefers inland plains over flat beach and does not early-stop on beach`() {
+        val search = OverworldSiteLocator.Search(4528502914240555028L)
+        var index = 0
+        while (search.currentSiteId == OverworldSiteIds.LUMINA_PORT) {
+            search.nextCandidate()
+            // 先頭 40 候補が全て BEACH でも早期打ち切りせず、後続の PLAINS を採用します。
+            val terrain = if (index < 40) {
+                SiteTerrain(64, "BEACH", dryLand = true, relief = 0, nearbyWater = true)
+            } else {
+                SiteTerrain(68, "PLAINS", dryLand = true, relief = 2, nearbyWater = false)
+            }
+            search.accept(terrain)
+            index++
+        }
+        val lumina = search.selected().single()
+        assertEquals(1, lumina.tier)
+        assertEquals("PLAINS", lumina.biome)
+    }
+
+    private fun preferredBiome(siteId: String): String = when (siteId) {
+        OverworldSiteIds.LUMINA_PORT -> "PLAINS"
+        OverworldSiteIds.ASHWOOD_FOREST -> "FOREST"
+        OverworldSiteIds.WEEPING_MINE -> "WINDSWEPT_HILLS"
+        OverworldSiteIds.STARGAZER_HILL -> "MEADOW"
+        OverworldSiteIds.VOID_SANCTUM -> "DARK_FOREST"
+        else -> "SNOWY_PLAINS"
+    }
+
     private fun locate(seed: Long, terrain: SiteTerrain): List<OverworldSite> {
         val search = OverworldSiteLocator.Search(seed)
         while (search.nextCandidate() != null) search.accept(terrain)

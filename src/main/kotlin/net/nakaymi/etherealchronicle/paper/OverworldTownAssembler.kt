@@ -277,15 +277,37 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
         val totalStats = RejectionStats()
         requests.forEachIndexed { index, request ->
             val templatesToTry = (listOf(request.template) + request.fallbacks).distinct()
+            val isDungeonEntrance = templatesToTry.any { it in dungeonIds }
+            val allowFineFallback = request.required ||
+                (request.name.startsWith("house_") && needsMoreTargetHouses(site.id, buildings))
             val candidateBatches: Sequence<List<Candidate>> = if (index == 0) {
                 sequence {
                     yield(centerCandidates(site))
+                    // ダンジョン入口の正面（NONE）が水辺・崖でポータル退出不可な場合、中心候補の残り3方向を先に試します。
+                    if (isDungeonEntrance) yield(rotatedCenterCandidates(site))
                     // 中心 ±24 がバニラ構造物や地形障害で全滅した場合のみ、独立 RNG を使って拠点半径内の敷地候補へ中心近傍順でフォールバックします。
                     val fallbackRandom = Random(seed xor site.id.hashCode().toLong() xor FALLBACK_RANDOM_SALT)
-                    yield(plotCandidates(site, fallbackRandom).sortedBy { abs(it.x - site.x) + abs(it.z - site.z) })
+                    val primaryPlots = plotCandidates(site, fallbackRandom).sortedBy { abs(it.x - site.x) + abs(it.z - site.z) }
+                    yield(primaryPlots)
+                    if (isDungeonEntrance) yield(alternateRotations(primaryPlots))
+                    val fineRandom = Random(seed xor site.id.hashCode().toLong() xor FINE_GRID_RANDOM_SALT)
+                    val finePlots = finePlotCandidates(site, fineRandom).sortedBy { abs(it.x - site.x) + abs(it.z - site.z) }
+                    yield(finePlots)
+                    if (isDungeonEntrance) yield(alternateRotations(finePlots))
                 }
             } else {
-                sequenceOf(plotCandidates(site, random))
+                sequence {
+                    val primaryPlots = plotCandidates(site, random)
+                    yield(primaryPlots)
+                    if (isDungeonEntrance) yield(alternateRotations(primaryPlots))
+                    // 海岸・狭隘地形で 8 ブロック格子に収まらない必須施設や目標未達の住宅だけ、独立 RNG の 4 ブロック細密格子へフォールバックします。
+                    if (allowFineFallback) {
+                        val fineRandom = Random(seed xor site.id.hashCode().toLong() xor FINE_GRID_RANDOM_SALT xor index.toLong())
+                        val finePlots = finePlotCandidates(site, fineRandom)
+                        yield(finePlots)
+                        if (isDungeonEntrance) yield(alternateRotations(finePlots))
+                    }
+                }
             }
             var building: OverworldBuildingPlan? = null
             var bestRect: Rect? = null
@@ -330,6 +352,18 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
                             reqStats.water++
                             continue
                         }
+                        // ダンジョン入口は重い足跡検証の前に O(1) でポータル退出先の安全性を検査し、水辺向きの候補を即座に除外します。
+                        val dungeon = dungeonIds[template]
+                        if (dungeon != null) {
+                            val portalProbe = OverworldBuildingPlan(request.name, template, OverworldPoint(ox, y, oz), rotation, emptyMap(), snow)
+                            try {
+                                portal(world, site.id, dungeon, schematic, portalProbe, door(schematic, portalProbe))
+                            } catch (failure: IllegalArgumentException) {
+                                reqStats.portal++
+                                reqStats.lastFailure = failure.message
+                                continue
+                            }
+                        }
                         val swaps = palette(random, snow)
                         val options = options(rotation, swaps, snow)
                         val preparation = try {
@@ -353,14 +387,6 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
                         }
                         if (!valid) continue
                         val candidateBuilding = OverworldBuildingPlan(request.name, template, OverworldPoint(ox, y, oz), rotation, swaps, snow)
-                        val dungeon = dungeonIds[template]
-                        if (dungeon != null) try {
-                            portal(world, site.id, dungeon, schematic, candidateBuilding, door(schematic, candidateBuilding))
-                        } catch (failure: IllegalArgumentException) {
-                            reqStats.portal++
-                            reqStats.lastFailure = failure.message
-                            continue
-                        }
                         val heights = listOf(ox to oz, ox + width - 1 to oz, ox to oz + length - 1, ox + width - 1 to oz + length - 1)
                             .map { (px, pz) -> surfaceY(world, px, pz) }
                         val relief = heights.max() - heights.min()
@@ -724,10 +750,34 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
         return 64
     }
 
+    /** 目標住宅数または種類数が未達の町でのみ、細密格子フォールバックを許可します。 */
+    private fun needsMoreTargetHouses(siteId: String, buildings: List<OverworldBuildingPlan>): Boolean = when (siteId) {
+        OverworldSiteIds.LUMINA_PORT -> {
+            val houses = buildings.filter { it.name.startsWith("house_") }
+            houses.size < LUMINA_TARGET_HOUSES || houses.map { it.template }.toSet().size < LUMINA_TARGET_DISTINCT_HOUSES
+        }
+        OverworldSiteIds.FROSTPEAK_OUTPOST ->
+            buildings.count { it.name.startsWith("house_") } < FROSTPEAK_TARGET_HOUSES
+        else -> false
+    }
+
     /** 重要施設は中心近くを小刻みに探索します。 */
     private fun centerCandidates(site: OverworldSite): List<Candidate> =
         (-24..24 step 4).flatMap { dx -> (-24..24 step 4).map { dz -> Candidate(site.x + dx, site.z + dz, StructureRotation.NONE) } }
             .sortedBy { abs(it.x - site.x) + abs(it.z - site.z) }
+
+    /** 中心候補で標準向き（NONE）が失敗したダンジョン入口向けに、残り3方向を中心近傍順で生成します。 */
+    private fun rotatedCenterCandidates(site: OverworldSite): List<Candidate> =
+        (-24..24 step 4).flatMap { dx ->
+            (-24..24 step 4).flatMap { dz ->
+                nonDefaultRotations.map { rotation -> Candidate(site.x + dx, site.z + dz, rotation) }
+            }
+        }.sortedBy { abs(it.x - site.x) + abs(it.z - site.z) }
+
+    /** 各敷地候補について、既定の向き以外の3方向を順に試すフォールバック候補を生成します。 */
+    private fun alternateRotations(base: List<Candidate>): List<Candidate> = base.flatMap { candidate ->
+        allRotations.filter { it != candidate.rotation }.map { rotation -> candidate.copy(rotation = rotation) }
+    }
 
     /** 敷地候補を四方向に並べ、入口を中心側へ向けます。 */
     private fun plotCandidates(site: OverworldSite, random: Random): List<Candidate> {
@@ -739,6 +789,23 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
                     if (dx > 0) StructureRotation.CLOCKWISE_90 else StructureRotation.COUNTERCLOCKWISE_90
                 } else if (dz > 0) StructureRotation.CLOCKWISE_180 else StructureRotation.NONE
                 Candidate(site.x + dx, site.z + dz, rotation)
+            }
+        }.shuffled(random)
+    }
+
+    /** 粗い8ブロック格子で配置できなかった施設向けに、既検査点を除いた4ブロック細密格子候補を生成します。 */
+    private fun finePlotCandidates(site: OverworldSite, random: Random): List<Candidate> {
+        val limit = (plotRadius(site.id) / PLOT_FINE_GRID_STEP) * PLOT_FINE_GRID_STEP
+        return (-limit..limit step PLOT_FINE_GRID_STEP).flatMap { dx ->
+            (-limit..limit step PLOT_FINE_GRID_STEP).mapNotNull { dz ->
+                if (dx % PLOT_GRID_STEP == 0 && dz % PLOT_GRID_STEP == 0) return@mapNotNull null
+                val x = site.x + dx
+                val z = site.z + dz
+                if (!withinSite(site, x, z)) return@mapNotNull null
+                val rotation = if (abs(dx) > abs(dz)) {
+                    if (dx > 0) StructureRotation.CLOCKWISE_90 else StructureRotation.COUNTERCLOCKWISE_90
+                } else if (dz > 0) StructureRotation.CLOCKWISE_180 else StructureRotation.NONE
+                Candidate(x, z, rotation)
             }
         }.shuffled(random)
     }
@@ -823,6 +890,7 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
 
         private const val BUILDING_MARGIN = 1
         private const val PLOT_GRID_STEP = 8
+        private const val PLOT_FINE_GRID_STEP = 4
         private const val POND_GRID_STEP = 10
         private const val GRAVITY_SUPPORT_DEPTH = 8
         private const val NATURAL_WATER_SEARCH_RADIUS = 48
@@ -838,6 +906,18 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
         private const val WATERFRONT_DISTANCE = 8
         private const val WATERFRONT_RELIEF = 2
         private const val FALLBACK_RANDOM_SALT = 0x517cc1b727220a95L
+        private const val FINE_GRID_RANDOM_SALT = 0x2545f4914f6cdd1dL
+        private val allRotations = listOf(
+            StructureRotation.NONE,
+            StructureRotation.CLOCKWISE_90,
+            StructureRotation.CLOCKWISE_180,
+            StructureRotation.COUNTERCLOCKWISE_90,
+        )
+        private val nonDefaultRotations = listOf(
+            StructureRotation.CLOCKWISE_90,
+            StructureRotation.CLOCKWISE_180,
+            StructureRotation.COUNTERCLOCKWISE_90,
+        )
         private val dungeonIds = mapOf("entrance_novice_arena" to OverworldDungeonIds.NOVICE_ARENA, "entrance_void_sanctum" to OverworldDungeonIds.VOID_SANCTUM, "entrance_aether_crucible" to OverworldDungeonIds.AETHER_CRUCIBLE, "entrance_glacial_citadel" to OverworldDungeonIds.GLACIAL_CITADEL)
     }
 }
