@@ -461,3 +461,9 @@
 - Master `45b8b52` includes Claude-QA's `c1da8c1` record in `docs/MANUAL_QA_RESULT.md`; implementation remains `6922c90`.
 - Verified by Claude-QA on real Paper: failing seed `-4201517772407501229` and random seed `-9169136779061013934` both completed 9/9 sites and 4 portals with 0 ERROR, no projection/pool WARN, and TPS 20.0/19.9/19.9. JAR SHA1 `6C22BFCD988F8FC353EBFAA64B0330767DB117EC` matched before/after runs.
 - Server/world/config cleanup and port closure reported complete. Three consecutive clean generations include QA #7 run 3; rare intermittent aborts remain possible with this sample size.
+
+## Overworld generation smoke QA #9 — 8-seed batch (2026-11-24)
+- Ran 8 fresh random 64-bit seeds on 6922c90 (JAR SHA1 6C22BFCD988F8FC353EBFAA64B0330767DB117EC) in clean world.mode: overworld runs; recorded in docs/MANUAL_QA_RESULT.md.
+- Result: **7/8 PASS** (Runs 1–6, 8 completed 9/9 READY, 4 portals, 0 ERROR, TPS 19.9–20.0). Zero Road terrain changed / Road clearance changed / projection / fishing-pool errors across all 8 runs.
+- Run 7 (repro seed -4167603268941691095) exposed a distinct failure class: ec:area_void_sanctum landed on a DARK_FOREST vanilla structure (DARK_OAK_PLANKS at y=88), accepted by OverworldSiteSearch.sample() (dryLand does not check OverworldMaterials.ground), and planBuildings() only tried the 169 centerCandidates for index == 0 without falling back to plotCandidates.
+- Cleanup verified after batch: 0 Paper processes, ports 25565/25580 closed, server.properties (level-seed=) and dev data restored.

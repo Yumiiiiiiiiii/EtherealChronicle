@@ -384,3 +384,23 @@ Server only, clean world per run, `world.mode: overworld`; SHA1 matched before s
 
 Verdict: GO (2/2). Combined with QA #7 run 3 this is 3 consecutive clean generations after the transition fixes; the sample is small, so intermittent aborts are not ruled out.
 Cleanup: server stopped, dev world/plugin data/server.properties (level-seed blank)/ops/whitelist/config restored, ports closed.
+
+## Overworld generation smoke QA #9 — 8 random seeds batch (master 6922c90, jar SHA1 6C22BFCD988F8FC353EBFAA64B0330767DB117EC), 2026-11-24
+Server only, clean world per run, world.mode: overworld; 8 fresh random 64-bit seeds excluding previously tested seeds (qa-ow-genrun.ps1).
+
+| Run | Seed | Result | Elapsed | Lumina | TPS (1m/5m/15m) | Details |
+|---:|---|---|---:|---|---|---|
+| 1 | -4731718650747399906 | **PASS** | 179.3s | (-171,63,-283) PLAINS, pond (-181,63,-253) | 20.0 / 19.9 / 19.9 | COMPLETED, 9 READY, 4 portals, 0 ERROR, 0 WARN |
+| 2 | 7953258711525688605 | **PASS** | 167.7s | (23,62,318) FOREST, pond (31,64,356) | 20.0 / 20.0 / 20.0 | COMPLETED, 9 READY, 4 portals, 0 ERROR, 0 WARN |
+| 3 | -1416912842524785962 | **PASS** | 177.6s | (-85,63,-330) RIVER, pond (-65,63,-340) | 20.0 / 20.0 / 20.0 | COMPLETED, 9 READY, 4 portals, 0 ERROR, 0 WARN |
+| 4 | 4146423064076284222 | **PASS** | 177.6s | (-176,68,286) PLAINS, pond (-186,63,256) | 20.0 / 19.9 / 19.9 | COMPLETED, 9 READY, 4 portals, 0 ERROR, 0 WARN |
+| 5 | -6109928817052901113 | **PASS** | 187.6s | (-182,68,316) TAIGA, pond (-192,69,296) | 20.0 / 20.0 / 20.0 | COMPLETED, 9 READY, 4 portals, 0 ERROR, 0 WARN |
+| 6 | -2819269622671616182 | **PASS** | 187.6s | (261,63,-37) RIVER, pond (271,64,-57) | 20.0 / 20.0 / 20.0 | COMPLETED, 9 READY, 4 portals, 0 ERROR, 0 WARN |
+| 7 | -4167603268941691095 | **FAIL** | 167.8s | (145,64,1) BEACH, pond (163,63,9) | 20.0 / 19.9 / 19.9 | IN_PROGRESS, 4 READY, 2 portals; ec:area_void_sanctum at (-510,88,-800) DARK_FOREST failed during planning: No grounded plot for entrance (entrance_void_sanctum) at ec:area_void_sanctum: bounds=0 overlap=0 road=0 water=0 terrain=169 portal=0 last='Obstructed foundation at -498,87,-788: DARK_OAK_PLANKS' (also Lumina house shortfall WARN: 8/10) |
+| 8 | -8424225939849412953 | **PASS** | 197.7s | (-69,63,-29) BEACH, pond (-51,62,-51) | 20.0 / 19.9 / 19.9 | COMPLETED, 9 READY, 4 portals, 0 ERROR, 0 projection/pool WARN (Lumina house shortfall WARN: 7/10) |
+
+Verdict: **7/8 PASS** (0 Road terrain changed / Road clearance changed / projection / pool errors across all 8 runs; 11 consecutive runs with 0 natural-drift aborts since QA #7 run 3).
+New finding from Run 7 (repro seed -4167603268941691095):
+1. OverworldSiteSearch.sample() checks surface.isSolid && surface != ICE/PACKED_ICE/BLUE_ICE without requiring natural ground (OverworldMaterials.ground), so a flat vanilla structure roof (e.g. Woodland Mansion DARK_OAK_PLANKS at Y=88 in DARK_FOREST) is accepted as 	ier=1 dry land.
+2. OverworldTownAssembler.planBuildings() restricts the first building (index == 0, e.g. entrance_void_sanctum) exclusively to centerCandidates(site) (±24 blocks, Rotation.NONE only = 169 tries) with no fallback to plotCandidates(site, random).
+Cleanup verified: 0 Paper java processes, ports 25565/25580 closed, 0 *.qa-* leftovers, level-seed= blank, source JAR SHA1 unchanged.
