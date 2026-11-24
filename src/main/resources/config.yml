@@ -1,5 +1,18 @@
 # auto follows each player's Minecraft client language. Supported values: auto, ja_jp, en_us.
 language: auto
+world:
+  # ワールド動作モード。dedicated_ec_world（専用ワールド ec_world）または overworld（既存オーバーワールド統合）を指定します。
+  # 実機プレイで自然生成オーバーワールドへ拠点・ダンジョン入口を統合する場合は overworld へ変更してください。
+  mode: dedicated_ec_world
+  # mode: overworld 時に統合先とするワールド名です（既定: world）。
+  overworld_name: "world"
+  # mode: overworld 時の空中ダンジョンインスタンス領域（省略時は以下の既定値を使用）。
+  # ワールドボーダーを狭く設定している場合はボーダー内へ調整してください（推奨 base_y >= 160）。
+  # dungeon:
+  #   base_x: 100000
+  #   base_y: 220
+  #   base_z: 100000
+  #   spacing: 256
 ui:
   theme:
     # icons_only はリソパのアイコンだけを使う安全な既定値。full の背景はクライアント差を確認後に選択します。

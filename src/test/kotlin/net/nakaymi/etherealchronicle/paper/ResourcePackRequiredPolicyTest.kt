@@ -13,11 +13,16 @@ class ResourcePackRequiredPolicyTest {
     fun `shipped configuration requires packs but keeps stable gui theme`() {
         val config=YamlConfiguration.loadConfiguration(javaClass.classLoader.getResourceAsStream("config.yml")!!.bufferedReader())
         val plugin=YamlConfiguration.loadConfiguration(javaClass.classLoader.getResourceAsStream("plugin.yml")!!.bufferedReader())
+        val paperPlugin=YamlConfiguration.loadConfiguration(javaClass.classLoader.getResourceAsStream("paper-plugin.yml")!!.bufferedReader())
 
+        assertEquals("dedicated_ec_world", config.getString("world.mode"))
+        assertEquals("world", config.getString("world.overworld_name"))
         assertTrue(config.getBoolean("resource_pack.required"))
         assertEquals(120, config.getInt("resource_pack.required_timeout_seconds"))
         assertEquals("icons_only",config.getString("ui.theme.mode"))
         assertEquals("op",plugin.getString("permissions.etherealchronicle.pack.bypass.default"))
+        assertEquals("op",paperPlugin.getString("permissions.etherealchronicle.admin.default"))
+        assertEquals("op",paperPlugin.getString("permissions.etherealchronicle.pack.bypass.default"))
         val settings = ResourcePackSettings.from(config)
         assertEquals(ResourcePackDefaults.HTTP_WRITE_DEADLINE_MILLIS, settings.writeDeadlineMillis)
         assertEquals("game_port", settings.mode)
