@@ -316,7 +316,13 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
             val reqStats = RejectionStats()
             val waterFacility = request.name == "pier" || request.name == "lighthouse"
 
-            for (candidates in candidateBatches) {
+            for ((batchIndex, candidates) in candidateBatches.withIndex()) {
+                // フォールバック段階 (batchIndex > 0) では独立 RNG を使い、後続の建物・池の乱数列を動かしません。
+                val paletteRandom = if (batchIndex == 0) {
+                    random
+                } else {
+                    Random(seed xor site.id.hashCode().toLong() xor FALLBACK_PALETTE_SALT xor (index.toLong() shl 8) xor batchIndex.toLong())
+                }
                 for (template in templatesToTry) {
                     val schematic = assets[template]
                     var bestRank = Int.MAX_VALUE
@@ -364,7 +370,7 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
                                 continue
                             }
                         }
-                        val swaps = palette(random, snow)
+                        val swaps = palette(paletteRandom, snow)
                         val options = options(rotation, swaps, snow)
                         val preparation = try {
                             SchematicPlacer.prepareStepped(schematic, world, ox, y, oz, options)
@@ -907,6 +913,7 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
         private const val WATERFRONT_RELIEF = 2
         private const val FALLBACK_RANDOM_SALT = 0x517cc1b727220a95L
         private const val FINE_GRID_RANDOM_SALT = 0x2545f4914f6cdd1dL
+        private const val FALLBACK_PALETTE_SALT = 0x6c62272e07bb0142L
         private val allRotations = listOf(
             StructureRotation.NONE,
             StructureRotation.CLOCKWISE_90,
