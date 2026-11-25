@@ -8,3 +8,4 @@ build/
 node_modules/
 scripts/logs/
 dev/e2e-server/
+dev/tools/

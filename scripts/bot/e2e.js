@@ -8,7 +8,7 @@ function arg(name, def) { const i = process.argv.indexOf('--' + name); return i 
 const host = arg('host', '127.0.0.1')
 if (!['127.0.0.1', 'localhost', '::1'].includes(host)) { console.error('refusing non-local host: ' + host); process.exit(2) }
 const name = arg('name', 'EcE2E')
-const opts = { host, port: Number(arg('port', 25599)), username: name, auth: 'offline', hideErrors: false, brand: 'vanilla', locale: 'en_us' }
+const opts = { host, port: Number(arg('port', 25599)), username: name, auth: 'offline', hideErrors: false, brand: 'vanilla', locale: 'en_us', physicsEnabled: false }
 const version = arg('version', null)
 if (version) opts.version = version
 
@@ -54,6 +54,14 @@ async function main() {
   // 死亡したら自動でリスポーンします（リスポーン後の状態を検証するため）。
   let deaths = 0
   bot.on('death', () => { deaths++; setTimeout(() => { try { bot.respawn() } catch (_) {} }, 500) })
+  // 移動パケットは送らない（ViaProxy 経由の 26.1→26.3 変換で「Invalid move player packet」になり蹴られるため）。位置はサーバーのテレポート命令で動く。
+  const rawWrite = bot._client.write.bind(bot._client)
+  bot._client.write = (n, d) => { if (/^(position|position_look|look|flying)$/.test(n)) return; return rawWrite(n, d) }
+  if (process.env.EC_BOT_DEBUG) {
+    bot._client.on('packet', (d, m) => { if (/position|teleport|look|respawn|login/.test(m.name)) console.log('IN  ' + m.name + ' ' + JSON.stringify(d).slice(0, 300)) })
+    const w = bot._client.write
+    bot._client.write = (n, d) => { console.log('OUT ' + n); return w(n, d) }
+  }
   const joined = await new Promise((resolve) => { bot.once('spawn', () => resolve(true)); setTimeout(() => resolve(false), 60000) })
   if (!joined) { console.log('ERROR could not join'); process.exit(2) }
   console.log('SPAWN at ' + pos())
@@ -83,7 +91,8 @@ async function main() {
       record('travel-' + area, ok, `pos=${pos()}`)
     })
   }
-  send('/ec travel lumina_port'); await sleep(4000)
+  // 拠点（安全地帯）ではダメージが無効のため、死亡検証は危険地帯（アッシュウッド）で行う
+  send('/ec travel ashwood_forest'); await sleep(5000)
 
   // --- 4. 死亡: アイテム・経験値は保持され、ゴールドのみ失う ---
   await step('death-gold-only', async () => {
@@ -111,7 +120,8 @@ async function main() {
   // --- 5. ダンジョン入退場（空中アリーナへ入り、地上へ戻る） ---
   await step('dungeon-enter-leave', async () => {
     send(`/ec flag ${name} ec:flag_early_trial_unlocked set`); await sleep(1500)
-    send('/ec travel lumina_port'); await sleep(5000)
+    // 入口チャンクを読み込み済みにするため、ノービスアリーナの入口があるアッシュウッドへ移動してから入場する
+    send('/ec travel ashwood_forest'); await sleep(6000)
     const ground = pos().y
     send('/ec dungeon enter ec:dungeon_novice_arena')
     const entered = await waitFor(() => pos().y > 150, 60000)

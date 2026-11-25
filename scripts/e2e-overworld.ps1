@@ -13,6 +13,9 @@ param(
     [string]$ServerDir = 'D:\test\mcmmo\dev\e2e-server',
     [switch]$SkipBuild,
     [switch]$Clean,
+    [switch]$Via,                           # ViaProxy 経由でボット接続（-Bot を含む）。26.1 のボットが 26.3 サーバーへ入れる
+    [string]$ViaJar = (Join-Path $PSScriptRoot '../dev/tools/viaproxy/ViaProxy-3.4.14.jar'),
+    [int]$ViaPort = 25598,
     [switch]$Bot,                           # ボット検証（要: 対象サーバーのプロトコルに対応した mineflayer）
     [int]$Port = 25599,
     [string]$BotName = 'EcE2E',
@@ -24,6 +27,7 @@ param(
 . "$PSScriptRoot/lib.ps1"
 $sourceDir = Split-Path $JarPath -Parent
 $expectedSites = 9
+if ($Via) { $Bot = $true; if (-not $ProtocolVersion) { $ProtocolVersion = '26.1' } }
 
 Test-JavaVersion
 if (-not (Test-Path $JarPath)) { Fail "Paper jar not found: $JarPath" 3 }
@@ -121,11 +125,19 @@ try {
             if (-not $Bot) { Write-Step 'bot scenario skipped (use -Bot; mineflayer must support the server protocol)'; $botExit = 0 }
             else {
             Send-Console "op $BotName"; Start-Sleep -Seconds 2
-            $nodeArgs = @('e2e.js', '--port', $Port, '--name', $BotName)
+            $botPort = $Port; $viaProc = $null
+            if ($Via) {
+                if (-not (Test-Path $ViaJar)) { Fail "ViaProxy jar not found: $ViaJar (gh release download v3.4.14 --repo ViaVersion/ViaProxy --pattern 'ViaProxy-3.4.14.jar' --dir <dir>)" 3 }
+                $viaLog = Join-Path $logDir "e2e-via-$stamp.log"
+                $viaProc = Start-Process java -WorkingDirectory (Split-Path $ViaJar -Parent) -PassThru -WindowStyle Hidden -RedirectStandardOutput $viaLog -RedirectStandardError "$viaLog.err" -ArgumentList @('-jar', $ViaJar, 'cli', '--bind-address', "127.0.0.1:$ViaPort", '--target-address', "127.0.0.1:$Port", '--target-version', '26.3', '--auth-method', 'NONE')
+                Write-Step "ViaProxy pid $($viaProc.Id) 127.0.0.1:$ViaPort -> 127.0.0.1:$Port (26.3)"
+                Start-Sleep -Seconds 12; $botPort = $ViaPort
+            }
+            $nodeArgs = @('e2e.js', '--port', $botPort, '--name', $BotName)
             if ($ProtocolVersion) { $nodeArgs += @('--version', $ProtocolVersion) }
             Write-Step 'running bot scenario'
             Push-Location $botDir
-            try { & node @nodeArgs 2>&1 | Tee-Object -FilePath $botLog | Out-Host; $botExit = $LASTEXITCODE } finally { Pop-Location }
+            try { & node @nodeArgs 2>&1 | Tee-Object -FilePath $botLog | Out-Host; $botExit = $LASTEXITCODE } finally { Pop-Location; if ($viaProc -and -not $viaProc.HasExited) { $viaProc.Kill($true) } }
             Flush-Log
             if ($botExit -ne 0) { $failed = $true }
             }
