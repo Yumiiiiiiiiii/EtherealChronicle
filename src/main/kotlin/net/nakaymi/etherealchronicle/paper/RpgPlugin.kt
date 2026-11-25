@@ -35,6 +35,10 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal val isReadyForGameplay: Boolean get() = ready
     private val codexController by lazy { CodexController(this) }
     private val simulationCommands by lazy { SimulationCommandController(this) }
+    private val combatFeedback by lazy { CombatFeedback(this) }
+    private val wayfinding by lazy { WayfindingController(this) }
+    private data class PendingHitMeta(val critical: Boolean, val element: String, val elementMod: Double, val isSkill: Boolean)
+    private val pendingHitMeta = mutableMapOf<Pair<UUID, UUID>, PendingHitMeta>()
     private var overworldBootstrap: OverworldBootstrapPort? = null
     internal lateinit var activeWorldProjection: ActiveWorldProjection
     private data class ProjectionCacheKey(val position: Position, val areaId: String?, val allowWater: Boolean)
@@ -488,6 +492,8 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         if(::adventure.isInitialized) runCatching { adventure.close() }.onFailure { logger.severe("NPC shutdown failed: ${it.message}") }
         if(::treasures.isInitialized) runCatching { treasures.close() }.onFailure { logger.severe("Treasure shutdown failed: ${it.message}") }
         if(::resourcePacks.isInitialized) runCatching { resourcePacks.close() }.onFailure { logger.severe("Resource pack shutdown failed: ${it.message}") }
+        runCatching { combatFeedback.close() }.onFailure { logger.severe("Combat feedback shutdown failed: ${it.message}") }
+        runCatching { wayfinding.close() }.onFailure { logger.severe("Wayfinding shutdown failed: ${it.message}") }
         runCatching { overworldBootstrap?.close() }.onFailure { logger.severe("Overworld shutdown failed: ${it.message}") }
         server.scheduler.cancelTasks(this)
         if (::store.isInitialized) {
@@ -562,8 +568,16 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             if(!player.isOnline) return@Runnable
             val profile=profiles[player.uniqueId] ?: return@Runnable
             val slot=player.inventory.getItem(PlayerInventoryLayout.SKILL_HOTBAR_SLOT)
-            if(isSkill(slot)) slot!!.editMeta { it.displayName(message(player,"ec.profile.skill_slot")) }
+            if(isSkill(slot)) slot!!.editMeta {
+                it.displayName(message(player,"ec.profile.skill_slot"))
+                it.lore(listOf(
+                    message(player,"ec.skill_slot.lore_cycle"),
+                    message(player,"ec.skill_slot.lore_cast"),
+                    message(player,"ec.skill_slot.lore_guide"),
+                ))
+            }
             applyTitle(player,profile)
+            wayfinding.invalidateDisplay(player.uniqueId)
         })
     }
 
@@ -577,6 +591,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         if(ready) classSelectionUi.clear(e.player.uniqueId)
         profiles.remove(e.player.uniqueId)?.let { profile -> settleEnhancement(e.player,profile); save(profile) }
         lastMoved.remove(e.player.uniqueId); dirty.remove(e.player.uniqueId)
+        combatFeedback.clearPlayer(e.player.uniqueId); wayfinding.clearPlayer(e.player.uniqueId)
 
     }
     private fun menu(player: Player) {
@@ -672,7 +687,11 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             skillSlot(p); applyStats(p,profile); p.health=p.getAttribute(Attribute.MAX_HEALTH)!!.value
             p.closeInventory()
             if (deferredToMailbox) adventure.claimPending(p)
-            else p.sendMessage(message(p,"ec.profile.welcome"))
+            else {
+                p.sendMessage(message(p,"ec.profile.welcome"))
+                p.sendMessage(message(p,"ec.tutorial.controls"))
+                wayfinding.showGuide(p, profile, spawnTrail = true)
+            }
         } }
     }
     internal fun createItem(id: String, amount: Int = 1): ItemStack = createItemInternal(id, amount, null)
@@ -766,7 +785,13 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 p.inventory.setItem(free,old)
             } else if(old != null) p.world.dropItemNaturally(p.location,old)
             p.inventory.setItem(PlayerInventoryLayout.SKILL_HOTBAR_SLOT,ItemStack(Material.NETHER_STAR).apply { itemMeta = itemMeta.apply {
-                displayName(message(p,"ec.profile.skill_slot")); persistentDataContainer.set(slotKey,PersistentDataType.BYTE,1)
+                displayName(message(p,"ec.profile.skill_slot"))
+                lore(listOf(
+                    message(p,"ec.skill_slot.lore_cycle"),
+                    message(p,"ec.skill_slot.lore_cast"),
+                    message(p,"ec.skill_slot.lore_guide"),
+                ))
+                persistentDataContainer.set(slotKey,PersistentDataType.BYTE,1)
             } })
         }
     }
@@ -990,6 +1015,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             if(profile.resource != beforeResource) dirty.add(p.uniqueId)
             profile.selectedSkill = profile.selectedSkill.coerceIn(0,c.skills.lastIndex)
             val skill = c.skills[profile.selectedSkill]
+            wayfinding.tickPlayer(p, profile)
             if(shouldSendClassHud(gatheringActive,fishingActive)) p.sendActionBar(message(p,"ec.hud.main", "hp" to p.health.toInt(), "max_hp" to s.hp.toInt(), "resource_name" to resourceName(p,c.resource), "resource" to profile.resource.toInt(), "max_resource" to s.resource.toInt(), "skill" to content.snapshot().skills[skill].name, "cooldown" to "%.1f".format(MinecraftTicks.millisToSeconds(game.skills.remaining(p.uniqueId,skill))), "party" to adventure.parties.members(p.uniqueId).size))
           } catch(error: Exception) { logger.warning("HUD update failed ${p.uniqueId}: ${error.message}") }
         }
@@ -1006,9 +1032,26 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     @EventHandler fun swap(e: PlayerSwapHandItemsEvent) { if(::fishing.isInitialized && fishing.active(e.player.uniqueId)) { e.isCancelled=true; return }; e.isCancelled = true; cycle(e.player) }
     @EventHandler fun drop(e: PlayerDropItemEvent) { if(isSkill(e.itemDrop.itemStack) || e.player.uniqueId !in profiles) e.isCancelled = true }
     @EventHandler fun interact(e: PlayerInteractEvent) {
-        if(e.hand != EquipmentSlot.HAND || !e.action.isRightClick) return
-        val p = e.player; val profile = profiles[p.uniqueId] ?: run { e.isCancelled = true; return }
-        if(p.isSneaking && p.inventory.heldItemSlot == PlayerInventoryLayout.SKILL_HOTBAR_SLOT) { e.isCancelled = true; cycle(p); return }
+        if(e.hand != EquipmentSlot.HAND) return
+        val p = e.player
+        if(e.action.isLeftClick) {
+            val profile = profiles[p.uniqueId] ?: return
+            if(adventure.locked(p.uniqueId)) return
+            val held = p.inventory.itemInMainHand
+            val weapon = item(held)?.takeIf { it.slot == GearSlot.HAND } ?: return
+            if(held.type in RANGED_BASIC_WEAPON_MATERIALS) {
+                if(!weapon.canEquip(profile)) { p.sendMessage(message(p,"ec.skill.weapon_requirements")); return }
+                rangedBasicAttack(p, held.type == Material.BOW || held.type == Material.CROSSBOW)
+            }
+            return
+        }
+        if(!e.action.isRightClick) return
+        val profile = profiles[p.uniqueId] ?: run { e.isCancelled = true; return }
+        if(p.inventory.heldItemSlot == PlayerInventoryLayout.SKILL_HOTBAR_SLOT && isSkill(p.inventory.itemInMainHand)) {
+            e.isCancelled = true
+            if(p.isSneaking) cycle(p) else wayfinding.showGuide(p, profile, spawnTrail = true)
+            return
+        }
         if(e.clickedBlock?.type?.isInteractable == true && !p.isSneaking) return
         if(adventure.locked(p.uniqueId)) { e.isCancelled=true; return }
         if(adventure.consume(p,p.inventory.itemInMainHand)) { e.isCancelled=true; return }
@@ -1021,6 +1064,25 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         if(target != null && !p.hasLineOfSight(target)) { p.sendMessage(message(p,"ec.skill.obstructed")); return }
         val result=castSkill(p,target)
         if(result != CastResult.SUCCESS) p.sendMessage(message(p,when(result) { CastResult.RESOURCE -> "ec.skill.resource_low"; CastResult.INVALID_TARGET -> "ec.skill.target_missing"; else -> "ec.skill.cooldown" }))
+    }
+    /** ???????????????????????????RPG??????????? */
+    internal fun rangedBasicAttack(player: Player, isBow: Boolean): Boolean {
+        val profile = profiles[player.uniqueId] ?: return false
+        if(profile.classId == null || adventure.locked(profile.uuid)) return false
+        val range = if (isBow) 16.0 else 12.0
+        val trace = runCatching {
+            player.world.rayTraceEntities(player.eyeLocation, player.eyeLocation.direction, range, CombatGeometry.SKILL_TARGET_HITBOX_BLOCKS) {
+                it is LivingEntity && it !is Player && it.persistentDataContainer.has(enemyKey)
+            }
+        }.getOrNull()
+        val target = trace?.hitEntity as? LivingEntity
+        if (target != null && !player.hasLineOfSight(target)) return false
+        if (!basicAttacks.accept(profile.uuid, snapshot.world.tuning.basicAttackCooldown)) return false
+        val endPoint = target?.location?.clone()?.add(0.0, target.height * 0.6, 0.0)
+            ?: player.eyeLocation.clone().add(player.eyeLocation.direction.multiply(range.coerceAtMost(10.0)))
+        combatFeedback.recordRangedBasicShot(player, endPoint, isBow)
+        if (target != null) hit(player, target, 1.0)
+        return target != null
     }
     /** 実イベントとテストが共有するスキル経路です。照準対象を渡しray traceを分離できます。 */
     fun castSkill(player: Player,target: LivingEntity?): CastResult {
@@ -1059,6 +1121,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             val uniqueTargets=targets.distinctBy { it.uniqueId }
             uniqueTargets.forEach { hit(player,it,game.skills.multiplier(profile,skill),skill.element,useSkillPower=true) }
         }
+        combatFeedback.recordSkillCast(player, skill, target)
         dirty.add(player.uniqueId); return result
     }
     internal fun defenseBuff(player: Player,amount: Double,ticks: Int) { defenseBuffs[player.uniqueId]=amount to (monotonicMillis()+MinecraftTicks.ticksToMillis(ticks.toLong())) }
@@ -1091,9 +1154,43 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val s = effectiveStats(p,profile)
         val enemy=snapshot.world.enemies[d.string("id")]
         val elementMod=when { element in (enemy?.weaknesses ?: emptySet()) -> snapshot.world.tuning.weakness; element in (enemy?.resistances ?: emptySet()) -> snapshot.world.tuning.resistance; else -> 1.0 }
-        val amount = content.snapshot().balance.damage(if(flat == null) s else Stats.ZERO,d.num("defense"),multiplier*(if(useSkillPower) s.skillPower else 1.0),flat ?: snapshot.world.itemProperties[item(p.inventory.itemInMainHand)?.id]?.weapon ?: 0.0,flat == null && kotlin.random.Random.nextDouble() < s.crit.coerceIn(0.0,content.snapshot().balance.critCap),elementMod)
+        val critical = flat == null && kotlin.random.Random.nextDouble() < s.crit.coerceIn(0.0,content.snapshot().balance.critCap)
+        val amount = content.snapshot().balance.damage(if(flat == null) s else Stats.ZERO,d.num("defense"),multiplier*(if(useSkillPower) s.skillPower else 1.0),flat ?: snapshot.world.itemProperties[item(p.inventory.itemInMainHand)?.id]?.weapon ?: 0.0,critical,elementMod)
+        val metaKey = p.uniqueId to target.uniqueId
+        pendingHitMeta[metaKey] = PendingHitMeta(critical, element, elementMod, useSkillPower)
         casting.add(p.uniqueId)
-        try { target.damage(amount,p) } finally { casting.remove(p.uniqueId) }
+        try { target.damage(amount,p) } finally { casting.remove(p.uniqueId); pendingHitMeta.remove(metaKey) }
+    }
+    internal fun tickCombatFeedback() = combatFeedback.tick()
+    internal fun recordCombatHit(attacker: Player, target: LivingEntity, enemyDef: EnemyDefinition?, remainingHp: Double, maxHp: Double, damage: Double, killed: Boolean) {
+        val meta = pendingHitMeta[attacker.uniqueId to target.uniqueId]
+        combatFeedback.recordHit(
+            attacker = attacker,
+            target = target,
+            enemyDef = enemyDef,
+            remainingHp = remainingHp,
+            maxHp = maxHp,
+            damage = damage,
+            critical = meta?.critical == true,
+            element = meta?.element ?: "PHYSICAL",
+            elementMod = meta?.elementMod ?: 1.0,
+            isSkill = meta?.isSkill == true,
+            killed = killed,
+        )
+    }
+    internal fun captureQuestSnapshot(profile: PlayerProfile, inventory: InventoryAccess): QuestProgressSnapshot =
+        wayfinding.captureQuestSnapshot(profile, inventory)
+    internal fun notifyQuestDelta(player: Player, profile: PlayerProfile, before: QuestProgressSnapshot) =
+        wayfinding.notifyQuestDelta(player, profile, before, inventory(player, persistRemoval = false))
+    internal fun sendIncompleteQuestHints(player: Player, profile: PlayerProfile, questId: String) =
+        wayfinding.sendIncompleteHints(player, profile, questId)
+    internal fun onQuestStarted(player: Player, profile: PlayerProfile) {
+        runCatching { player.playSound(player.location, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.3f) }
+        wayfinding.showGuide(player, profile, spawnTrail = true)
+    }
+    internal fun onQuestCompleted(player: Player, profile: PlayerProfile) {
+        runCatching { player.playSound(player.location, Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.7f, 1.0f) }
+        wayfinding.showGuide(player, profile, spawnTrail = false)
     }
     @EventHandler(priority=EventPriority.HIGH,ignoreCancelled=true) fun damage(e: EntityDamageByEntityEvent) {
         val target = e.entity as? LivingEntity ?: return
@@ -1186,6 +1283,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 val profile=profiles[playerId] ?: return@whenAvailable
                 var codexUnlocks=emptySet<String>()
                 var drops=emptyMap<String,Int>()
+                val beforeQuests = wayfinding.captureQuestSnapshot(profile, inventory(player, persistRemoval = false))
                 adventure.transaction(player,{ inv ->
                     codexUnlocks=profile.recordEnemyKillIndexed(id,snapshot.world.areas,snapshot.world.enemiesByArea)
                     drops=game.kill(profile,id,inv,xp[playerId] ?: 0,currency[playerId] ?: 0,playerId == loot)
@@ -1193,6 +1291,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 }) {
                     syncTitleAdvancements(player,profile)
                     player.sendMessage(message(player,"ec.combat.enemy_defeated", "level" to profile.level, "xp" to profile.xp))
+                    wayfinding.notifyQuestDelta(player, profile, beforeQuests, inventory(player, persistRemoval = false))
                     if(codexUnlocks.isNotEmpty()) player.sendMessage(message(player,"ec.codex.new_discoveries", "items" to codexUnlocks.joinToString { contentName(player,it) }))
                 }
             }
@@ -1297,7 +1396,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal fun commandCompletions(sender: CommandSender, args: Array<out String>): List<String> {
         if (!ready) return emptyList()
         val prefix = args.lastOrNull().orEmpty()
-        val rootCommands = listOf("class", "quest", "party", "equipment", "dungeon", "shop", "claim", "title", "codex", "enhance", "fish", "gather", "ui", "sites")
+        val rootCommands = listOf("class", "guide", "quest", "party", "equipment", "dungeon", "shop", "claim", "title", "codex", "enhance", "fish", "gather", "ui", "sites")
         val adminCommands = listOf("reload", "validate", "travel")
         val candidates = when {
             args.size <= 1 -> rootCommands + adminCommands.takeIf { sender.hasPermission("etherealchronicle.admin") }.orEmpty()
@@ -1340,7 +1439,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             }
             return true
         }
-        val isPlayerCommand = args.firstOrNull() in setOf("quest","party","equipment","dungeon","shop","claim","title","codex","enhance","fish","gather","ui") ||
+        val isPlayerCommand = args.firstOrNull() in setOf("guide","quest","party","equipment","dungeon","shop","claim","title","codex","enhance","fish","gather","ui") ||
             args.firstOrNull() == "class" && args.size == 1
         if (args.firstOrNull() == "class" && args.size == 1 && sender !is Player) {
             sender.sendMessage(message(sender, "ec.error.player_required"))
@@ -1515,6 +1614,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 require(classSelectionCanReopen(p.classId)) { "ec.error.class_already_selected" }
                 menu(player)
             }
+            "guide" -> wayfinding.showGuide(player, p, spawnTrail = true)
             "codex" -> openCodex(player)
             "ui" -> {
                 require(args.getOrNull(1) == "pack") { "ec.resource_pack.usage" }
@@ -1597,7 +1697,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                         // 依頼名はYAMLの表示データ、進行状態はLang文言として分け、1行での言語混在を防ぎます。
                         player.sendMessage(message(player,"ec.quest.name", "name" to (definition?.let { contentText(player,"quest",id,"name",it.name) } ?: plain(message(player,"ec.quest.unknown_name")))))
                         player.sendMessage(message(player,"ec.quest.status", "status" to message(player,when { q.completed -> "ec.quest.status_complete"; game.quests.ready(p,id,inventory(player)) -> "ec.quest.status_ready"; else -> "ec.quest.status_active" })))
-                        if(!q.completed) definition?.objectives?.forEach { o -> player.sendMessage(message(player,"ec.quest.objective_progress", "target" to questObjectiveLabel(o.target,snapshot,plain(message(player,"ec.quest.unknown_target"))) { type,id,ja -> contentText(player,type,id,"name",ja) }, "progress" to (if(o.kind == ObjectiveKind.COLLECT) inventory(player).count(o.target).coerceAtMost(o.amount) else q.objectives.getOrDefault(o.id,0)), "amount" to o.amount)) }
+                        if(!q.completed) definition?.objectives?.forEach { o -> player.sendMessage(message(player,"ec.quest.objective_progress", "target" to wayfinding.formatObjective(player, o.kind, questObjectiveLabel(o.target,snapshot,plain(message(player,"ec.quest.unknown_target"))) { type,targetId,ja -> contentText(player,type,targetId,"name",ja) }), "progress" to (if(o.kind == ObjectiveKind.COLLECT) inventory(player).count(o.target).coerceAtMost(o.amount) else q.objectives.getOrDefault(o.id,0)), "amount" to o.amount)) }
                     }
                 }
             }
@@ -1633,6 +1733,15 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             sender.sendMessage(message(sender,"ec.debug.gather_prefix","name" to player.name,"detail" to gathering.debugStatus(player))); return
         }
         simulationCommands.run(sender, args)
+    }
+    companion object {
+        internal val RANGED_BASIC_WEAPON_MATERIALS = setOf(
+            Material.BOW,
+            Material.CROSSBOW,
+            Material.BLAZE_ROD,
+            Material.BREEZE_ROD,
+            Material.STICK,
+        )
     }
 }
 

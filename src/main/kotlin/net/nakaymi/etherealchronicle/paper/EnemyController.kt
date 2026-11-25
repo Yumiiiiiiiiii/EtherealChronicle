@@ -118,6 +118,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
     }
     fun tick() {
         tick+=EnemyBehaviorTuning.SIMULATION_STEP_TICKS
+        plugin.tickCombatFeedback()
         states.values.toList().forEach { state ->
             val entity=state.entity
             if(entity.isDead) { remove(entity.uniqueId,false); return@forEach }
@@ -268,7 +269,8 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
         if(e.finalDamage <= 0) return
         plugin.profiles[attacker.uniqueId]?.let { plugin.game.onHit(it,plugin.effectiveStats(attacker,it).resource); plugin.markDirty(it.uuid) }
         if("PACK" in state.boss.definition.traits) states.values.filter { it.boss.definition.id == state.boss.definition.id && it.entity.world == state.entity.world && it.entity.location.isWithinBlocks(state.entity.location,PaperDistance.ENEMY_PACK_ASSIST_BLOCKS) }.forEach { if(it.entity is Mob) it.entity.target=attacker }
-        applyVirtualDamage(state.entity.uniqueId,attacker.uniqueId,e.finalDamage)
+        val killed=applyVirtualDamage(state.entity.uniqueId,attacker.uniqueId,e.finalDamage)
+        plugin.recordCombatHit(attacker,state.entity,state.boss.definition,state.boss.hp,state.boss.maximumHp,e.finalDamage,killed)
         if(!state.entity.isDead) plugin.procEffects(attacker,state.entity)
     }
     /** console simulationと実ダメージイベントが共有するvirtual HP・討伐経路です。 */

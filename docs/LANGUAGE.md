@@ -9,7 +9,10 @@
 | `ec.advancement.pack_description` | エセリアルクロニクル: 称号進捗 | Ethereal Chronicle: title advancements | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.advancement.root_description` | 冒険の記録 | Adventure records | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdvancementDatapack.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.advancement.root_title` | エセリアルクロニクル | Ethereal Chronicle | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdvancementDatapack.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.area.enter_field` | <yellow>冒険フィールド（推奨 Lv.<min>〜<max>） | <yellow>Adventure Field (Recommended Lv.<min>-<max>) | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt | `<max>`, `<min>` |
+| `ec.area.enter_safe` | <green>安全地帯 — 魔物の攻撃を受けません | <green>Safe Zone — Protected from monster attacks | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt |  |
 | `ec.area.teleported` | <name>へ転送しました。 | Teleported to <name>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt | `<name>` |
+| `ec.area.unknown` | 未探索エリア | Wilderness | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt |  |
 | `ec.boss.bossbar_enrage` |  激昂 |  ENRAGE | src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt |  |
 | `ec.boss.bossbar_title` | <name> <hp>/<max_hp>  フェーズ <phase><enrage> | <name> <hp>/<max_hp>  Phase <phase><enrage> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt | `<enrage>`, `<hp>`, `<max_hp>`, `<name>`, `<phase>` |
 | `ec.boss.telegraph` | 予兆: <attack>！<cue>範囲から離れてください。 | Telegraph: <attack>! Move away from the <cue> area. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt | `<attack>`, `<cue>` |
@@ -61,7 +64,12 @@
 | `ec.codex.undiscovered_gathering` | 未発見の採取地 | Undiscovered gathering site | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.codex.weaknesses` | 弱点: <values> | Weaknesses: <values> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<values>` |
 | `ec.combat.enemy_defeated` | 魔物を討伐！ レベル <level> / 経験値 <xp> | Enemy defeated! Level <level> / XP <xp> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<level>`, `<xp>` |
+| `ec.combat.hit_crit` | <gold>✦ -<damage> CRIT! | <gold>✦ -<damage> CRIT! | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CombatFeedback.kt | `<damage>` |
+| `ec.combat.hit_normal` | <white>-<damage> | <white>-<damage> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CombatFeedback.kt | `<damage>` |
+| `ec.combat.hit_resist` | <gray>▼ -<damage> 耐性 | <gray>▼ -<damage> RESIST | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CombatFeedback.kt | `<damage>` |
+| `ec.combat.hit_weak` | <aqua>▲ -<damage> 弱点! | <aqua>▲ -<damage> WEAK! | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CombatFeedback.kt | `<damage>` |
 | `ec.combat.revive` | 装備の加護が命を守りました！ | Your equipment's blessing saved your life! | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.combat.target_hp` | <name>  HP <hp>/<max_hp> | <name>  HP <hp>/<max_hp> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CombatFeedback.kt | `<hp>`, `<max_hp>`, `<name>` |
 | `ec.command.class_set` | 職業を変更しました。 | Class updated. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.currency_set` | 所持金を設定しました。 | Currency updated. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.enemy_spawned` | 魔物を召喚しました。 | Enemy spawned. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
@@ -181,7 +189,7 @@
 | `ec.error.profile_loading` | プロフィールを読み込み中です。 | Your profile is still loading. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.error.quantity_range` | 指定した数量は許容範囲外です。 | The quantity is outside the allowed range. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/core/SimulationSession.kt |  |
 | `ec.error.quest_active` | この依頼は受注済みです。 | This quest is already active. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
-| `ec.error.quest_incomplete` | 依頼の達成条件を満たしていません。 | You have not met the quest objectives. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
+| `ec.error.quest_incomplete` | 依頼の達成条件を満たしていません。 | You have not met the quest objectives. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.quest_missing` | 依頼が見つかりません。 | Quest not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.quest_npc_complete` | 依頼はNPCに報告してください。 | Report quests to an NPC. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.error.quest_npc_start` | 依頼はNPCとの会話から受注してください。 | Accept quests through an NPC dialogue. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
@@ -321,6 +329,25 @@
 | `ec.gathering.tool_wrong` | <name>には<required>が必要です（現在:<current>）。 | <name> requires <required> (held: <current>). | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<current>`, `<name>`, `<required>` |
 | `ec.gathering.transaction_locked` | 取引処理中は採取できません。 | You cannot gather during a transaction. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
 | `ec.gathering.world_only` | 管理対象の採取エリアでのみ採取できます。 | Gathering is only available in the managed gathering areas. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
+| `ec.guide.active_quest` | <gold>進行中の依頼:</gold> <white><name> | <gold>Active Quest:</gold> <white><name> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt | `<name>` |
+| `ec.guide.current_area` | <gray>現在地:</gray> <white><area> | <gray>Location:</gray> <white><area> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt | `<area>` |
+| `ec.guide.dir_e` | 東 | East | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt |  |
+| `ec.guide.dir_n` | 北 | North | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt |  |
+| `ec.guide.dir_ne` | 北東 | Northeast | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt |  |
+| `ec.guide.dir_nw` | 北西 | Northwest | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt |  |
+| `ec.guide.dir_s` | 南 | South | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt |  |
+| `ec.guide.dir_se` | 南東 | Southeast | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt |  |
+| `ec.guide.dir_sw` | 南西 | Southwest | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt |  |
+| `ec.guide.dir_w` | 西 | West | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt |  |
+| `ec.guide.header` | <gold>━━━━ 冒険ガイド (/ec guide) ━━━━ | <gold>━━━━ Adventure Guide (/ec guide) ━━━━ | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt |  |
+| `ec.guide.location_line` | <aqua>場所:</aqua> <gold><arrow></gold> <direction> 約<distance>m <gray>(X:<x> Y:<y> Z:<z>) | <aqua>Destination:</aqua> <gold><arrow></gold> <direction> ~<distance>m <gray>(X:<x> Y:<y> Z:<z>) | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt | `<arrow>`, `<direction>`, `<distance>`, `<x>`, `<y>`, `<z>` |
+| `ec.guide.next_available` | <green>次のおすすめ依頼:</green> <white><name> | <green>Recommended Next:</green> <white><name> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt | `<name>` |
+| `ec.guide.no_target` | <gray>現在進行中または受注可能な依頼はありません。街のNPCに話しかけてみましょう。 | <gray>No active or recommended quests right now. Try talking to NPCs in town. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt |  |
+| `ec.guide.objective_line` | <yellow>目標:</yellow> <white><objective> (<progress>/<amount>) | <yellow>Objective:</yellow> <white><objective> (<progress>/<amount>) | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt | `<amount>`, `<objective>`, `<progress>` |
+| `ec.guide.scoreboard_area` | 現在地: <area> | Area: <area> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt | `<area>` |
+| `ec.guide.scoreboard_controls` | /ec guide で道案内 | Use /ec guide | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt |  |
+| `ec.guide.scoreboard_title` | <gold>Ethereal Chronicle | <gold>Ethereal Chronicle | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt |  |
+| `ec.guide.trail_hint` | <gold>✦ 目的地方向へ光の道しるべを表示しました。 | <gold>✦ Illuminated a golden trail toward your destination. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt |  |
 | `ec.hud.main` | HP <hp>/<max_hp>  <resource_name> <resource>/<max_resource>  <skill> CD <cooldown>秒  仲間 <party>人 | HP <hp>/<max_hp>  <resource_name> <resource>/<max_resource>  <skill> CD <cooldown>s  Party <party> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<cooldown>`, `<hp>`, `<max_hp>`, `<max_resource>`, `<party>`, `<resource>`, `<resource_name>`, `<skill>` |
 | `ec.item.cannot_drop` | このアイテムは手放せません。 | You cannot drop this item. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.item.required_level` | 必要レベル: <level> / <rarity> | Required level: <level> / <rarity> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<level>`, `<rarity>` |
@@ -356,15 +383,27 @@
 | `ec.profile.welcome` | ようこそ！受付嬢セリアに話しかけて冒険を始めましょう。 | Welcome! Talk to Celia at the reception desk to begin your adventure. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.quest.accepted` | 依頼を受注しました。 | Quest accepted. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.quest.completed` | 依頼を達成しました！ | Quest completed! | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.quest.incomplete_hint` | <yellow>未達成の目標:</yellow> <objective> (<progress>/<amount>) | <yellow>Remaining objective:</yellow> <objective> (<progress>/<amount>) | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt | `<amount>`, `<objective>`, `<progress>` |
 | `ec.quest.name` | <name> | <name> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<name>` |
 | `ec.quest.none_active` | 受注中の依頼はありません。 | You have no active quests. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.quest.objective_progress` | ・<target> <progress>/<amount> | - <target> <progress>/<amount> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<amount>`, `<progress>`, `<target>` |
+| `ec.quest.progress_update` | <gold>[依頼進行]</gold> <name>: <objective> (<progress>/<amount>) | <gold>[Quest]</gold> <name>: <objective> (<progress>/<amount>) | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt | `<amount>`, `<name>`, `<objective>`, `<progress>` |
+| `ec.quest.ready_notice` | <green>[報告可能]</green> <name> の条件達成！ <yellow><npc></yellow> に話しかけて報告しましょう。 | <green>[Ready to Report]</green> <name> objectives complete! Talk to <yellow><npc></yellow>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt | `<name>`, `<npc>` |
 | `ec.quest.status` | 状態: <status> | Status: <status> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<status>` |
 | `ec.quest.status_active` | 進行中 | In progress | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.quest.status_complete` | 達成済み | Complete | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.quest.status_ready` | 報告できます | Ready to report | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.quest.unknown_name` | 依頼名不明 | Unknown quest | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
-| `ec.quest.unknown_target` | 不明な目標 | Unknown objective | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.quest.unknown_target` | 不明な目標 | Unknown objective | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt |  |
+| `ec.quest.verb_accept` | <target>から次の依頼を受ける | Accept next quest from <target> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt | `<target>` |
+| `ec.quest.verb_collect` | <target>を集める | Collect <target> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt | `<target>` |
+| `ec.quest.verb_enhance` | 装備を強化する（<target>） | Enhance gear (<target>) | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt | `<target>` |
+| `ec.quest.verb_explore` | <target>を探索する | Explore <target> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt | `<target>` |
+| `ec.quest.verb_fish` | <target>を釣る | Catch <target> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt | `<target>` |
+| `ec.quest.verb_gather` | <target>を採取する | Gather <target> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt | `<target>` |
+| `ec.quest.verb_kill` | <target>を討伐する | Defeat <target> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt | `<target>` |
+| `ec.quest.verb_report` | <target>に報告する | Report to <target> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt | `<target>` |
+| `ec.quest.verb_talk` | <target>に話しかける | Talk to <target> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/WayfindingController.kt | `<target>` |
 | `ec.rarity.common` | コモン | Common | src/main/kotlin/net/nakaymi/etherealchronicle/core/Game.kt |  |
 | `ec.rarity.epic` | エピック | Epic | src/main/kotlin/net/nakaymi/etherealchronicle/core/Game.kt |  |
 | `ec.rarity.legendary` | レジェンダリー | Legendary | src/main/kotlin/net/nakaymi/etherealchronicle/core/Game.kt |  |
@@ -435,6 +474,9 @@
 | `ec.skill.selected` | 選択: <skill> | Selected: <skill> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<skill>` |
 | `ec.skill.target_missing` | 射程内に魔物がいません。 | There is no enemy in range. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.skill.weapon_requirements` | この装備の条件を満たしていません。 | You do not meet this equipment's requirements. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.skill_slot.lore_cast` | <aqua>武器を持って右クリック: スキル発動 | <aqua>Right-click with weapon: Cast Skill | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.skill_slot.lore_cycle` | <yellow>Fキー / しゃがみ＋右クリック: スキル切替 | <yellow>F key / Sneak+Right-click: Cycle Skill | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.skill_slot.lore_guide` | <green>この星を右クリック: 次の目的地へ道案内 | <green>Right-click this star: Show Waypoint | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.startup.loading` | 冒険データを読み込んでいます… | Loading your adventure data… | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.startup.starting` | 冒険システムは起動中です。しばらくお待ちください。 | The adventure system is starting. Please wait. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.title.cleared` | 称号表示を解除しました。 | Displayed title cleared. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
@@ -447,6 +489,7 @@
 | `ec.treasure.empty` | この宝箱は空です。 | This treasure chest is empty. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/TreasureController.kt |  |
 | `ec.treasure.failed` | 宝箱を開けられません。 | Could not open the treasure chest. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/TreasureController.kt |  |
 | `ec.treasure.opened` | 隠し宝箱を開けました。通貨 +<currency>G | Opened a hidden treasure chest. Currency +<currency>G | src/main/kotlin/net/nakaymi/etherealchronicle/paper/TreasureController.kt | `<currency>` |
+| `ec.tutorial.controls` | <gold>[操作ガイド]</gold> <white>左クリック: 通常攻撃（弓・杖は遠距離） / 右クリック: スキル発動 / Fキー: スキル切替 / 9番の星を右クリック or /ec guide: 道案内 | <gold>[Controls]</gold> <white>Left-click: Basic Attack (Bows/Wands shoot ranged) \| Right-click weapon: Cast Skill \| F key: Cycle Skill \| Right-click Slot 9 Star or /ec guide: Waypoint | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 
 ## コンテンツYAMLの多言語化案
 クエスト名やアイテム名などの `name` はコンテンツ表示データです。英語用の名前が未定義なら、現行仕様では日本語名をそのまま表示します。状態ラベルや説明文などのUI文言は言語カタログから選びます。
