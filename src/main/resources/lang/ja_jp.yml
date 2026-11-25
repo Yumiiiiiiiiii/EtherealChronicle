@@ -243,6 +243,7 @@ ec:
     dungeon_required: "進捗の条件には有効なダンジョンIDが必要です。"
     dungeon_missing: "ダンジョンが見つかりません: <detail>"
     dungeon_already_inside: "既にダンジョン内です。"
+    dungeon_too_far: "ダンジョンの入口から遠すぎます。入口の近くへ移動してから入場してください。"
     party_leader_required: "パーティーリーダーが入場してください。"
     party_not_online: "パーティー全員がオンラインになってから入場してください。"
     party_gather: "仲間全員が近くに集まり、職業を選択してください。"

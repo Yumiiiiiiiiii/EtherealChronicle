@@ -217,6 +217,14 @@ class DungeonController internal constructor(
         tryCandidate(session, 0)
     }
 
+    /** プレイヤーが入口ポータルから遠い（入口周辺のチャンクが未ロードになり得る）かを返します。 */
+    private fun isFarFromPortal(player: Player, portal: OverworldDungeonPortal): Boolean {
+        val dx = player.location.x - portal.centerX
+        val dz = player.location.z - portal.centerZ
+        return player.world.name != plugin.activeWorldProjection.worldName() ||
+            dx * dx + dz * dz > PORTAL_NEAR_BLOCKS * PORTAL_NEAR_BLOCKS
+    }
+
     /** オーバーワールド入場の前提条件（ジャーナル・権限・座標・境界・候補スロット）を一括検証します。 */
     private fun prepareOverworldEntry(player: Player, dungeonId: String): OverworldEntrySession {
         val registry = plugin.activeWorldProjection.registry
@@ -281,7 +289,8 @@ class DungeonController internal constructor(
             )
         }
         check(returns.values.all { destination -> SafeStandingSpot.isSafe(destination) }) {
-            "ec.error.world_unavailable"
+            // 入口から遠いと出口チャンクが未ロードで安全確認に失敗します。原因が分かるよう専用メッセージにします。
+            if (isFarFromPortal(player, portal)) "ec.error.dungeon_too_far" else "ec.error.world_unavailable"
         }
         val (currentScanner, currentPlacement) = ensureOverworldTools(world)
         return OverworldEntrySession(
@@ -1643,6 +1652,8 @@ class DungeonController internal constructor(
         const val DEFAULT_DUNGEON_ID = "ec:dungeon_void_sanctum"
         /** 入場時の出現位置を、アリーナ中心から北（-Z）へずらす距離です。 */
         const val PLAYER_SPAWN_Z_OFFSET = -12
+        /** この距離を超えると「入口へ向かう」案内を出します（入口チャンクの未ロード判定用）。 */
+        const val PORTAL_NEAR_BLOCKS = 48.0
         const val RETURN_JOURNAL_FILE = "dungeon-returns.json"
         const val SCAN_BUDGET = 4_096
         const val RECOVERY_FREEZE_TIMEOUT_MILLIS = 10_000L

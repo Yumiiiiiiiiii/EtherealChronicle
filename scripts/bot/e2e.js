@@ -117,6 +117,15 @@ async function main() {
     record('death-no-gold-no-message', !sawChat(/lost \d+ gold/i, before), 'no loss message when gold is 0')
   })
 
+  // --- 4b. 入口から遠い場所での入場は、原因が分かるメッセージで拒否される ---
+  await step('dungeon-too-far-message', async () => {
+    send('/ec travel lumina_port'); await sleep(5000)
+    const before = chatLog.length
+    send('/ec dungeon enter ec:dungeon_novice_arena')
+    const ok = await waitFor(() => sawChat(/too far from the dungeon entrance/i, before), 15000)
+    record('dungeon-too-far-message', ok && pos().y < 150, `pos=${pos()}`)
+  })
+
   // --- 5. ダンジョン入退場（空中アリーナへ入り、地上へ戻る） ---
   await step('dungeon-enter-leave', async () => {
     send(`/ec flag ${name} ec:flag_early_trial_unlocked set`); await sleep(1500)

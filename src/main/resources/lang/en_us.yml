@@ -254,6 +254,7 @@ ec:
     dungeon_required: "The advancement condition requires a valid dungeon ID."
     dungeon_missing: "Dungeon not found: <detail>"
     dungeon_already_inside: "You are already in a dungeon."
+    dungeon_too_far: "You are too far from the dungeon entrance. Move near the entrance and try again."
     party_leader_required: "The party leader must enter."
     party_not_online: "All party members must be online before entering."
     party_gather: "Gather your party nearby and make sure everyone has selected a class."

@@ -145,6 +145,7 @@
 | `ec.error.dungeon_full` | 聖堂が満員です。しばらくお待ちください。 | The sanctuary is full. Please wait. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
 | `ec.error.dungeon_missing` | ダンジョンが見つかりません: <detail> | Dungeon not found: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonEntranceListener.kt | `<detail>` |
 | `ec.error.dungeon_required` | 進捗の条件には有効なダンジョンIDが必要です。 | The advancement condition requires a valid dungeon ID. | src/main/kotlin/net/nakaymi/etherealchronicle/core/WorldContent.kt |  |
+| `ec.error.dungeon_too_far` | ダンジョンの入口から遠すぎます。入口の近くへ移動してから入場してください。 | You are too far from the dungeon entrance. Move near the entrance and try again. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
 | `ec.error.dungeon_unlock_required` | 仲間全員がダンジョンへの道を開放してください。 | All party members must unlock access to the dungeon. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
 | `ec.error.enemy_missing` | 魔物が見つかりません。 | Enemy not found. | src/main/kotlin/net/nakaymi/etherealchronicle/core/GameService.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.error.enhance_budget_cap` | 装備のステータス予算上限に達しています。 | The equipment stat budget cap has been reached. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
