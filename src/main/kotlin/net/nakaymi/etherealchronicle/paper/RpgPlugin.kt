@@ -777,13 +777,13 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         ?: plain(message(player, "ec.content.unknown_name"))
     private fun isSkill(stack: ItemStack?) = stack?.itemMeta?.persistentDataContainer?.has(slotKey,PersistentDataType.BYTE) == true
     private fun skillSlot(p: Player) {
-        if(!isSkill(p.inventory.getItem(PlayerInventoryLayout.SKILL_HOTBAR_SLOT))) {
-            val old = p.inventory.getItem(PlayerInventoryLayout.SKILL_HOTBAR_SLOT)
-            if(old != null && adventure.bound(old)) {
+        val current = p.inventory.getItem(PlayerInventoryLayout.SKILL_HOTBAR_SLOT)
+        if(!isSkill(current)) {
+            if(current != null && adventure.bound(current)) {
                 val free=PlayerInventoryLayout.STORAGE_SLOT_RANGE.firstOrNull { PlayerInventoryLayout.isUsableStorageSlot(it) && p.inventory.getItem(it) == null }
                 if(free == null) { p.sendMessage(message(p,"ec.profile.skill_slot_space")); return }
-                p.inventory.setItem(free,old)
-            } else if(old != null) p.world.dropItemNaturally(p.location,old)
+                p.inventory.setItem(free,current)
+            } else if(current != null) p.world.dropItemNaturally(p.location,current)
             p.inventory.setItem(PlayerInventoryLayout.SKILL_HOTBAR_SLOT,ItemStack(Material.NETHER_STAR).apply { itemMeta = itemMeta.apply {
                 displayName(message(p,"ec.profile.skill_slot"))
                 lore(listOf(
@@ -793,6 +793,15 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 ))
                 persistentDataContainer.set(slotKey,PersistentDataType.BYTE,1)
             } })
+        } else {
+            current!!.editMeta {
+                it.displayName(message(p,"ec.profile.skill_slot"))
+                it.lore(listOf(
+                    message(p,"ec.skill_slot.lore_cycle"),
+                    message(p,"ec.skill_slot.lore_cast"),
+                    message(p,"ec.skill_slot.lore_guide"),
+                ))
+            }
         }
     }
     private fun equippedDefinitions(p: Player,profile: PlayerProfile): List<ItemDefinition> {
@@ -1016,7 +1025,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             profile.selectedSkill = profile.selectedSkill.coerceIn(0,c.skills.lastIndex)
             val skill = c.skills[profile.selectedSkill]
             wayfinding.tickPlayer(p, profile)
-            if(shouldSendClassHud(gatheringActive,fishingActive)) p.sendActionBar(message(p,"ec.hud.main", "hp" to p.health.toInt(), "max_hp" to s.hp.toInt(), "resource_name" to resourceName(p,c.resource), "resource" to profile.resource.toInt(), "max_resource" to s.resource.toInt(), "skill" to content.snapshot().skills[skill].name, "cooldown" to "%.1f".format(MinecraftTicks.millisToSeconds(game.skills.remaining(p.uniqueId,skill))), "party" to adventure.parties.members(p.uniqueId).size))
+            if(shouldSendClassHud(gatheringActive,fishingActive)) p.sendActionBar(message(p,"ec.hud.main", "hp" to p.health.toInt(), "max_hp" to s.hp.toInt(), "resource_name" to resourceName(p,c.resource), "resource" to profile.resource.toInt(), "max_resource" to s.resource.toInt(), "skill" to content.snapshot().skills[skill].let { contentText(p,"skill",it.id,"name",it.name) }, "cooldown" to "%.1f".format(MinecraftTicks.millisToSeconds(game.skills.remaining(p.uniqueId,skill))), "party" to adventure.parties.members(p.uniqueId).size))
           } catch(error: Exception) { logger.warning("HUD update failed ${p.uniqueId}: ${error.message}") }
         }
             if(++autosaveSeconds >= PaperTaskIntervals.PROFILE_AUTOSAVE_SECONDS) {
@@ -1035,6 +1044,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         if(e.hand != EquipmentSlot.HAND) return
         val p = e.player
         if(e.action.isLeftClick) {
+            if(e.useItemInHand() == Event.Result.DENY) return
             val profile = profiles[p.uniqueId] ?: return
             if(adventure.locked(p.uniqueId)) return
             val held = p.inventory.itemInMainHand
@@ -1049,7 +1059,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val profile = profiles[p.uniqueId] ?: run { e.isCancelled = true; return }
         if(p.inventory.heldItemSlot == PlayerInventoryLayout.SKILL_HOTBAR_SLOT && isSkill(p.inventory.itemInMainHand)) {
             e.isCancelled = true
-            if(p.isSneaking) cycle(p) else wayfinding.showGuide(p, profile, spawnTrail = true)
+            if(p.isSneaking) cycle(p) else wayfinding.showGuide(p, profile, spawnTrail = true, throttled = true)
             return
         }
         if(e.clickedBlock?.type?.isInteractable == true && !p.isSneaking) return
@@ -1065,7 +1075,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val result=castSkill(p,target)
         if(result != CastResult.SUCCESS) p.sendMessage(message(p,when(result) { CastResult.RESOURCE -> "ec.skill.resource_low"; CastResult.INVALID_TARGET -> "ec.skill.target_missing"; else -> "ec.skill.cooldown" }))
     }
-    /** ???????????????????????????RPG??????????? */
+    /** 弓・杖などの遠距離武器で左クリックした際、照準先の敵へRPG通常攻撃を発射します。 */
     internal fun rangedBasicAttack(player: Player, isBow: Boolean): Boolean {
         val profile = profiles[player.uniqueId] ?: return false
         if(profile.classId == null || adventure.locked(profile.uuid)) return false

@@ -65,6 +65,8 @@ internal class WayfindingController(private val plugin: RpgPlugin) {
     private val lastAreaByPlayer = mutableMapOf<UUID, String?>()
     private val scoreboards = mutableMapOf<UUID, Scoreboard>()
     private val lastRenderedLines = mutableMapOf<UUID, List<String>>()
+    private val guideCooldownUntil = mutableMapOf<UUID, Long>()
+    private val trailCooldownUntil = mutableMapOf<UUID, Long>()
 
     /** 毎秒のプレイヤーループからエリア到着バナー・サイドバー・NPC目印パーティクルを更新します。 */
     fun tickPlayer(player: Player, profile: PlayerProfile) {
@@ -89,7 +91,14 @@ internal class WayfindingController(private val plugin: RpgPlugin) {
     }
 
     /** `/ec guide` またはスキルスロット右クリック時に現在地・目標・方角と光の道しるべを表示します。 */
-    fun showGuide(player: Player, profile: PlayerProfile, spawnTrail: Boolean = true) {
+    fun showGuide(player: Player, profile: PlayerProfile, spawnTrail: Boolean = true, throttled: Boolean = false) {
+        val now = System.currentTimeMillis()
+        if (throttled) {
+            val readyAt = guideCooldownUntil[player.uniqueId] ?: 0L
+            if (now < readyAt) return
+            guideCooldownUntil[player.uniqueId] = now + GUIDE_COOLDOWN_MILLIS
+        }
+
         val area = currentArea(player)
         val areaName = area?.let { plugin.contentText(player, "area", it.id, "name", it.name) }
             ?: plugin.message(player, "ec.area.unknown").plainText()
@@ -260,9 +269,12 @@ internal class WayfindingController(private val plugin: RpgPlugin) {
         }
     }
 
-    /** プレイヤーから目的地方向へ金色の道しるべパーティクルを数秒間表示します。 */
+    /** プレイヤーから目的地方向へ金色の道しるべパーティクルを数秒間表示します（連続呼び出しを抑制）。 */
     fun spawnBreadcrumbTrail(player: Player, target: Location) {
         if (!plugin.isEnabled || target.world != player.world) return
+        val now = System.currentTimeMillis()
+        if (now < (trailCooldownUntil[player.uniqueId] ?: 0L)) return
+        trailCooldownUntil[player.uniqueId] = now + TRAIL_COOLDOWN_MILLIS
         val dust = Particle.DustOptions(Color.fromRGB(255, 215, 70), 1.15f)
         for (pulse in 0 until 3) {
             runCatching {
@@ -298,15 +310,28 @@ internal class WayfindingController(private val plugin: RpgPlugin) {
     /** プレイヤー切断時に追跡状態とサイドボード参照を解放します。 */
     fun clearPlayer(playerId: UUID) {
         lastAreaByPlayer.remove(playerId)
-        scoreboards.remove(playerId)
+        val board = scoreboards.remove(playerId)
         lastRenderedLines.remove(playerId)
+        guideCooldownUntil.remove(playerId)
+        trailCooldownUntil.remove(playerId)
+        if (board != null) {
+            runCatching {
+                val player = Bukkit.getPlayer(playerId)
+                if (player != null && player.scoreboard === board) {
+                    player.scoreboard = Bukkit.getScoreboardManager().mainScoreboard
+                }
+            }
+        }
     }
 
-    /** プラグイン終了時にキャッシュをクリアします。 */
+    /** プラグイン終了時に全プレイヤーのサイドボードをメインへ戻しキャッシュをクリアします。 */
     fun close() {
+        scoreboards.keys.toList().forEach(::clearPlayer)
         lastAreaByPlayer.clear()
         scoreboards.clear()
         lastRenderedLines.clear()
+        guideCooldownUntil.clear()
+        trailCooldownUntil.clear()
     }
 
     private fun currentArea(player: Player): Area? {
@@ -350,9 +375,9 @@ internal class WayfindingController(private val plugin: RpgPlugin) {
         val lines = mutableListOf<String>()
         lines += plugin.message(player, "ec.guide.scoreboard_area", "area" to areaName).plainText()
         if (guide != null) {
-            lines += "✦ ${guide.questName}".take(38)
+            lines += "✦ ${guide.questName}".take(35)
             val obj = formatObjective(player, guide.actionKind, guide.targetName).plainText()
-            lines += "▸ $obj (${guide.progress}/${guide.amount})".take(38)
+            lines += "▸ $obj (${guide.progress}/${guide.amount})".take(35)
             if (targetLoc != null && targetLoc.world == player.world) {
                 val dx = targetLoc.x - player.location.x
                 val dz = targetLoc.z - player.location.z
@@ -367,7 +392,7 @@ internal class WayfindingController(private val plugin: RpgPlugin) {
         lastRenderedLines[player.uniqueId] = lines
 
         runCatching {
-            val manager = Bukkit.getScoreboardManager() ?: return
+            val manager = Bukkit.getScoreboardManager()
             val board = scoreboards.getOrPut(player.uniqueId) { manager.newScoreboard }
             val title = plugin.message(player, "ec.guide.scoreboard_title")
             val objective = board.getObjective("ec_guide")?.also { it.displayName(title) }
@@ -377,11 +402,11 @@ internal class WayfindingController(private val plugin: RpgPlugin) {
             board.entries.toList().forEach(board::resetScores)
             val seen = mutableSetOf<String>()
             lines.forEachIndexed { idx, raw ->
-                var entry = raw.ifBlank { " " }
-                while (!seen.add(entry)) {
+                var entry = raw.ifBlank { " " }.take(35)
+                while (!seen.add(entry) && entry.length < 40) {
                     entry += " "
                 }
-                objective.getScore(entry.take(40)).score = lines.size - idx
+                objective.getScore(entry).score = lines.size - idx
             }
             if (player.scoreboard !== board) {
                 player.scoreboard = board
@@ -407,6 +432,8 @@ internal class WayfindingController(private val plugin: RpgPlugin) {
 
     companion object {
         private const val NPC_BEACON_RANGE_SQUARED = 48.0 * 48.0
+        private const val GUIDE_COOLDOWN_MILLIS = 1_500L
+        private const val TRAIL_COOLDOWN_MILLIS = 1_500L
 
         internal fun toActionKind(kind: ObjectiveKind): GuideActionKind = when (kind) {
             ObjectiveKind.TALK -> GuideActionKind.TALK

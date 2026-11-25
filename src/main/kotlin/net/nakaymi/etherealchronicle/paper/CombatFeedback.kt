@@ -23,7 +23,7 @@ import kotlin.random.Random
 
 /** 攻撃命中時の視覚・聴覚フィードバック、浮遊ダメージ表示、通常敵ターゲットHPバーを管理します。 */
 internal class CombatFeedback(private val plugin: RpgPlugin) {
-    private data class TargetBarEntry(val bar: BossBar, var targetId: UUID, var expiresAtMillis: Long)
+    private data class TargetBarEntry(val bar: BossBar, var expiresAtMillis: Long)
     private data class FloatingIndicator(val entity: TextDisplay, var remainingTicks: Int)
 
     private val targetBars = mutableMapOf<UUID, TargetBarEntry>()
@@ -102,7 +102,7 @@ internal class CombatFeedback(private val plugin: RpgPlugin) {
             val enemyName = enemyDef?.let {
                 plugin.contentText(attacker, if (it.boss) "boss" else "enemy", it.id, "name", it.name)
             } ?: target.name
-            updateTargetBar(attacker, target, enemyName, remainingHp, maxHp, killed)
+            updateTargetBar(attacker, enemyName, remainingHp, maxHp, killed)
         }
     }
 
@@ -210,15 +210,16 @@ internal class CombatFeedback(private val plugin: RpgPlugin) {
                 td.isShadowed = true
                 td.isSeeThrough = false
                 td.isPersistent = false
+                td.isVisibleByDefault = false
                 td.backgroundColor = Color.fromARGB(0, 0, 0, 0)
             }
+            attacker.showEntity(plugin, display)
             indicators += FloatingIndicator(display, INDICATOR_LIFETIME_TICKS)
         }
     }
 
     private fun updateTargetBar(
         attacker: Player,
-        target: LivingEntity,
         enemyName: String,
         remainingHp: Double,
         maxHp: Double,
@@ -248,7 +249,7 @@ internal class CombatFeedback(private val plugin: RpgPlugin) {
         if (attacker !in bar.players) bar.addPlayer(attacker)
 
         val ttl = if (killed) KILLED_BAR_TTL_MILLIS else TARGET_BAR_TTL_MILLIS
-        targetBars[attacker.uniqueId] = TargetBarEntry(bar, target.uniqueId, System.currentTimeMillis() + ttl)
+        targetBars[attacker.uniqueId] = TargetBarEntry(bar, System.currentTimeMillis() + ttl)
     }
 
     private fun drawBeam(world: org.bukkit.World, start: Location, end: Location, dust: Particle.DustOptions) {
