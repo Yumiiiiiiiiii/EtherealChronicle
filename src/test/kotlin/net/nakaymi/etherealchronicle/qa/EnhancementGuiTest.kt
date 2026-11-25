@@ -20,7 +20,7 @@ class EnhancementGuiTest {
     @Test fun `enhancement consumes material and currency once then persists item level`() {
         val server=MockBukkit.mock()
         try {
-            val world=OwnedWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
+            val world=net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             java.io.File(world.worldFolder, ".etherealchronicle-built").writeText("v4\n")
             val plugin=MockBukkit.load(RpgPlugin::class.java)
             val player=QaPlayerMock(server,"Smith",UUID.randomUUID()); server.addPlayer(player)

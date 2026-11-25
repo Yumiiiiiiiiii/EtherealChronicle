@@ -267,7 +267,6 @@ class GatheringController(private val plugin: RpgPlugin) : Listener {
         sitesById.clear()
         sitesByChunk.clear()
         pendingPointsByChunk.clear()
-        val overworld = plugin.activeWorldProjection.registry.isOverworldMode()
         val activeWorld = plugin.activeWorldProjection.worldName()
         val projector = plugin.activeWorldProjection.projector
         plugin.snapshot.world.gatheringNodes.values.forEach { node ->
@@ -275,7 +274,7 @@ class GatheringController(private val plugin: RpgPlugin) : Listener {
                 val resolved = projectedSite(node, point)
                 if (resolved != null) {
                     registerSite(resolved)
-                } else if (overworld) {
+                } else {
                     val source = Position(point.world, point.x.toDouble(), point.y.toDouble(), point.z.toDouble())
                     val horizontal = projector.projectHorizontal(source, point.area)
                     if (horizontal != null && horizontal.world == activeWorld) {
@@ -289,7 +288,6 @@ class GatheringController(private val plugin: RpgPlugin) : Listener {
 
     private fun rebuildPendingPoints() {
         pendingPointsByChunk.clear()
-        if (!plugin.activeWorldProjection.registry.isOverworldMode()) return
         val activeWorld = plugin.activeWorldProjection.worldName()
         val projector = plugin.activeWorldProjection.projector
         plugin.snapshot.world.gatheringNodes.values.forEach { node ->
@@ -409,7 +407,7 @@ class GatheringController(private val plugin: RpgPlugin) : Listener {
             if (managed && entity.uniqueId !in activeDisplayIds) entity.remove()
         }
         val chunkCoord = ChunkCoordinates(e.chunk.x, e.chunk.z)
-        if (plugin.activeWorldProjection.registry.isOverworldMode() && plugin.isActiveWorld(e.world)) {
+        if (plugin.isActiveWorld(e.world)) {
             val pending = pendingPointsByChunk.remove(chunkCoord)
             if (!pending.isNullOrEmpty()) {
                 val stillPending = mutableListOf<PendingPoint>()

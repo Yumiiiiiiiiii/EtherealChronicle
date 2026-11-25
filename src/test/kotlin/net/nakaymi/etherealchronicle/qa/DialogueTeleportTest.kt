@@ -30,7 +30,7 @@ class DialogueTeleportTest {
     fun `global airship dialogue choices teleport only after chapter two starts`() {
         val server=MockBukkit.mock()
         try {
-            val world=OwnedWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
+            val world=net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             java.io.File(world.worldFolder, ".etherealchronicle-built").writeText("v4\n")
             val plugin=MockBukkit.load(RpgPlugin::class.java)
             val player=PlayerMock(server,"Airship",UUID.nameUUIDFromBytes("airship".toByteArray()))

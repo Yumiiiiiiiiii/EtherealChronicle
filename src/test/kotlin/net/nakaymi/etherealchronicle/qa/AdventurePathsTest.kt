@@ -57,7 +57,7 @@ class AdventurePathsTest {
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             server.pump { plugin.isReadyForGameplay }
-            val world = server.addSimpleWorld(net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
+            val world = net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             val uuid = UUID.nameUUIDFromBytes("qa-shop".toByteArray())
             val player = PlayerMock(server, "QaShopper", uuid)
             equipFillers(player); server.addPlayer(player)

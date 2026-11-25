@@ -51,9 +51,10 @@ class GatheringLifeTest {
     fun gatheringPaths() {
         val server = MockBukkit.mock()
         try {
+            // 採集地点はプラグイン起動時にワールドが存在して初めて登録されるため、先にワールドを用意する
+            val world = net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             server.pump { runCatching { plugin.snapshot; plugin.enemies; true }.getOrDefault(false) }
-            val world = OwnedWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             val nodeLoc = plugin.snapshot.world.gatheringNodes.getValue("ec:node_ashwood_herb").locations.first()
             val ground = world.getBlockAt(nodeLoc.x, nodeLoc.y - 1, nodeLoc.z).also { it.type = Material.GRASS_BLOCK }
             val itemKey = NamespacedKey(plugin, "item_id")

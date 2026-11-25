@@ -22,9 +22,6 @@ internal fun classSelectionCanReopen(classId: String?): Boolean = classId == nul
 /** Paper DialogのmultiActionを選択肢のない定義で作らないよう判定します。 */
 internal fun paperDialogueHasChoices(choiceCount: Int): Boolean = choiceCount > 0
 
-/** instance枠で前回と異なるパレットが必要かを比較します。 */
-internal fun dungeonPaletteNeedsBuild(previous: List<String>?, requested: List<String>): Boolean = previous != requested
-
 /** 未ロード地点へNPCを生成してチャンクを強制ロードしないための判定です。 */
 internal fun npcChunkMaySpawn(isLoaded: Boolean): Boolean = isLoaded
 

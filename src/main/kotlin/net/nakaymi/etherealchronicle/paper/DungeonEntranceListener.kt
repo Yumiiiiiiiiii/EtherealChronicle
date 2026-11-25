@@ -38,7 +38,7 @@ class DungeonEntranceListener internal constructor(
     /** 完成済み入口へ外側から徒歩で入った場合だけ、次 tick で入場処理を呼びます。 */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     fun move(event: PlayerMoveEvent) {
-        if (event is PlayerTeleportEvent || !registry.isOverworldMode() || !registry.isReady()) return
+        if (event is PlayerTeleportEvent || !registry.isReady()) return
         val from = event.from
         val to = event.to
         if (from.world != to.world) return

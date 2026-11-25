@@ -54,7 +54,7 @@ class FlagReviveReconnectTest {
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             server.pump { plugin.isReadyForGameplay }
-            val world = server.addSimpleWorld(net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
+            val world = net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             val enemyKey = NamespacedKey(plugin, "enemy_id"); val itemKey = NamespacedKey(plugin, "item_id")
             val a = join(server, plugin, "FrrA"); val b = join(server, plugin, "FrrB")
             // far away from every chapter area: the Lumina safe zone would cancel all damage events

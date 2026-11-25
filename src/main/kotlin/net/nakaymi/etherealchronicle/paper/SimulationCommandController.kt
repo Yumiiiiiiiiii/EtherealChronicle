@@ -92,7 +92,6 @@ internal class SimulationCommandController(private val plugin: RpgPlugin) {
         val key = when (plugin.dungeons.releaseProtectedSlot(slot)) {
             DungeonSlotReleaseResult.CLEANING -> "ec.dungeon.release_started"
             DungeonSlotReleaseResult.RELEASED -> "ec.dungeon.release_done"
-            DungeonSlotReleaseResult.NOT_OVERWORLD -> "ec.dungeon.release_not_overworld"
             DungeonSlotReleaseResult.ACTIVE -> "ec.dungeon.release_active"
             DungeonSlotReleaseResult.CLEANING_IN_PROGRESS -> "ec.dungeon.release_cleaning"
             DungeonSlotReleaseResult.NOT_FOUND -> "ec.dungeon.release_not_found"

@@ -127,10 +127,6 @@ class OverworldAnchorProjectorTest {
         assertEquals(Position("world", 301.0, 71.0, -198.0), projectedSpot.center)
         assertEquals(GatheringLocation("ec:g1", lumina.id, "world", 303, 71, -204), projector.projectGatheringLocation(gather))
         assertEquals(Position("world", 305.0, 71.0, -195.0), projector.projectTreasure(chest)?.position)
-
-        val dedicated = OverworldAnchorProjector(listOf(lumina), FixedSiteRegistry(WorldIds.DEMO, listOf(lumina))) { _, _ -> 99 }
-        assertEquals(npc, dedicated.projectNpc(npc))
-        assertEquals(lumina, dedicated.projectArea(lumina))
     }
 
     @Test
@@ -200,11 +196,6 @@ class OverworldAnchorProjectorTest {
         assertNull(projector.fishingWaterCenter(pendingSpot))
         assertNull(projector.projectFishingSpot(pendingSpot))
         assertNull(projector.fishingWaterCenter(mismatchedWorldSpot))
-
-        // dedicated_ec_world モードでは従来どおり無変換
-        val dedicated = OverworldAnchorProjector(listOf(lumina), FixedSiteRegistry(WorldIds.DEMO, listOf(lumina))) { _, _ -> 99 }
-        assertNull(dedicated.fishingWaterCenter(defaultSpot))
-        assertEquals(defaultSpot, dedicated.projectFishingSpot(defaultSpot))
     }
 
     private class MutableOverworldRegistry(
@@ -220,7 +211,6 @@ class OverworldAnchorProjectorTest {
         }
 
         override fun activeWorldName(): String = worldName
-        override fun isOverworldMode(): Boolean = true
         override fun isReady(): Boolean = currentList.all { it.status == OverworldSiteStatus.READY }
         override fun siteForArea(areaId: String): OverworldSiteAnchor? = byArea[areaId]
         override fun allSites(): List<OverworldSiteAnchor> = currentList

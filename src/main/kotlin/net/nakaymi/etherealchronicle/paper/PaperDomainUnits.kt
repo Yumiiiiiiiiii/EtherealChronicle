@@ -171,44 +171,6 @@ internal object ChestLayout {
     const val BACKGROUND_WIDTH_PIXELS = 176
 }
 
-/** インスタンスダンジョンの区画間隔、建築寸法、保護境界を一元管理します。 */
-internal object DungeonArenaLayout {
-    const val FIRST_CENTER_X = 1_024
-    const val CENTER_Z = 1_024
-    const val SLOT_SPACING_BLOCKS = 192
-    const val PLATFORM_RADIUS_BLOCKS = 24
-    const val INNER_FLOOR_RADIUS_BLOCKS = 2
-    const val OUTER_FLOOR_PALETTE_INDEX = 0
-    const val WALL_PALETTE_INDEX = 1
-    const val INNER_FLOOR_PALETTE_INDEX = 2
-    const val FLOOR_Y = 64
-    const val PLAYER_SPAWN_Y = 65
-    const val ENTITY_SPAWN_Y = 65
-    const val SCHEMATIC_ORIGIN_OFFSET_BLOCKS = 27
-    const val SCHEMATIC_ORIGIN_Y = 54
-    const val SCHEMATIC_WIDTH_BLOCKS = 55
-    const val SCHEMATIC_HEIGHT_BLOCKS = 34
-    const val SCHEMATIC_LENGTH_BLOCKS = 55
-    const val WALL_BOTTOM_Y = 65
-    const val WALL_TOP_Y = 68
-    const val PLAYER_SPAWN_Z_OFFSET = -12
-    const val BOUNDARY_RADIUS_BLOCKS = 30.0
-    const val RECOVERY_MIN_COORDINATE = 900.0
-    const val VOID_RECOVERY_Y = 0.0
-
-    data class Origin(val x: Int, val z: Int)
-
-    fun centerX(slot: Int): Int = FIRST_CENTER_X + slot * SLOT_SPACING_BLOCKS
-
-    fun originForSlot(slot: Int): Origin = Origin(centerX(slot), CENTER_Z)
-
-    fun contains(x: Double, z: Double, slot: Int): Boolean =
-        kotlin.math.abs(x - centerX(slot)) <= BOUNDARY_RADIUS_BLOCKS &&
-            kotlin.math.abs(z - CENTER_Z) <= BOUNDARY_RADIUS_BLOCKS
-
-    fun isInsideBounds(location: Location, slot: Int): Boolean = contains(location.x, location.z, slot)
-}
-
 /** ダンジョンアリーナSchematicのresource対応を定義します。 */
 internal object WorldSchematicLayout {
     /** Dungeon IDから対応するアリーナresourceを引きます。 */

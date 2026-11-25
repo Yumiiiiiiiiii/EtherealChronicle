@@ -1,6 +1,5 @@
 package net.nakaymi.etherealchronicle.paper
 
-import net.nakaymi.etherealchronicle.core.WorldIds
 import net.nakaymi.etherealchronicle.core.DungeonBoxScanResult
 import net.nakaymi.etherealchronicle.core.DungeonDefinition
 import net.nakaymi.etherealchronicle.core.DungeonInstanceBounds
@@ -37,7 +36,6 @@ import java.util.UUID
 internal enum class DungeonSlotReleaseResult {
     CLEANING,
     RELEASED,
-    NOT_OVERWORLD,
     ACTIVE,
     CLEANING_IN_PROGRESS,
     NOT_FOUND,
@@ -56,16 +54,6 @@ class DungeonController internal constructor(
         enemies: EnemyController,
     ) : this(plugin, adventure, enemies, ::monotonicMillis)
 
-    private data class ArenaPalette(val floor: Material, val wall: Material, val inner: Material) {
-        companion object {
-            fun resolve(names: List<String>) = ArenaPalette(
-                Material.valueOf(names[DungeonArenaLayout.OUTER_FLOOR_PALETTE_INDEX]),
-                Material.valueOf(names[DungeonArenaLayout.WALL_PALETTE_INDEX]),
-                Material.valueOf(names[DungeonArenaLayout.INNER_FLOOR_PALETTE_INDEX]),
-            )
-        }
-    }
-
     /** 稼働中ダンジョンインスタンスの状態と参加者を保持します。 */
     data class Instance(
         val slot: Int,
@@ -78,9 +66,8 @@ class DungeonController internal constructor(
         var waveIndex: Int = 0,
         val entities: MutableSet<UUID> = mutableSetOf(),
         val startedAtMillis: Long = monotonicMillis(),
-        val overworld: Boolean = false,
         var timingOut: Boolean = false,
-        val unreturnedMembers: MutableSet<UUID> = if (overworld) members.toMutableSet() else mutableSetOf(),
+        val unreturnedMembers: MutableSet<UUID> = members.toMutableSet(),
         var timeoutRetryAttempts: Int = 0,
         var lastTimeoutRetryTick: Long = Long.MIN_VALUE,
     )
@@ -104,9 +91,7 @@ class DungeonController internal constructor(
     private val instances = mutableMapOf<Int, Instance>()
     private val memberToSlot = mutableMapOf<UUID, Int>()
     private var tick = 0L
-    private val builtPalette = mutableMapOf<Int, List<String>>()
     private val loadedSchematics = mutableMapOf<String, SchematicData>()
-    private val schematicSlots = mutableSetOf<Int>()
     private val slotTracker = DungeonSlotTracker()
     private val pendingReturns = mutableMapOf<UUID, DungeonReturnRecord>()
     private val ownedSlots = mutableMapOf<Int, DungeonOwnedSlot>()
@@ -132,11 +117,7 @@ class DungeonController internal constructor(
     init {
         plugin.server.pluginManager.registerEvents(this, plugin)
         adventure.enterDungeon = { player, id -> enter(player, id) }
-        if (plugin.activeWorldProjection.registry.isOverworldMode()) {
-            initializeOverworldRuntime()
-        } else {
-            journalReady = true
-        }
+        initializeOverworldRuntime()
     }
 
     /** オーバーワールド稼働時のみ帰還ジャーナル・所有スロット回収・空中レイアウト検証を初期化します。 */
@@ -203,13 +184,12 @@ class DungeonController internal constructor(
 
     /** 帰還記録が読み込まれるまで入場・ログイン時の転送を保留します。 */
     fun whenJournalReady(action: () -> Unit) {
-        if (!plugin.activeWorldProjection.registry.isOverworldMode() || journalReady) action()
+        if (journalReady) action()
         else journalWaiters += action
     }
 
     /** 未確定記録の所有者は初回スポーン処理の対象から外します。 */
-    fun hasPendingReturn(id: UUID): Boolean = plugin.activeWorldProjection.registry.isOverworldMode() &&
-        (!journalReady || id in pendingReturns)
+    fun hasPendingReturn(id: UUID): Boolean = !journalReady || id in pendingReturns
 
     /** リスポーン処理の振り分けに、現在の参加状態を O(1) で公開します。 */
     fun containsPlayer(id: UUID): Boolean = id in memberToSlot
@@ -223,92 +203,7 @@ class DungeonController internal constructor(
     internal fun currentOverworldLayout(): OverworldDungeonInstanceLayout = overworldLayout
 
     /** 参加者・解放条件・instance枠を検証してダンジョンへ入場させます。 */
-    fun enter(player: Player, dungeonId: String = DEFAULT_DUNGEON_ID) {
-        if (plugin.activeWorldProjection.registry.isOverworldMode()) {
-            enterOverworld(player, dungeonId)
-            return
-        }
-        val definition = plugin.snapshot.world.dungeons[dungeonId] ?: error("ec.error.dungeon_missing: $dungeonId")
-        require(!containsPlayer(player.uniqueId)) { "ec.error.dungeon_already_inside" }
-        val party = adventure.parties.party(player.uniqueId)
-        require(party == null || party.leader == player.uniqueId) { "ec.error.party_leader_required" }
-        val players = adventure.parties.members(player.uniqueId).map {
-            Bukkit.getPlayer(it) ?: error("ec.error.party_not_online")
-        }
-        require(players.all { p ->
-            p.world == player.world &&
-                p.location.isWithinBlocks(player.location, PaperDistance.DUNGEON_PARTY_GATHER_BLOCKS) &&
-                plugin.profiles[p.uniqueId]?.classId != null
-        }) { "ec.error.party_gather" }
-        require(players.all { definition.unlockFlag in plugin.profiles.getValue(it.uniqueId).flags }) {
-            "ec.error.dungeon_unlock_required"
-        }
-        val world = Bukkit.getWorld(WorldIds.DEMO) ?: error("ec.error.world_unavailable")
-        val slot = (0 until plugin.snapshot.world.tuning.instanceCap).firstOrNull { it !in instances }
-            ?: error("ec.error.dungeon_full")
-        val instance = Instance(
-            slot = slot,
-            definition = definition,
-            members = players.map { it.uniqueId }.toMutableSet(),
-            returns = players.associate { it.uniqueId to it.location.clone() },
-            started = tick,
-        )
-        val origin = DungeonArenaLayout.originForSlot(slot)
-        val x = origin.x
-        val z = origin.z
-        val schematicPlaced = placeDungeonSchematic(world, definition.id, x, z)
-        if (!schematicPlaced && dungeonPaletteNeedsBuild(builtPalette[slot], definition.palette)) {
-            val palette = ArenaPalette.resolve(definition.palette)
-            for (dx in -DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS..DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS) {
-                for (dz in -DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS..DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS) {
-                    val edge = kotlin.math.abs(dx) == DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS ||
-                        kotlin.math.abs(dz) == DungeonArenaLayout.PLATFORM_RADIUS_BLOCKS
-                    val center = kotlin.math.abs(dx) <= DungeonArenaLayout.INNER_FLOOR_RADIUS_BLOCKS &&
-                        kotlin.math.abs(dz) <= DungeonArenaLayout.INNER_FLOOR_RADIUS_BLOCKS
-                    world.getBlockAt(x + dx, DungeonArenaLayout.FLOOR_Y, z + dz).type =
-                        if (center) palette.inner else palette.floor
-                    if (edge) {
-                        for (y in DungeonArenaLayout.WALL_BOTTOM_Y..DungeonArenaLayout.WALL_TOP_Y) {
-                            world.getBlockAt(x + dx, y, z + dz).type = palette.wall
-                        }
-                    }
-                }
-            }
-            builtPalette[slot] = definition.palette.toList()
-        }
-        instances[slot] = instance
-        instance.members.forEach { memberToSlot[it] = slot }
-        try {
-            spawnWave(instance, world, x, z)
-        } catch (error: Exception) {
-            close(instance)
-            throw error
-        }
-        players.forEach { p ->
-            plugin.profiles[p.uniqueId]?.let { profile ->
-                plugin.game.quests.event(
-                    profile,
-                    ObjectiveKind.EXPLORE,
-                    definition.area,
-                    1,
-                    plugin.inventory(p),
-                    false,
-                )
-                plugin.markDirty(profile.uuid)
-            }
-        }
-        players.forEach { member ->
-            member.teleport(
-                Location(
-                    world,
-                    x.toDouble(),
-                    DungeonArenaLayout.PLAYER_SPAWN_Y.toDouble(),
-                    (z + DungeonArenaLayout.PLAYER_SPAWN_Z_OFFSET).toDouble(),
-                ),
-            )
-            member.sendMessage(plugin.message(member, "ec.dungeon.entry", "message" to plugin.contentText(member, "dungeon", definition.id, "entry_message", definition.entryMessage)))
-        }
-    }
+    fun enter(player: Player, dungeonId: String = DEFAULT_DUNGEON_ID) = enterOverworld(player, dungeonId)
 
     /** 地上入口から空中枠を全域検査し、所有証跡と帰還記録の永続化後だけ転送します。 */
     private fun enterOverworld(player: Player, dungeonId: String) {
@@ -705,7 +600,6 @@ class DungeonController internal constructor(
             members = session.players.map { it.uniqueId }.toMutableSet(),
             returns = session.returns,
             started = tick,
-            overworld = true,
         )
         instances[slot] = instance
         instance.members.forEach { memberToSlot[it] = slot }
@@ -737,7 +631,7 @@ class DungeonController internal constructor(
                 session.world,
                 center.x + 0.5,
                 center.y.toDouble() + 1.0,
-                center.z + DungeonArenaLayout.PLAYER_SPAWN_Z_OFFSET + 0.5,
+                center.z + PLAYER_SPAWN_Z_OFFSET + 0.5,
             )
             val transferred = runCatching { member.teleport(spawnLocation) }.getOrDefault(false)
             if (transferred) {
@@ -865,52 +759,6 @@ class DungeonController internal constructor(
         return resolved
     }
 
-    /** 対応する同梱アリーナがあれば slot 区画を初期化して配置します。 */
-    private fun placeDungeonSchematic(world: World, dungeonId: String, centerX: Int, centerZ: Int): Boolean {
-        val path = WorldSchematicLayout.dungeonPath(dungeonId) ?: return false
-        val schematic = loadedSchematics[path] ?: runCatching { SchematicResources.load(path) }
-            .onFailure { plugin.logger.warning("Could not read dungeon schematic $path: ${it.message}") }
-            .getOrNull()?.also { loadedSchematics[path] = it } ?: return false
-        if (schematic.width != DungeonArenaLayout.SCHEMATIC_WIDTH_BLOCKS ||
-            schematic.height != DungeonArenaLayout.SCHEMATIC_HEIGHT_BLOCKS ||
-            schematic.length != DungeonArenaLayout.SCHEMATIC_LENGTH_BLOCKS
-        ) {
-            plugin.logger.warning(
-                "Dungeon schematic has unexpected dimensions: $path " +
-                    "(${schematic.width}x${schematic.height}x${schematic.length})",
-            )
-            return false
-        }
-        val x = centerX - DungeonArenaLayout.SCHEMATIC_ORIGIN_OFFSET_BLOCKS
-        val y = DungeonArenaLayout.SCHEMATIC_ORIGIN_Y
-        val z = centerZ - DungeonArenaLayout.SCHEMATIC_ORIGIN_OFFSET_BLOCKS
-        clearSchematicArena(world, x, y, z)
-        return runCatching {
-            SchematicPlacer.place(schematic, world, x, y, z, skipAir = false) { message, error ->
-                plugin.logger.warning(if (error == null) message else "$message: ${error.message}")
-            }
-            schematicSlots += (centerX - DungeonArenaLayout.FIRST_CENTER_X) / DungeonArenaLayout.SLOT_SPACING_BLOCKS
-            true
-        }.getOrElse { error ->
-            clearSchematicArena(world, x, y, z)
-            plugin.logger.warning(
-                "Could not place dungeon schematic $path; using procedural fallback: ${error.message}",
-            )
-            false
-        }
-    }
-
-    /** インスタンス専用の立方領域を空にして、前回の内容を残しません。 */
-    private fun clearSchematicArena(world: World, originX: Int, originY: Int, originZ: Int) {
-        for (y in 0 until DungeonArenaLayout.SCHEMATIC_HEIGHT_BLOCKS) {
-            for (z in 0 until DungeonArenaLayout.SCHEMATIC_LENGTH_BLOCKS) {
-                for (x in 0 until DungeonArenaLayout.SCHEMATIC_WIDTH_BLOCKS) {
-                    world.getBlockAt(originX + x, originY + y, originZ + z).setType(Material.AIR, false)
-                }
-            }
-        }
-    }
-
     private fun spawnWave(instance: Instance, world: World, x: Int, z: Int) {
         val definition = instance.definition
         val wave = definition.waves.getOrNull(instance.waveIndex)
@@ -919,11 +767,7 @@ class DungeonController internal constructor(
         val guards = wave?.guards ?: definition.guards
         val offsets = wave?.guardOffsets ?: definition.guardOffsets
         val spawned = mutableListOf<org.bukkit.entity.LivingEntity>()
-        val spawnY = if (instance.overworld) {
-            overworldLayout.center(instance.slot).y + 1.0
-        } else {
-            DungeonArenaLayout.ENTITY_SPAWN_Y.toDouble()
-        }
+        val spawnY = overworldLayout.center(instance.slot).y + 1.0
         try {
             val boss = enemies.spawn(
                 bossId,
@@ -1042,16 +886,7 @@ class DungeonController internal constructor(
 
     private fun leaveInternal(player: Player, forceFallback: Boolean) {
         val instance = instanceForPlayer(player.uniqueId) ?: return
-        if (instance.overworld) {
-            leaveOverworld(player, instance, forceFallback)
-            return
-        }
-        instance.returns[player.uniqueId]?.let { destination ->
-            if (destination.world != null) player.teleport(destination)
-        }
-        instance.members.remove(player.uniqueId)
-        memberToSlot.remove(player.uniqueId, instance.slot)
-        if (instance.members.isEmpty()) close(instance)
+        leaveOverworld(player, instance, forceFallback)
     }
 
     /** 地上チャンクを非同期で確保し、安全な地上帰還の完了後に非同期で帰還記録を解除します。 */
@@ -1223,27 +1058,12 @@ class DungeonController internal constructor(
         instance.entities.clear()
         instance.boss = null
         enemies.removeParticipants(instance.returns.keys)
-        if (instance.overworld) {
-            if (instance.unreturnedMembers.isEmpty() && !shuttingDown && plugin.isEnabled) {
-                cleanupPlacedSlot(instance.slot)
-            } else if (!shuttingDown && plugin.isEnabled) {
-                protectSlotForPendingReturns(instance.slot)
-            } else {
-                abandonSlotOnShutdown(instance.slot)
-            }
-            return
-        }
-        if (instance.slot in schematicSlots) {
-            val origin = DungeonArenaLayout.originForSlot(instance.slot)
-            Bukkit.getWorld(WorldIds.DEMO)?.let { world ->
-                clearSchematicArena(
-                    world,
-                    origin.x - DungeonArenaLayout.SCHEMATIC_ORIGIN_OFFSET_BLOCKS,
-                    DungeonArenaLayout.SCHEMATIC_ORIGIN_Y,
-                    origin.z - DungeonArenaLayout.SCHEMATIC_ORIGIN_OFFSET_BLOCKS,
-                )
-            }
-            schematicSlots.remove(instance.slot)
+        if (instance.unreturnedMembers.isEmpty() && !shuttingDown && plugin.isEnabled) {
+            cleanupPlacedSlot(instance.slot)
+        } else if (!shuttingDown && plugin.isEnabled) {
+            protectSlotForPendingReturns(instance.slot)
+        } else {
+            abandonSlotOnShutdown(instance.slot)
         }
     }
 
@@ -1374,7 +1194,6 @@ class DungeonController internal constructor(
 
     /** 管理者補完向けに、非稼働の保護中・所有済みスロット番号一覧を返します。 */
     internal fun releasableSlots(): List<Int> {
-        if (!plugin.activeWorldProjection.registry.isOverworldMode()) return emptyList()
         val candidates = mutableSetOf<Int>()
         candidates += ownedSlots.keys
         for (slot in 0 until OverworldDungeonInstanceLayout.MAX_CANDIDATE_SLOTS) {
@@ -1393,9 +1212,6 @@ class DungeonController internal constructor(
      * ジャーナル二重破損時（journalFailed）でも指定スロットの残骸撤去を実行できます。
      */
     internal fun releaseProtectedSlot(slot: Int): DungeonSlotReleaseResult {
-        if (!plugin.activeWorldProjection.registry.isOverworldMode()) {
-            return DungeonSlotReleaseResult.NOT_OVERWORLD
-        }
         if (slot in instances) return DungeonSlotReleaseResult.ACTIVE
         val state = slotTracker.stateOf(slot)
         if (state == DungeonSlotState.ACTIVE || state == DungeonSlotState.RESERVED) {
@@ -1541,17 +1357,7 @@ class DungeonController internal constructor(
 
     /** ログイン時に残存ダンジョン記録を確認し、必要に応じて安全地上へ救出します。 */
     fun recover(player: Player) {
-        if (plugin.activeWorldProjection.registry.isOverworldMode()) {
-            recoverOverworld(player)
-            return
-        }
-        if (player.world.name == WorldIds.DEMO &&
-            player.x >= DungeonArenaLayout.RECOVERY_MIN_COORDINATE &&
-            player.z >= DungeonArenaLayout.RECOVERY_MIN_COORDINATE &&
-            !containsPlayer(player.uniqueId)
-        ) {
-            player.teleport(player.world.spawnLocation)
-        }
+        recoverOverworld(player)
     }
 
     /**
@@ -1663,15 +1469,10 @@ class DungeonController internal constructor(
         }
     }
 
-    private fun instanceWorld(instance: Instance): World? = Bukkit.getWorld(
-        if (instance.overworld) plugin.activeWorldProjection.worldName() else WorldIds.DEMO,
-    )
+    private fun instanceWorld(instance: Instance): World? = Bukkit.getWorld(plugin.activeWorldProjection.worldName())
 
-    private fun instanceCenter(instance: Instance): Pair<Int, Int> = if (instance.overworld) {
+    private fun instanceCenter(instance: Instance): Pair<Int, Int> =
         overworldLayout.center(instance.slot).let { it.x to it.z }
-    } else {
-        DungeonArenaLayout.originForSlot(instance.slot).let { it.x to it.z }
-    }
 
     /** 制限時間超過インスタンスの全メンバーを安全に帰還させ、失敗時は再試行と強制フォールバックを行います。 */
     fun tick() {
@@ -1711,7 +1512,7 @@ class DungeonController internal constructor(
             val player = Bukkit.getPlayer(memberId)
             if (player == null || !player.isOnline) {
                 detach(instance, memberId)
-            } else if (forceImmediateFallback && instance.overworld) {
+            } else if (forceImmediateFallback) {
                 forceEvacuateOverworldPlayer(player, instance)
             } else {
                 if (notify) player.sendMessage(plugin.message(player, "ec.dungeon.timeout"))
@@ -1726,32 +1527,25 @@ class DungeonController internal constructor(
         if (id in leavingPlayers) return
         val instance = instanceForPlayer(id) ?: return
         val to = e.to
-        val inside = if (instance.overworld) {
-            val bounds = overworldLayout.bounds(instance.slot)
-            to.world?.name == plugin.activeWorldProjection.worldName() &&
-                to.x >= bounds.minX && to.x < bounds.maxX + 1 &&
-                to.y >= bounds.minY && to.y < bounds.maxY + 1 &&
-                to.z >= bounds.minZ && to.z < bounds.maxZ + 1
-        } else {
-            to.world?.name == WorldIds.DEMO && DungeonArenaLayout.isInsideBounds(to, instance.slot)
-        }
+        val bounds = overworldLayout.bounds(instance.slot)
+        val inside = to.world?.name == plugin.activeWorldProjection.worldName() &&
+            to.x >= bounds.minX && to.x < bounds.maxX + 1 &&
+            to.y >= bounds.minY && to.y < bounds.maxY + 1 &&
+            to.z >= bounds.minZ && to.z < bounds.maxZ + 1
         if (!inside) {
-            if (instance.overworld) {
-                val expectedWorld = plugin.activeWorldProjection.worldName()
-                val sameWorld = to.world?.name == expectedWorld
-                val toSafe = sameWorld &&
-                    to.world != null &&
-                    to.world.isChunkLoaded(to.blockX shr 4, to.blockZ shr 4) &&
-                    SafeStandingSpot.isSafe(to)
-                val slotCenter = overworldLayout.center(instance.slot)
-                if (canAcknowledgeDungeonReturn(slotCenter, to.x, to.y, to.z, sameWorld, toSafe)) {
-                    instance.unreturnedMembers.remove(id)
-                    detach(instance, id)
-                    clearReturnRecords(setOf(id), notifyOnFailure = true)
-                    return
-                }
-                e.player.sendMessage(plugin.message(e.player, "ec.dungeon.relogin_required"))
+            val sameWorld = to.world?.name == plugin.activeWorldProjection.worldName()
+            val toSafe = sameWorld &&
+                to.world != null &&
+                to.world.isChunkLoaded(to.blockX shr 4, to.blockZ shr 4) &&
+                SafeStandingSpot.isSafe(to)
+            val slotCenter = overworldLayout.center(instance.slot)
+            if (canAcknowledgeDungeonReturn(slotCenter, to.x, to.y, to.z, sameWorld, toSafe)) {
+                instance.unreturnedMembers.remove(id)
+                detach(instance, id)
+                clearReturnRecords(setOf(id), notifyOnFailure = true)
+                return
             }
+            e.player.sendMessage(plugin.message(e.player, "ec.dungeon.relogin_required"))
             detach(instance, id)
         }
     }
@@ -1762,7 +1556,7 @@ class DungeonController internal constructor(
         pendingReturnFreezeSince.remove(id)
         recoveringPlayers.remove(id)
         val instance = instanceForPlayer(id) ?: return
-        if (instance.overworld) detach(instance, id) else leave(e.player)
+        detach(instance, id)
     }
 
     @EventHandler
@@ -1770,22 +1564,16 @@ class DungeonController internal constructor(
         val id = e.player.uniqueId
         val instance = instanceForPlayer(id) ?: return
         val destination = instance.returns[id]
-        if (instance.overworld) {
-            val target = if (destination != null && SafeStandingSpot.isSafe(destination)) {
-                destination
-            } else {
-                resolveForcedSafeFallback(e.player.world)
-            }
-            e.respawnLocation = target
-            instance.unreturnedMembers.remove(id)
-            detach(instance, id)
-            plugin.sync {
-                if (e.player.isOnline) clearReturnRecords(setOf(id), notifyOnFailure = true)
-            }
-            return
+        e.respawnLocation = if (destination != null && SafeStandingSpot.isSafe(destination)) {
+            destination
+        } else {
+            resolveForcedSafeFallback(e.player.world)
         }
-        e.respawnLocation = destination ?: e.respawnLocation
+        instance.unreturnedMembers.remove(id)
         detach(instance, id)
+        plugin.sync {
+            if (e.player.isOnline) clearReturnRecords(setOf(id), notifyOnFailure = true)
+        }
     }
 
     @EventHandler
@@ -1818,12 +1606,9 @@ class DungeonController internal constructor(
             return
         }
         val instance = instanceForPlayer(id)
-        if (instance?.overworld == true && e.to.y < overworldLayout.bounds(instance.slot).minY) {
+        if (instance != null && e.to.y < overworldLayout.bounds(instance.slot).minY) {
             val center = overworldLayout.center(instance.slot)
             e.to = Location(e.player.world, center.x + 0.5, center.y + 2.0, center.z + 0.5)
-            leave(e.player)
-        } else if (e.player.world.name == WorldIds.DEMO && e.to.y < DungeonArenaLayout.VOID_RECOVERY_Y) {
-            e.player.teleport(e.player.world.spawnLocation)
             leave(e.player)
         }
     }
@@ -1833,7 +1618,7 @@ class DungeonController internal constructor(
         shuttingDown = true
         instances.values.toList().forEach { instance ->
             instance.members.toList().forEach { id ->
-                if (instance.overworld) detach(instance, id) else Bukkit.getPlayer(id)?.let(::leave)
+                detach(instance, id)
             }
             close(instance)
         }
@@ -1856,6 +1641,8 @@ class DungeonController internal constructor(
 
     private companion object {
         const val DEFAULT_DUNGEON_ID = "ec:dungeon_void_sanctum"
+        /** 入場時の出現位置を、アリーナ中心から北（-Z）へずらす距離です。 */
+        const val PLAYER_SPAWN_Z_OFFSET = -12
         const val RETURN_JOURNAL_FILE = "dungeon-returns.json"
         const val SCAN_BUDGET = 4_096
         const val RECOVERY_FREEZE_TIMEOUT_MILLIS = 10_000L

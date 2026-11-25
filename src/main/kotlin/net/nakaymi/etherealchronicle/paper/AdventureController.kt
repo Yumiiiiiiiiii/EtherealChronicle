@@ -104,12 +104,9 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     private fun teleportArea(player: Player,id: String,destination: Position?) {
         val area=plugin.snapshot.world.areas[id] ?: throw GameException("ec.error.area_missing")
         val x=(area.minX+area.maxX)/2.0; val z=(area.minZ+area.maxZ)/2.0
-        val over=plugin.activeWorldProjection.registry.isOverworldMode()
         val world=Bukkit.getWorld(plugin.activeWorldProjection.worldName()) ?: throw GameException("ec.error.world_missing")
-        requireGame(over || area.world == world.name, "ec.error.teleport_world")
-        val target=if (over) plugin.projectedPosition(destination ?: Position(area.world,x,OverworldAnchorProjector.BASE_SURFACE_Y.toDouble(),z), area.id)
+        val target=plugin.projectedPosition(destination ?: Position(area.world,x,OverworldAnchorProjector.BASE_SURFACE_Y.toDouble(),z), area.id)
             ?: throw GameException("ec.error.world_unavailable")
-        else destination ?: Position(area.world,x,(world.getHighestBlockYAt(x.toInt(),z.toInt())+1).toDouble(),z)
         val projectedArea=plugin.activeWorldProjection.projector.projectArea(area) ?: throw GameException("ec.error.world_unavailable")
         requireGame(projectedArea.contains(target), "ec.error.teleport_destination")
         player.teleport(org.bukkit.Location(world,target.x,target.y,target.z,target.yaw,0f))
