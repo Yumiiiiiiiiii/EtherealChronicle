@@ -89,6 +89,9 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal val snapshot get() = content.snapshot()
     /** 建設サービスの有無に関わらず、安全な座標投影を初期化します。 */
     private fun initializeWorldProjection() {
+        if (config.getString("world.mode")?.trim()?.lowercase() == WorldMode.LEGACY_DEDICATED) {
+            logger.warning("world.mode '${WorldMode.LEGACY_DEDICATED}' (floating islands) was removed; using 'overworld' instead. Towns are generated into '${config.getString("world.overworld_name", "world")}'.")
+        }
         WorldMode.fromConfig(config.getString("world.mode"))
         // world.mode 未指定のテストだけ、固定座標の疑似レジストリ（TestWorldFixture）を使えます。
         val fixtureRegistry = TestWorldFixture.registryFactory?.takeIf { !config.isSet("world.mode") }
@@ -450,7 +453,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     try {
                         adventure.reloadNpcs()
                     }
-                    catch(error: Exception) { logger.severe("Could not prepare the dedicated world; foundation features remain enabled: ${error.message}") }
+                    catch(error: Exception) { logger.severe("Could not reload NPCs during startup; foundation features remain enabled: ${error.message}") }
                     gathering=GatheringController(this)
                     fishing=FishingController(this)
                     treasures=TreasureController(this).also { it.reload() }
@@ -1305,7 +1308,6 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         }
     }
     private var lootSequence=0L
-    @EventHandler fun playerDeath(e: PlayerDeathEvent) { e.drops.removeIf(::isSkill) }
     @EventHandler(priority=EventPriority.MONITOR,ignoreCancelled=true) fun itemPickup(e:EntityPickupItemEvent) {
         val player=e.entity as? Player ?: return
         val profile=profiles[player.uniqueId] ?: return

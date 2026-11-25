@@ -101,16 +101,25 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     }
     private fun message(player: Player,text: String) = player.sendMessage(Component.text(text))
     private fun message(player: Player,component: Component) = player.sendMessage(component)
+    /** 目的地チャンクを非同期で確保してから投影・転送します。遠方の拠点でも未ロードで失敗しません。 */
     private fun teleportArea(player: Player,id: String,destination: Position?) {
         val area=plugin.snapshot.world.areas[id] ?: throw GameException("ec.error.area_missing")
         val x=(area.minX+area.maxX)/2.0; val z=(area.minZ+area.maxZ)/2.0
         val world=Bukkit.getWorld(plugin.activeWorldProjection.worldName()) ?: throw GameException("ec.error.world_missing")
-        val target=plugin.projectedPosition(destination ?: Position(area.world,x,OverworldAnchorProjector.BASE_SURFACE_Y.toDouble(),z), area.id)
-            ?: throw GameException("ec.error.world_unavailable")
-        val projectedArea=plugin.activeWorldProjection.projector.projectArea(area) ?: throw GameException("ec.error.world_unavailable")
-        requireGame(projectedArea.contains(target), "ec.error.teleport_destination")
-        player.teleport(org.bukkit.Location(world,target.x,target.y,target.z,target.yaw,0f))
-        player.sendMessage(plugin.message(player,"ec.area.teleported", "name" to plugin.contentText(player,"area",area.id,"name",area.name)))
+        val source=destination ?: Position(area.world,x,OverworldAnchorProjector.BASE_SURFACE_Y.toDouble(),z)
+        val horizontal=plugin.activeWorldProjection.projector.projectHorizontal(source,area.id) ?: throw GameException("ec.error.world_unavailable")
+        val chunk=ChunkCoordinates.fromPosition(horizontal.x,horizontal.z)
+        plugin.withChunk(world,chunk.x,chunk.z) { failure ->
+            if(!player.isOnline) return@withChunk
+            val target=if(failure == null) plugin.projectedPosition(source,area.id) else null
+            val projectedArea=plugin.activeWorldProjection.projector.projectArea(area)
+            if(target == null || projectedArea == null || !projectedArea.contains(target)) {
+                player.sendMessage(plugin.diagnostic(player,GameException("ec.error.world_unavailable")))
+                return@withChunk
+            }
+            player.teleport(org.bukkit.Location(world,target.x,target.y,target.z,target.yaw,0f))
+            player.sendMessage(plugin.message(player,"ec.area.teleported", "name" to plugin.contentText(player,"area",area.id,"name",area.name)))
+        }
     }
     @EventHandler(ignoreCancelled=true) fun interact(e: PlayerInteractEntityEvent) {
         if(e.hand != EquipmentSlot.HAND) return
@@ -399,16 +408,21 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     @EventHandler(ignoreCancelled=true) fun dragBound(e: InventoryDragEvent) { if(bound(e.oldCursor) && e.rawSlots.any { it < e.view.topInventory.size }) e.isCancelled=true }
     @EventHandler(ignoreCancelled=true) fun pickup(e: EntityPickupItemEvent) { if(e.entity.uniqueId in locks) e.isCancelled=true }
     @EventHandler fun quit(e: PlayerQuitEvent) { beforeQuit(e.player); parties.leave(e.player.uniqueId); dialogueSessions.remove(e.player.uniqueId) }
+    /** 死亡ゴールド罰が未適用（ロック待ち）のプレイヤーです。切断で回避されないよう beforeQuit で確定します。 */
+    private val pendingDeathPenalties=mutableSetOf<UUID>()
     /** 死亡時はアイテム・経験値を一切失わず、所持ゴールドだけを失います。 */
-    @EventHandler fun death(e: PlayerDeathEvent) {
+    @EventHandler(ignoreCancelled=true) fun death(e: PlayerDeathEvent) {
         e.keepInventory=true; e.keepLevel=true
         e.drops.clear(); e.droppedExp=0
-        val profile=plugin.profiles[e.entity.uniqueId] ?: return
-        val lost=profile.currency
-        if(lost <= 0) return
-        profile.currency=0
-        plugin.save(profile)
-        e.entity.sendMessage(plugin.message(e.entity,"ec.death.gold_lost","amount" to lost))
+        val id=e.entity.uniqueId
+        if((plugin.profiles[id]?.currency ?: 0L) <= 0L) return
+        pendingDeathPenalties.add(id)
+        var lost=0L
+        // 進行中のトランザクションと競合しないよう profileTransaction（ロック待ち・失敗時ロールバック）で減算します。
+        profileTransaction(id,{ lost=it.currency; it.currency=0 }) {
+            pendingDeathPenalties.remove(id)
+            if(lost > 0) Bukkit.getPlayer(id)?.let { it.sendMessage(plugin.message(it,"ec.death.gold_lost","amount" to lost)) }
+        }
     }
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true) fun safe(e: EntityDamageEvent) {
         if(npcs.isManaged(e.entity)) { e.isCancelled=true; return }
@@ -435,7 +449,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
                 effects.forEach { effect -> when(effect.kind) {
                     "HEAL" -> player.health=(player.health+effect.amount).coerceAtMost(player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH)!!.value)
                     "CLEANSE" -> { player.removePotionEffect(org.bukkit.potion.PotionEffectType.POISON); player.removePotionEffect(org.bukkit.potion.PotionEffectType.SLOWNESS) }
-                    "RETURN" -> plugin.luminaSpawn()?.let(player::teleport)
+                    "RETURN" -> plugin.luminaSpawn()?.let(player::teleport) ?: plugin.requestHubSpawn(player)
                     "DEFENSE_BUFF" -> plugin.defenseBuff(player,effect.amount,effect.duration)
                 } }
                 consumableReady[p.uuid to id]=now+(effects.maxOfOrNull { it.cooldown } ?: 0)
@@ -513,6 +527,8 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     private val deliveries=mutableMapOf<UUID,Delivery>()
     /** 切断前に受取途中の出力をメールボックスへ戻します。 */
     fun beforeQuit(player: Player) {
+        // ロック待ちの死亡ゴールド罰は切断で回避されないよう、ここで確定します。
+        if(pendingDeathPenalties.remove(player.uniqueId)) plugin.profiles[player.uniqueId]?.currency=0
         deliveries.remove(player.uniqueId)?.let { claim ->
             claim.profile.returnToMailbox(claim.output)
             // 同一IOキュー上のクリア保存より後へ戻し保存を積み、切断時の二重配布を防ぎます。

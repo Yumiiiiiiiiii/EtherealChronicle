@@ -706,7 +706,7 @@ ec.content.dialogue.dlg_vulcan_hub.confirm_assassin.text: "A shadowblade! The to
 ec.content.dialogue.dlg_vulcan_hub.confirm_assassin.choice.choose_assassin: "I'll be a Shadowblade!"
 ec.content.dialogue.dlg_vulcan_hub.confirm_assassin.choice.back_from_assassin: "I want to see other classes"
 ec.content.dialogue.dlg_vulcan_hub.class_done.text: "Good, it's settled! Now go greet Garudo the blacksmith. When you come back, I'll hand you your first job, partner!"
-ec.content.dialogue.dlg_vulcan_hub.m01_done.text: "Hahaha! Good face on you, partner! All right, take your starting gear and healing potions. Time for your first job. The north gate bell is ringing; something's off in the forest."
+ec.content.dialogue.dlg_vulcan_hub.m01_done.text: "Hahaha! Good face on you, partner! All right, take these healing potions. Time for your first job. The north gate bell is ringing; something's off in the forest."
 ec.content.dialogue.dlg_vulcan_hub.m01_done.choice.accept_m02_now: "Head to the forest right away (Strange Changes in the Forest and First Battle - Accept)"
 ec.content.dialogue.dlg_vulcan_hub.m01_done.choice.prep_first: "I'll prepare a bit, then come accept it"
 ec.content.dialogue.dlg_vulcan_hub.m02_started.text: "Monsters have apparently gone suddenly violent in Ashwood Forest, just outside the north gate. Ranger Captain Elena is holding out on site. Clear the slimes and wolves on the road and join her!"

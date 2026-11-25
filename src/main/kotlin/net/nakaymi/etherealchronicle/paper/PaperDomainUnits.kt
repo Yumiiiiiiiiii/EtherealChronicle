@@ -183,8 +183,6 @@ internal object WorldSchematicLayout {
     }
 }
 
-/** クラスパスSchematicと配置原点、およびair上書き方針を表します。 */
-internal data class SchematicPlacement(val path: String, val x: Int, val y: Int, val z: Int, val skipAir: Boolean = false)
 
 /** 職業選択の枠と確認ボタンを同じ定義から組み立てます。 */
 internal object ClassSelectionLayout {

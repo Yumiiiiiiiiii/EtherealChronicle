@@ -8,11 +8,12 @@ enum class WorldMode(val configValue: String) {
     ;
 
     companion object {
-        private const val LEGACY_DEDICATED = "dedicated_ec_world"
+        /** 廃止した浮島モードの旧設定値です。 */
+        const val LEGACY_DEDICATED = "dedicated_ec_world"
 
         /** config.yml の `world.mode` を検証してモードへ変換します。 */
         fun fromConfig(value: String?): WorldMode {
-            val normalized = value ?: OVERWORLD.configValue
+            val normalized = value?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: OVERWORLD.configValue
             // 廃止した浮島モードの旧設定値は overworld へ読み替えます。
             if (normalized == LEGACY_DEDICATED) return OVERWORLD
             return entries.firstOrNull { it.configValue == normalized }

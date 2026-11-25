@@ -51,12 +51,14 @@ class DungeonCoexistTest {
         val server = MockBukkit.mock()
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java); server.pump { plugin.isReadyForGameplay }
-            server.qaPump { plugin.dungeons.isJournalReady() }
+            seedArenaSchematic(plugin.dungeons, "ec:dungeon_void_sanctum"); seedArenaSchematic(plugin.dungeons, "ec:dungeon_glacial_citadel")
+            assertTrue(server.qaPump { plugin.dungeons.isJournalReady() }, "return journal did not become ready")
             val world = net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             val a = join(server, plugin, "DgA"); val b = join(server, plugin, "DgB")
             a.teleport(Location(world, 0.0, 65.0, 0.0)); b.teleport(Location(world, 5.0, 65.0, 5.0))
             val pa = plugin.profiles.getValue(a.uniqueId); val pb = plugin.profiles.getValue(b.uniqueId)
             pa.level = 20; pb.level = 20
+            a.isInvulnerable = true; b.isInvulnerable = true  // 実ボスがアリーナ内でプレイヤーを倒さないようにする
             val dungeons = RpgPlugin::class.java.getDeclaredField("dungeons").also { it.isAccessible = true }.get(plugin)
             val enter = dungeons.javaClass.getMethod("enter", Player::class.java, String::class.java)
             val leave = dungeons.javaClass.getMethod("leave", Player::class.java)
@@ -75,16 +77,16 @@ class DungeonCoexistTest {
             rec("D2 with both flags, A enters the sanctum and B enters the citadel at the same time (independent instances)") {
                 pa.flags += "ec:flag_sanctum_unlocked"; pb.flags += "ec:flag_ch2_citadel_unlocked"
                 enter.invoke(dungeons, a, "ec:dungeon_void_sanctum"); enter.invoke(dungeons, b, "ec:dungeon_glacial_citadel")
-                server.qaPump { (active.invoke(dungeons) as Int) == 2 }
+                server.qaPump { plugin.dungeons.containsPlayer(a.uniqueId) && plugin.dungeons.containsPlayer(b.uniqueId) }
                 assertTrue((active.invoke(dungeons) as Int) == 2, "expected 2 instances, got ${active.invoke(dungeons)}")
                 "instances=2; A world=${a.world.name} B world=${b.world.name}"
             }
             rec("D3 leave cleans up each instance; re-entering works (no leftover state)") {
-                leave.invoke(dungeons, a); leave.invoke(dungeons, b); server.qaPump { (active.invoke(dungeons) as Int) == 0 }
+                leave.invoke(dungeons, a); leave.invoke(dungeons, b); server.qaPump { !plugin.dungeons.containsPlayer(a.uniqueId) && !plugin.dungeons.containsPlayer(b.uniqueId) && (active.invoke(dungeons) as Int) == 0 }
                 assertTrue((active.invoke(dungeons) as Int) == 0, "instances left: ${active.invoke(dungeons)}")
                 pa.flags += "ec:flag_ch2_citadel_unlocked"
-                enter.invoke(dungeons, a, "ec:dungeon_glacial_citadel"); assertTrue(server.qaPump { (active.invoke(dungeons) as Int) == 1 })
-                leave.invoke(dungeons, a); assertTrue(server.qaPump { (active.invoke(dungeons) as Int) == 0 }); "clean"
+                enter.invoke(dungeons, a, "ec:dungeon_glacial_citadel"); assertTrue(server.qaPump { plugin.dungeons.containsPlayer(a.uniqueId) }, "re-entry did not start: ${msgs(a).takeLast(200)}")
+                leave.invoke(dungeons, a); assertTrue(server.qaPump { (active.invoke(dungeons) as Int) == 0 }, "instances left after 2nd leave: ${active.invoke(dungeons)} inside=${plugin.dungeons.containsPlayer(a.uniqueId)}"); "clean"
             }
             rec("D4 unknown dungeon id is rejected") {
                 val before = active.invoke(dungeons) as Int

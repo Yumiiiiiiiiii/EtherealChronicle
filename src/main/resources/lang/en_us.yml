@@ -258,7 +258,7 @@ ec:
     party_not_online: "All party members must be online before entering."
     party_gather: "Gather your party nearby and make sure everyone has selected a class."
     dungeon_unlock_required: "All party members must unlock access to the dungeon."
-    world_unavailable: "The dedicated world is not ready."
+    world_unavailable: "The adventure sites are not ready yet."
     dungeon_full: "The sanctuary is full. Please wait."
     spawn_cap: "The enemy spawn limit has been reached."
     guard_spawn_failed: "Could not spawn a guard enemy."

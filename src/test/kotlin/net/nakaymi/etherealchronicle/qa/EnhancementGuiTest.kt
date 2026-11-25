@@ -21,7 +21,6 @@ class EnhancementGuiTest {
         val server=MockBukkit.mock()
         try {
             val world=net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
-            java.io.File(world.worldFolder, ".etherealchronicle-built").writeText("v4\n")
             val plugin=MockBukkit.load(RpgPlugin::class.java)
             val player=QaPlayerMock(server,"Smith",UUID.randomUUID()); server.addPlayer(player)
             assertTrue(server.pump { player.uniqueId in plugin.profiles })

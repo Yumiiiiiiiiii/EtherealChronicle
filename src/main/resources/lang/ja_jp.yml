@@ -247,7 +247,7 @@ ec:
     party_not_online: "パーティー全員がオンラインになってから入場してください。"
     party_gather: "仲間全員が近くに集まり、職業を選択してください。"
     dungeon_unlock_required: "仲間全員がダンジョンへの道を開放してください。"
-    world_unavailable: "専用ワールドの準備ができていません。"
+    world_unavailable: "冒険拠点の準備がまだ完了していません。"
     dungeon_full: "聖堂が満員です。しばらくお待ちください。"
     spawn_cap: "魔物の出現上限に達しています。"
     guard_spawn_failed: "護衛魔物を配置できませんでした。"
