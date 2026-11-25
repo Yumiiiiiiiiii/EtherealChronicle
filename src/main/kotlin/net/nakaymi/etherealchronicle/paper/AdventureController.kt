@@ -76,12 +76,15 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             val inventory=CountSnapshotInventory(counts)
             if(!plugin.game.quests.needsPeriodicUpdate(p,inventory,areaIds)) return@forEach
             try {
+                val beforeQuests = plugin.captureQuestSnapshot(p, inventory)
                 transaction(player,{ staged ->
                     currentAreas.forEach { area ->
                         plugin.game.quests.event(p,ObjectiveKind.EXPLORE,area.id,1,staged,allowAutoComplete=false)
                     }
                     plugin.game.quests.completeReadyAuto(p, staged)
-                },skipIfUnchanged=true)
+                },skipIfUnchanged=true) {
+                    plugin.notifyQuestDelta(player, p, beforeQuests)
+                }
             } catch(e: Exception) { plugin.logger.warning("Quest progress update failed ${p.uuid}: ${e.message}") }
         }
     }
@@ -119,10 +122,14 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         if(locked(p.uuid)) return
         val npc=plugin.snapshot.world.npcs[id] ?: return
         runCatching {
+            val beforeQuests = plugin.captureQuestSnapshot(p, plugin.inventory(e.player, persistRemoval = false))
             transaction(e.player,{ inventory ->
                 plugin.game.quests.event(p,ObjectiveKind.TALK,id,1,inventory,allowAutoComplete=false)
                 plugin.game.quests.completeReadyAuto(p, inventory)
-            },skipIfUnchanged=true) { showDialogue(e.player,npc.dialogue) }
+            },skipIfUnchanged=true) {
+                plugin.notifyQuestDelta(e.player, p, beforeQuests)
+                showDialogue(e.player,npc.dialogue)
+            }
         }.onFailure { error ->
             plugin.logger.fine("NPC interaction progress deferred for ${p.uuid}: ${error.message}")
             showDialogue(e.player, npc.dialogue)
@@ -284,8 +291,21 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
             profile.flags.addAll(choice.flags)
             choice.actions.forEach { action ->
                 when(action.kind) {
-                    "START_QUEST" -> plugin.game.startQuest(profile,action.target)
-                    "COMPLETE_QUEST" -> plugin.game.completeQuest(profile,action.target,inventory)
+                    "START_QUEST" -> {
+                        plugin.game.startQuest(profile,action.target)
+                        after.add { plugin.onQuestStarted(player, profile) }
+                    }
+                    "COMPLETE_QUEST" -> {
+                        try {
+                            plugin.game.completeQuest(profile,action.target,inventory)
+                            after.add { plugin.onQuestCompleted(player, profile) }
+                        } catch (error: GameException) {
+                            if (error.messageKey == "ec.error.quest_incomplete") {
+                                plugin.sendIncompleteQuestHints(player, profile, action.target)
+                            }
+                            throw error
+                        }
+                    }
                     "SELECT_CLASS" -> plugin.game.chooseClass(profile,action.target)
                     "OPEN_SHOP" -> after.add { showShop(player,action.target) }
                     "ENTER_DUNGEON" -> after.add { enterDungeon(player,action.target) }
