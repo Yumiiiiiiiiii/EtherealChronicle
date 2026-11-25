@@ -9,7 +9,7 @@ Build with Java 25 using `./gradlew.bat test build`; deploy `build/libs/Ethereal
 - **Plugin JAR**: `build/libs/EtherealChronicle-0.1.0.jar` (shades and relocates `InvUI 2.5.1` to `net.nakaymi.etherealchronicle.libs.invui`; license bundled at `META-INF/licenses/InvUI-LICENSE.txt`, see `docs/THIRD_PARTY_NOTICES.md`).
 - **Resource pack**: reproducible ZIP bundled inside the JAR (`resourcepack/etherealchronicle-resourcepack.zip`, pack format `[97, 1]`) and emitted to `build/generated/resourcepack/etherealchronicle-resourcepack.zip` + `.sha1`. Inspect the bundled hash and byte size in-game or from console with `/ec pack info`.
 - **Core datapack**: `datapacks/etherealchronicle_core` (pack format `[121, 0]`, custom wolf variants and biomes) registered automatically at startup via `EtherealBootstrap` (`LifecycleEvents.DATAPACK_DISCOVERY`) without unpacking into the world folder.
-- **Schematics & content**: 27 Overworld schematics, 15 dedicated-world schematics, `structures/lumina_waystone.nbt`, 457 indexed YAML content files, and `lang/ja_jp.yml` + `lang/en_us.yml`.
+- **Schematics & content**: 27 Overworld schematics, 4 dungeon arena schematics, 457 indexed YAML content files, and `lang/ja_jp.yml` + `lang/en_us.yml`.
 
 ### Implemented scope & world modes
 
@@ -17,7 +17,7 @@ Implemented and connected: class selection/starter/HUD/skills/equipment, Chapter
 
 Two world modes are supported via `config.yml`:
 
-- `world.mode: dedicated_ec_world` (shipped default): uses the plugin-owned floating-island demo world (`ec_world`) with bounded structures. Do not remove ownership markers from an active `ec_world`; unknown existing worlds are refused rather than altered.
+- `world.mode: overworld` (only mode): towns and dungeon portals are integrated into the vanilla Overworld. The legacy `dedicated_ec_world` (floating-island) value was removed and is read as `overworld`.
 - `world.mode: overworld` (recommended for live survival/RPG play): integrates 9 towns/hubs/outposts and 4 dungeon portals directly into the vanilla Overworld (`world.overworld_name`, default `"world"`), running dungeon instances in sky arenas (`world.dungeon.{base_x,base_y,base_z,spacing}`, default `100000, 220, 100000, 256`; keep `base_y >= 160` and inside any custom world border). On first boot, allow ~3–4 minutes for background placement and verify all 9 sites are `READY` with `/ec sites` before opening to players. See `docs/OVERWORLD_RECOVERY.md` for site/dungeon recovery procedures.
 
 ### Transactions, persistence & crash caveats
