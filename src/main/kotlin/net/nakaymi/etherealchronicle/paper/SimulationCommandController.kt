@@ -142,7 +142,7 @@ internal class SimulationCommandController(private val plugin: RpgPlugin) {
             if (!SafeStandingSpot.isSafe(location) || !player.teleport(location)) {
                 player.sendMessage(plugin.message(player, "ec.error.teleport_destination"))
             } else {
-                player.sendMessage(plugin.message(player, "ec.sites.travel_success", "name" to area.name))
+                player.sendMessage(plugin.message(player, "ec.sites.travel_success", "name" to plugin.contentText(player, "area", area.id, "name", area.name)))
             }
         }
     }

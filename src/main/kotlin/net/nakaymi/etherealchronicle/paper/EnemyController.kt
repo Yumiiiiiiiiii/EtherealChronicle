@@ -4,6 +4,7 @@ import net.nakaymi.etherealchronicle.core.*
 import org.bukkit.*
 import org.bukkit.attribute.Attribute
 import org.bukkit.boss.BarColor
+import net.kyori.adventure.text.Component
 import org.bukkit.boss.BarStyle
 import org.bukkit.boss.BossBar
 import org.bukkit.entity.*
@@ -66,7 +67,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
         internal fun telegraphColor(element: String): Color = EnemyBehaviorTuning.ELEMENT_COLORS[element.uppercase()]
             ?: EnemyBehaviorTuning.DEFAULT_TELEGRAPH_COLOR
     }
-    data class MobState(val entity: LivingEntity,val home: Location,val point: String,val boss: BossState,val participants: Set<UUID>,val bar: BossBar?,var target: UUID?=null,var nextAttack: Long=0,val specials: MutableMap<String,Long> = mutableMapOf(),val pinned: Boolean=false,val threat: MutableMap<UUID,Double> = mutableMapOf(),var tauntTarget: UUID?=null,var tauntUntil: Long=0)
+    data class MobState(val entity: LivingEntity,val home: Location,val point: String,val boss: BossState,val participants: Set<UUID>,val bar: BossBarViews?,var target: UUID?=null,var nextAttack: Long=0,val specials: MutableMap<String,Long> = mutableMapOf(),val pinned: Boolean=false,val threat: MutableMap<UUID,Double> = mutableMapOf(),var tauntTarget: UUID?=null,var tauntUntil: Long=0)
     private data class Warning(val owner: UUID,val attack: SpecialAttack,val location: Location,val direction: org.bukkit.util.Vector,val due: Long)
     private val key=NamespacedKey(plugin,"enemy_id")
     private val betterModel=BetterModelBridge(plugin)
@@ -99,7 +100,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
                 else if (missingVariantWarnings.add(variantId)) plugin.logger.warning("Configured wolf variant is unavailable: $variantId")
             }
         }
-        entity.customName(net.kyori.adventure.text.Component.text(d.name)); entity.isCustomNameVisible=true
+        entity.customName(plugin.contentTranslatable(if(d.boss) "boss" else "enemy", d.id, "name", d.name)); entity.isCustomNameVisible=true
         if(entity is Slime) entity.size=d.size
         // Slimeサイズ設定後に表示用最大体力を再設定します。setSizeが属性値を変更するためです。
         entity.getAttribute(Attribute.MAX_HEALTH)?.baseValue=EnemyBehaviorTuning.BASE_MOB_HEALTH
@@ -110,7 +111,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
         entity.isPersistent=false
         if(pinForSimulation) { entity.removeWhenFarAway=false; entity.setAI(false) }
         val boss=BossState(d,participants.size.coerceAtLeast(1),tick)
-        val bar=if(d.boss) Bukkit.createBossBar(d.name,BarColor.PURPLE,BarStyle.SEGMENTED_10) else null
+        val bar=if(d.boss) BossBarViews() else null
         states[entity.uniqueId]=MobState(entity,location.clone(),point,boss,participants,bar,pinned=pinForSimulation)
         betterModel.attach(entity,id)
         return entity
@@ -133,10 +134,14 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
                     ?.takeIf { (state.threat[it.uniqueId] ?: 0.0) > 0 }
                 ?: eligible.minByOrNull { it.location.distanceSquared(entity.location) }
             state.bar?.let { bar ->
-                val viewers=eligible.map { it.uniqueId }.toSet()
-                bar.players.filter { it.uniqueId !in viewers }.forEach(bar::removePlayer); eligible.forEach { if(it !in bar.players) bar.addPlayer(it) }
-                bar.progress=(state.boss.hp/state.boss.maximumHp).coerceIn(0.0,1.0)
-                bar.setTitle("${d.name} ${state.boss.hp.toInt()}/${state.boss.maximumHp.toInt()}  Phase ${d.phases.indexOf(state.boss.phase()).coerceAtLeast(0)+1}${if(tick-state.boss.started >= d.enrageTicks) " ENRAGE" else ""}")
+                val phase=d.phases.indexOf(state.boss.phase()).coerceAtLeast(0)+1
+                val enraged=tick-state.boss.started >= d.enrageTicks
+                // 視聴者ごとの言語でボス名・フェーズ・激昂表示を組み立てます（Adventure BossBar）。
+                bar.sync(eligible,(state.boss.hp/state.boss.maximumHp).coerceIn(0.0,1.0).toFloat()) { viewer ->
+                    plugin.message(viewer,"ec.boss.bossbar_title","name" to plugin.contentText(viewer,"boss",d.id,"name",d.name),
+                        "hp" to state.boss.hp.toInt(),"max_hp" to state.boss.maximumHp.toInt(),"phase" to phase,
+                        "enrage" to if(enraged) plugin.message(viewer,"ec.boss.bossbar_enrage") else Component.empty())
+                }
             }
             if(!entity.location.isWithinBlocks(state.home, d.leash)) {
                 entity.teleport(state.home); state.boss.hp=state.boss.maximumHp; state.target=null; if(entity is Mob) entity.target=null
@@ -163,7 +168,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
                 state.specials[special.id]=tick+special.cooldown
                 val element=special.element ?: d.element
                 val cue=when(element) { "ICE" -> "ec.boss.telegraph_ice"; "VOID" -> "ec.boss.telegraph_void"; else -> "ec.boss.telegraph_generic" }
-                target.sendMessage(plugin.message(target,"ec.boss.telegraph", "attack" to special.name, "cue" to plugin.message(target,cue)))
+                target.sendMessage(plugin.message(target,"ec.boss.telegraph", "attack" to plugin.contentText(target,if(d.boss) "boss" else "enemy",d.id,"special.${special.id}.name",special.name), "cue" to plugin.message(target,cue)))
                     break // 1 scheduler stepにつきtelegraphを1つだけ開始します。
             }
         }
@@ -288,7 +293,7 @@ class EnemyController(private val plugin: RpgPlugin,private val adventure: Adven
     private fun remove(id: UUID,removeEntity: Boolean) {
         val state=states.remove(id) ?: return
         betterModel.detach(id)
-        state.bar?.removeAll(); if(removeEntity) state.entity.remove(); budget.release(id); attackers.remove(id); warnings.removeIf { it.owner == id }
+        state.bar?.clear(); if(removeEntity) state.entity.remove(); budget.release(id); attackers.remove(id); warnings.removeIf { it.owner == id }
         if(state.pinned && states.values.none { it.pinned && it.home.chunk == state.home.chunk }) state.home.chunk.removePluginChunkTicket(plugin)
     }
     fun removeSimulation(participant: UUID) { states.filterValues { it.pinned && participant in it.participants }.keys.toList().forEach { remove(it,true) } }

@@ -16,7 +16,9 @@ class LangCatalog internal constructor(
     private val configuredLanguage: String,
     private val japanese: Map<String, String>,
     private val english: Map<String, String>,
-    private val logger: Logger
+    private val logger: Logger,
+    /** content 配下のYAML の日本語テキストを上書きする英語カタログ（lang/content_en_us.yml）。 */
+    private val contentEnglish: Map<String, String> = emptyMap()
 ) {
     private val warnedMissing = ConcurrentHashMap.newKeySet<String>()
 
@@ -36,6 +38,27 @@ class LangCatalog internal constructor(
         }
         return MiniMessage.miniMessage().deserialize(template, *resolvers.toTypedArray())
     }
+
+    /** 設定またはクライアントlocaleから、使用する言語コード（en_us / ja_jp）を決めます。 */
+    fun resolveLocale(clientLocale: String?): String =
+        if (configuredLanguage == "auto") normalize(clientLocale) else configuredLanguage
+
+    /**
+     * コンテンツ（アイテム名・NPC名・会話など）を指定localeで返します。
+     * 日本語は content 配下のYAML の原文（fallbackJa）が正本で、英語は content_en_us.yml を引き、欠落時は原文へ戻します。
+     */
+    fun contentText(clientLocale: String?, key: String, fallbackJa: String): String =
+        if (resolveLocale(clientLocale) == "en_us") contentEnglish[key] ?: fallbackJa else fallbackJa
+
+    /** [contentText] をそのままComponent化します（MiniMessageは解釈しません）。 */
+    fun contentComponent(clientLocale: String?, key: String, fallbackJa: String): Component =
+        Component.text(contentText(clientLocale, key, fallbackJa))
+
+    /** 共有表示用の翻訳可能Component。リソースパック未適用のクライアントは fallback を表示します。 */
+    fun translatable(key: String, fallbackJa: String): Component = Component.translatable(key, fallbackJa)
+
+    /** テスト用: 英語コンテンツカタログのキー一覧。 */
+    internal fun contentEnglishEntries(): Map<String, String> = contentEnglish
 
     /** 検証診断などに埋め込まれたec.*エラーキーだけを選択言語へ展開します。 */
     fun diagnostic(clientLocale: String?, text: String): Component {
@@ -59,12 +82,14 @@ class LangCatalog internal constructor(
     internal fun entries(): Map<String, Pair<String?, String?>> =
         (japanese.keys + english.keys).associateWith { key -> japanese[key] to english[key] }
 
-    private fun normalize(locale: String?): String = when (locale?.lowercase(Locale.ROOT)?.replace('-', '_')) {
-        "en_us", "en", "en_gb", "en_ca", "en_au" -> "en_us"
-        else -> "ja_jp"
-    }
+    private fun normalize(locale: String?): String = normalizeLocale(locale)
 
     companion object {
+        /** あらゆる英語locale（en, en_us, en_gb, en_au …）を en_us へ、それ以外は ja_jp へ寄せます。 */
+        fun normalizeLocale(locale: String?): String {
+            val code = locale?.lowercase(Locale.ROOT)?.replace('-', '_') ?: return "ja_jp"
+            return if (code == "en" || code.startsWith("en_")) "en_us" else "ja_jp"
+        }
         private val ERROR_KEY = Regex("(ec(?:\\.[a-z0-9_]+)+)(?::\\s*([^\\n]+))?")
         private val DETAIL_PLACEHOLDER = Regex("<(?!/?(?:aqua|black|blue|dark_aqua|dark_blue|dark_gray|dark_green|dark_purple|dark_red|gold|gray|green|italic|light_purple|red|reset|white|yellow|bold|underlined|strikethrough|obfuscated|newline|b|i|u|st|obf|br)(?=>)|#[0-9a-fA-F]{6}(?=>))([a-zA-Z][a-zA-Z0-9_]*)>")
         internal fun detailPlaceholderMatches(template: String): List<String> = DETAIL_PLACEHOLDER.findAll(template).map { it.groupValues[1] }.toList()
@@ -80,7 +105,8 @@ class LangCatalog internal constructor(
                 normalizeSetting(configuredLanguage),
                 read(languageFolder.resolve("ja_jp.yml"), bundledDefaults["lang/ja_jp.yml"]),
                 read(languageFolder.resolve("en_us.yml"), bundledDefaults["lang/en_us.yml"]),
-                logger
+                logger,
+                read(languageFolder.resolve("content_en_us.yml"), bundledDefaults["lang/content_en_us.yml"])
             )
         }
 
@@ -94,6 +120,7 @@ class LangCatalog internal constructor(
             readBundled(bundledDefaults["lang/ja_jp.yml"]),
             readBundled(bundledDefaults["lang/en_us.yml"]),
             logger,
+            readBundled(bundledDefaults["lang/content_en_us.yml"]),
         )
 
         private fun normalizeSetting(value: String): String = when (value.lowercase(Locale.ROOT)) {

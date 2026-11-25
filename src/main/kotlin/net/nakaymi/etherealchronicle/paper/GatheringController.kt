@@ -1,6 +1,7 @@
 package net.nakaymi.etherealchronicle.paper
 
 import net.kyori.adventure.text.Component
+import org.bukkit.entity.Player
 import net.nakaymi.etherealchronicle.core.*
 import org.bukkit.Bukkit
 import org.bukkit.Location
@@ -39,6 +40,16 @@ internal fun gatheringBlockDisplayTranslation() = Vector3f(-0.5f, 0f, -0.5f)
 
 /** ノード別の採取チャネル・再出現・仮想表示を管理し、バニラ地形を変更しません。 */
 class GatheringController(private val plugin: RpgPlugin) : Listener {
+    /** 採取道具種別を、プレイヤーの言語の名称へ変換します（生のenum名を出さないため）。 */
+    private fun toolKindName(player: Player, kind: net.nakaymi.etherealchronicle.core.TackleKind): String = plugin.message(player, when (kind) {
+        net.nakaymi.etherealchronicle.core.TackleKind.PICKAXE -> "ec.gathering.tool_pickaxe"
+        net.nakaymi.etherealchronicle.core.TackleKind.SICKLE -> "ec.gathering.tool_sickle"
+        net.nakaymi.etherealchronicle.core.TackleKind.HATCHET -> "ec.gathering.tool_hatchet"
+        net.nakaymi.etherealchronicle.core.TackleKind.EXTRACTOR -> "ec.gathering.tool_extractor"
+        net.nakaymi.etherealchronicle.core.TackleKind.ROD -> "ec.gathering.tool_rod"
+        net.nakaymi.etherealchronicle.core.TackleKind.BAIT -> "ec.gathering.tool_bait"
+    }).let(::plainOf)
+    private fun plainOf(component: Component): String = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(component)
     private data class Site(val node: GatheringNodeDefinition, val location: GatheringLocation)
     private data class PendingPoint(val node: GatheringNodeDefinition, val location: GatheringLocation)
     private data class Channel(val site: Site, val started: Long, val duration: Long, val origin: Location, val bar: BossBar)
@@ -329,7 +340,13 @@ class GatheringController(private val plugin: RpgPlugin) : Listener {
             entity.persistentDataContainer.set(displayKey, PersistentDataType.STRING, k)
         }
         val label = world.spawn(at.clone().add(0.0, GatheringDisplayGeometry.TEXT_HEIGHT_BLOCKS, 0.0), TextDisplay::class.java) { entity ->
-            entity.text(plugin.message(Bukkit.getConsoleSender(), "ec.gathering.node_label", "name" to site.node.name, "level" to site.node.minGatheringLevel))
+            // 共有表示なのでクライアント言語で解決されるtranslatableにします（旧実装はコンソール言語に固定されていました）。
+            entity.text(Component.translatable(
+                "ec.gathering.node_label",
+                plugin.message(null as String?, "ec.gathering.node_label", mapOf("name" to "%1\$s", "level" to "%2\$s")).let(::plainOf),
+                plugin.contentTranslatable("gathering", site.node.id, "name", site.node.name),
+                Component.text(site.node.minGatheringLevel),
+            ).color(net.kyori.adventure.text.format.NamedTextColor.GREEN))
             entity.isPersistent = false
             entity.isInvulnerable = true
             entity.persistentDataContainer.set(displayKey, PersistentDataType.STRING, k)
@@ -452,7 +469,7 @@ class GatheringController(private val plugin: RpgPlugin) : Listener {
                 GatheringDisplayGeometry.CLICK_HORIZONTAL_RADIUS_BLOCKS * GatheringDisplayGeometry.CLICK_HORIZONTAL_RADIUS_BLOCKS
             ) {
                 e.isCancelled = true
-                reject(e.player, "ec.gathering.click_site", "name" to nearby.node.name)
+                reject(e.player, "ec.gathering.click_site", "name" to plugin.contentText(e.player,"gathering",nearby.node.id,"name",nearby.node.name))
             }
             return
         }
@@ -483,8 +500,8 @@ class GatheringController(private val plugin: RpgPlugin) : Listener {
             }
         }
         val lifeLevel = profile.lifeSkills[LifeSkillKind.GATHERING]?.level ?: 1
-        if (tool == null) { reject(player, "ec.gathering.tool_required", "name" to def.name, "kind" to def.toolKind); return }
-        if (tool.kind != def.toolKind) { reject(player, "ec.gathering.tool_wrong", "name" to def.name, "required" to def.toolKind, "current" to tool.kind); return }
+        if (tool == null) { reject(player, "ec.gathering.tool_required", "name" to plugin.contentText(player,"gathering",def.id,"name",def.name), "kind" to toolKindName(player,def.toolKind)); return }
+        if (tool.kind != def.toolKind) { reject(player, "ec.gathering.tool_wrong", "name" to plugin.contentText(player,"gathering",def.id,"name",def.name), "required" to toolKindName(player,def.toolKind), "current" to toolKindName(player,tool.kind)); return }
         if (tool.tier < def.minToolTier) { reject(player, "ec.gathering.tool_tier_low", "tier" to def.minToolTier); return }
         if (lifeLevel < def.minGatheringLevel) { reject(player, "ec.gathering.level_low", "level" to def.minGatheringLevel); return }
         if (lifeLevel < tool.minLifeLevel) { reject(player, "ec.gathering.tool_level_low", "level" to tool.minLifeLevel); return }
@@ -501,7 +518,7 @@ class GatheringController(private val plugin: RpgPlugin) : Listener {
         val origin = player.location.clone()
         val duration = (def.channelMillis * (1 - tool.channelSpeedBonus)).toLong().coerceAtLeast(ContentLimits.MIN_GATHERING_CHANNEL_MILLIS)
         val barTitle = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
-            .serialize(plugin.message(player, "ec.gathering.bossbar", "name" to def.name))
+            .serialize(plugin.message(player, "ec.gathering.bossbar", "name" to plugin.contentText(player,"gathering",def.id,"name",def.name)))
         val bar = Bukkit.createBossBar(barTitle, BarColor.GREEN, BarStyle.SOLID).apply {
             addPlayer(player)
             progress = GatheringSessionTuning.CHANNEL_BOSSBAR_START_PROGRESS
@@ -509,7 +526,7 @@ class GatheringController(private val plugin: RpgPlugin) : Listener {
         channels[player.uniqueId] = Channel(site, monotonicMillis(), duration, origin, bar)
         lastAttempt[player.uniqueId] = "ec.gathering.channel_started"
         player.sendActionBar(plugin.message(player, "ec.gathering.actionbar_start"))
-        player.sendMessage(plugin.message(player, "ec.gathering.start_notice", "name" to def.name))
+        player.sendMessage(plugin.message(player, "ec.gathering.start_notice", "name" to plugin.contentText(player,"gathering",def.id,"name",def.name)))
     }
 
     @EventHandler
@@ -581,7 +598,7 @@ class GatheringController(private val plugin: RpgPlugin) : Listener {
                     player,
                     "ec.gathering.actionbar_progress",
                     "percent" to floor(ratio * PercentageScale.MAX_PERCENT).toInt(),
-                    "name" to channel.site.node.name,
+                    "name" to plugin.contentText(player,"gathering",channel.site.node.id,"name",channel.site.node.name),
                 ),
             )
             if (elapsed >= channel.duration) complete(player, channel)

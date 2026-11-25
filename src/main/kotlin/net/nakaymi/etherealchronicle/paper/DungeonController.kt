@@ -305,7 +305,7 @@ class DungeonController internal constructor(
                     (z + DungeonArenaLayout.PLAYER_SPAWN_Z_OFFSET).toDouble(),
                 ),
             )
-            member.sendMessage(plugin.message(member, "ec.dungeon.entry", "message" to definition.entryMessage))
+            member.sendMessage(plugin.message(member, "ec.dungeon.entry", "message" to plugin.contentText(member, "dungeon", definition.id, "entry_message", definition.entryMessage)))
         }
     }
 
@@ -741,7 +741,7 @@ class DungeonController internal constructor(
             val transferred = runCatching { member.teleport(spawnLocation) }.getOrDefault(false)
             if (transferred) {
                 member.sendMessage(
-                    plugin.message(member, "ec.dungeon.entry", "message" to session.definition.entryMessage),
+                    plugin.message(member, "ec.dungeon.entry", "message" to plugin.contentText(member, "dungeon", session.definition.id, "entry_message", session.definition.entryMessage)),
                 )
             } else {
                 instance.unreturnedMembers.remove(member.uniqueId)
@@ -1011,7 +1011,7 @@ class DungeonController internal constructor(
                             plugin.message(
                                 player,
                                 "ec.dungeon.result",
-                                "message" to instance.definition.clearMessage,
+                                "message" to plugin.contentText(player, "dungeon", instance.definition.id, "clear_message", instance.definition.clearMessage),
                                 "seconds" to seconds,
                                 "rank" to rank,
                                 "best_seconds" to record.bestSeconds,
@@ -1028,7 +1028,7 @@ class DungeonController internal constructor(
         } else {
             instance.members.forEach { member ->
                 Bukkit.getPlayer(member)?.let {
-                    it.sendMessage(plugin.message(it, "ec.dungeon.clear", "message" to instance.definition.clearMessage))
+                    it.sendMessage(plugin.message(it, "ec.dungeon.clear", "message" to plugin.contentText(it, "dungeon", instance.definition.id, "clear_message", instance.definition.clearMessage)))
                 }
             }
         }

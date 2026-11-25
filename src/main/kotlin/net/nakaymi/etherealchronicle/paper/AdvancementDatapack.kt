@@ -35,7 +35,7 @@ internal object AdvancementDatapack {
         titles.filter { it.advancement != null }.sortedBy { it.id }.forEach { title ->
             val advancement=title.advancement!!
             val path="$ADVANCEMENT_DIR/${advancementPath(title.id)}.json"
-            files[path]=titleJson(advancement.icon,advancement.title,advancement.description,advancement.frame,
+            files[path]=titleJson(advancement.icon,title.id,advancement.title,advancement.description,advancement.frame,
                 advancement.parent?.let(::parentKey) ?: ROOT_ID)
         }
 
@@ -74,8 +74,9 @@ internal object AdvancementDatapack {
     /** 1.21.5以降のテクスチャ識別子形式に合わせ、textures/と拡張子を除いた既存背景を指定します。 */
     internal fun advancementBackground():String = "minecraft:gui/advancements/backgrounds/adventure"
 
-    private fun titleJson(icon:String,displayTitle:String,description:String,frame:String,parent:String):String =
-        """{"parent":"${escape(parent)}","display":{"icon":{"id":"minecraft:${icon.lowercase()}"},"title":"${escape(displayTitle)}","description":"${escape(description)}","frame":"${frame.lowercase()}","show_toast":true,"announce_to_chat":false,"hidden":false},"criteria":{"profile_condition_met":{"trigger":"minecraft:impossible"}}}"""
+    /** 進捗名・説明は翻訳キー＋日本語fallbackで出力し、クライアント言語（lang JSON）で表示させます。 */
+    private fun titleJson(icon:String,titleId:String,displayTitle:String,description:String,frame:String,parent:String):String =
+        """{"parent":"${escape(parent)}","display":{"icon":{"id":"minecraft:${icon.lowercase()}"},"title":{"translate":"${net.nakaymi.etherealchronicle.core.ContentKeys.key("advancement",titleId,"title")}","fallback":"${escape(displayTitle)}"},"description":{"translate":"${net.nakaymi.etherealchronicle.core.ContentKeys.key("advancement",titleId,"desc")}","fallback":"${escape(description)}"},"frame":"${frame.lowercase()}","show_toast":true,"announce_to_chat":false,"hidden":false},"criteria":{"profile_condition_met":{"trigger":"minecraft:impossible"}}}"""
 
     private fun escape(value:String):String = buildString {
         value.forEach { ch -> when(ch) {

@@ -34,7 +34,8 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     private val npcs=NpcController(plugin)
     private var areasByWorld = projectedAreas()
     private val dialogueSessions=mutableMapOf<UUID,Pair<String,String>>()
-    private val dialogueComponents=mutableMapOf<Pair<String,String>,Component>()
+    /** 言語別にMiniMessage解析結果を保持し、日英プレイヤーのキャッシュが混ざらないようにします。 */
+    private val dialogueComponents=mutableMapOf<Triple<String,String,String>,Component>()
     private val invUiShops=mutableMapOf<UUID,String>()
     var enterDungeon: (Player,String) -> Unit = { p,id -> p.sendMessage(plugin.message(p,"ec.dungeon.preparing", "name" to plugin.contentName(p,id))) }
     init { plugin.server.pluginManager.registerEvents(this,plugin) }
@@ -109,7 +110,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         val projectedArea=plugin.activeWorldProjection.projector.projectArea(area) ?: throw GameException("ec.error.world_unavailable")
         requireGame(projectedArea.contains(target), "ec.error.teleport_destination")
         player.teleport(org.bukkit.Location(world,target.x,target.y,target.z,target.yaw,0f))
-        player.sendMessage(plugin.message(player,"ec.area.teleported", "name" to area.name))
+        player.sendMessage(plugin.message(player,"ec.area.teleported", "name" to plugin.contentText(player,"area",area.id,"name",area.name)))
     }
     @EventHandler(ignoreCancelled=true) fun interact(e: PlayerInteractEntityEvent) {
         if(e.hand != EquipmentSlot.HAND) return
@@ -133,7 +134,8 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         val p=plugin.profiles[player.uniqueId] ?: return
         val (at,definition)=dialogues.node(p,id,node)
         dialogueSessions[p.uuid]=id to at
-        val textComponent = dialogueComponents.getOrPut(id to at) { mm.deserialize(definition.text) }
+        val nodeText = plugin.contentText(player,"dialogue",id,"$at.text",definition.text)
+        val textComponent = dialogueComponents.getOrPut(Triple(plugin.localeKey(player),id,at)) { mm.deserialize(nodeText) }
         if (plugin.paperUiEnabled && paperDialogueHasChoices(definition.choices.size)) {
             showDialogueDialog(player,id,at,definition,textComponent)
             player.sendMessage(textComponent)
@@ -141,18 +143,21 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         }
         val menu=RpgMenu("dialogue",id,at,plugin.message(player,"ec.menu.dialogue")).inventory
         menu.setItem(DialogueLayout.TEXT_SLOT,ItemStack(Material.WRITTEN_BOOK).apply { itemMeta=itemMeta.apply {
-            displayName(plugin.message(player,"ec.dialogue.talk")); lore(definition.text.chunked(DialogueLayout.TEXT_WRAP_CHARACTERS).map { mm.deserialize(it) })
+            displayName(plugin.message(player,"ec.dialogue.talk")); lore(nodeText.chunked(DialogueLayout.TEXT_WRAP_CHARACTERS).map { mm.deserialize(it) })
         } })
         definition.choices.take(DialogueLayout.MAX_VISIBLE_CHOICES).forEachIndexed { index,c -> menu.setItem(DialogueLayout.FIRST_CHOICE_SLOT+index,ItemStack(Material.PAPER).apply { itemMeta=itemMeta.apply {
-            displayName(mm.deserialize(c.label)); persistentDataContainer.set(entryKey,PersistentDataType.STRING,c.id)
+            displayName(mm.deserialize(choiceLabel(player,id,at,c))); persistentDataContainer.set(entryKey,PersistentDataType.STRING,c.id)
         } }) }
         player.sendMessage(textComponent)
         player.openInventory(menu)
     }
+    /** 選択肢ラベルをプレイヤーの言語で返します（共通選択肢は global キーを先に引きます）。 */
+    private fun choiceLabel(player: Player,id: String,node: String,choice: DialogueChoice): String =
+        plugin.contentText(player,"dialogue",id,"global.choice.${choice.id}",plugin.contentText(player,"dialogue",id,"$node.choice.${choice.id}",choice.label))
     /** Paper Dialogを主表示にし、選択アクションは既存の取引処理へ戻します。 */
     private fun showDialogueDialog(player: Player,id: String,node: String,definition: DialogueNode,textComponent: Component) {
         val buttons = definition.choices.map { choice ->
-            ActionButton.builder(mm.deserialize(choice.label)).width(DialogueLayout.CHOICE_BUTTON_WIDTH_PIXELS)
+            ActionButton.builder(mm.deserialize(choiceLabel(player,id,node,choice))).width(DialogueLayout.CHOICE_BUTTON_WIDTH_PIXELS)
                 .action(DialogAction.customClick({ _, audience ->
                     (audience as? Player)?.let { selected ->
                         runCatching { selectDialogueChoice(selected,id,node,choice.id) }
@@ -187,7 +192,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         if (!ensureShopInRange(player, id)) return
         val menu=RpgMenu("shop",id,title=plugin.message(player,"ec.menu.shop")).inventory
         compactVisibleShopEntries(shop.entries) { it.condition.matches(p) }.take(ChestLayout.DOUBLE_CHEST_SLOTS).forEachIndexed { index,e ->
-            menu.setItem(index,plugin.createItem(e.item,e.amount).apply { itemMeta=itemMeta.apply {
+            menu.setItem(index,plugin.createItemForPlayer(e.item,e.amount,player).apply { itemMeta=itemMeta.apply {
                 val extra=listOf(plugin.message(player,"ec.shop.price_buy", "price" to e.price),plugin.message(player,"ec.shop.tokens", "items" to e.tokens.joinToString { "${plugin.contentName(player,it.item)} ×${it.amount}" }),plugin.message(player,"ec.shop.sell_hint"))
                 lore((lore() ?: emptyList())+extra); persistentDataContainer.set(entryKey,PersistentDataType.STRING,e.id)
             } })
@@ -206,7 +211,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
         val p=plugin.profiles[player.uniqueId] ?: return
         val menu=RpgMenu("equipment","",title=plugin.message(player,"ec.menu.equipment")).inventory
         player.inventory.storageContents.filterNotNull().mapNotNull { plugin.item(it) }.filter { it.slot == GearSlot.ACCESSORY && it.canEquip(p) }.distinctBy { it.id }.take(ChestLayout.DOUBLE_CHEST_SLOTS).forEachIndexed { i,item ->
-            menu.setItem(i,plugin.createItem(item.id).apply { itemMeta=itemMeta.apply { persistentDataContainer.set(entryKey,PersistentDataType.STRING,item.id) } })
+            menu.setItem(i,plugin.createItemForPlayer(item.id,1,player).apply { itemMeta=itemMeta.apply { persistentDataContainer.set(entryKey,PersistentDataType.STRING,item.id) } })
         }
         plugin.openRpgMenu(player, menu) { slot, _ ->
             menu.getItem(slot)?.itemMeta?.persistentDataContainer?.get(entryKey,PersistentDataType.STRING)?.let { equipAccessory(player,it) }
@@ -391,7 +396,7 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     fun consume(player: Player,stack: ItemStack): Boolean {
         val id=plugin.identify(stack) ?: return false
         val properties=plugin.snapshot.world.itemProperties[id] ?: return false
-        if(properties.effects.any { it.kind == "REVIVE" }) { message(player,reviveUseNotice()); return true }
+        if(properties.effects.any { it.kind == "REVIVE" }) { player.sendMessage(plugin.message(player,reviveUseNotice())); return true }
         if(plugin.snapshot.items[id].slot != GearSlot.NONE) return false
         val effects=properties.effects.filter { it.kind in setOf("HEAL","RESOURCE","CLEANSE","RETURN","DEFENSE_BUFF") }
         if(effects.isEmpty()) return false

@@ -14,8 +14,8 @@ dependencies:
       required: false
 permissions:
   etherealchronicle.admin:
-    description: エーテルの年代記 管理者権限
+    description: Ethereal Chronicle administrator permission
     default: op
   etherealchronicle.pack.bypass:
-    description: 必須リソースパックを拒否しても接続できる運用・QA用権限
+    description: Operations and QA permission to stay connected after declining the required resource pack
     default: op

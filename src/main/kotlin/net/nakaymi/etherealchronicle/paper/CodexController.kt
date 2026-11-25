@@ -20,6 +20,19 @@ internal class CodexController(private val plugin: RpgPlugin) {
         return found to enemies.size
     }
     private fun plain(component:Component):String = component.plainText()
+    /** 魚冠の列挙値を言語別の表示へ変換します。 */
+    private fun crownLabel(player:Player,crown:net.nakaymi.etherealchronicle.core.Crown):String = plain(plugin.message(player,when(crown) {
+        net.nakaymi.etherealchronicle.core.Crown.GOLD -> "ec.fishing.crown_gold"
+        net.nakaymi.etherealchronicle.core.Crown.SILVER -> "ec.fishing.crown_silver"
+        net.nakaymi.etherealchronicle.core.Crown.NONE -> "ec.codex.crown_none"
+    }))
+    /** 採取ノード種別の翻訳キー。 */
+    private fun nodeKindKey(kind:net.nakaymi.etherealchronicle.core.NodeKind):String = when(kind) {
+        net.nakaymi.etherealchronicle.core.NodeKind.ORE -> "ec.codex.kind_ore"
+        net.nakaymi.etherealchronicle.core.NodeKind.HERB -> "ec.codex.kind_herb"
+        net.nakaymi.etherealchronicle.core.NodeKind.WOOD -> "ec.codex.kind_wood"
+        net.nakaymi.etherealchronicle.core.NodeKind.CRYSTAL -> "ec.codex.kind_crystal"
+    }
 
     /** エリアごとの魔物発見状況を表示します。 */
     fun openCodex(player:Player) {
@@ -29,7 +42,7 @@ internal class CodexController(private val plugin: RpgPlugin) {
         page.items.forEachIndexed { slot,area ->
             val (found,total)=areaCodexPercent(profile,area)
             menu.setItem(slot,ItemStack(Material.FILLED_MAP).apply { itemMeta=itemMeta.apply {
-                displayName(Component.text(area.name)); lore(listOf(plugin.message(player,"ec.codex.found_ratio","found" to found,"total" to total,"percent" to if(total==0) 0 else found*PercentageScale.MAX_PERCENT/total)))
+                displayName(Component.text(plugin.contentText(player,"area",area.id,"name",area.name))); lore(listOf(plugin.message(player,"ec.codex.found_ratio","found" to found,"total" to total,"percent" to if(total==0) 0 else found*PercentageScale.MAX_PERCENT/total)))
             } })
         }
         codexFooter(player,menu,page,false)
@@ -47,7 +60,7 @@ internal class CodexController(private val plugin: RpgPlugin) {
             val drops=plugin.snapshot.documents[enemy.id]?.get("droptable") as? String
             val dropNames=drops?.let(plugin.snapshot.drops::find)?.entries?.map { plugin.contentName(player,it.item) }.orEmpty()
             menu.setItem(slot,ItemStack(if(discovered) Material.BLAZE_POWDER else Material.GRAY_DYE).apply { itemMeta=itemMeta.apply {
-                displayName(if(discovered) Component.text(enemy.name) else plugin.message(player,"ec.codex.undiscovered_enemy"))
+                displayName(if(discovered) Component.text(plugin.contentText(player,if(enemy.boss) "boss" else "enemy",enemy.id,"name",enemy.name)) else plugin.message(player,"ec.codex.undiscovered_enemy"))
                 val weaknesses=enemy.weaknesses.joinToString { weakness -> plain(plugin.message(player, weaknessNameKey(weakness))) }
                     .ifEmpty { plain(plugin.message(player,"ec.codex.no_weakness")) }
                 lore(if(discovered) listOf(plugin.message(player,"ec.codex.defeated_count","count" to count),plugin.message(player,"ec.codex.weaknesses","values" to weaknesses),plugin.message(player,"ec.codex.drops","values" to dropNames.joinToString())) else listOf(plugin.message(player,"ec.codex.search_area")))
@@ -75,7 +88,7 @@ internal class CodexController(private val plugin: RpgPlugin) {
             val lore=plugin.snapshot.documents[id]?.get("lore") as? String
             menu.setItem(slot,ItemStack(Material.PAPER).apply { itemMeta=itemMeta.apply {
                 displayName(Component.text(name))
-                lore(if(lore.isNullOrBlank()) null else listOf(Component.text(lore)))
+                lore(if(lore.isNullOrBlank()) null else listOf(Component.text(plugin.contentText(player,"item",id,"lore",lore))))
             } })
         }
         codexFooter(player,menu,page,true)
@@ -89,8 +102,8 @@ internal class CodexController(private val plugin: RpgPlugin) {
         page.items.forEachIndexed { slot,fish ->
             val record=profile.fishRecords[fish.id]; val discovered=record?.count?.let { it>0 }==true
             menu.setItem(slot,ItemStack(if(discovered) Material.COD else Material.GRAY_DYE).apply { itemMeta=itemMeta.apply {
-                displayName(if(discovered) Component.text(fish.name) else plugin.message(player,"ec.codex.undiscovered_fish"))
-                lore(if(record!=null) listOf(plugin.message(player,"ec.codex.catch_count","count" to record.count),plugin.message(player,"ec.codex.maximum_size","size" to record.maxCm,"crown" to record.crown),Component.text(fish.loreHint)) else listOf(plugin.message(player,"ec.codex.seek_fishing_spot")))
+                displayName(if(discovered) Component.text(plugin.contentText(player,"fish",fish.id,"name",fish.name)) else plugin.message(player,"ec.codex.undiscovered_fish"))
+                lore(if(record!=null) listOf(plugin.message(player,"ec.codex.catch_count","count" to record.count),plugin.message(player,"ec.codex.maximum_size","size" to record.maxCm,"crown" to crownLabel(player,record.crown)),Component.text(plugin.contentText(player,"fish",fish.id,"lore_hint",fish.loreHint))) else listOf(plugin.message(player,"ec.codex.seek_fishing_spot")))
             } })
         }
         codexFooter(player,menu,page,true); plugin.openCodexMenu(player, menu)
@@ -103,8 +116,8 @@ internal class CodexController(private val plugin: RpgPlugin) {
         page.items.forEachIndexed { slot,node ->
             val count=profile.gatheringRecords[node.id] ?: 0
             menu.setItem(slot,ItemStack(if(count>0) Material.IRON_ORE else Material.GRAY_DYE).apply { itemMeta=itemMeta.apply {
-                displayName(if(count>0) Component.text(node.name) else plugin.message(player,"ec.codex.undiscovered_gathering"))
-                lore(if(count>0) listOf(plugin.message(player,"ec.codex.gathering_count","count" to count),plugin.message(player,"ec.codex.gathering_kind","kind" to node.kind,"tier" to node.minToolTier)) else listOf(plugin.message(player,"ec.codex.seek_gathering_node")))
+                displayName(if(count>0) Component.text(plugin.contentText(player,"gathering",node.id,"name",node.name)) else plugin.message(player,"ec.codex.undiscovered_gathering"))
+                lore(if(count>0) listOf(plugin.message(player,"ec.codex.gathering_count","count" to count),plugin.message(player,"ec.codex.gathering_kind","kind" to plain(plugin.message(player,nodeKindKey(node.kind))),"tier" to node.minToolTier)) else listOf(plugin.message(player,"ec.codex.seek_gathering_node")))
             } })
         }
         codexFooter(player,menu,page,true); plugin.openCodexMenu(player, menu)

@@ -100,6 +100,11 @@ ec:
     undiscovered_gathering: "Undiscovered gathering site"
     gathering_count: "Harvests: <count>"
     gathering_kind: "Type: <kind> / Required tool T<tier>"
+    kind_ore: "Ore"
+    kind_herb: "Herb"
+    kind_wood: "Wood"
+    kind_crystal: "Crystal"
+    crown_none: "None"
     seek_gathering_node: "Inspect gathering sites with a specialized tool."
   resource:
     rage: "Rage"
@@ -334,6 +339,8 @@ ec:
     telegraph_ice: "icy"
     telegraph_void: "void"
     telegraph_generic: "dangerous"
+    bossbar_title: "<name> <hp>/<max_hp>  Phase <phase><enrage>"
+    bossbar_enrage: " ENRAGE"
   fishing:
     debug_cancel: "Debug fishing ended."
     no_session: "There is no fishing session."
@@ -400,6 +407,12 @@ ec:
     bait_selected: "Selected bait: <name>"
   gathering:
     node_label: "<green>[Gather] <white><name> <gray>(Lv. <level>)"
+    tool_pickaxe: "pickaxe"
+    tool_sickle: "herb sickle"
+    tool_hatchet: "hatchet"
+    tool_extractor: "crystal extractor"
+    tool_rod: "fishing rod"
+    tool_bait: "bait"
     protected_terrain: "Gathering site terrain is protected. Use the tool to gather."
     click_site: "Right-click the display or ground at <name>."
     site_unavailable: "This gathering site could not be loaded. Please contact an administrator."

@@ -10,6 +10,8 @@
 | `ec.advancement.root_description` | 冒険の記録 | Adventure records | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdvancementDatapack.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.advancement.root_title` | エセリアルクロニクル | Ethereal Chronicle | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdvancementDatapack.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.area.teleported` | <name>へ転送しました。 | Teleported to <name>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt | `<name>` |
+| `ec.boss.bossbar_enrage` |  激昂 |  ENRAGE | src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt |  |
+| `ec.boss.bossbar_title` | <name> <hp>/<max_hp>  フェーズ <phase><enrage> | <name> <hp>/<max_hp>  Phase <phase><enrage> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt | `<enrage>`, `<hp>`, `<max_hp>`, `<name>`, `<phase>` |
 | `ec.boss.telegraph` | 予兆: <attack>！<cue>範囲から離れてください。 | Telegraph: <attack>! Move away from the <cue> area. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt | `<attack>`, `<cue>` |
 | `ec.boss.telegraph_generic` | 危険な | dangerous | src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt |  |
 | `ec.boss.telegraph_ice` | 青白い | icy | src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt |  |
@@ -25,6 +27,7 @@
 | `ec.class.weapon_queued` | 新しい職業の初期武器は持ち物に送られました。<gold>/ec claim</gold> で受け取れます。 | Your new class starter weapon was sent to your mailbox. Use <gold>/ec claim</gold> to receive it. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.codex.back_areas` | エリア一覧へ戻る | Back to Areas | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.codex.catch_count` | 釣果: <count>匹 | Caught: <count> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<count>` |
+| `ec.codex.crown_none` | なし | None | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.codex.defeated_count` | 討伐数: <count> | Defeated: <count> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<count>` |
 | `ec.codex.drops` | ドロップ: <values> | Drops: <values> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<values>` |
 | `ec.codex.element.aether` | エーテル | Aether | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
@@ -37,6 +40,10 @@
 | `ec.codex.found_ratio` | 発見: <found>/<total> (<percent>%) | Discovered: <found>/<total> (<percent>%) | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<found>`, `<percent>`, `<total>` |
 | `ec.codex.gathering_count` | 採取回数: <count> | Harvests: <count> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<count>` |
 | `ec.codex.gathering_kind` | 種別: <kind> / 必要道具 T<tier> | Type: <kind> / Required tool T<tier> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<kind>`, `<tier>` |
+| `ec.codex.kind_crystal` | 結晶 | Crystal | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
+| `ec.codex.kind_herb` | 薬草 | Herb | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
+| `ec.codex.kind_ore` | 鉱石 | Ore | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
+| `ec.codex.kind_wood` | 木材 | Wood | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
 | `ec.codex.maximum_size` | 最大: <size>cm / <crown> | Max: <size> cm / <crown> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt | `<crown>`, `<size>` |
 | `ec.codex.new_discoveries` | 図鑑の発見率が上がりました: <items> | New codex discoveries: <items> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<items>` |
 | `ec.codex.next_page` | 次のページ | Next page | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt |  |
@@ -236,8 +243,8 @@
 | `ec.fishing.catch_pending` | 魚を掛けました。釣果を確定しています。 | Hooked! Confirming your catch… | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
 | `ec.fishing.catch_title` | 釣り上げた！ | Caught! | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
 | `ec.fishing.cooldown` | 次の釣りまで少しお待ちください。 | Please wait before casting again. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
-| `ec.fishing.crown_gold` | [金冠] | [Gold Crown] | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
-| `ec.fishing.crown_silver` | [銀冠] | [Silver Crown] | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
+| `ec.fishing.crown_gold` | [金冠] | [Gold Crown] | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
+| `ec.fishing.crown_silver` | [銀冠] | [Silver Crown] | src/main/kotlin/net/nakaymi/etherealchronicle/paper/CodexController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
 | `ec.fishing.damage` | 戦闘により釣りを中断しました。 | Fishing was interrupted by combat. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
 | `ec.fishing.death` | 倒れたため釣りを中断しました。 | Fishing was interrupted because you fell. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
 | `ec.fishing.debug_bossbar` | <aqua>デバッグ釣り: <fish> | <aqua>Debug fishing: <fish> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt | `<fish>` |
@@ -302,8 +309,14 @@
 | `ec.gathering.reward_failed` | 採取を完了できませんでした: <reason> | Could not complete gathering: <reason> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<reason>` |
 | `ec.gathering.site_unavailable` | この採取地点の設定を読み込めませんでした。管理者にお知らせください。 | This gathering site could not be loaded. Please contact an administrator. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
 | `ec.gathering.start_notice` | <name>の採取を開始しました。完了まで動かずにお待ちください。 | Gathering <name>. Stay still until it finishes. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<name>` |
+| `ec.gathering.tool_bait` | 釣り餌 | bait | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
+| `ec.gathering.tool_extractor` | 結晶抽出器 | crystal extractor | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
+| `ec.gathering.tool_hatchet` | 手斧 | hatchet | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
 | `ec.gathering.tool_level_low` | この道具を使うには生活スキルLv.<level>以上が必要です。 | This tool requires Life Skill Lv. <level> or higher. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<level>` |
+| `ec.gathering.tool_pickaxe` | ピッケル | pickaxe | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
 | `ec.gathering.tool_required` | <name>の採取には<kind>専用道具が必要です。 | A dedicated <kind> tool is required to gather <name>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<kind>`, `<name>` |
+| `ec.gathering.tool_rod` | 釣竿 | fishing rod | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
+| `ec.gathering.tool_sickle` | 採薬鎌 | herb sickle | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
 | `ec.gathering.tool_tier_low` | 道具の段階が足りません。T<tier>以上が必要です。 | Your tool tier is too low. Tier <tier> or higher is required. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<tier>` |
 | `ec.gathering.tool_wrong` | <name>には<required>が必要です（現在:<current>）。 | <name> requires <required> (held: <current>). | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt | `<current>`, `<name>`, `<required>` |
 | `ec.gathering.transaction_locked` | 取引処理中は採取できません。 | You cannot gather during a transaction. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/GatheringController.kt |  |
