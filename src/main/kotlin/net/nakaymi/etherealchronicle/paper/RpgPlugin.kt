@@ -35,6 +35,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal val isReadyForGameplay: Boolean get() = ready
     private val codexController by lazy { CodexController(this) }
     private val simulationCommands by lazy { SimulationCommandController(this) }
+    private val selfTest by lazy { SelfTestController(this) }
     private val combatFeedback by lazy { CombatFeedback(this) }
     private val wayfinding by lazy { WayfindingController(this) }
     private data class PendingHitMeta(val critical: Boolean, val element: String, val elementMod: Double, val isSkill: Boolean)
@@ -1406,7 +1407,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         if (!ready) return emptyList()
         val prefix = args.lastOrNull().orEmpty()
         val rootCommands = listOf("class", "guide", "quest", "party", "equipment", "dungeon", "shop", "claim", "title", "codex", "enhance", "fish", "gather", "ui", "sites")
-        val adminCommands = listOf("reload", "validate", "travel")
+        val adminCommands = listOf("reload", "validate", "travel", "selftest")
         val candidates = when {
             args.size <= 1 -> rootCommands + adminCommands.takeIf { sender.hasPermission("etherealchronicle.admin") }.orEmpty()
             args.firstOrNull() == "sites" && args.size == 2 && sender.hasPermission("etherealchronicle.admin") -> listOf("repair", "acknowledge-cleanup")
@@ -1430,12 +1431,13 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             sender.sendMessage(message(sender,"ec.startup.starting"))
             return true
         }
-        if (args.firstOrNull() in setOf("sites", "travel") ||
+        if (args.firstOrNull() in setOf("sites", "travel", "selftest") ||
             (args.firstOrNull() == "dungeon" && args.getOrNull(1) == "release")
         ) {
             try {
                 when (args[0]) {
                     "sites" -> simulationCommands.sites(sender, args.toList())
+                    "selftest" -> selfTest.run(sender)
                     "dungeon" -> simulationCommands.releaseDungeonSlot(sender, args.toList())
                     else -> {
                         require(sender.hasPermission("etherealchronicle.admin")) { "ec.command.no_permission" }

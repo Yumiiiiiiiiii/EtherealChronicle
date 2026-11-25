@@ -122,6 +122,12 @@ try {
         }
         if ($ready -lt $expectedSites) { Write-Host "[e2e] sites not all READY ($ready/$expectedSites)" -ForegroundColor Red; $failed = $true }
         else {
+            # 自己診断（サーバー内: 拠点・ポータル・スキーマ・全地点の投影・ポータル出口の安全性）
+            Send-Console 'ec selftest'
+            if (-not (Wait-Log 'EC_SELFTEST_(PASS|FAIL)' 300)) { Write-Host '[e2e] selftest did not finish' -ForegroundColor Red; $failed = $true }
+            elseif (Select-String -Path $log -Pattern 'EC_SELFTEST_FAIL' -Quiet) { Write-Host '[e2e] selftest FAILED' -ForegroundColor Red; $failed = $true }
+            else { Write-Step 'selftest PASS' }
+            Get-Content $log | Where-Object { $_ -match '^\[[0-9:]+ INFO\]: (PASS|FAIL) |自己診断|Self-test' } | ForEach-Object { Write-Host $_ }
             if (-not $Bot) { Write-Step 'bot scenario skipped (use -Bot; mineflayer must support the server protocol)'; $botExit = 0 }
             else {
             Send-Console "op $BotName"; Start-Sleep -Seconds 2

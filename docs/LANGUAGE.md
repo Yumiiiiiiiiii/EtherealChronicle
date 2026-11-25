@@ -82,7 +82,7 @@
 | `ec.command.item_given` | アイテムを付与しました。 | Item granted. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.level_set` | レベルを変更しました。 | Level updated. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.life_level_set` | <kind> をレベル <level> に設定しました。 | Set <kind> to level <level>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<kind>`, `<level>` |
-| `ec.command.no_permission` | 権限がありません。 | You do not have permission to use this command. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
+| `ec.command.no_permission` | 権限がありません。 | You do not have permission to use this command. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SelfTestController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.command.reload_busy` | 取引・職業選択・聖堂攻略中は再読み込みできません。 | Content cannot reload during a transaction, class selection, or trial. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.reload_content_in_use` | 使用中の職業または依頼を削除する変更は再読み込みできません。 | Reload cannot remove a class or quest currently in use. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.reload_success` | コンテンツを再読み込みしました。resource_pack.* の設定変更は再起動後に反映されます。 | Content reloaded. Changes to resource_pack.* settings require a restart. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
@@ -221,7 +221,7 @@
 | `ec.error.target_participant` | 対象の参加者ではありません。 | You are not a participant in that target. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.error.teleport_condition` | 転送条件を満たしていません。 | You do not meet the teleport requirements. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
 | `ec.error.teleport_destination` | 転送座標は対象エリア内で指定してください。 | The teleport destination must be inside the selected area. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
-| `ec.error.transaction_busy` | 取引の処理中です。 | A transaction is already in progress. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
+| `ec.error.transaction_busy` | 取引の処理中です。 | A transaction is already in progress. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SelfTestController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.error.transaction_changed` | 取引の状態が変化しました。 | The transaction state changed. Please try again. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.transaction_replayed` | 処理済みの取引です。 | This transaction has already been processed. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.transaction_rolled_back` | 保存に失敗したため取引を戻しました。 | The transaction was rolled back because saving failed. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
@@ -429,6 +429,9 @@
 | `ec.resource_pack.required_unavailable` | 必須リソースパックを配信できないため、必須設定を一時的に無効化しました。配信設定と起動ログを確認してください。 | The required resource pack has no working delivery endpoint, so enforcement is temporarily disabled. Check the distribution settings and startup log. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/ResourcePackController.kt |  |
 | `ec.resource_pack.usage` | 使用方法: /ec ui pack <auto\|on\|off> | Usage: /ec ui pack <auto\|on\|off> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.resource_pack.waiting` | 必須リソースパックを適用しています。完了するまでゲーム操作をお待ちください。 | Applying the required resource pack. Gameplay is paused until it finishes. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/ResourcePackController.kt |  |
+| `ec.selftest.check` | <status> <name>: <detail> | <status> <name>: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SelfTestController.kt | `<detail>`, `<name>`, `<status>` |
+| `ec.selftest.start` | 実機自己診断を開始します（チャンクを順に読み込みます）。 | Self-test started (chunks are loaded one by one). | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SelfTestController.kt |  |
+| `ec.selftest.summary` | 自己診断: <passed>/<total> 件 PASS | Self-test: <passed>/<total> passed | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SelfTestController.kt | `<passed>`, `<total>` |
 | `ec.shop.currency` | 所持金: <currency>G | Currency: <currency>G | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt | `<currency>` |
 | `ec.shop.price_buy` | 価格 <price>G / 左クリックで購入 | Price: <price>G / Left-click to buy | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt | `<price>` |
 | `ec.shop.sell_hint` | 売却: 持ち物の品を右クリック | Sell: right-click an item in your inventory | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |

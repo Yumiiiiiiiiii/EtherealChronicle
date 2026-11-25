@@ -1,6 +1,10 @@
 ec:
   death:
     gold_lost: "死亡したため所持ゴールド <amount>G を失いました。"
+  selftest:
+    start: "実機自己診断を開始します（チャンクを順に読み込みます）。"
+    check: "<status> <name>: <detail>"
+    summary: "自己診断: <passed>/<total> 件 PASS"
   sites:
     repair_started: "拠点の修復を開始しました。進行状況は /ec sites で確認できます。"
     repair_unavailable: "拠点の修復を開始できません。中断地点を確認し、必要なら手動で片付けてください。"
