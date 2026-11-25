@@ -11,7 +11,7 @@ enum class WorldMode(val configValue: String) {
     companion object {
         /** config.yml の `world.mode` を検証してモードへ変換します。 */
         fun fromConfig(value: String?): WorldMode {
-            val normalized = value ?: DEDICATED_EC_WORLD.configValue
+            val normalized = value ?: OVERWORLD.configValue
             return entries.firstOrNull { it.configValue == normalized }
                 ?: throw IllegalArgumentException("Unknown world.mode: $normalized")
         }

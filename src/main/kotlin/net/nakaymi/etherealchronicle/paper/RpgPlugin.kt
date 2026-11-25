@@ -89,7 +89,10 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal val snapshot get() = content.snapshot()
     /** 建設サービスの有無に関わらず、安全な座標投影を初期化します。 */
     private fun initializeWorldProjection() {
-        val mode = WorldMode.fromConfig(config.getString("world.mode", WorldMode.DEDICATED_EC_WORLD.configValue))
+        // テストだけが専用ワールドを既定にできる。本番では旧値 dedicated_ec_world（浮島）も overworld へ読み替える。
+        val testDefault = System.getProperty("etherealTestWorldMode")
+        val configured = config.getString("world.mode", testDefault ?: WorldMode.OVERWORLD.configValue)
+        val mode = if (testDefault == null && configured == WorldMode.DEDICATED_EC_WORLD.configValue) WorldMode.OVERWORLD else WorldMode.fromConfig(configured)
         val registry = if (mode == WorldMode.OVERWORLD) {
             val worldName = config.getString("world.overworld_name", "world") ?: "world"
             overworldBootstrap = server.getWorld(worldName)?.let { EngineOverworldBootstrap(this, it, snapshot.world.areas.values) }

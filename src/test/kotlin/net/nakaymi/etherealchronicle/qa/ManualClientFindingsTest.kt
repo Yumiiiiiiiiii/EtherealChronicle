@@ -51,8 +51,8 @@ class ManualClientFindingsTest {
             val starterWeapon = plugin.createItem("ec:item_wpn_iron_dirk")
             val death = PlayerDeathEvent(player, DamageSource.builder(DamageType.GENERIC).build(), mutableListOf(starterWeapon), 0, "QA death")
             server.pluginManager.callEvent(death)
-            assertTrue(death.drops.isEmpty(), "bound starter weapon remained in death drops")
-            assertTrue(death.itemsToKeep.any { it.itemMeta.persistentDataContainer.get(org.bukkit.NamespacedKey(plugin, "item_id"), org.bukkit.persistence.PersistentDataType.STRING) == "ec:item_wpn_iron_dirk" }, "bound starter weapon was not kept")
+            assertTrue(death.drops.isEmpty(), "death must not drop items")
+            assertTrue(death.keepInventory && death.keepLevel, "death must keep inventory and level")
         } finally {
             MockBukkit.unmock()
         }

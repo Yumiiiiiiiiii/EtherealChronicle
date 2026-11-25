@@ -1,4 +1,6 @@
 ec:
+  death:
+    gold_lost: "死亡したため所持ゴールド <amount>G を失いました。"
   sites:
     repair_started: "拠点の修復を開始しました。進行状況は /ec sites で確認できます。"
     repair_unavailable: "拠点の修復を開始できません。中断地点を確認し、必要なら手動で片付けてください。"

@@ -11,7 +11,7 @@ class OverworldAnchorProjectorTest {
     fun `world mode parser maps valid strings, default null, and rejects unknown values`() {
         assertEquals(WorldMode.OVERWORLD, WorldMode.fromConfig("overworld"))
         assertEquals(WorldMode.DEDICATED_EC_WORLD, WorldMode.fromConfig("dedicated_ec_world"))
-        assertEquals(WorldMode.DEDICATED_EC_WORLD, WorldMode.fromConfig(null))
+        assertEquals(WorldMode.OVERWORLD, WorldMode.fromConfig(null))
         assertThrows(IllegalArgumentException::class.java) { WorldMode.fromConfig("invalid_mode") }
     }
 

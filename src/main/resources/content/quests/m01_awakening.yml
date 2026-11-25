@@ -12,9 +12,6 @@ rewards:
   currency: 60
   set_flags: ['ec:flag_ch1_started']
   items:
-    - {item: 'ec:item_wpn_rusty_broadsword', amount: 1, condition: {classes: ['ec:class_warrior']}}
-    - {item: 'ec:item_wpn_hunter_shortbow', amount: 1, condition: {classes: ['ec:class_archer']}}
-    - {item: 'ec:item_wpn_apprentice_wand', amount: 1, condition: {classes: ['ec:class_mage']}}
     - {item: 'ec:item_con_minor_hp_potion', amount: 3}
     - {item: 'ec:item_con_lumina_stew', amount: 1}
 auto_complete: false

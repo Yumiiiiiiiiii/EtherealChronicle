@@ -402,9 +402,16 @@ class AdventureController(private val plugin: RpgPlugin): Listener {
     @EventHandler(ignoreCancelled=true) fun dragBound(e: InventoryDragEvent) { if(bound(e.oldCursor) && e.rawSlots.any { it < e.view.topInventory.size }) e.isCancelled=true }
     @EventHandler(ignoreCancelled=true) fun pickup(e: EntityPickupItemEvent) { if(e.entity.uniqueId in locks) e.isCancelled=true }
     @EventHandler fun quit(e: PlayerQuitEvent) { beforeQuit(e.player); parties.leave(e.player.uniqueId); dialogueSessions.remove(e.player.uniqueId) }
+    /** 死亡時はアイテム・経験値を一切失わず、所持ゴールドだけを失います。 */
     @EventHandler fun death(e: PlayerDeathEvent) {
-        val kept=e.drops.filter(::bound)
-        e.drops.removeAll(kept.toSet()); e.itemsToKeep.addAll(kept)
+        e.keepInventory=true; e.keepLevel=true
+        e.drops.clear(); e.droppedExp=0
+        val profile=plugin.profiles[e.entity.uniqueId] ?: return
+        val lost=profile.currency
+        if(lost <= 0) return
+        profile.currency=0
+        plugin.save(profile)
+        e.entity.sendMessage(plugin.message(e.entity,"ec.death.gold_lost","amount" to lost))
     }
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true) fun safe(e: EntityDamageEvent) {
         if(npcs.isManaged(e.entity)) { e.isCancelled=true; return }

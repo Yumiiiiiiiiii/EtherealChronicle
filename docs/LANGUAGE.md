@@ -89,6 +89,7 @@
 | `ec.command.validate_success` | コンテンツ検証成功。 | Content validation succeeded. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.validation_failed` | 検証失敗: <reason> | Validation failed: <reason> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<reason>` |
 | `ec.content.unknown_name` | 名称不明 | Unknown content | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.death.gold_lost` | 死亡したため所持ゴールド <amount>G を失いました。 | You died and lost <amount> gold. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt | `<amount>` |
 | `ec.debug.fish_prefix` | FISH <name>: <detail> | FISH <name>: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<detail>`, `<name>` |
 | `ec.debug.fishing_active` | 釣りセッション / phase=<phase> / action=<action> / elapsed=<elapsed>s of <limit>s / fish=<fish> / progress=<progress>% / tension=<tension>% / bossbar=<bossbar> | Fishing session / phase=<phase> / action=<action> / elapsed=<elapsed>s of <limit>s / fish=<fish> / progress=<progress>% / tension=<tension>% / bossbar=<bossbar> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt | `<action>`, `<bossbar>`, `<elapsed>`, `<fish>`, `<limit>`, `<phase>`, `<progress>`, `<tension>` |
 | `ec.debug.fishing_inactive` | 釣りセッションはありません。 | No fishing session is active. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |

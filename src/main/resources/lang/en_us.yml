@@ -1,4 +1,6 @@
 ec:
+  death:
+    gold_lost: "You died and lost <amount> gold."
   sites:
     repair_started: "Site repair started. Use /ec sites to check progress."
     repair_unavailable: "Site repair could not start. Inspect the interrupted site and clean it up manually if needed."
