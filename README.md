@@ -6,11 +6,11 @@
 
 <p align="center">
   <strong>Paper 26.3 向けストーリー主導型ファンタジー MMORPG プラグイン &amp; カスタムリソースパック</strong><br />
-  6クラス・章仕立てクエスト・ダンジョン・生活コンテンツ・Overworld 拠点自動生成・専用ドット絵リソースパックを単一 JAR に統合
+  6クラス・章仕立てクエスト・ダンジョン・生活コンテンツ・Overworld 拠点自動生成・完全日英ローカライズ・専用ドット絵リソースパックを単一 JAR に統合
 </p>
 
 <p align="center">
-  <a href="https://github.com/Yumiiiiiiiiii/EtherealChronicle/releases/tag/v0.1.0"><strong>Latest Release: v0.1.0</strong></a>
+  <a href="https://github.com/Yumiiiiiiiiii/EtherealChronicle/releases/tag/v0.1.1"><strong>Latest Release: v0.1.1</strong></a>
   &nbsp;·&nbsp;
   <a href="docs/RELEASE.md">Release Notes</a>
   &nbsp;·&nbsp;
@@ -23,17 +23,21 @@
 
 ## 主な機能
 
-- **6 プレイアブルクラス & スキル / 装備システム**
+- **6 プレイアブルクラス & 爽快な戦闘フィードバック**
   - Warrior / Mage / Archer / Paladin / Assassin / Cleric の各クラス専用スキル・武器・オフハンド・アクセサリー・強化 UI・図鑑（Codex）を搭載。
-- **ストーリー & サイドコンテンツ**
+  - 被弾赤フラッシュ・ノックバック・属性／クリティカル演出・浮遊ダメージ数値・ターゲット HP バー・弓／杖の左クリック遠距離通常攻撃に対応。
+- **ストーリー・チュートリアル & ナビゲーション**
   - 第1章・第2章のメインクエスト、サイド・デイリー・ウィークリー依頼、NPC 会話・ショップ・トークン交換・宝箱・釣り＆採集システム（457 YAML コンテンツ）。
+  - 常設サイドバー追跡、`/ec guide`（またはホットバー9番の星右クリック）による方角・距離ガイド＆光の道しるべパーティクル、NPC 目印パーティクル、エリア到着 Title バナーを搭載。
+- **完全日英ローカライズ対応**
+  - クライアント言語（`ja_*` / `en_*`）に応じて全 UI・会話・クエスト・アイテム・NPC・敵・ボスバー・サイドバー・実績を自動切替。リソースパック側にも両言語の翻訳 JSON（839 キー）を同梱。
 - **協力ダンジョン & ボス戦**
   - パーティ機能・報酬共有・テレグラフ付きボス戦・スカイアリーナ方式のダンジョンインスタンスを実行。
 - **2 つのワールド運用モード**
   - **`dedicated_ec_world`（既定）**: プラグイン管理の専用浮遊島ワールド `ec_world` で動作。
-  - **`overworld`（実機プレイ推奨）**: バニラ Overworld へ 9 つの街・拠点と 4 つのダンジョンポータルを自動統合（`/ec sites` で状態確認・復旧可能）。
+  - **`overworld`（実機プレイ推奨）**: バニラ Overworld へ 9 つの街・拠点（幅 5 ブロック道路・ゆとりある建物間隔）と 4 つのダンジョンポータルを自動統合（`/ec sites` で状態確認・復旧可能）。
 - **カスタムリソースパック & コアデータパック内蔵**
-  - Minecraft Java Edition 26.3 向けリソースパック（`pack_format [97, 1]`、ドット絵テクスチャ全 60 枚：武器・UI・HUD・GUI パネル・成体/幼体オオカミ 3 種×3 状態）を JAR に同梱。
+  - Minecraft Java Edition 26.3 向けリソースパック（`pack_format [97, 1]`、ドット絵テクスチャ全 60 枚 + 日英翻訳ファイル）を JAR に同梱。
   - コアデータパック（`datapacks/etherealchronicle_core` / `pack_format [121, 0]`）は起動時に `LifecycleEvents.DATAPACK_DISCOVERY` 経由で自動登録。
   - `BetterModel` はオプション連携（未導入時は自動でカスタムオオカミバリアントへフォールバック）。
 
@@ -50,9 +54,9 @@
 
 ---
 
-## 導入手順（v0.1.0）
+## 導入手順（v0.1.1）
 
-1. [GitHub Releases (`v0.1.0`)](https://github.com/Yumiiiiiiiiii/EtherealChronicle/releases/tag/v0.1.0) から `EtherealChronicle-0.1.0.jar` をダウンロードし、Paper サーバーの `plugins/` へ配置します。
+1. [GitHub Releases (`v0.1.1`)](https://github.com/Yumiiiiiiiiii/EtherealChronicle/releases/tag/v0.1.1) から `EtherealChronicle-0.1.1.jar` をダウンロードし、Paper サーバーの `plugins/` へ配置します。
 2. 公開サーバーでは `eula=true` および `online-mode=true` を設定します。
 3. 本番運用（Overworld 統合 + HTTPS リソースパック配信）を行う場合、`plugins/EtherealChronicle/config.yml` を以下のように設定します：
 
@@ -69,8 +73,8 @@ resource_pack:
   required: true
   required_timeout_seconds: 120
   mode: external_url
-  external_url: "https://github.com/Yumiiiiiiiiii/EtherealChronicle/releases/download/v0.1.0/etherealchronicle-resourcepack.zip"
-  external_sha1: "b2ea8974db9324834f7cf56b1d1faa8c40ffb99c"
+  external_url: "https://github.com/Yumiiiiiiiiii/EtherealChronicle/releases/download/v0.1.1/etherealchronicle-resourcepack.zip"
+  external_sha1: "ae084a0c5e9d10d4b095e99343fd21dbc2848261"
 ```
 
 4. サーバーを起動します（`world.mode: overworld` の初回起動時は拠点生成に約 3〜4 分かかります）。
@@ -89,11 +93,12 @@ resource_pack:
 | `etherealchronicle.admin` | `op` | 管理者コマンド全般（拠点管理・リロード・補填・デバッグ） |
 | `etherealchronicle.pack.bypass` | `op` | 必須リソースパックを拒否しても接続できる運用・QA 用バイパス |
 
-### 代表的な管理コマンド
+### 代表的なコマンド
 
+- **プレイヤー向け**: `/ec guide`（目的地案内・光の道しるべ）, `/ec quest`, `/ec codex`, `/ec claim`（未受取報酬の回収）, `/ec title`, `/ec fishing`, `/ec party`
 - **拠点・ダンジョン管理**: `/ec sites`, `/ec sites repair`, `/ec sites acknowledge-cleanup <areaId>`, `/ec dungeon release <slot>`, `/ec travel <areaId>`
 - **診断・リロード**: `/ec validate`, `/ec reload`, `/ec pack info`
-- **報酬・補填**: `/ec claim`（プレイヤー向け未受取回収）, `/ec starter <player>`, `/ec give <player> <item-id> [amount]`, `/ec currency <player> <amount>`
+- **補填・配布**: `/ec starter <player>`, `/ec give <player> <item-id> [amount]`, `/ec currency <player> <amount>`
 
 ---
 
@@ -110,7 +115,7 @@ Java 25 環境で Gradle Wrapper を実行します：
 ```
 
 主な出力ファイル：
-- プラグイン JAR: `build/libs/EtherealChronicle-0.1.0.jar`
+- プラグイン JAR: `build/libs/EtherealChronicle-0.1.1.jar`
 - リソースパック ZIP / SHA-1: `build/generated/resourcepack/etherealchronicle-resourcepack.zip` / `.sha1`
 
 ---
