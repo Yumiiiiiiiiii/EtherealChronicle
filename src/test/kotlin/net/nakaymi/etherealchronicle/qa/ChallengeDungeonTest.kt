@@ -2,7 +2,6 @@ package net.nakaymi.etherealchronicle.qa
 
 import net.nakaymi.etherealchronicle.core.PlayerProfile
 import net.nakaymi.etherealchronicle.core.recordChallenge
-import net.nakaymi.etherealchronicle.paper.DemoWorld
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
 import org.junit.jupiter.api.Test
 import org.mockbukkit.mockbukkit.MockBukkit
@@ -25,7 +24,7 @@ class ChallengeDungeonTest {
             assertTrue(server.pump { runCatching { plugin.snapshot.world.dungeons.isNotEmpty() }.getOrDefault(false) })
             val player=PlayerMock(server,"Crucible",UUID.randomUUID()); server.addPlayer(player)
             assertTrue(server.pump { player.uniqueId in plugin.profiles })
-            val world=server.getWorld(DemoWorld.NAME) ?: server.addSimpleWorld(DemoWorld.NAME)
+            val world=server.getWorld(net.nakaymi.etherealchronicle.core.WorldIds.DEMO) ?: server.addSimpleWorld(net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             player.teleport(world.spawnLocation)
             val profile=PlayerProfile(player.uniqueId,classId="ec:class_paladin",level=20,resource=100.0,flags=mutableSetOf("ec:flag_side_crucible_unlocked"))
             plugin.profiles[player.uniqueId]=profile

@@ -1,7 +1,6 @@
 package net.nakaymi.etherealchronicle.qa
 
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
-import net.nakaymi.etherealchronicle.paper.DemoWorld
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
 import org.bukkit.Location
 import org.bukkit.Material
@@ -54,7 +53,7 @@ class GatheringLifeTest {
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             server.pump { runCatching { plugin.snapshot; plugin.enemies; true }.getOrDefault(false) }
-            val world = OwnedWorldMock.add(server, DemoWorld.NAME)
+            val world = OwnedWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             val nodeLoc = plugin.snapshot.world.gatheringNodes.getValue("ec:node_ashwood_herb").locations.first()
             val ground = world.getBlockAt(nodeLoc.x, nodeLoc.y - 1, nodeLoc.z).also { it.type = Material.GRASS_BLOCK }
             val itemKey = NamespacedKey(plugin, "item_id")

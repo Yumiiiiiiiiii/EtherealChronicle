@@ -79,7 +79,5 @@ class PaperDomainUnitsTest {
         } finally {
             MockBukkit.unmock()
         }
-        assertEquals(listOf(0, 96, 192, 288, 384), DemoWorldLayout.HUB_PLAZAS.map { it.centerX })
-        assertEquals(65, DemoWorldLayout.SURFACE_Y)
     }
 }

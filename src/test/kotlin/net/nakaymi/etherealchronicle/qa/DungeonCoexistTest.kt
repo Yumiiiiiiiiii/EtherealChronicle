@@ -1,7 +1,6 @@
 package net.nakaymi.etherealchronicle.qa
 
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
-import net.nakaymi.etherealchronicle.paper.DemoWorld
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
 import org.bukkit.Location
 import org.bukkit.Material
@@ -52,7 +51,7 @@ class DungeonCoexistTest {
         val server = MockBukkit.mock()
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java); server.pump { plugin.isReadyForGameplay }
-            val world = server.addSimpleWorld(DemoWorld.NAME)
+            val world = server.addSimpleWorld(net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             val a = join(server, plugin, "DgA"); val b = join(server, plugin, "DgB")
             a.teleport(Location(world, 0.0, 65.0, 0.0)); b.teleport(Location(world, 5.0, 65.0, 5.0))
             val pa = plugin.profiles.getValue(a.uniqueId); val pb = plugin.profiles.getValue(b.uniqueId)
@@ -103,7 +102,7 @@ class DungeonCoexistTest {
         val server = MockBukkit.mock(); val res = mutableListOf<String>()
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java); server.pump { plugin.isReadyForGameplay }
-            val world = server.addSimpleWorld(DemoWorld.NAME)
+            val world = server.addSimpleWorld(net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             val a = join(server, plugin, "AirA"); a.teleport(Location(world, 0.0, 65.0, 0.0))
             val pa = plugin.profiles.getValue(a.uniqueId); pa.level = 20
             val adv = RpgPlugin::class.java.getDeclaredField("adventure").also { it.isAccessible = true }.get(plugin)

@@ -240,8 +240,6 @@ object SchematicPlacer {
 
 /** Schematicリソースをクラスパスから取得し、配置前に一度だけデコードします。 */
 internal object SchematicResources {
-    private val completeWorldSet by lazy { WorldSchematicLayout.ISLANDS.all { exists(it.path) } && WorldSchematicLayout.BRIDGES.all { exists(it.path) } }
     fun exists(path: String): Boolean = SchematicResources::class.java.classLoader.getResource(path) != null
     fun load(path: String): SchematicData? = SchematicResources::class.java.classLoader.getResourceAsStream(path)?.use(SchematicLoader::load)
-    fun hasCompleteWorldSet(): Boolean = completeWorldSet
 }

@@ -1,6 +1,5 @@
 package net.nakaymi.etherealchronicle.qa
 
-import net.nakaymi.etherealchronicle.paper.DemoWorld
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
 import org.bukkit.Location
 import org.bukkit.entity.Player
@@ -17,7 +16,7 @@ class NoviceArenaTest {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             val end = System.currentTimeMillis() + 5000
             while (runCatching { plugin.snapshot; plugin.dungeons; true }.isFailure && System.currentTimeMillis() < end) { server.scheduler.performOneTick(); Thread.sleep(20) }
-            val world = OwnedWorldMock.add(server, DemoWorld.NAME)
+            val world = OwnedWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             val p = QaPlayerMock(server, "ArenaA", java.util.UUID.nameUUIDFromBytes("arena-a".toByteArray())); server.addPlayer(p)
             val until = System.currentTimeMillis() + 5000
             while (p.uniqueId !in plugin.profiles && System.currentTimeMillis() < until) { server.scheduler.performOneTick(); Thread.sleep(20) }

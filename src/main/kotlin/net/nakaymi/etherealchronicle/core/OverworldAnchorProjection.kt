@@ -289,7 +289,7 @@ class OverworldAnchorProjector(
         (x - cx) * (x - cx) + (z - cz) * (z - cz)
 
     companion object {
-        /** ec_world の基準地表高さ（DemoWorldLayout.SURFACE_Y と同じ 65）。 */
+        /** ec_world の基準地表高さ（65）。 */
         const val BASE_SURFACE_Y = 65
     }
 }

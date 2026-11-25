@@ -1,5 +1,6 @@
 package net.nakaymi.etherealchronicle.paper
 
+import net.nakaymi.etherealchronicle.core.WorldIds
 import net.nakaymi.etherealchronicle.core.DungeonBoxScanResult
 import net.nakaymi.etherealchronicle.core.DungeonDefinition
 import net.nakaymi.etherealchronicle.core.DungeonInstanceBounds
@@ -242,7 +243,7 @@ class DungeonController internal constructor(
         require(players.all { definition.unlockFlag in plugin.profiles.getValue(it.uniqueId).flags }) {
             "ec.error.dungeon_unlock_required"
         }
-        val world = Bukkit.getWorld(DemoWorld.NAME) ?: error("ec.error.world_unavailable")
+        val world = Bukkit.getWorld(WorldIds.DEMO) ?: error("ec.error.world_unavailable")
         val slot = (0 until plugin.snapshot.world.tuning.instanceCap).firstOrNull { it !in instances }
             ?: error("ec.error.dungeon_full")
         val instance = Instance(
@@ -1234,7 +1235,7 @@ class DungeonController internal constructor(
         }
         if (instance.slot in schematicSlots) {
             val origin = DungeonArenaLayout.originForSlot(instance.slot)
-            Bukkit.getWorld(DemoWorld.NAME)?.let { world ->
+            Bukkit.getWorld(WorldIds.DEMO)?.let { world ->
                 clearSchematicArena(
                     world,
                     origin.x - DungeonArenaLayout.SCHEMATIC_ORIGIN_OFFSET_BLOCKS,
@@ -1544,7 +1545,7 @@ class DungeonController internal constructor(
             recoverOverworld(player)
             return
         }
-        if (player.world.name == DemoWorld.NAME &&
+        if (player.world.name == WorldIds.DEMO &&
             player.x >= DungeonArenaLayout.RECOVERY_MIN_COORDINATE &&
             player.z >= DungeonArenaLayout.RECOVERY_MIN_COORDINATE &&
             !containsPlayer(player.uniqueId)
@@ -1663,7 +1664,7 @@ class DungeonController internal constructor(
     }
 
     private fun instanceWorld(instance: Instance): World? = Bukkit.getWorld(
-        if (instance.overworld) plugin.activeWorldProjection.worldName() else DemoWorld.NAME,
+        if (instance.overworld) plugin.activeWorldProjection.worldName() else WorldIds.DEMO,
     )
 
     private fun instanceCenter(instance: Instance): Pair<Int, Int> = if (instance.overworld) {
@@ -1732,7 +1733,7 @@ class DungeonController internal constructor(
                 to.y >= bounds.minY && to.y < bounds.maxY + 1 &&
                 to.z >= bounds.minZ && to.z < bounds.maxZ + 1
         } else {
-            to.world?.name == DemoWorld.NAME && DungeonArenaLayout.isInsideBounds(to, instance.slot)
+            to.world?.name == WorldIds.DEMO && DungeonArenaLayout.isInsideBounds(to, instance.slot)
         }
         if (!inside) {
             if (instance.overworld) {
@@ -1821,7 +1822,7 @@ class DungeonController internal constructor(
             val center = overworldLayout.center(instance.slot)
             e.to = Location(e.player.world, center.x + 0.5, center.y + 2.0, center.z + 0.5)
             leave(e.player)
-        } else if (e.player.world.name == DemoWorld.NAME && e.to.y < DungeonArenaLayout.VOID_RECOVERY_Y) {
+        } else if (e.player.world.name == WorldIds.DEMO && e.to.y < DungeonArenaLayout.VOID_RECOVERY_Y) {
             e.player.teleport(e.player.world.spawnLocation)
             leave(e.player)
         }

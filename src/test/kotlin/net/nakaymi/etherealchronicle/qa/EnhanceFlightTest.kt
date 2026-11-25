@@ -1,6 +1,5 @@
 package net.nakaymi.etherealchronicle.qa
 
-import net.nakaymi.etherealchronicle.paper.DemoWorld
 import net.nakaymi.etherealchronicle.paper.RpgMenu
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
 import org.bukkit.NamespacedKey
@@ -31,7 +30,7 @@ class EnhanceFlightTest {
     fun enhancementFlights() {
         val server = MockBukkit.mock()
         try {
-            val world = OwnedWorldMock.add(server, DemoWorld.NAME)
+            val world = OwnedWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             File(world.worldFolder, ".etherealchronicle-built").writeText("v4\n")
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             val mat = "ec:item_mat_artisan_whetstone"; val weapon = "ec:item_wpn_rusty_broadsword"

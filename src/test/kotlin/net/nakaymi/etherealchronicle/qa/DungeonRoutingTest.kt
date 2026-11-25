@@ -1,6 +1,5 @@
 package net.nakaymi.etherealchronicle.qa
 
-import net.nakaymi.etherealchronicle.paper.DemoWorld
 import net.nakaymi.etherealchronicle.paper.ClassMenu
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
 import org.bukkit.Material
@@ -32,7 +31,7 @@ class DungeonRoutingTest {
         try {
             val plugin=MockBukkit.load(RpgPlugin::class.java)
             assertTrue(server.pump { plugin.isReadyForGameplay })
-            val world=server.addSimpleWorld(DemoWorld.NAME)
+            val world=server.addSimpleWorld(net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             val player=PlayerMock(server,"DungeonRoute",UUID.nameUUIDFromBytes("dungeon-route".toByteArray()))
             server.addPlayer(player)
             val itemKey=NamespacedKey(plugin,"item_id")
@@ -52,7 +51,7 @@ class DungeonRoutingTest {
             assertEquals(2,spawned.count { it=="ec:enemy_glacial_knight" },"glacial guard count")
             player.performCommand("ec dungeon leave")
             assertTrue(server.pump { kotlin.math.abs(player.x-460.0)<1.0 },"return location not restored")
-            assertEquals(DemoWorld.NAME,player.world.name)
+            assertEquals(net.nakaymi.etherealchronicle.core.WorldIds.DEMO,player.world.name)
         } finally { MockBukkit.unmock() }
     }
 }

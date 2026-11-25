@@ -266,14 +266,13 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     /** 対象ワールドだけをゲームコントローラーに公開します。 */
     internal fun isActiveWorld(world: World): Boolean = world.name == activeWorldProjection.worldName()
 
-    /** 専用ワールドでは所有マーカーを確認してから地形関連の操作を許可します。 */
-    internal fun isManagedWorld(world: World): Boolean = isActiveWorld(world) &&
-        (activeWorldProjection.registry.isOverworldMode() || runCatching { DemoWorld.isOwned(world) }.getOrDefault(false))
+    /** RPG が管理する対象ワールドかどうかを返します。 */
+    internal fun isManagedWorld(world: World): Boolean = isActiveWorld(world)
 
     /** 読み込み済みの安全なルミナ港広場を返し、未準備なら移動を行いません。 */
     internal fun luminaSpawn(): Location? {
         val world = server.getWorld(activeWorldProjection.worldName()) ?: return null
-        if (!activeWorldProjection.registry.isOverworldMode()) return DemoWorld.luminaSpawn(world)
+        if (!activeWorldProjection.registry.isOverworldMode()) return Location(world, 0.5, OverworldAnchorProjector.BASE_SURFACE_Y.toDouble(), 0.5)
         val site = activeWorldProjection.registry.siteForArea("ec:area_lumina_port")
             ?.takeIf { it.status == GameSiteStatus.READY } ?: return null
         val spawnX = site.plazaSpawnX ?: return null
@@ -450,8 +449,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     enemies=EnemyController(this,adventure)
                     dungeons=DungeonController(this,adventure,enemies)
                     try {
-                        if (activeWorldProjection.registry.isOverworldMode()) adventure.reloadNpcs()
-                        else if (DemoWorld.ensure(this) != null) adventure.reloadNpcs()
+                        adventure.reloadNpcs()
                     }
                     catch(error: Exception) { logger.severe("Could not prepare the dedicated world; foundation features remain enabled: ${error.message}") }
                     gathering=GatheringController(this)
@@ -848,7 +846,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     }
     /** 所有するデータパックだけを生成し、PaperのDatapackManagerで進捗定義を再読込します。 */
     private fun reloadAdvancementPack() {
-        val world=server.worlds.firstOrNull { it.environment==World.Environment.NORMAL && it.name!=DemoWorld.NAME }
+        val world=server.worlds.firstOrNull { it.environment==World.Environment.NORMAL && it.name!=WorldIds.DEMO }
             ?: server.worlds.firstOrNull() ?: error("No world is available for the advancement data pack.")
         val rootTitle=plain(language.component(null,"ec.advancement.root_title"))
         val rootDescription=plain(language.component(null,"ec.advancement.root_description"))

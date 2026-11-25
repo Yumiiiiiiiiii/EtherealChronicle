@@ -1,6 +1,5 @@
 package net.nakaymi.etherealchronicle.qa
 
-import net.nakaymi.etherealchronicle.paper.DemoWorld
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
 import org.bukkit.event.player.PlayerRespawnEvent
 import org.bukkit.event.entity.PlayerDeathEvent
@@ -32,15 +31,15 @@ class ManualClientFindingsTest {
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             assertTrue(server.pump { plugin.isReadyForGameplay && runCatching { plugin.snapshot }.isSuccess })
-            val world = server.getWorld(DemoWorld.NAME) ?: server.addSimpleWorld(DemoWorld.NAME)
+            val world = server.getWorld(net.nakaymi.etherealchronicle.core.WorldIds.DEMO) ?: server.addSimpleWorld(net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             val player = PlayerMock(server, "LuminaQA", UUID.nameUUIDFromBytes("lumina-qa".toByteArray()))
             server.addPlayer(player)
 
-            assertTrue(server.pump { player.world == world && player.location.distanceSquared(DemoWorld.luminaSpawn(world)) < 0.01 }, "first join did not move to Lumina")
+            assertTrue(server.pump { player.world == world && player.location.distanceSquared(org.bukkit.Location(world,0.5,65.0,0.5)) < 0.01 }, "first join did not move to Lumina")
             val respawn = PlayerRespawnEvent(player, player.location, false, false)
             server.pluginManager.callEvent(respawn)
             assertEquals(world, respawn.respawnLocation.world)
-            assertTrue(respawn.respawnLocation.distanceSquared(DemoWorld.luminaSpawn(world)) < 0.01, "respawn did not use Lumina spawn")
+            assertTrue(respawn.respawnLocation.distanceSquared(org.bukkit.Location(world,0.5,65.0,0.5)) < 0.01, "respawn did not use Lumina spawn")
 
             val definitions = plugin.snapshot.world.itemProperties
             plugin.snapshot.classes.all().forEach { classDefinition ->
@@ -64,12 +63,12 @@ class ManualClientFindingsTest {
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             assertTrue(server.pump { plugin.isReadyForGameplay && runCatching { plugin.snapshot }.isSuccess })
-            val world = server.getWorld(DemoWorld.NAME) ?: server.addSimpleWorld(DemoWorld.NAME)
+            val world = server.getWorld(net.nakaymi.etherealchronicle.core.WorldIds.DEMO) ?: server.addSimpleWorld(net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             val player = PlayerMock(server, "SpawnQA", UUID.nameUUIDFromBytes("spawn-qa".toByteArray()))
             player.addAttachment(plugin, "etherealchronicle.admin", true)
             server.addPlayer(player)
             server.pump { plugin.profiles.containsKey(player.uniqueId) }
-            player.teleport(DemoWorld.luminaSpawn(world))
+            player.teleport(org.bukkit.Location(world,0.5,65.0,0.5))
 
             assertTrue(player.performCommand("ec spawn ec:enemy_aether_slime ${player.name}"))
             assertTrue(server.pump { player.nextMessage()?.let { it.contains("魔物を召喚しました") || it.contains("Enemy spawned") } == true }, "first spawn did not complete")

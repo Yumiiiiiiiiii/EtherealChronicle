@@ -68,7 +68,7 @@ class FishingInteractRoutingTest {
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             assertTrue(await(server) { runCatching { plugin.fishing }.isSuccess })
-            val world = OwnedWorldMock.add(server, DemoWorld.NAME)
+            val world = OwnedWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             val player = PlayerMock(server, "FishingControllerClick", UUID.randomUUID())
             server.addPlayer(player)
             assertTrue(await(server) { player.uniqueId in plugin.profiles })

@@ -10,7 +10,7 @@ class QaPlayerMock(server: ServerMock, name: String, uuid: UUID = UUID.randomUUI
     override fun saveData() { saveDataCalls++ }
 }
 
-/** WorldMock whose getWorldFolder() works (MockBukkit leaves it unimplemented) so DemoWorld.isOwned can see an ownership marker. */
+/** WorldMock whose getWorldFolder() works (MockBukkit leaves it unimplemented). */
 class OwnedWorldMock(worldName: String, private val folder: java.io.File, owned: Boolean = true) : org.mockbukkit.mockbukkit.world.WorldMock(org.bukkit.Material.GRASS_BLOCK, 4) {
     init {
         setName(worldName); folder.mkdirs()

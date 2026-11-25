@@ -1,7 +1,6 @@
 package net.nakaymi.etherealchronicle.qa
 
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
-import net.nakaymi.etherealchronicle.paper.DemoWorld
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
 import org.bukkit.Location
 import org.bukkit.Material
@@ -55,7 +54,7 @@ class FlagReviveReconnectTest {
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             server.pump { plugin.isReadyForGameplay }
-            val world = server.addSimpleWorld(DemoWorld.NAME)
+            val world = server.addSimpleWorld(net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             val enemyKey = NamespacedKey(plugin, "enemy_id"); val itemKey = NamespacedKey(plugin, "item_id")
             val a = join(server, plugin, "FrrA"); val b = join(server, plugin, "FrrB")
             // far away from every chapter area: the Lumina safe zone would cancel all damage events
