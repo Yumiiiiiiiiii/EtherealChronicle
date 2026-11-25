@@ -141,6 +141,19 @@ async function main() {
     record('dungeon-enter-leave', entered && left, `ground y=${ground} arena=${inArena} back=${pos()}`)
   })
 
+  // --- 6. ダンジョン内で死亡 → 入口の出口へ復活（アリーナに残らない） ---
+  await step('dungeon-death-respawn', async () => {
+    send('/ec travel ashwood_forest'); await sleep(6000)
+    send('/ec dungeon enter ec:dungeon_novice_arena')
+    const entered = await waitFor(() => pos().y > 150, 60000)
+    await sleep(2000)
+    const deathsBefore = deaths
+    send(`/kill ${name}`)
+    const died = await waitFor(() => deaths > deathsBefore, 10000)
+    const back = await waitFor(() => pos().y < 150, 30000)
+    record('dungeon-death-respawn', entered && died && back, `entered=${entered} died=${died} back=${pos()}`)
+  })
+
   bot.quit()
   setTimeout(() => process.exit(results.every(Boolean) ? 0 : 1), 800)
 }

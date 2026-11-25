@@ -120,7 +120,7 @@ class DungeonController internal constructor(
         initializeOverworldRuntime()
     }
 
-    /** オーバーワールド稼働時のみ帰還ジャーナル・所有スロット回収・空中レイアウト検証を初期化します。 */
+    /** 帰還ジャーナル・所有スロット回収・空中レイアウト検証を初期化します。 */
     private fun initializeOverworldRuntime() {
         Bukkit.getWorld(plugin.activeWorldProjection.registry.activeWorldName())?.let { world ->
             resolveOverworldLayout(world, logValidation = true)
@@ -1568,16 +1568,27 @@ class DungeonController internal constructor(
         detach(instance, id)
     }
 
+    /** 戻り先チャンクを非同期で読み込み、復活が済んだ後に安全であれば戻り先へ移動させます。 */
+    private fun teleportToReturnLater(player: Player, destination: Location) {
+        val world = destination.world ?: return
+        plugin.withChunk(world, destination.blockX shr 4, destination.blockZ shr 4) { failure ->
+            if (failure != null) return@withChunk
+            // 復活処理（リスポーン画面の解除）が終わるのを少し待ってから移動します。
+            plugin.server.scheduler.runTaskLater(plugin, Runnable {
+                if (player.isOnline && !player.isDead && SafeStandingSpot.isSafe(destination)) player.teleport(destination)
+            }, RESPAWN_RETURN_DELAY_TICKS)
+        }
+    }
+
     @EventHandler
     fun respawn(e: PlayerRespawnEvent) {
         val id = e.player.uniqueId
         val instance = instanceForPlayer(id) ?: return
         val destination = instance.returns[id]
-        e.respawnLocation = if (destination != null && SafeStandingSpot.isSafe(destination)) {
-            destination
-        } else {
-            resolveForcedSafeFallback(e.player.world)
-        }
+        val safeNow = destination != null && SafeStandingSpot.isSafe(destination)
+        e.respawnLocation = if (safeNow) destination!! else resolveForcedSafeFallback(e.player.world)
+        // 戻り先チャンクが未ロードなら、まず安全な場所へ復活させ、読込後に本来の戻り先へ移します。
+        if (destination != null && !safeNow) teleportToReturnLater(e.player, destination)
         instance.unreturnedMembers.remove(id)
         detach(instance, id)
         plugin.sync {
@@ -1652,6 +1663,8 @@ class DungeonController internal constructor(
         const val DEFAULT_DUNGEON_ID = "ec:dungeon_void_sanctum"
         /** 入場時の出現位置を、アリーナ中心から北（-Z）へずらす距離です。 */
         const val PLAYER_SPAWN_Z_OFFSET = -12
+        /** リスポーン完了を待ってから戻り先へ移すまでの tick 数です。 */
+        const val RESPAWN_RETURN_DELAY_TICKS = 5L
         /** この距離を超えると「入口へ向かう」案内を出します（入口チャンクの未ロード判定用）。 */
         const val PORTAL_NEAR_BLOCKS = 48.0
         const val RETURN_JOURNAL_FILE = "dungeon-returns.json"

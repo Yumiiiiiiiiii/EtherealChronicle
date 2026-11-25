@@ -1,5 +1,6 @@
 package net.nakaymi.etherealchronicle.qa
 
+import net.nakaymi.etherealchronicle.core.WorldIds
 import net.nakaymi.etherealchronicle.core.*
 import net.nakaymi.etherealchronicle.data.*
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
@@ -37,7 +38,7 @@ class ChallengeRankRewardTest {
             val changed=chapter+mapOf("dungeon_configs" to configs,"flags" to (chapter.strings("flags")+"ec:flag_crucible_first_s"))
             val service=RpgPlugin::class.java.getDeclaredField("content").also { it.isAccessible=true }.get(plugin) as ContentService
             service.install(base.copy(documents=base.documents+mapOf(chapterId to changed)))
-            val world=net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
+            val world=QaWorldMock.add(server, WorldIds.DEMO)
             player.teleport(world.spawnLocation)
             plugin.dungeons.enter(player,"ec:dungeon_aether_crucible")
             repeat(3) { wave ->

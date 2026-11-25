@@ -1,5 +1,6 @@
 package net.nakaymi.etherealchronicle.qa
 
+import net.nakaymi.etherealchronicle.core.WorldIds
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
 import org.bukkit.Material
@@ -107,7 +108,7 @@ class PlayerFlowSmokeTest {
             }
             var mob: LivingEntity? = null
             step("4 /ec spawn ec:enemy_aether_slime") {
-                val world = net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
+                val world = QaWorldMock.add(server, WorldIds.DEMO)
                 player.teleport(org.bukkit.Location(world, 0.0, 64.0, 0.0))
                 server.executeConsole("ec", "spawn", "ec:enemy_aether_slime", "QaPlayer")
                 server.pump { true }

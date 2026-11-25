@@ -1,5 +1,6 @@
 package net.nakaymi.etherealchronicle.qa
 
+import net.nakaymi.etherealchronicle.core.WorldIds
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
 import org.bukkit.Material
@@ -57,7 +58,7 @@ class AdventurePathsTest {
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             server.pump { plugin.isReadyForGameplay }
-            val world = net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
+            val world = QaWorldMock.add(server, WorldIds.DEMO)
             val uuid = UUID.nameUUIDFromBytes("qa-shop".toByteArray())
             val player = PlayerMock(server, "QaShopper", uuid)
             equipFillers(player); server.addPlayer(player)

@@ -1,5 +1,6 @@
 package net.nakaymi.etherealchronicle.qa
 
+import net.nakaymi.etherealchronicle.core.WorldIds
 import net.nakaymi.etherealchronicle.paper.ClassMenu
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
 import org.bukkit.Material
@@ -33,7 +34,7 @@ class DungeonRoutingTest {
             assertTrue(server.pump { plugin.isReadyForGameplay })
             server.qaPump { plugin.dungeons.isJournalReady() }
             seedArenaSchematic(plugin.dungeons,"ec:dungeon_glacial_citadel","minecraft:calcite")
-            val world=net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
+            val world=QaWorldMock.add(server, WorldIds.DEMO)
             val player=PlayerMock(server,"DungeonRoute",UUID.nameUUIDFromBytes("dungeon-route".toByteArray()))
             server.addPlayer(player)
             val itemKey=NamespacedKey(plugin,"item_id")
@@ -55,7 +56,7 @@ class DungeonRoutingTest {
             player.performCommand("ec dungeon leave")
             val exit=plugin.activeWorldProjection.registry.portalForDungeon("ec:dungeon_glacial_citadel")!!
             assertTrue(server.qaPump { kotlin.math.abs(player.x-(exit.exitX+0.5))<1.0 && kotlin.math.abs(player.z-(exit.exitZ+0.5))<1.0 },"return location not restored")
-            assertEquals(net.nakaymi.etherealchronicle.core.WorldIds.DEMO,player.world.name)
+            assertEquals(WorldIds.DEMO,player.world.name)
         } finally { MockBukkit.unmock() }
     }
 }

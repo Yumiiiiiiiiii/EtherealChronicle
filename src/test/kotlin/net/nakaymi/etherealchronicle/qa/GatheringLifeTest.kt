@@ -1,5 +1,6 @@
 package net.nakaymi.etherealchronicle.qa
 
+import net.nakaymi.etherealchronicle.core.WorldIds
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
 import org.bukkit.Location
@@ -52,7 +53,7 @@ class GatheringLifeTest {
         val server = MockBukkit.mock()
         try {
             // 採集地点はプラグイン起動時にワールドが存在して初めて登録されるため、先にワールドを用意する
-            val world = net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
+            val world = QaWorldMock.add(server, WorldIds.DEMO)
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             server.pump { runCatching { plugin.snapshot; plugin.enemies; true }.getOrDefault(false) }
             val nodeLoc = plugin.snapshot.world.gatheringNodes.getValue("ec:node_ashwood_herb").locations.first()

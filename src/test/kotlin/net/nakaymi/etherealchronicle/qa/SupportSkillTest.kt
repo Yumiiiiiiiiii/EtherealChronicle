@@ -1,5 +1,6 @@
 package net.nakaymi.etherealchronicle.qa
 
+import net.nakaymi.etherealchronicle.core.WorldIds
 import net.nakaymi.etherealchronicle.core.CastResult
 import net.nakaymi.etherealchronicle.core.PlayerProfile
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
@@ -25,7 +26,7 @@ class SupportSkillTest {
         try {
             val plugin=MockBukkit.load(RpgPlugin::class.java)
             assertTrue(server.pump { runCatching { plugin.snapshot.classes.all().isNotEmpty() }.getOrDefault(false) })
-            val world=net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
+            val world=QaWorldMock.add(server, WorldIds.DEMO)
             val healer=PlayerMock(server,"Support",UUID.randomUUID()); val ally=PlayerMock(server,"Ally",UUID.randomUUID()); val outsider=PlayerMock(server,"Outsider",UUID.randomUUID())
             server.addPlayer(healer); server.addPlayer(ally); server.addPlayer(outsider)
             assertTrue(server.pump { healer.uniqueId in plugin.profiles && ally.uniqueId in plugin.profiles && outsider.uniqueId in plugin.profiles })

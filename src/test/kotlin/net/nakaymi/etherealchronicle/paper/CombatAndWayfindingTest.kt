@@ -1,5 +1,7 @@
 package net.nakaymi.etherealchronicle.paper
 
+import net.nakaymi.etherealchronicle.core.WorldIds
+import net.nakaymi.etherealchronicle.qa.QaWorldMock
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
 import net.nakaymi.etherealchronicle.core.MemoryInventory
 import net.nakaymi.etherealchronicle.core.ObjectiveKind
@@ -103,7 +105,7 @@ class CombatAndWayfindingTest {
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             assertTrue(server.pump { plugin.isReadyForGameplay })
-            val world = net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
+            val world = QaWorldMock.add(server, WorldIds.DEMO)
             val player = PlayerMock(server, "ArcherGuideQA", UUID.nameUUIDFromBytes("archer-guide-qa".toByteArray()))
             player.addAttachment(plugin, "etherealchronicle.admin", true)
             server.addPlayer(player)

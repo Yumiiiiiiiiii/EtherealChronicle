@@ -1,5 +1,7 @@
 package net.nakaymi.etherealchronicle.paper
 
+import net.nakaymi.etherealchronicle.core.WorldIds
+import net.nakaymi.etherealchronicle.qa.QaWorldMock
 import org.bukkit.event.Event
 import org.bukkit.event.block.Action
 import org.bukkit.event.player.PlayerInteractEvent
@@ -67,7 +69,7 @@ class FishingInteractRoutingTest {
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             assertTrue(await(server) { runCatching { plugin.fishing }.isSuccess })
-            val world = net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
+            val world = QaWorldMock.add(server, WorldIds.DEMO)
             val player = PlayerMock(server, "FishingControllerClick", UUID.randomUUID())
             server.addPlayer(player)
             assertTrue(await(server) { player.uniqueId in plugin.profiles })

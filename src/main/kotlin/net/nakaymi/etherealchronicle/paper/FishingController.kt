@@ -2,6 +2,7 @@ package net.nakaymi.etherealchronicle.paper
 
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.title.Title
+import net.nakaymi.etherealchronicle.data.ContentSnapshot
 import net.nakaymi.etherealchronicle.core.*
 import org.bukkit.Bukkit
 import org.bukkit.FluidCollisionMode
@@ -152,9 +153,17 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
     }
 
     /** バニラ釣果を止め、独自釣り状態機械だけを有効にします。 */
+    /** コンテンツSnapshotごとに釣り竿アイテムIDの集合を一度だけ作り、釣りイベントごとの線形走査を避けます。 */
+    private var rodItemIdsCache: Pair<Any, Set<String>>? = null
+    private fun rodItemIds(snapshot: ContentSnapshot): Set<String> {
+        rodItemIdsCache?.takeIf { it.first === snapshot }?.let { return it.second }
+        val ids = snapshot.world.tackle.values.filter { it.kind == TackleKind.ROD }.map { it.item }.toSet()
+        rodItemIdsCache = snapshot to ids
+        return ids
+    }
     @EventHandler(priority=EventPriority.LOWEST)
     fun suppressVanilla(e:PlayerFishEvent) {
-        val customRod=plugin.identify(e.player.inventory.itemInMainHand)?.let { id -> plugin.snapshot.world.tackle.values.any { it.item==id && it.kind==TackleKind.ROD } }==true
+        val customRod=plugin.identify(e.player.inventory.itemInMainHand)?.let { id -> id in rodItemIds(plugin.snapshot) }==true
         if(customRod) e.isCancelled=true
     }
     /** 竿の右・左クリックを釣り開始またはミニゲーム入力へ変換します。 */

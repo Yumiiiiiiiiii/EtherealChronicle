@@ -1,5 +1,6 @@
 package net.nakaymi.etherealchronicle.qa
 
+import net.nakaymi.etherealchronicle.core.WorldIds
 import net.nakaymi.etherealchronicle.paper.ClassMenu
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
 import org.bukkit.Material
@@ -30,7 +31,7 @@ class DialogueTeleportTest {
     fun `global airship dialogue choices teleport only after chapter two starts`() {
         val server=MockBukkit.mock()
         try {
-            val world=net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
+            val world=QaWorldMock.add(server, WorldIds.DEMO)
             val plugin=MockBukkit.load(RpgPlugin::class.java)
             val player=PlayerMock(server,"Airship",UUID.nameUUIDFromBytes("airship".toByteArray()))
             server.addPlayer(player)
@@ -57,7 +58,7 @@ class DialogueTeleportTest {
             plugin.adventure.showDialogue(player,"ec:dlg_orphe_hub")
             select("airship_to_lumina")
             assertTrue(server.pump { kotlin.math.abs(player.x-18.0)<0.5 && kotlin.math.abs(player.z+12.0)<0.5 },"Orphe airship did not return to Lumina")
-            assertEquals(net.nakaymi.etherealchronicle.core.WorldIds.DEMO,player.world.name)
+            assertEquals(WorldIds.DEMO,player.world.name)
         } finally { MockBukkit.unmock() }
     }
 }

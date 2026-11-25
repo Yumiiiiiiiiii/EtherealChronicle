@@ -1,5 +1,6 @@
 package net.nakaymi.etherealchronicle.qa
 
+import net.nakaymi.etherealchronicle.core.WorldIds
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
 import org.bukkit.event.player.PlayerRespawnEvent
 import org.bukkit.event.entity.PlayerDeathEvent
@@ -31,7 +32,7 @@ class ManualClientFindingsTest {
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             assertTrue(server.pump { plugin.isReadyForGameplay && runCatching { plugin.snapshot }.isSuccess })
-            val world = net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
+            val world = QaWorldMock.add(server, WorldIds.DEMO)
             val player = PlayerMock(server, "LuminaQA", UUID.nameUUIDFromBytes("lumina-qa".toByteArray()))
             server.addPlayer(player)
 
@@ -63,7 +64,7 @@ class ManualClientFindingsTest {
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             assertTrue(server.pump { plugin.isReadyForGameplay && runCatching { plugin.snapshot }.isSuccess })
-            val world = net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
+            val world = QaWorldMock.add(server, WorldIds.DEMO)
             val player = PlayerMock(server, "SpawnQA", UUID.nameUUIDFromBytes("spawn-qa".toByteArray()))
             player.addAttachment(plugin, "etherealchronicle.admin", true)
             server.addPlayer(player)
