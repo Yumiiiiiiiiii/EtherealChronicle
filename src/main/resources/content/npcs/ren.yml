@@ -8,3 +8,6 @@ area: ec:area_lumina_port
 location: {world: ec_world, x: 8, y: 65, z: -14, yaw: 0}
 dialogue: ec:dlg_ren_hub
 shop: ec:shop_chronicle_exchange
+profession: LIBRARIAN
+villager_type: PLAINS
+villager_level: 4

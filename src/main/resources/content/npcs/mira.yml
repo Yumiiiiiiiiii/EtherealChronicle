@@ -8,3 +8,6 @@ area: ec:area_lumina_port
 location: {world: ec_world, x: 14, y: 65, z: 6, yaw: -90}
 dialogue: ec:dlg_mira_hub
 shop: ec:shop_lumina_apothecary
+profession: CLERIC
+villager_type: PLAINS
+villager_level: 3

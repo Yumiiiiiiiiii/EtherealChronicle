@@ -7,3 +7,6 @@ chapter: ec:chapter_side_chronicles
 area: ec:area_frostpeak_outpost
 location: {world: ec_world, x: 480, y: 65, z: 14, yaw: 0}
 dialogue: ec:dlg_nora_hub
+profession: CARTOGRAPHER
+villager_type: SNOW
+villager_level: 3

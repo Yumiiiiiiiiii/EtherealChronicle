@@ -86,7 +86,8 @@ class WorldContent(private val documents: Map<String,Map<String,Any?>>) {
                     dialogues[id] = DialogueDefinition(id,start,nodes,globalChoices)
                 }
                 "npc" -> {
-                    val definition=NpcDefinition(id,d.string("name"),d.mapping("location").position(),d.string("dialogue"),d["shop"] as? String,d.strings("time_windows").toSet().ifEmpty { setOf("ANY") },d.strings("weather").toSet().ifEmpty { setOf("ANY") })
+                    val definition=NpcDefinition(id,d.string("name"),d.mapping("location").position(),d.string("dialogue"),d["shop"] as? String,d.strings("time_windows").toSet().ifEmpty { setOf("ANY") },d.strings("weather").toSet().ifEmpty { setOf("ANY") },(d["profession"] as? String),(d["villager_type"] as? String),d.integer("villager_level",1))
+                    require(definition.villagerLevel in 1..5) { "ec.error.invalid_content" }
                     require(WorldSchedule.valid(definition.timeWindows,definition.weather)) { "ec.error.invalid_content" }
                     npcs[id]=definition
                 }

@@ -7,3 +7,6 @@ chapter: ec:chapter_1
 area: ec:area_lumina_port
 location: {world: ec_world, x: 0, y: 65, z: -12, yaw: 0}
 dialogue: ec:dlg_vulcan_hub
+profession: ARMORER
+villager_type: PLAINS
+villager_level: 5

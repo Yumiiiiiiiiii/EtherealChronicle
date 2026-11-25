@@ -7,3 +7,6 @@ chapter: ec:chapter_2
 area: ec:area_glacial_citadel
 location: {world: ec_world, x: 746, y: 65, z: 0, yaw: -90}
 dialogue: ec:dlg_vesper_hub
+profession: CLERIC
+villager_type: SNOW
+villager_level: 5

@@ -7,3 +7,6 @@ chapter: ec:chapter_1
 area: ec:area_weeping_mine
 location: {world: ec_world, x: 158, y: 65, z: -6, yaw: 90}
 dialogue: ec:dlg_daren_hub
+profession: MASON
+villager_type: TAIGA
+villager_level: 5

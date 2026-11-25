@@ -9,3 +9,6 @@ location: {world: ec_world, x: -28, y: 65, z: -28, yaw: -45}
 dialogue: ec:dlg_luna_hidden
 time_windows: [NIGHT]
 weather: [ANY]
+profession: CLERIC
+villager_type: PLAINS
+villager_level: 3

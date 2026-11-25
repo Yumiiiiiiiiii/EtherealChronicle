@@ -74,6 +74,31 @@ async function main() {
     record('class-and-starter-weapon', ok, `inventory items=${itemCount()}`)
   })
 
+  // --- 1b. 初回ガイドの目的地に、案内された NPC が実際に立っている ---
+  await step('guide-npc-present', async () => {
+    send('/ec travel lumina_port'); await sleep(6000)
+    const mark = chatLog.length
+    send('/ec guide')
+    await waitFor(() => chatLog.slice(mark).some(x => /\(X:-?\d+ Y:-?\d+ Z:-?\d+\)/.test(x)), 10000)
+    const m = [...chatLog.slice(mark)].reverse().map(x => /\(X:(-?\d+) Y:(-?\d+) Z:(-?\d+)\)/.exec(x)).find(Boolean)
+    if (!m) { record('guide-npc-present', false, 'guide destination not found in chat'); return }
+    const dest = { x: +m[1], y: +m[2], z: +m[3] }
+    await sleep(3000)
+    const villagers = Object.values(bot.entities).filter(e => e.name === 'villager' || e.displayName === 'Villager' || (e.type === 'mob' && /villager/i.test(e.name || '')))
+    const dist = (e) => Math.hypot(e.position.x - dest.x, e.position.z - dest.z)
+    villagers.sort((a, b) => dist(a) - dist(b))
+    console.log('GUIDE dest=' + JSON.stringify(dest) + ' me=' + pos() + ' villagers=' + villagers.map(e => `${e.position.x.toFixed(1)},${e.position.y.toFixed(1)},${e.position.z.toFixed(1)}`).join(' | '))
+    const nearest = villagers[0]
+    console.log('VILLAGERMETA ' + JSON.stringify(villagers.slice(0, 3).map(e => (e.metadata || []).filter(x => x && typeof x === 'object')).slice(0,3)).slice(0, 600))
+    try {
+      const Vec3 = require('vec3')
+      const name = (dx, dy, dz) => { const b = bot.blockAt(new Vec3(dest.x + dx, dest.y + dy, dest.z + dz)); return b ? b.name : '?' }
+      console.log('GUIDEBLOCKS floor=' + name(0, -1, 0) + ' feet=' + name(0, 0, 0) + ' head=' + name(0, 1, 0) + ' above2=' + name(0, 2, 0) +
+        ' N=' + name(0, 0, -1) + ' S=' + name(0, 0, 1) + ' E=' + name(1, 0, 0) + ' W=' + name(-1, 0, 0))
+    } catch (e) { console.log('GUIDEBLOCKS error ' + e.message) }
+    record('guide-npc-present', !!nearest && dist(nearest) <= 3.5, nearest ? `nearest villager ${dist(nearest).toFixed(1)}m from guide target` : 'no villager visible')
+  })
+
   // --- 2. ルミナ港（初回スポーン地点）へ移動できる ---
   await step('travel-lumina', async () => {
     const before = chatLog.length

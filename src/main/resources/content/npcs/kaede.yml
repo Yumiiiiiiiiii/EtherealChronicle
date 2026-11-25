@@ -8,3 +8,6 @@ area: ec:area_lumina_port
 location: {world: ec_world, x: -14, y: 65, z: -8, yaw: 0}
 dialogue: ec:dlg_kaede_hub
 shop: ec:shop_artisan_forge
+profession: TOOLSMITH
+villager_type: PLAINS
+villager_level: 5

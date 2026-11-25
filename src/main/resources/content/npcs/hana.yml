@@ -8,3 +8,6 @@ area: ec:area_lumina_port
 location: {world: ec_world, x: -20, y: 65, z: -14, yaw: 45}
 dialogue: ec:dlg_hana_hub
 shop: ec:shop_gatherer_exchange
+profession: FARMER
+villager_type: PLAINS
+villager_level: 3

@@ -7,3 +7,6 @@ chapter: ec:chapter_2
 area: ec:area_lumina_port
 location: {world: ec_world, x: 18, y: 65, z: -12, yaw: 45}
 dialogue: ec:dlg_freya_hub
+profession: ARMORER
+villager_type: SNOW
+villager_level: 4

@@ -7,3 +7,6 @@ chapter: ec:chapter_1
 area: ec:area_stargazer_hill
 location: {world: ec_world, x: 320, y: 65, z: 0, yaw: 90}
 dialogue: ec:dlg_kain_encounters
+profession: CLERIC
+villager_type: SWAMP
+villager_level: 5

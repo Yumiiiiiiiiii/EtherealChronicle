@@ -7,3 +7,6 @@ chapter: ec:chapter_side_chronicles
 area: ec:area_stargazer_hill
 location: {world: ec_world, x: 264, y: 65, z: -12, yaw: 0}
 dialogue: ec:dlg_soren_hub
+profession: WEAPONSMITH
+villager_type: DESERT
+villager_level: 3

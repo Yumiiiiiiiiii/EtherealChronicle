@@ -21,6 +21,20 @@ internal object PaperContentValidator {
     /** YAMLのparticle名を列挙値へ解決し、未知値を拒否します。 */
     fun particle(name: String) { Particle.valueOf(name) }
 
+    /** NPC の村人職業・見た目が Paper の実レジストリに存在するか確認します。 */
+    fun villagerAppearance(profession: String?, type: String?) {
+        profession?.let { require(villagerProfession(it) != null) { "unknown villager profession: $it" } }
+        type?.let { require(villagerType(it) != null) { "unknown villager type: $it" } }
+    }
+
+    /** 職業キー（大文字小文字不問）から村人職業を引きます。 */
+    fun villagerProfession(name: String): org.bukkit.entity.Villager.Profession? =
+        org.bukkit.Registry.VILLAGER_PROFESSION.get(org.bukkit.NamespacedKey.minecraft(name.lowercase()))
+
+    /** 見た目キー（大文字小文字不問）から村人のバイオーム型を引きます。 */
+    fun villagerType(name: String): org.bukkit.entity.Villager.Type? =
+        org.bukkit.Registry.VILLAGER_TYPE.get(org.bukkit.NamespacedKey.minecraft(name.lowercase()))
+
     /** 敵のentity名が有効な生物種別かを確認します。 */
     fun livingEntity(name: String) {
         require(EntityType.valueOf(name).isAlive) { "entity must be living: $name" }

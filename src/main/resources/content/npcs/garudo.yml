@@ -8,3 +8,6 @@ area: ec:area_lumina_port
 location: {world: ec_world, x: -14, y: 65, z: 6, yaw: 90}
 dialogue: ec:dlg_garudo_hub
 shop: ec:shop_lumina_blacksmith
+profession: TOOLSMITH
+villager_type: PLAINS
+villager_level: 4

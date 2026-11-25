@@ -64,9 +64,11 @@ internal class NpcController(private val plugin: RpgPlugin) : Listener {
         entities.clear()
     }
 
-    private fun reconcile() {
+    /** `onlyChunk` を指定すると、そのチャンクに立つ NPC だけを対象にします（チャンク読込直後に即座に出現させるため）。 */
+    private fun reconcile(onlyChunk: ChunkCoordinates? = null) {
         plugin.snapshot.world.npcs.values.forEach { definition ->
             val position = plugin.projectedPosition(definition.position)
+            if (onlyChunk != null && (position == null || ChunkCoordinates.fromPosition(position.x, position.z) != onlyChunk)) return@forEach
             val world = position?.let { Bukkit.getWorld(it.world) }
             val shouldExist = world != null && WorldSchedule.matches(
                 definition.timeWindows,
@@ -105,6 +107,11 @@ internal class NpcController(private val plugin: RpgPlugin) : Listener {
             entity.isPersistent = false
             entity.isInvulnerable = true
             entity.setAI(false)
+            // 職業・バイオーム型・レベルで「それっぽい」見た目にします（データは NPC の YAML から）。
+            definition.profession?.let { PaperContentValidator.villagerProfession(it)?.let(entity::setProfession) }
+            definition.villagerType?.let { PaperContentValidator.villagerType(it)?.let(entity::setVillagerType) }
+            entity.villagerLevel = definition.villagerLevel
+            entity.villagerExperience = 0
             entity.isCollidable = false
             entity.isSilent = true
             entities[definition.id] = entity.uniqueId
@@ -116,6 +123,12 @@ internal class NpcController(private val plugin: RpgPlugin) : Listener {
         event.chunk.entities.forEach { entity ->
             val id = id(entity) ?: return@forEach
             if (entities[id] != entity.uniqueId) entity.remove()
+        }
+        // 到着を最大 1 秒（tick 周期）待たせないよう、読み込まれたチャンクの NPC をすぐ出現させます。
+        if (plugin.isActiveWorld(event.world)) {
+            val chunk = ChunkCoordinates(event.chunk.x, event.chunk.z)
+            // チャンク読込イベント中の entity 追加を避け、次 tick に出現させます。
+            plugin.server.scheduler.runTask(plugin, Runnable { reconcile(chunk) })
         }
     }
 }

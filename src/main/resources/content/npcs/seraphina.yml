@@ -7,3 +7,6 @@ chapter: ec:chapter_2
 area: ec:area_glacier_ridge
 location: {world: ec_world, x: 552, y: 65, z: -18, yaw: 90}
 dialogue: ec:dlg_seraphina_hub
+profession: LIBRARIAN
+villager_type: SWAMP
+villager_level: 4

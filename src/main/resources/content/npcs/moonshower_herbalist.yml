@@ -9,3 +9,6 @@ location: {world: ec_world, x: 90, y: 65, z: -34, yaw: 90}
 dialogue: ec:dlg_hana_hub
 time_windows: [DAWN_DUSK]
 weather: [RAIN, THUNDER]
+profession: CLERIC
+villager_type: SWAMP
+villager_level: 3

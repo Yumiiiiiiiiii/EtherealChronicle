@@ -1362,6 +1362,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         c.classes.all().filter { it.icon != null }.forEach { definition -> validate(definition.id) { validateEnum { PaperContentValidator.itemMaterial(definition.icon!!) } } }
         c.world.titles.values.filter { it.advancement != null }.forEach { title -> validate(title.id) { validateEnum { PaperContentValidator.itemMaterial(title.advancement!!.icon) } } }
         c.world.gatheringNodes.values.forEach { node -> validate(node.id) { validateEnum { PaperContentValidator.blockMaterial(node.displayMaterial); PaperContentValidator.blockMaterial(node.depletedMaterial) } } }
+        c.world.npcs.values.forEach { npc -> validate(npc.id) { validateEnum { PaperContentValidator.villagerAppearance(npc.profession, npc.villagerType) } } }
         c.world.treasureChests.values.forEach { chest -> validate(chest.id) { validateEnum { PaperContentValidator.particle(chest.hintParticle) } } }
         c.world.dungeons.values.forEach { dungeon -> validate(dungeon.id) { validateEnum { PaperContentValidator.dungeonPalette(dungeon.palette) } } }
         c.world.enemies.values.filter { it.visualVariant != null }.forEach { enemy ->

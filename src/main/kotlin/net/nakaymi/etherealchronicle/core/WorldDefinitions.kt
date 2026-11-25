@@ -147,6 +147,12 @@ data class NpcDefinition(
     val shop: String?,
     val timeWindows: Set<String> = setOf("ANY"),
     val weather: Set<String> = setOf("ANY"),
+    /** 村人の職業名（Villager.Profession のキー。例: LIBRARIAN）。null なら職業なし。 */
+    val profession: String? = null,
+    /** 村人の見た目（バイオーム型。例: SNOW）。null なら既定。 */
+    val villagerType: String? = null,
+    /** 村人のレベル 1〜5（胸のバッジ）。 */
+    val villagerLevel: Int = 1,
 )
 data class TokenCost(val item: String, val amount: Int)
 data class ShopEntry(

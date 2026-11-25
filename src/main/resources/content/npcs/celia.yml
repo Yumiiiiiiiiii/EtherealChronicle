@@ -7,3 +7,6 @@ chapter: ec:chapter_1
 area: ec:area_lumina_port
 location: {world: ec_world, x: 2, y: 65, z: -4, yaw: 180}
 dialogue: ec:dlg_celia_hub
+profession: LIBRARIAN
+villager_type: PLAINS
+villager_level: 3

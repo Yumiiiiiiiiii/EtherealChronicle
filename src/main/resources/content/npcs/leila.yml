@@ -8,3 +8,6 @@ area: ec:area_lumina_port
 location: {world: ec_world, x: -6, y: 65, z: -14, yaw: 0}
 dialogue: ec:dlg_leila_board
 shop: ec:shop_rookie_board
+profession: CARTOGRAPHER
+villager_type: PLAINS
+villager_level: 3

@@ -8,3 +8,6 @@ area: ec:area_lumina_port
 location: {world: ec_world, x: -6, y: 65, z: 16, yaw: 180}
 dialogue: ec:dlg_pip_hub
 shop: ec:shop_lumina_general
+profession: NITWIT
+villager_type: SAVANNA
+villager_level: 1

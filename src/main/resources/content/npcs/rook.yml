@@ -8,3 +8,6 @@ area: ec:area_lumina_port
 location: {world: ec_world, x: 18, y: 65, z: 14, yaw: -135}
 dialogue: ec:dlg_rook_arena
 shop: ec:shop_novice_arena
+profession: WEAPONSMITH
+villager_type: PLAINS
+villager_level: 3

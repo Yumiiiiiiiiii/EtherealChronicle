@@ -8,3 +8,6 @@ area: ec:area_frostpeak_outpost
 location: {world: ec_world, x: 486, y: 65, z: -6, yaw: 0}
 dialogue: ec:dlg_borka_hub
 shop: ec:shop_frostpeak_outfitter
+profession: ARMORER
+villager_type: SNOW
+villager_level: 5
