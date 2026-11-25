@@ -17,7 +17,7 @@ internal class SelfTestController(private val plugin: RpgPlugin) {
     private data class Check(val name: String, val ok: Boolean, val detail: String)
 
     /** 投影を確認する地点です。area が null なら座標から所属を自動解決します。 */
-    private data class Target(val label: String, val position: Position, val area: String?, val allowWater: Boolean = false)
+    private data class Target(val label: String, val position: Position, val area: String?, val allowWater: Boolean = false, val mustBeStandable: Boolean = false)
 
     private var running = false
 
@@ -82,7 +82,7 @@ internal class SelfTestController(private val plugin: RpgPlugin) {
     private fun collectTargets(): List<Target> {
         val world = plugin.snapshot.world
         return buildList {
-            world.npcs.values.forEach { add(Target("npc:${it.id}", it.position, null)) }
+            world.npcs.values.forEach { add(Target("npc:${it.id}", it.position, null, mustBeStandable = true)) }
             world.enemies.values.forEach { enemy -> enemy.spawns.forEach { add(Target("enemy:${enemy.id}", it.position, null)) } }
             world.treasureChests.values.forEach { add(Target("chest:${it.id}", it.position, null)) }
             world.gatheringNodes.values.forEach { node ->
@@ -111,11 +111,18 @@ internal class SelfTestController(private val plugin: RpgPlugin) {
                 entry.value.forEach { target ->
                     val projected = if (failure != null) null else plugin.projectedPosition(target.position, target.area, target.allowWater)
                     if (projected == null) failures += target.label
+                    else if (target.mustBeStandable && !canStand(world, projected)) failures += "${target.label}(buried@${projected.x.toInt()},${projected.y.toInt()},${projected.z.toInt()})"
                 }
                 next()
             }
         }
         next()
+    }
+
+    /** NPC の実際の出現位置（埋まっていれば近くへずらした位置）が立てる場所かを返します。 */
+    private fun canStand(world: org.bukkit.World, p: Position): Boolean {
+        val at = Location(world, p.x, p.y, p.z)
+        return isStandable(world, at.blockX, at.blockY, at.blockZ) || settleNpcLocation(world, at) != null
     }
 
     /** 各ポータルの出口チャンクを非同期で読み込み、読込中に安全な足場であることを確認します。 */

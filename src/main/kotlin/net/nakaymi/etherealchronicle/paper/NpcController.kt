@@ -12,6 +12,37 @@ import org.bukkit.event.world.ChunkLoadEvent
 import org.bukkit.persistence.PersistentDataType
 import java.util.UUID
 
+/** 足元が固体で、足・頭の位置が通過可能（埋まっていない）なら true。 */
+internal fun isStandable(world: org.bukkit.World, x: Int, y: Int, z: Int): Boolean =
+    y > world.minHeight && y + 1 < world.maxHeight &&
+        world.getBlockAt(x, y - 1, z).type.isSolid && world.getBlockAt(x, y, z).isPassable && world.getBlockAt(x, y + 1, z).isPassable
+
+/**
+ * 地形や建物に埋まった NPC を救うため、指定地点から上方向（次に周囲 3 マスまでの水平）へ探索し、
+ * 最初に立てる位置を返します。見つからなければ null（元の位置をそのまま使う）。
+ */
+internal fun settleNpcLocation(world: org.bukkit.World, location: Location): Location? {
+    val bx = location.blockX; val by = location.blockY; val bz = location.blockZ
+    fun column(x: Int, z: Int, fromY: Int): Location? {
+        for (y in fromY..by + NPC_SETTLE_UP_BLOCKS) {
+            if (isStandable(world, x, y, z)) return Location(world, x + 0.5, y.toDouble(), z + 0.5, location.yaw, location.pitch)
+        }
+        return null
+    }
+    column(bx, bz, by)?.let { return it }
+    for (r in 1..NPC_SETTLE_RADIUS_BLOCKS) {
+        for (dx in -r..r) for (dz in -r..r) {
+            if (maxOf(kotlin.math.abs(dx), kotlin.math.abs(dz)) != r) continue
+            column(bx + dx, bz + dz, by - NPC_SETTLE_DOWN_BLOCKS)?.let { return it }
+        }
+    }
+    return null
+}
+
+private const val NPC_SETTLE_UP_BLOCKS = 8
+private const val NPC_SETTLE_DOWN_BLOCKS = 2
+private const val NPC_SETTLE_RADIUS_BLOCKS = 3
+
 /** 時刻・天候条件付き NPC の spawn、chunk 読込、終了時解放を担当します。 */
 internal class NpcController(private val plugin: RpgPlugin) : Listener {
     private val npcKey = NamespacedKey(plugin, "npc_id")
@@ -89,7 +120,7 @@ internal class NpcController(private val plugin: RpgPlugin) : Listener {
             entities.remove(definition.id)
             if (!plugin.isActiveWorld(world)) return@forEach
             val projected = position ?: return@forEach
-            val location = Location(
+            var location = Location(
                 world,
                 projected.x,
                 projected.y,
@@ -100,6 +131,8 @@ internal class NpcController(private val plugin: RpgPlugin) : Listener {
             // Chunk を読み込まず、ロード済み地点だけを管理することで TPS とワールド状態を守ります。
             val chunk = ChunkCoordinates.fromBlocks(location.blockX, location.blockZ)
             if (!npcChunkMaySpawn(world.isChunkLoaded(chunk.x, chunk.z))) return@forEach
+            // 地形・建物に埋まっていれば、近くの立てる位置へずらします（ガイドの目的地とは数ブロック内でずれ得る）。
+            if (!isStandable(world, location.blockX, location.blockY, location.blockZ)) settleNpcLocation(world, location)?.let { location = it }
             val entity = world.spawn(location, Villager::class.java)
             entity.persistentDataContainer.set(npcKey, PersistentDataType.STRING, definition.id)
             entity.customName(plugin.contentTranslatable("npc", definition.id, "name", definition.name))
