@@ -111,7 +111,7 @@ internal class SelfTestController(private val plugin: RpgPlugin) {
                 entry.value.forEach { target ->
                     val projected = if (failure != null) null else plugin.projectedPosition(target.position, target.area, target.allowWater)
                     if (projected == null) failures += target.label
-                    else if (target.mustBeStandable && !canStand(world, projected)) failures += "${target.label}(buried@${projected.x.toInt()},${projected.y.toInt()},${projected.z.toInt()})"
+                    else if (target.mustBeStandable && !canStand(world, projected)) failures += "${target.label}(buried@${projected.x.toInt()},${projected.y.toInt()},${projected.z.toInt()} floor=${world.getBlockAt(projected.x.toInt(), projected.y.toInt() - 1, projected.z.toInt()).type} feet=${world.getBlockAt(projected.x.toInt(), projected.y.toInt(), projected.z.toInt()).type} head=${world.getBlockAt(projected.x.toInt(), projected.y.toInt() + 1, projected.z.toInt()).type})"
                 }
                 next()
             }

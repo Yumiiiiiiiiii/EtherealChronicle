@@ -12,10 +12,14 @@ import org.bukkit.event.world.ChunkLoadEvent
 import org.bukkit.persistence.PersistentDataType
 import java.util.UUID
 
+/** 体が収まる（衝突しない、または薄い雪・カーペットのように立てる）ブロックかを返します。 */
+private fun isBodyClear(type: org.bukkit.Material): Boolean =
+    !type.isCollidable || type == org.bukkit.Material.SNOW || type.name.endsWith("_CARPET")
+
 /** 足元が固体で、足・頭の位置が通過可能（埋まっていない）なら true。 */
 internal fun isStandable(world: org.bukkit.World, x: Int, y: Int, z: Int): Boolean =
     y > world.minHeight && y + 1 < world.maxHeight &&
-        world.getBlockAt(x, y - 1, z).type.isSolid && world.getBlockAt(x, y, z).isPassable && world.getBlockAt(x, y + 1, z).isPassable
+        world.getBlockAt(x, y - 1, z).type.isSolid && isBodyClear(world.getBlockAt(x, y, z).type) && isBodyClear(world.getBlockAt(x, y + 1, z).type)
 
 /**
  * 地形や建物に埋まった NPC を救うため、指定地点から上方向（次に周囲 3 マスまでの水平）へ探索し、
