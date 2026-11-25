@@ -155,6 +155,7 @@ object SchematicPlacer {
                     }
                 }
                 for (z in 0 until schematic.length) for (x in 0 until schematic.width) {
+                    // 下半分を先に置いてから上半分を置き、ドアのペア状態を保ちます。
                     val placements = (0 until schematic.height).mapNotNull { y ->
                         val index = schematic.paletteIndexAt(y * schematic.length * schematic.width + z * schematic.width + x)
                         if (structureVoid[index] || (options.skipAir && air[index])) return@mapNotNull null

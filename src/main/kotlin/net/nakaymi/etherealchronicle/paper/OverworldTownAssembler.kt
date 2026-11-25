@@ -334,11 +334,15 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
                         val (width, length) = SchematicPlacer.rotatedDimensions(schematic, rotation)
                         val ox = cx - width / 2
                         val oz = cz - length / 2
+                        val finePlot = index > 0 && allowFineFallback && (
+                            (cx - site.x).mod(PLOT_GRID_STEP) != 0 || (cz - site.z).mod(PLOT_GRID_STEP) != 0
+                        )
+                        val margin = if (finePlot) FINE_BUILDING_MARGIN else BUILDING_MARGIN
                         val rect = Rect(
-                            ox - BUILDING_MARGIN,
-                            ox + width - 1 + BUILDING_MARGIN,
-                            oz - BUILDING_MARGIN,
-                            oz + length - 1 + BUILDING_MARGIN,
+                            ox - margin,
+                            ox + width - 1 + margin,
+                            oz - margin,
+                            oz + length - 1 + margin,
                         )
                         if (!withinSite(site, rect.minX, rect.minZ) || !withinSite(site, rect.minX, rect.maxZ) ||
                             !withinSite(site, rect.maxX, rect.minZ) || !withinSite(site, rect.maxX, rect.maxZ)) {
@@ -824,7 +828,7 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
             var bend = 0
             for (step in 0..length) {
                 if (step > 0 && step % 9 == 0) bend = (bend + random.nextInt(3) - 1).coerceIn(-3, 3)
-                for (side in -1..1) {
+                for (side in -2..2) {
                     val x = site.x + dx * step + dz * (bend + side)
                     val z = site.z + dz * step + dx * (bend + side)
                     yield(OverworldPoint(x, surfaceY(world, x, z), z))
@@ -894,7 +898,8 @@ internal class OverworldTownAssembler(private val assets: OverworldAssets) {
             else -> 88
         }
 
-        private const val BUILDING_MARGIN = 1
+        private const val BUILDING_MARGIN = 3
+        private const val FINE_BUILDING_MARGIN = 2
         private const val PLOT_GRID_STEP = 8
         private const val PLOT_FINE_GRID_STEP = 4
         private const val POND_GRID_STEP = 10
