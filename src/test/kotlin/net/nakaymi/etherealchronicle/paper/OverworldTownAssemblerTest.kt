@@ -119,6 +119,15 @@ class OverworldTownAssemblerTest {
             val houses = plan.buildings.filter { it.name.startsWith("house_") }
             assertTrue(houses.size >= 10, "Expected at least 10 Lumina houses, got ${houses.size}")
             assertTrue(houses.map { it.template }.toSet().size >= 5, "Expected at least 5 distinct house templates")
+            plan.buildings.forEachIndexed { index, first ->
+                val (firstWidth, firstLength) = SchematicPlacer.rotatedDimensions(assets[first.template], first.rotation)
+                for (second in plan.buildings.drop(index + 1)) {
+                    val (secondWidth, secondLength) = SchematicPlacer.rotatedDimensions(assets[second.template], second.rotation)
+                    val gapX = maxOf(0, maxOf(first.origin.x - (second.origin.x + secondWidth - 1), second.origin.x - (first.origin.x + firstWidth - 1)))
+                    val gapZ = maxOf(0, maxOf(first.origin.z - (second.origin.z + secondLength - 1), second.origin.z - (first.origin.z + firstLength - 1)))
+                    assertTrue(maxOf(gapX, gapZ) >= 7, "Buildings ${first.name} and ${second.name} should have >= 7 clear blocks between footprints")
+                }
+            }
             assertTrue("plaza_center" in plan.anchors)
         } finally { MockBukkit.unmock() }
     }

@@ -3,6 +3,8 @@ package net.nakaymi.etherealchronicle.paper
 import org.bukkit.Material
 import org.bukkit.block.BlockFace
 import org.bukkit.block.data.Directional
+import org.bukkit.block.data.type.Door
+import org.bukkit.block.data.Bisected
 import org.bukkit.block.structure.StructureRotation
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -15,6 +17,36 @@ import org.mockbukkit.mockbukkit.MockBukkit
 
 /** 配置器のair・structure_void契約をPaper互換のテストワールドで確認します。 */
 class SchematicPlacerTest {
+    @Test
+    fun `rotated swapped door keeps lower upper halves facing and hinges`() {
+        val server = MockBukkit.mock()
+        try {
+            val world = server.addSimpleWorld("schematic-rotated-door")
+            world.getBlockAt(10, 63, 20).type = Material.STONE
+            val data = SchematicData(
+                1, 2, 1,
+                listOf(
+                    "minecraft:oak_door[facing=north,half=lower,hinge=left,open=false,powered=false]",
+                    "minecraft:oak_door[facing=north,half=upper,hinge=left,open=false,powered=false]",
+                ),
+                intArrayOf(0, 1),
+            )
+            val warnings = mutableListOf<String>()
+            SchematicPlacer.place(data, world, 10, 64, 20,
+                SchematicPlacementOptions(rotation = StructureRotation.CLOCKWISE_90, materialSwaps = mapOf(Material.OAK_DOOR to Material.BIRCH_DOOR))) { message, _ -> warnings += message }
+            assumeTrue(warnings.isEmpty(), "BlockData rotation is unsupported by this MockBukkit version: ${warnings.joinToString()}")
+
+            val lower = world.getBlockAt(10, 64, 20).blockData as Door
+            val upper = world.getBlockAt(10, 65, 20).blockData as Door
+            assertEquals(Material.BIRCH_DOOR, lower.material)
+            assertEquals(Bisected.Half.BOTTOM, lower.half)
+            assertEquals(Bisected.Half.TOP, upper.half)
+            assertEquals(lower.facing, upper.facing)
+            assertEquals(lower.hinge, upper.hinge)
+            assertEquals(org.bukkit.block.BlockFace.EAST, lower.facing)
+        } finally { MockBukkit.unmock() }
+    }
+
     @Test
     fun `canopy clearing removes logs above footprint by column`() {
         val server = MockBukkit.mock()
