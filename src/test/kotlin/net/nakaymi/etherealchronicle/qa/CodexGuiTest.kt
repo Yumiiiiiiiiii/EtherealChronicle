@@ -59,7 +59,7 @@ class CodexGuiTest {
             plugin.codexClick(player.simulateInventoryClick(player.openInventory,53))
             assertEquals("codex-items",(player.openInventory.topInventory.holder as RpgMenu).kind)
             val secondPageName=player.openInventory.topInventory.getItem(0)?.itemMeta?.displayName()?.let(PlainTextComponentSerializer.plainText()::serialize).orEmpty()
-            assertTrue(secondPageName.contains(expected[45].name),"the next item did not appear on page 2 by display name: $secondPageName")
+            assertTrue(secondPageName.contains(plugin.contentText(player,"item",expected[45].id,"name",expected[45].name)),"the next item did not appear on page 2 by display name: $secondPageName")
             assertTrue(player.openInventory.topInventory.getItem(45)!=null,"previous page button is missing")
             assertEquals(null,player.openInventory.topInventory.getItem(53),"last page must not expose next")
             plugin.codexClick(player.simulateInventoryClick(player.openInventory,45))

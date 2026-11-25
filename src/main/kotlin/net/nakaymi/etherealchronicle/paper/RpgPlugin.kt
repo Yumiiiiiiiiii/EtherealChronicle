@@ -4,6 +4,9 @@ import net.nakaymi.etherealchronicle.core.*
 import net.nakaymi.etherealchronicle.core.OverworldSiteStatus as GameSiteStatus
 import net.nakaymi.etherealchronicle.data.*
 import net.kyori.adventure.text.Component
+import net.nakaymi.etherealchronicle.core.ContentKeys
+import org.bukkit.event.player.PlayerLocaleChangeEvent
+import net.kyori.adventure.text.format.TextDecoration
 import org.bukkit.*
 import org.bukkit.attribute.Attribute
 import org.bukkit.command.*
@@ -326,6 +329,17 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     /** 型付きゲーム例外のキーと引数を、利用者の言語へ変換します。 */
     internal fun diagnostic(sender: CommandSender, error: GameException): Component =
         language.component((sender as? Player)?.locale()?.toString(), error.messageKey, error.arguments)
+    /** コンテンツ文言を指定localeで返します。日本語はYAML原文、英語はlang/content_en_us.ymlが正本です。 */
+    internal fun contentText(locale: String?, type: String, id: String, field: String, fallbackJa: String): String =
+        language.contentText(locale, ContentKeys.key(type, id, field), fallbackJa)
+    /** プレイヤーのlocaleでコンテンツ文言を返します。 */
+    internal fun contentText(player: Player, type: String, id: String, field: String, fallbackJa: String): String =
+        contentText(player.locale().toString(), type, id, field, fallbackJa)
+    /** NPCや敵など全員が見える表示向けに、クライアント側で翻訳されるComponentを返します（パック未適用時はlocale文言）。 */
+    internal fun contentTranslatable(type: String, id: String, field: String, fallbackJa: String, locale: String? = null): Component =
+        Component.translatable(ContentKeys.key(type, id, field), contentText(locale, type, id, field, fallbackJa))
+    /** 言語設定を考慮したlocaleコード（en_us / ja_jp）。 */
+    internal fun localeKey(player: Player): String = language.resolveLocale(player.locale().toString())
     private fun plain(component: Component): String = component.plainText()
     /** クラスの資源種別を表示用の翻訳へ変換します。 */
     private fun resourceName(player: Player,kind: ResourceKind): Component = message(player, when(kind) {
@@ -353,7 +367,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     override fun onEnable() {
         saveDefaultConfig()
         itemKey = NamespacedKey(this,"item_id"); enhancementKey=NamespacedKey(this,"enhancement_level"); enhancementTransactionKey=NamespacedKey(this,"enhancement_transaction"); enemyKey = NamespacedKey(this,"enemy_id"); slotKey = NamespacedKey(this,"skill_slot"); starterClassKey=NamespacedKey(this,"starter_class")
-        val languageDefaults = listOf("ja_jp.yml", "en_us.yml").associate { name ->
+        val languageDefaults = listOf("ja_jp.yml", "en_us.yml", "content_en_us.yml").associate { name ->
             "lang/$name" to getResource("lang/$name")!!.use { it.readBytes() }
         }
         language = LangCatalog.fromBundledDefaults(config.getString("language", "auto") ?: "auto", logger, languageDefaults)
@@ -407,10 +421,11 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     classSelectionUi = ClassSelectionUi(
                         theme=uiTheme,
                         title={ p -> message(p,"ec.class.choose") },
-                        confirmationTitle={ p,c -> message(p,"ec.class.confirm_title","class" to c.name) },
-                        confirmationText={ p,c -> message(p,"ec.class.confirm_body","class" to c.name) },
+                        confirmationTitle={ p,c -> message(p,"ec.class.confirm_title","class" to contentText(p,"class",c.id,"name",c.name)) },
+                        confirmationText={ p,c -> message(p,"ec.class.confirm_body","class" to contentText(p,"class",c.id,"name",c.name)) },
+                        className={ p,c -> contentText(p,"class",c.id,"name",c.name) },
                         classLore={ p,c ->
-                            val skills=c.skills.mapNotNull(content.snapshot().skills::find).joinToString(" / ") { it.name }
+                            val skills=c.skills.mapNotNull(content.snapshot().skills::find).joinToString(" / ") { contentText(p,"skill",it.id,"name",it.name) }
                             listOf(
                                 message(p,"ec.class.selection.role","resource" to resourceName(p,c.resource)),
                                 message(p,"ec.class.selection.stats","hp" to c.stats.hp.toInt(),"attack" to c.stats.attack.toInt(),"defense" to c.stats.defense.toInt()),
@@ -540,6 +555,17 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         }
     }
     @EventHandler fun onJoin(e: PlayerJoinEvent) = join(e.player)
+    /** クライアント言語が切り替わったら、スキルスロット名と称号表示を新しい言語で作り直します。 */
+    @EventHandler fun onLocaleChange(e: PlayerLocaleChangeEvent) {
+        val player=e.player
+        server.scheduler.runTask(this,Runnable {
+            if(!player.isOnline) return@Runnable
+            val profile=profiles[player.uniqueId] ?: return@Runnable
+            val slot=player.inventory.getItem(PlayerInventoryLayout.SKILL_HOTBAR_SLOT)
+            if(isSkill(slot)) slot!!.editMeta { it.displayName(message(player,"ec.profile.skill_slot")) }
+            applyTitle(player,profile)
+        })
+    }
 
     @EventHandler fun onQuit(e: PlayerQuitEvent) {
         simulationCommands.cancelTravel(e.player.uniqueId)
@@ -568,7 +594,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
             }
             inventory.setItem(index, ItemStack(icon).apply {
                 itemMeta = itemMeta.apply {
-                    displayName(Component.text(definition.name))
+                    displayName(Component.text(contentText(player,"class",definition.id,"name",definition.name)))
                     persistentDataContainer.set(itemKey, PersistentDataType.STRING, definition.id)
                 }
             })
@@ -658,14 +684,25 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     private fun createItemInternal(id: String, amount: Int, packRecipient: Player?): ItemStack {
         val d = content.snapshot().items[id]
         return ItemStack(Material.valueOf(d.material),amount).apply { itemMeta = itemMeta.apply {
-            val rarity=language.component(null,d.rarity.displayKey)
-            displayName(Component.text(d.name)); lore(listOf(language.component(null,"ec.item.required_level", mapOf("level" to d.minLevel, "rarity" to rarity))))
-        snapshot.world.itemProperties[id]?.lore?.takeIf { it.isNotBlank() }?.let { text -> lore((lore() ?: emptyList())+text.chunked(DialogueLayout.TEXT_WRAP_CHARACTERS).map { Component.text(it) }) }
+            // 共有表示はクライアント言語で解決できるtranslatableにし、パック未適用時の代替文言は受取人のlocaleにします。
+            val locale=packRecipient?.locale()?.toString()
+            val rarity=Component.translatable(d.rarity.displayKey, plain(language.component(locale,d.rarity.displayKey)))
+            displayName(contentTranslatable("item",id,"name",d.name,locale).decoration(TextDecoration.ITALIC,false))
+            val requiredFallback=plain(language.component(locale,"ec.item.required_level", mapOf("level" to "%1\$s", "rarity" to "%2\$s")))
+            lore(listOf(Component.translatable("ec.item.required_level",requiredFallback,Component.text(d.minLevel),rarity)))
+            snapshot.world.itemProperties[id]?.lore?.takeIf { it.isNotBlank() }?.let { text -> lore((lore() ?: emptyList())+itemLoreLines(id,text,locale)) }
             persistentDataContainer.set(itemKey,PersistentDataType.STRING,id)
             val hasPack=packRecipient?.let { ::resourcePacks.isInitialized && resourcePacks.hasResourcePack(it.uniqueId) } == true
             UiThemeProvider.modelKey(hasPack,d.itemModel)?.let(::setItemModel)
             if(d.material == "POTION") addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ADDITIONAL_TOOLTIP)
         } }
+    }
+    /** 説明文を行キー付きtranslatableで返し、言語が変わっても行が揃うよう日英の最大行数で出力します。 */
+    private fun itemLoreLines(id: String, text: String, locale: String?): List<Component> {
+        val english=language.contentText("en",ContentKeys.key("item",id,"lore"),text)
+        val count=maxOf(ContentKeys.wrapJa(text).size,ContentKeys.wrapEn(english).size)
+        val own=if(language.resolveLocale(locale)=="en_us") ContentKeys.wrapEn(english) else ContentKeys.wrapJa(text)
+        return (0 until count).map { index -> Component.translatable(ContentKeys.key("item",id,"lore.$index"),own.getOrElse(index){""}) }
     }
     /** 初期支給品の所属クラスをPDCへ記録し、切替時に既存品と重複付与を区別します。 */
     private fun createStarterItem(id:String,classId:String,player:Player):ItemStack = createItemForPlayer(id,1,player).also { stack ->
@@ -713,8 +750,11 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     }
     internal fun item(stack: ItemStack?): ItemDefinition? = stack?.itemMeta?.persistentDataContainer?.get(itemKey,PersistentDataType.STRING)?.let { content.snapshot().items.find(it) }
     /** コンテンツIDを画面用の名前へ変換し、未登録時も内部IDを露出しません。 */
-    internal fun contentName(player: Player, id: String): String = snapshot.items.find(id)?.name
-        ?: (snapshot.documents[id]?.get("name") as? String)
+    internal fun contentName(player: Player, id: String): String = snapshot.items.find(id)?.let { contentText(player,"item",id,"name",it.name) }
+        ?: (snapshot.documents[id]?.get("name") as? String)?.let { ja ->
+            val type=when(val raw=snapshot.documents[id]?.get("type") as? String) { "fish_species" -> "fish"; "gathering_node" -> "gathering"; null -> "item"; else -> raw }
+            contentText(player,type,id,"name",ja)
+        }
         ?: plain(message(player, "ec.content.unknown_name"))
     private fun isSkill(stack: ItemStack?) = stack?.itemMeta?.persistentDataContainer?.has(slotKey,PersistentDataType.BYTE) == true
     private fun skillSlot(p: Player) {
@@ -806,7 +846,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         } catch(error:Exception) { advancementWarning(error) }
     }
     private fun applyTitle(player:Player,profile:PlayerProfile) {
-        val title=profile.selectedTitle?.let(snapshot.world.titles::get)?.takeIf { it.unlockFlag in profile.flags }?.name
+        val title=profile.selectedTitle?.let(snapshot.world.titles::get)?.takeIf { it.unlockFlag in profile.flags }?.let { contentText(player,"title",it.id,"name",it.name) }
         val display=if(title == null) Component.text(player.name) else Component.text("[$title] ${player.name}")
         player.displayName(display); player.playerListName(display)
     }
@@ -961,7 +1001,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val profile = profiles[p.uniqueId] ?: return
         val c = profile.classId?.let { content.snapshot().classes.find(it) } ?: return
         profile.selectedSkill = (profile.selectedSkill+1)%c.skills.size; dirty.add(p.uniqueId)
-        p.sendMessage(message(p,"ec.skill.selected", "skill" to content.snapshot().skills[c.skills[profile.selectedSkill]].name))
+        p.sendMessage(message(p,"ec.skill.selected", "skill" to content.snapshot().skills[c.skills[profile.selectedSkill]].let { contentText(p,"skill",it.id,"name",it.name) }))
     }
     @EventHandler fun swap(e: PlayerSwapHandItemsEvent) { if(::fishing.isInitialized && fishing.active(e.player.uniqueId)) { e.isCancelled=true; return }; e.isCancelled = true; cycle(e.player) }
     @EventHandler fun drop(e: PlayerDropItemEvent) { if(isSkill(e.itemDrop.itemStack) || e.player.uniqueId !in profiles) e.isCancelled = true }
@@ -1506,12 +1546,12 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     val response=when(selected) {
                         "AUTO" -> message(player,"ec.fishing.bait_enabled_auto")
                         "NONE" -> message(player,"ec.fishing.bait_disabled")
-                        else -> message(player,"ec.fishing.bait_selected","name" to snapshot.items[selected].name)
+                        else -> message(player,"ec.fishing.bait_selected","name" to contentName(player,selected))
                     }
                     player.sendMessage(response)
                 } else {
                     val life=p.lifeSkills.getValue(LifeSkillKind.FISHING); val required=LifeSkillEngine(snapshot.world.lifeBalance).requiredXp(life.level)
-                    val bait=when(p.fishingBait){"AUTO"->message(player,"ec.fishing.bait_auto");"NONE"->message(player,"ec.fishing.bait_none");else->Component.text(p.fishingBait)}
+                    val bait=when(p.fishingBait){"AUTO"->message(player,"ec.fishing.bait_auto");"NONE"->message(player,"ec.fishing.bait_none");else->Component.text(contentName(player,p.fishingBait))}
                     player.sendMessage(message(player,"ec.life.fishing_status", "level" to life.level, "xp" to life.xp, "required" to required, "score" to FishingEngine(snapshot.world.lifeBalance).score(p), "found" to p.fishRecords.values.count { it.count>0 }, "total" to snapshot.world.fishSpecies.size, "bait" to bait))
                     player.sendMessage(message(player,"ec.life.fishing_bait_help"))
                 }
@@ -1524,13 +1564,13 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                 syncTitleAdvancements(player,p)
                 val id=args.getOrNull(1)
                 if(id == null) {
-            snapshot.world.titles.values.forEach { title -> player.sendMessage(message(player,"ec.title.list_entry", "status" to if(title.unlockFlag in p.flags) "✓" else "○", "name" to title.name, "equipped" to if(title.id == p.selectedTitle) message(player,"ec.title.equipped_mark") else Component.empty())) }
+            snapshot.world.titles.values.forEach { title -> player.sendMessage(message(player,"ec.title.list_entry", "status" to if(title.unlockFlag in p.flags) "✓" else "○", "name" to contentText(player,"title",title.id,"name",title.name), "equipped" to if(title.id == p.selectedTitle) message(player,"ec.title.equipped_mark") else Component.empty())) }
                     player.sendMessage(message(player,"ec.title.help"))
                 } else {
                     val selected=if(id == "none") null else id
                     require(p.equipTitle(selected,snapshot.world.titles)) { "ec.title.locked" }
                     save(p); applyTitle(player,p)
-                    player.sendMessage(message(player,if(selected == null) "ec.title.cleared" else "ec.title.equipped", "name" to selected?.let { snapshot.world.titles.getValue(it).name }))
+                    player.sendMessage(message(player,if(selected == null) "ec.title.cleared" else "ec.title.equipped", "name" to selected?.let { snapshot.world.titles.getValue(it).let { t -> contentText(player,"title",t.id,"name",t.name) } }))
                 }
             }
             "claim" -> adventure.claimPending(player)
@@ -1555,9 +1595,9 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     p.quests.forEach { (id,q) ->
                         val definition=snapshot.world.quests[id]
                         // 依頼名はYAMLの表示データ、進行状態はLang文言として分け、1行での言語混在を防ぎます。
-                        player.sendMessage(message(player,"ec.quest.name", "name" to (definition?.name ?: plain(message(player,"ec.quest.unknown_name")))))
+                        player.sendMessage(message(player,"ec.quest.name", "name" to (definition?.let { contentText(player,"quest",id,"name",it.name) } ?: plain(message(player,"ec.quest.unknown_name")))))
                         player.sendMessage(message(player,"ec.quest.status", "status" to message(player,when { q.completed -> "ec.quest.status_complete"; game.quests.ready(p,id,inventory(player)) -> "ec.quest.status_ready"; else -> "ec.quest.status_active" })))
-                        if(!q.completed) definition?.objectives?.forEach { o -> player.sendMessage(message(player,"ec.quest.objective_progress", "target" to questObjectiveLabel(o.target,snapshot,plain(message(player,"ec.quest.unknown_target"))), "progress" to (if(o.kind == ObjectiveKind.COLLECT) inventory(player).count(o.target).coerceAtMost(o.amount) else q.objectives.getOrDefault(o.id,0)), "amount" to o.amount)) }
+                        if(!q.completed) definition?.objectives?.forEach { o -> player.sendMessage(message(player,"ec.quest.objective_progress", "target" to questObjectiveLabel(o.target,snapshot,plain(message(player,"ec.quest.unknown_target"))) { type,id,ja -> contentText(player,type,id,"name",ja) }, "progress" to (if(o.kind == ObjectiveKind.COLLECT) inventory(player).count(o.target).coerceAtMost(o.amount) else q.objectives.getOrDefault(o.id,0)), "amount" to o.amount)) }
                     }
                 }
             }

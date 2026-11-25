@@ -58,6 +58,8 @@ class ClassSelectionUi(
     private val confirmationTitle: (Player, ClassDefinition) -> Component,
     private val confirmationText: (Player, ClassDefinition) -> Component,
     private val classLore: (Player, ClassDefinition) -> List<Component>,
+    /** 職業名をプレイヤーの言語で返します。 */
+    private val className: (Player, ClassDefinition) -> String = { _, definition -> definition.name },
     private val confirmLabel: (Player) -> Component,
     private val cancelLabel: (Player) -> Component,
     private val onSelected: (Player, String) -> Unit,
@@ -90,7 +92,7 @@ class ClassSelectionUi(
                 ?: fallback(definition.resource)
             val itemStack = theme.icon(player, material, definition.itemModel)
             itemStack.editMeta {
-                it.displayName(Component.text(definition.name).decoration(TextDecoration.ITALIC,false))
+                it.displayName(Component.text(className(player,definition)).decoration(TextDecoration.ITALIC,false))
                 it.lore(classLore(player,definition))
             }
             val item = Item.builder().setItemProvider(ItemBuilder(itemStack)).addClickHandler { click ->

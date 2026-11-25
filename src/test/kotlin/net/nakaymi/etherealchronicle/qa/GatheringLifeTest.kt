@@ -87,7 +87,7 @@ class GatheringLifeTest {
                 a.inventory.setItemInMainHand(ItemStack(Material.AIR)); generateSequence { a.nextMessage() }.toList()
                 interactAt(a,world.getBlockAt(nodeLoc.x,nodeLoc.y,nodeLoc.z))
                 val message=a.nextMessage() ?: error("missing gather requirement message")
-                assertTrue(message.contains("SICKLE") && (message.contains("dedicated") || message.contains("専用道具")),"unexpected gate message: $message")
+                assertTrue((message.contains("sickle") || message.contains("採薬鎌")) && (message.contains("dedicated") || message.contains("専用道具")),"unexpected gate message: $message")
                 val status = plugin.gathering.debugStatus(a)
                 assertTrue((status.contains("last=") || status.contains("Last attempt") || status.contains("最終試行")) && status.contains("held=vanilla:AIR"),status)
                 a.inventory.setItemInMainHand(plugin.createItem("ec:item_tool_sickle_silver")); interactAt(a,world.getBlockAt(nodeLoc.x,nodeLoc.y,nodeLoc.z))
@@ -109,7 +109,7 @@ class GatheringLifeTest {
                 generateSequence { a.nextMessage() }.toList()
                 a.inventory.setItemInMainHand(plugin.createItem("ec:item_tool_pick_iron")); interact(a); server.pump(300) { false }
                 assertTrue(!plugin.gathering.active(a.uniqueId), "pickaxe started a HERB channel")
-                assertTrue((a.nextMessage() ?: "").contains("SICKLE"),"wrong tool reason missing")
+                assertTrue((a.nextMessage() ?: "").let { it.contains("sickle") || it.contains("採薬鎌") },"wrong tool reason missing")
                 generateSequence { a.nextMessage() }.toList()
                 a.inventory.setItemInMainHand(ItemStack(Material.AIR)); interact(a); server.pump(300) { false }
                 assertTrue(!plugin.gathering.active(a.uniqueId), "bare hand started a channel")

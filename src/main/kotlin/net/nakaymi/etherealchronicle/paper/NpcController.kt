@@ -100,7 +100,7 @@ internal class NpcController(private val plugin: RpgPlugin) : Listener {
             if (!npcChunkMaySpawn(world.isChunkLoaded(chunk.x, chunk.z))) return@forEach
             val entity = world.spawn(location, Villager::class.java)
             entity.persistentDataContainer.set(npcKey, PersistentDataType.STRING, definition.id)
-            entity.customName(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize(definition.name))
+            entity.customName(plugin.contentTranslatable("npc", definition.id, "name", definition.name))
             entity.isCustomNameVisible = true
             entity.isPersistent = false
             entity.isInvulnerable = true

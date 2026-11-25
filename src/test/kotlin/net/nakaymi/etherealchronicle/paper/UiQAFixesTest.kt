@@ -146,7 +146,7 @@ class UiQAFixesTest {
 
             player.performCommand("ec quest")
             val messages=generateSequence { player.nextMessage() }.toList()
-            val questName=plugin.snapshot.world.quests.getValue("ec:quest_m01_awakening").name
+            val questName=plugin.contentText(player,"quest","ec:quest_m01_awakening","name",plugin.snapshot.world.quests.getValue("ec:quest_m01_awakening").name)
 
             assertTrue(messages.any { it==questName },"content-owned quest name should remain a separate line")
             assertTrue(messages.any { it=="Status: In progress" },"English status should come from the language catalog")
@@ -172,7 +172,7 @@ class UiQAFixesTest {
             plugin.openEnhancement(player)
             val lore=player.openInventory.topInventory.getItem(13)!!.itemMeta.lore().orEmpty()
                 .joinToString(" ") { PlainTextComponentSerializer.plainText().serialize(it) }
-            val materialName=plugin.snapshot.items.get("ec:item_mat_artisan_whetstone").name
+            val materialName=plugin.contentText(player,"item","ec:item_mat_artisan_whetstone","name",plugin.snapshot.items.get("ec:item_mat_artisan_whetstone").name)
 
             assertTrue(lore.contains(materialName),"enhancement lore should use the material display name: $lore")
             assertFalse(lore.contains("ec:item_mat_artisan_whetstone"),"internal item id leaked into lore: $lore")

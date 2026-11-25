@@ -97,6 +97,11 @@ ec:
     undiscovered_gathering: "未発見の採取地"
     gathering_count: "採取回数: <count>"
     gathering_kind: "種別: <kind> / 必要道具 T<tier>"
+    kind_ore: "鉱石"
+    kind_herb: "薬草"
+    kind_wood: "木材"
+    kind_crystal: "結晶"
+    crown_none: "なし"
     seek_gathering_node: "専用道具で採取地を調べましょう。"
   resource:
     rage: "怒り"
@@ -315,6 +320,8 @@ ec:
     telegraph_ice: "青白い"
     telegraph_void: "紫の"
     telegraph_generic: "危険な"
+    bossbar_title: "<name> <hp>/<max_hp>  フェーズ <phase><enrage>"
+    bossbar_enrage: " 激昂"
   quest:
     name: "<name>"
     unknown_name: "依頼名不明"
@@ -400,6 +407,12 @@ ec:
     bait_selected: "餌を選択しました: <name>"
   gathering:
     node_label: "<green>[採取] <white><name> <gray>(Lv.<level>)"
+    tool_pickaxe: "ピッケル"
+    tool_sickle: "採薬鎌"
+    tool_hatchet: "手斧"
+    tool_extractor: "結晶抽出器"
+    tool_rod: "釣竿"
+    tool_bait: "釣り餌"
     protected_terrain: "採取地点の地形は変更できません。道具で採取してください。"
     click_site: "採取地点 <name> の表示または足元を右クリックしてください。"
     site_unavailable: "この採取地点の設定を読み込めませんでした。管理者にお知らせください。"

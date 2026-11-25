@@ -113,10 +113,10 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
             display.setItemStack(org.bukkit.inventory.ItemStack(Material.HEART_OF_THE_SEA)); display.isPersistent=false; display.isInvulnerable=true
             display.persistentDataContainer.set(bobberKey,PersistentDataType.STRING,player.uniqueId.toString())
         }
-        val bar=Bukkit.createBossBar(plain(plugin.message(player,"ec.fishing.debug_bossbar", "fish" to fish.name)),BarColor.BLUE,BarStyle.SOLID).apply { addPlayer(player); progress=0.03 }
+        val bar=Bukkit.createBossBar(plain(plugin.message(player,"ec.fishing.debug_bossbar", "fish" to plugin.contentText(player,"fish",fish.id,"name",fish.name))),BarColor.BLUE,BarStyle.SOLID).apply { addPlayer(player); progress=0.03 }
         val state=FishingState(fish,phase=FishingPhase.REELING,waitSeconds=0.0,tensionStability=rod.tensionStability,sweetSpotBonus=rod.sweetSpotBonus)
         sessions[player.uniqueId]=Session(state,spot,rod,player.location.clone(),bobberAt,bobber.uniqueId,bar)
-        return plain(plugin.message(player,"ec.fishing.debug_started", "fish" to fish.name))
+        return plain(plugin.message(player,"ec.fishing.debug_started", "fish" to plugin.contentText(player,"fish",fish.id,"name",fish.name)))
     }
     /** 次回の釣りで使う餌の設定を検証して保存します。 */
     fun selectBait(profile:PlayerProfile,value:String):String {
@@ -376,7 +376,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
                 plugin.syncTitleAdvancements(player,profile)
                 val isNew=profile.fishRecords[catch.species.id]?.count==1
                 val crownKey=when(catch.crown) { Crown.GOLD -> "ec.fishing.crown_gold"; Crown.SILVER -> "ec.fishing.crown_silver"; else -> null }
-                var subtitle=Component.text("${catch.species.name} ${catch.sizeCm}cm")
+                var subtitle=Component.text("${plugin.contentText(player,"fish",catch.species.id,"name",catch.species.name)} ${catch.sizeCm}cm")
                 crownKey?.let { subtitle=subtitle.append(Component.space()).append(plugin.message(player,it)) }
                 if(isNew) subtitle=subtitle.append(Component.space()).append(plugin.message(player,"ec.fishing.new_record"))
                 player.showTitle(Title.title(plugin.message(player,"ec.fishing.catch_title"),subtitle))
