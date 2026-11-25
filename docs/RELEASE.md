@@ -47,7 +47,7 @@ Paper 26.3 still marks `EntityDamageEvent.DamageModifier` deprecated and describ
 
 ### Verification status
 
-- **Automated suite**: 425 JUnit/MockBukkit tests PASS (0 failures, 0 errors; 2 pre-existing skips due to MockBukkit unimplemented world-spawn/block-data-rotation APIs), including resource-pack asset integrity and overworld schematic/placement tests.
+- **Automated suite**: 419 JUnit/MockBukkit tests PASS (0 failures, 0 errors; 3 pre-existing skips due to MockBukkit unimplemented world-spawn/block-data-rotation APIs), including resource-pack asset integrity and overworld schematic/placement tests.
 - **Live Paper 26.3 QA (`docs/MANUAL_QA_RESULT.md`)**:
   - Dedicated & Overworld boot, reload, profile save/restart, upgrade fallback, simulation combat/lethal rewards, and offline real-client gameplay checks (class selection, portal walk-in/leave, gathering, fishing, treasure chests, NPC dialogue/shop, custom pack rendering).
   - Overworld regression QA #12–#13: **7/7 consecutive PASS** (2 repro seeds + 5 fresh random seeds), 9/9 `READY`, 4 portals, 0 ERROR, 0 house/pool/projection WARN, TPS 19.6–19.9, with `world.save(true)` before every `READY` journal commit.
