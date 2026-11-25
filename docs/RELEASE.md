@@ -15,10 +15,9 @@ Build with Java 25 using `./gradlew.bat test build`; deploy `build/libs/Ethereal
 
 Implemented and connected: class selection/starter/HUD/skills/equipment, Chapter 1 & Chapter 2 quest objectives/branches/rewards, NPC dialogue and shops (with interaction distance guard), consumables, currency/token trades, fishing/gathering/treasure chests, custom spawn points/AI/virtual bosses/telegraphs, parties/shared rewards, and cooperative dungeons. Pity applies only to authored rare entries with per-profile, per-item counters; bespoke lore-specific boss scripts are not implemented, and attacks use the documented generic shapes/traits. The REVIVE feather is an accessory that prevents one lethal hit while equipped; using it by right-click shows an equip instruction and preserves the item.
 
-Two world modes are supported via `config.yml`:
+World mode is set via `config.yml`:
 
 - `world.mode: overworld` (only mode): towns and dungeon portals are integrated into the vanilla Overworld. The legacy `dedicated_ec_world` (floating-island) value was removed and is read as `overworld`.
-- `world.mode: overworld` (recommended for live survival/RPG play): integrates 9 towns/hubs/outposts and 4 dungeon portals directly into the vanilla Overworld (`world.overworld_name`, default `"world"`), running dungeon instances in sky arenas (`world.dungeon.{base_x,base_y,base_z,spacing}`, default `100000, 220, 100000, 256`; keep `base_y >= 160` and inside any custom world border). On first boot, allow ~3–4 minutes for background placement and verify all 9 sites are `READY` with `/ec sites` before opening to players. See `docs/OVERWORLD_RECOVERY.md` for site/dungeon recovery procedures.
 
 ### Transactions, persistence & crash caveats
 
