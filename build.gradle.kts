@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "net.nakaymi"
-version = "0.1.2"
+version = "0.1.3"
 
 val paperVersion = "26.3.build.257-stable"
 

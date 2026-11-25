@@ -5,12 +5,16 @@ import java.io.DataInputStream
 import java.io.InputStream
 import java.util.zip.GZIPInputStream
 
+/** 新しい Minecraft で改名されたブロック ID を、旧名の schematic でも読めるよう現行名へ読み替えます（例: chain → iron_chain）。 */
+internal fun migrateRenamedBlockState(state: String): String =
+    if (state == "minecraft:chain" || state.startsWith("minecraft:chain[")) "minecraft:iron_chain" + state.removePrefix("minecraft:chain") else state
+
 /** Sponge schematic の寸法・palette・ブロック配置を保持します。配列は外部へコピーして公開します。 */
 class SchematicData(width: Int, height: Int, length: Int, palette: List<String>, blocks: IntArray) {
     val width: Int = width
     val height: Int = height
     val length: Int = length
-    val palette: List<String> = palette.toList()
+    val palette: List<String> = palette.map(::migrateRenamedBlockState)
     private val blockIndices: IntArray = blocks.copyOf()
     val blocks: IntArray get() = blockIndices.copyOf()
 

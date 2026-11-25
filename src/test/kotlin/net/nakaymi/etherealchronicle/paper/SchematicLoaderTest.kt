@@ -58,6 +58,14 @@ class SchematicLoaderTest {
         assertFalse(isAir("minecraft:stone"))
     }
 
+    @Test
+    fun `renamed chain block state is migrated to iron_chain`() {
+        assertEquals("minecraft:iron_chain[axis=y,waterlogged=false]", migrateRenamedBlockState("minecraft:chain[axis=y,waterlogged=false]"))
+        assertEquals("minecraft:iron_chain", migrateRenamedBlockState("minecraft:chain"))
+        assertEquals("minecraft:stone", migrateRenamedBlockState("minecraft:stone"))
+        assertEquals("minecraft:chain_command_block", migrateRenamedBlockState("minecraft:chain_command_block"))
+    }
+
     private fun loadFixture(name: String): SchematicData =
         SchematicLoader.load(requireNotNull(javaClass.getResourceAsStream("/schematics/$name")))
 }
