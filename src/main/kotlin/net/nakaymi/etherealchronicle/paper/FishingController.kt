@@ -96,7 +96,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
     fun debugCancel(player:org.bukkit.entity.Player):Boolean = cancel(player,"ec.fishing.debug_cancel")
     /** 通常ミニゲームと同じセッション・表示を指定魚種で開始します。 */
     fun debugStart(player:org.bukkit.entity.Player,speciesId:String?):String {
-        require(plugin.isManagedWorld(player.world)) { "ec.error.fishing_world" }
+        require(plugin.isActiveWorld(player.world)) { "ec.error.fishing_world" }
         val profile=plugin.profiles[player.uniqueId] ?: error("ec.error.fishing_profile")
         require(!active(player.uniqueId)) { "ec.error.fishing_active" }
         val definitions=plugin.snapshot.world
@@ -193,7 +193,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
         cast(player,rod)
     }
     private fun cast(player:org.bukkit.entity.Player,rod:TackleDefinition) {
-        if(!plugin.isManagedWorld(player.world)) { player.sendMessage(plugin.message(player,"ec.fishing.world_only")); return }
+        if(!plugin.isActiveWorld(player.world)) { player.sendMessage(plugin.message(player,"ec.fishing.world_only")); return }
         val profile=plugin.profiles[player.uniqueId] ?: return
         if(profile.classId==null || plugin.adventure.locked(profile.uuid)) { player.sendMessage(plugin.message(player,"ec.fishing.profile_loading")); return }
         val balance=plugin.snapshot.world.lifeBalance

@@ -31,7 +31,7 @@ internal fun disableVanillaHostileSpawns(world:World) {
 /** 安全地帯に入った周囲だけを走査し、RPG 管理外の敵対 Mob を除去します。 */
 internal fun clearProjectedSafeHostiles(plugin: RpgPlugin, location: Location) {
     val world = location.world
-    if (!plugin.isManagedWorld(world)) return
+    if (!plugin.isActiveWorld(world)) return
     val areas = plugin.safeAreas(world.name)
     if (areas.isEmpty()) return
     val enemyKey = NamespacedKey(plugin, "enemy_id")

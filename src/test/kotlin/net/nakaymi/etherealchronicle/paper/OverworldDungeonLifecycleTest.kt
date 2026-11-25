@@ -21,6 +21,7 @@ import org.bukkit.Material
 import org.bukkit.World
 import org.bukkit.event.player.PlayerMoveEvent
 import org.bukkit.event.player.PlayerQuitEvent
+import org.bukkit.event.player.PlayerRespawnEvent
 import org.bukkit.event.player.PlayerTeleportEvent
 import org.bukkit.event.world.ChunkLoadEvent
 import org.bukkit.plugin.Plugin
@@ -556,6 +557,33 @@ class OverworldDungeonLifecycleTest {
             world.getBlockAt(tx, 67, tz).type = Material.OAK_LEAVES
             world.getBlockAt(tx, 68, tz).type = Material.OAK_LEAVES
             assertEquals(65, plugin.resolveProjectionSurfaceY(world, tx, tz))
+        } finally {
+            MockBukkit.unmock()
+        }
+    }
+
+    @Test
+    fun `respawn after quitting at the death screen returns the player to the entrance and clears the pending record`() {
+        val server = MockBukkit.mock()
+        try {
+            val (plugin, world, dungeons) = setupOverworldPlugin(server)
+            val player = joinPlayer(server, plugin, world, "DeathScreenQuit")
+            dungeons.enter(player, "ec:dungeon_novice_arena")
+            assertTrue(server.pump(10_000) { dungeons.containsPlayer(player.uniqueId) }, "Player did not enter dungeon")
+
+            // 死亡画面のまま切断: インスタンスから外れるが、帰還記録は残る
+            dungeons.quit(PlayerQuitEvent(player, Component.empty(), PlayerQuitEvent.QuitReason.DISCONNECTED))
+            assertFalse(dungeons.containsPlayer(player.uniqueId))
+            assertTrue(dungeons.hasPendingReturn(player.uniqueId))
+
+            // 再接続後に「復活」するとき、記録した戻り先（入口の出口）へ復活し、記録が解除される
+            val respawn = PlayerRespawnEvent(player, player.location, false, false)
+            dungeons.respawn(respawn)
+            assertTrue(respawn.respawnLocation.y < 100.0, "respawn must leave the sky arena: ${respawn.respawnLocation}")
+            assertTrue(
+                server.pump(10_000) { !dungeons.hasPendingReturn(player.uniqueId) },
+                "pending return record was not cleared on respawn",
+            )
         } finally {
             MockBukkit.unmock()
         }

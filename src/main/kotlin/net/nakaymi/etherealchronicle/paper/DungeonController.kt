@@ -202,11 +202,8 @@ class DungeonController internal constructor(
     /** テストや管理診断用に現在のオーバーワールドレイアウトを返します。 */
     internal fun currentOverworldLayout(): OverworldDungeonInstanceLayout = overworldLayout
 
-    /** 参加者・解放条件・instance枠を検証してダンジョンへ入場させます。 */
-    fun enter(player: Player, dungeonId: String = DEFAULT_DUNGEON_ID) = enterOverworld(player, dungeonId)
-
-    /** 地上入口から空中枠を全域検査し、所有証跡と帰還記録の永続化後だけ転送します。 */
-    private fun enterOverworld(player: Player, dungeonId: String) {
+    /** 参加者・解放条件・instance枠を検証し、地上入口から空中枠を全域検査して入場させます（所有証跡と帰還記録の永続化後だけ転送）。 */
+    fun enter(player: Player, dungeonId: String = DEFAULT_DUNGEON_ID) {
         val session = prepareOverworldEntry(player, dungeonId)
         enteringPlayers.addAll(session.returns.keys)
         session.players.forEach { member ->
@@ -1364,17 +1361,12 @@ class DungeonController internal constructor(
         slotTracker.release(slot)
     }
 
-    /** ログイン時に残存ダンジョン記録を確認し、必要に応じて安全地上へ救出します。 */
-    fun recover(player: Player) {
-        recoverOverworld(player)
-    }
-
     /**
      * 再ログイン時に現在位置（視点回転に左右されない）で地上安全を確認し、
      * 上空残留時は保存先または安全なフォールバックへ救出して記録を解除します。
      * ジャーナル二重破損などで記録が無い場合も、空中スロット内ログインを検知して救出します。
      */
-    private fun recoverOverworld(player: Player) {
+    fun recover(player: Player) {
         val id = player.uniqueId
         val record = pendingReturns[id]
         if (record == null) {
@@ -1568,6 +1560,25 @@ class DungeonController internal constructor(
         detach(instance, id)
     }
 
+    /**
+     * 死亡画面のまま切断し、再接続後に復活するプレイヤー（インスタンスは無いが帰還記録は残っている）を、
+     * 記録した戻り先へ復活させて記録を解除します。死亡中は救出テレポートが失敗するため、復活イベントで処理します。
+     */
+    private fun respawnWithPendingReturn(e: PlayerRespawnEvent) {
+        val id = e.player.uniqueId
+        val record = pendingReturns[id] ?: return
+        val world = Bukkit.getWorld(record.world) ?: return
+        val destination = Location(world, record.x, record.y, record.z, record.yaw, record.pitch)
+        val safeNow = SafeStandingSpot.isSafe(destination)
+        e.respawnLocation = if (safeNow) destination else resolveForcedSafeFallback(world)
+        if (!safeNow) teleportToReturnLater(e.player, destination)
+        pendingReturnFreezeSince.remove(id)
+        recoveringPlayers.remove(id)
+        plugin.sync {
+            if (e.player.isOnline) clearReturnRecords(setOf(id), notifyOnFailure = true)
+        }
+    }
+
     /** 戻り先チャンクを非同期で読み込み、復活が済んだ後に安全であれば戻り先へ移動させます。 */
     private fun teleportToReturnLater(player: Player, destination: Location) {
         val world = destination.world ?: return
@@ -1583,7 +1594,11 @@ class DungeonController internal constructor(
     @EventHandler
     fun respawn(e: PlayerRespawnEvent) {
         val id = e.player.uniqueId
-        val instance = instanceForPlayer(id) ?: return
+        val instance = instanceForPlayer(id)
+        if (instance == null) {
+            respawnWithPendingReturn(e)
+            return
+        }
         val destination = instance.returns[id]
         val safeNow = destination != null && SafeStandingSpot.isSafe(destination)
         e.respawnLocation = if (safeNow) destination!! else resolveForcedSafeFallback(e.player.world)

@@ -274,9 +274,6 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     /** 対象ワールドだけをゲームコントローラーに公開します。 */
     internal fun isActiveWorld(world: World): Boolean = world.name == activeWorldProjection.worldName()
 
-    /** RPG が管理する対象ワールドかどうかを返します。 */
-    internal fun isManagedWorld(world: World): Boolean = isActiveWorld(world)
-
     /** 読み込み済みの安全なルミナ港広場を返し、未準備なら移動を行いません。 */
     internal fun luminaSpawn(): Location? {
         val world = server.getWorld(activeWorldProjection.worldName()) ?: return null
@@ -1265,7 +1262,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=true)
     fun suppressVanillaHostilesInSafeAreas(e:CreatureSpawnEvent) {
         val world=e.location.world
-        if(!isManagedWorld(world) || e.entity !is Monster || e.spawnReason.name=="CUSTOM") return
+        if(!isActiveWorld(world) || e.entity !is Monster || e.spawnReason.name=="CUSTOM") return
         val location=e.location
         val position=Position(world.name,location.x,location.y,location.z)
         if(shouldSuppressVanillaHostileSpawn(e.spawnReason.name,true,position,safeAreas(world.name))) e.isCancelled=true

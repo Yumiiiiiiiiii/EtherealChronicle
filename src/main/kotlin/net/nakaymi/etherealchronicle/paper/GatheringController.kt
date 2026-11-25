@@ -129,7 +129,7 @@ class GatheringController(private val plugin: RpgPlugin) : Listener {
                 "cooldown" to (profile?.gatheringReadyAt?.get(siteKey(site))?.let { maxOf(0, it - System.currentTimeMillis()) } ?: 0),
             ).let(::plain)
         } ?: plain(plugin.message(player, "ec.debug.none"))
-        val owned = plugin.isManagedWorld(player.world)
+        val owned = plugin.isActiveWorld(player.world)
         return plugin.message(
             player,
             "ec.debug.gathering_details",
@@ -320,7 +320,7 @@ class GatheringController(private val plugin: RpgPlugin) : Listener {
     private fun renderSite(site: Site) {
         val at = location(site) ?: return
         val world = at.world
-        if (!plugin.isManagedWorld(world) || !world.isChunkLoaded(at.blockX shr 4, at.blockZ shr 4)) return
+        if (!plugin.isActiveWorld(world) || !world.isChunkLoaded(at.blockX shr 4, at.blockZ shr 4)) return
         val k = siteKey(site)
         if (displays[k]?.all { Bukkit.getEntity(it)?.isValid == true } == true) return
         removeDisplay(k)
@@ -485,7 +485,7 @@ class GatheringController(private val plugin: RpgPlugin) : Listener {
     }
 
     private fun begin(player: org.bukkit.entity.Player, site: Site) {
-        if (!plugin.isManagedWorld(player.world)) { reject(player, "ec.gathering.world_only"); return }
+        if (!plugin.isActiveWorld(player.world)) { reject(player, "ec.gathering.world_only"); return }
         val profile = plugin.profiles[player.uniqueId] ?: run { reject(player, "ec.gathering.profile_loading"); return }
         if (plugin.adventure.locked(profile.uuid)) { reject(player, "ec.gathering.transaction_locked"); return }
         if (channels.containsKey(player.uniqueId)) { reject(player, "ec.gathering.already_gathering"); return }

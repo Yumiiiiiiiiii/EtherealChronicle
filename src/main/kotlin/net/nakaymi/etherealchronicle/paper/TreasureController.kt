@@ -69,7 +69,7 @@ class TreasureController(private val plugin: RpgPlugin) : Listener {
             val source = plugin.snapshot.world.treasureChests[chest.id] ?: return
             val position = plugin.projectedPosition(source.position) ?: return
             val world = Bukkit.getWorld(position.world) ?: return
-            if (!plugin.isManagedWorld(world)) return
+            if (!plugin.isActiveWorld(world)) return
             val (chunkX, chunkZ) = chunkCoordinates(chest.position.x, chest.position.z)
             // 再読込時に未ロード chunk を同期ロードせず、後続の ChunkLoadEvent に配置を任せます。
             if (!world.isChunkLoaded(chunkX, chunkZ)) return
