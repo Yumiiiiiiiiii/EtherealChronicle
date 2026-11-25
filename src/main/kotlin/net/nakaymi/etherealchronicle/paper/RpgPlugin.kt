@@ -89,17 +89,16 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal val snapshot get() = content.snapshot()
     /** 建設サービスの有無に関わらず、安全な座標投影を初期化します。 */
     private fun initializeWorldProjection() {
-        // テストだけが専用ワールドを既定にできる。本番では旧値 dedicated_ec_world（浮島）も overworld へ読み替える。
-        val testDefault = System.getProperty("etherealTestWorldMode")
-        val configured = config.getString("world.mode", testDefault ?: WorldMode.OVERWORLD.configValue)
-        val mode = if (testDefault == null && configured == WorldMode.DEDICATED_EC_WORLD.configValue) WorldMode.OVERWORLD else WorldMode.fromConfig(configured)
-        val registry = if (mode == WorldMode.OVERWORLD) {
+        WorldMode.fromConfig(config.getString("world.mode"))
+        // world.mode 未指定のテストだけ、固定座標の疑似レジストリ（TestWorldFixture）を使えます。
+        val fixtureRegistry = TestWorldFixture.registryFactory?.takeIf { !config.isSet("world.mode") }
+        val registry = if (fixtureRegistry != null) fixtureRegistry(snapshot.world.areas.values) else {
             val worldName = config.getString("world.overworld_name", "world") ?: "world"
             overworldBootstrap = server.getWorld(worldName)?.let { EngineOverworldBootstrap(this, it, snapshot.world.areas.values) }
             overworldBootstrap?.registry ?: PendingOverworldSiteRegistry(
                 worldName, snapshot.world.areas.values,
             ).also { logger.warning("Overworld construction service is unavailable; sites remain pending.") }
-        } else DedicatedWorldSiteRegistry(areas = snapshot.world.areas.values)
+        }
         rebuildWorldProjection(registry)
         appliedReadyAnchors = currentReadyAnchors()
     }

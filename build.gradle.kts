@@ -37,8 +37,6 @@ kotlin { jvmToolchain(25) }
 tasks.test {
     useJUnitPlatform()
     maxHeapSize = "1g"
-    // 既存QAは専用ワールド前提のため、テストでのみ既定を専用ワールドにする
-    jvmArgs("-DetherealTestWorldMode=dedicated_ec_world")
 }
 
 val generateContentIndex = tasks.register("generateContentIndex") {

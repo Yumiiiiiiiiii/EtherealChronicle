@@ -5,13 +5,16 @@ import kotlin.math.floor
 /** ワールド運用モードの設定値と種別を一元管理します。 */
 enum class WorldMode(val configValue: String) {
     OVERWORLD("overworld"),
-    DEDICATED_EC_WORLD("dedicated_ec_world"),
     ;
 
     companion object {
+        private const val LEGACY_DEDICATED = "dedicated_ec_world"
+
         /** config.yml の `world.mode` を検証してモードへ変換します。 */
         fun fromConfig(value: String?): WorldMode {
             val normalized = value ?: OVERWORLD.configValue
+            // 廃止した浮島モードの旧設定値は overworld へ読み替えます。
+            if (normalized == LEGACY_DEDICATED) return OVERWORLD
             return entries.firstOrNull { it.configValue == normalized }
                 ?: throw IllegalArgumentException("Unknown world.mode: $normalized")
         }
@@ -96,33 +99,6 @@ class PendingOverworldSiteRegistry(
     override fun activeWorldName(): String = worldName
     override fun isOverworldMode(): Boolean = true
     override fun isReady(): Boolean = false
-    override fun siteForArea(areaId: String): OverworldSiteAnchor? = sites[areaId]
-    override fun allSites(): List<OverworldSiteAnchor> = siteList
-    override fun portalForDungeon(dungeonId: String): OverworldDungeonPortal? = null
-    override fun allPortals(): List<OverworldDungeonPortal> = emptyList()
-    override fun triggerRepair(): OverworldRepairResult = OverworldRepairResult.UNAVAILABLE
-}
-
-/** 既存 ec_world の座標をそのまま扱う後方互換モードです。 */
-class DedicatedWorldSiteRegistry(
-    private val worldName: String = WorldIds.DEMO,
-    areas: Collection<Area> = emptyList(),
-) : OverworldSiteRegistry {
-    private val sites = areas.associate { area ->
-        area.id to OverworldSiteAnchor(
-            area.id,
-            ((area.minX + area.maxX) / 2).toInt(),
-            OverworldAnchorProjector.BASE_SURFACE_Y,
-            ((area.minZ + area.maxZ) / 2).toInt(),
-            "",
-            OverworldSiteStatus.READY,
-        )
-    }
-    private val siteList = sites.values.toList()
-
-    override fun activeWorldName(): String = worldName
-    override fun isOverworldMode(): Boolean = false
-    override fun isReady(): Boolean = true
     override fun siteForArea(areaId: String): OverworldSiteAnchor? = sites[areaId]
     override fun allSites(): List<OverworldSiteAnchor> = siteList
     override fun portalForDungeon(dungeonId: String): OverworldDungeonPortal? = null
