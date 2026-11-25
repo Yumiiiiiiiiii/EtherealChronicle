@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Yumiiiiiiiiii/EtherealChronicle/releases/tag/v0.1.5"><strong>Latest Release: v0.1.5</strong></a>
+  <a href="https://github.com/Yumiiiiiiiiii/EtherealChronicle/releases/tag/v0.1.6"><strong>Latest Release: v0.1.6</strong></a>
   &nbsp;·&nbsp;
   <a href="docs/RELEASE.md">Release Notes</a>
   &nbsp;·&nbsp;
@@ -53,9 +53,9 @@
 
 ---
 
-## 導入手順（v0.1.5）
+## 導入手順（v0.1.6）
 
-1. [GitHub Releases (`v0.1.5`)](https://github.com/Yumiiiiiiiiii/EtherealChronicle/releases/tag/v0.1.5) から `EtherealChronicle-0.1.5.jar` をダウンロードし、Paper サーバーの `plugins/` へ配置します。
+1. [GitHub Releases (`v0.1.6`)](https://github.com/Yumiiiiiiiiii/EtherealChronicle/releases/tag/v0.1.6) から `EtherealChronicle-0.1.6.jar` をダウンロードし、Paper サーバーの `plugins/` へ配置します。
 2. 公開サーバーでは `eula=true` および `online-mode=true` を設定します。
 3. 本番運用（Overworld 統合 + HTTPS リソースパック配信）を行う場合、`plugins/EtherealChronicle/config.yml` を以下のように設定します：
 
@@ -72,7 +72,7 @@ resource_pack:
   required: true
   required_timeout_seconds: 120
   mode: external_url
-  external_url: "https://github.com/Yumiiiiiiiiii/EtherealChronicle/releases/download/v0.1.5/etherealchronicle-resourcepack.zip"
+  external_url: "https://github.com/Yumiiiiiiiiii/EtherealChronicle/releases/download/v0.1.6/etherealchronicle-resourcepack.zip"
   external_sha1: "ae084a0c5e9d10d4b095e99343fd21dbc2848261"
 ```
 
@@ -114,7 +114,7 @@ Java 25 環境で Gradle Wrapper を実行します：
 ```
 
 主な出力ファイル：
-- プラグイン JAR: `build/libs/EtherealChronicle-0.1.5.jar`
+- プラグイン JAR: `build/libs/EtherealChronicle-0.1.6.jar`
 - リソースパック ZIP / SHA-1: `build/generated/resourcepack/etherealchronicle-resourcepack.zip` / `.sha1`
 
 ---
