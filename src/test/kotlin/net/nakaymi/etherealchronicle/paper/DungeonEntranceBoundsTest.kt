@@ -70,7 +70,6 @@ class DungeonEntranceBoundsTest {
                     portalB.areaId to OverworldSiteAnchor(portalB.areaId, 20, 70, 10, "SNOWY_SLOPES", GameSiteStatus.READY, portalB.dungeonId),
                 )
                 override fun activeWorldName(): String = world.name
-                override fun isOverworldMode(): Boolean = true
                 override fun isReady(): Boolean = true
                 override fun siteForArea(areaId: String): OverworldSiteAnchor? = sites[areaId]
                 override fun allSites(): List<OverworldSiteAnchor> = sites.values.toList()

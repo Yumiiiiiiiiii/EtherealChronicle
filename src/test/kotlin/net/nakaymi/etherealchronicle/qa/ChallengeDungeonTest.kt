@@ -2,7 +2,6 @@ package net.nakaymi.etherealchronicle.qa
 
 import net.nakaymi.etherealchronicle.core.PlayerProfile
 import net.nakaymi.etherealchronicle.core.recordChallenge
-import net.nakaymi.etherealchronicle.paper.DemoWorld
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
 import org.junit.jupiter.api.Test
 import org.mockbukkit.mockbukkit.MockBukkit
@@ -25,22 +24,23 @@ class ChallengeDungeonTest {
             assertTrue(server.pump { runCatching { plugin.snapshot.world.dungeons.isNotEmpty() }.getOrDefault(false) })
             val player=PlayerMock(server,"Crucible",UUID.randomUUID()); server.addPlayer(player)
             assertTrue(server.pump { player.uniqueId in plugin.profiles })
-            val world=server.getWorld(DemoWorld.NAME) ?: server.addSimpleWorld(DemoWorld.NAME)
+            val world=net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             player.teleport(world.spawnLocation)
             val profile=PlayerProfile(player.uniqueId,classId="ec:class_paladin",level=20,resource=100.0,flags=mutableSetOf("ec:flag_side_crucible_unlocked"))
             plugin.profiles[player.uniqueId]=profile
 
             plugin.dungeons.enter(player,"ec:dungeon_aether_crucible")
-            assertEquals(0,plugin.dungeons.currentWave(0))
+            assertTrue(server.qaPump { plugin.dungeons.currentWave(0) == 0 }, "crucible instance did not start")
             fun defeatCurrent(expected:String) {
-                val bossId=plugin.dungeons.currentBoss(0) ?: error("wave boss missing")
+                assertTrue(server.qaPump { plugin.dungeons.currentBoss(0) != null }, "wave boss missing")
+                val bossId=plugin.dungeons.currentBoss(0)!!
                 assertEquals(expected,plugin.enemies.state(bossId)?.boss?.definition?.id)
                 plugin.dungeons.defeated(bossId)
             }
             defeatCurrent("ec:enemy_void_sentinel")
-            assertEquals(1,plugin.dungeons.currentWave(0))
+            assertTrue(server.qaPump { plugin.dungeons.currentWave(0) == 1 })
             defeatCurrent("ec:enemy_glacial_knight")
-            assertEquals(2,plugin.dungeons.currentWave(0))
+            assertTrue(server.qaPump { plugin.dungeons.currentWave(0) == 2 })
             defeatCurrent("ec:boss_aether_chimera")
             val record=profile.challengeRecords.getValue("ec:dungeon_aether_crucible")
             assertEquals("S",record.bestRank)

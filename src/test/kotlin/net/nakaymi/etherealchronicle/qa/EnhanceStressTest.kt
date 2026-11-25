@@ -1,6 +1,5 @@
 package net.nakaymi.etherealchronicle.qa
 
-import net.nakaymi.etherealchronicle.paper.DemoWorld
 import net.nakaymi.etherealchronicle.paper.RpgMenu
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
 import org.bukkit.NamespacedKey
@@ -30,8 +29,7 @@ class EnhanceStressTest {
     fun enhancementScenarios() {
         val server = MockBukkit.mock()
         try {
-            val world=OwnedWorldMock.add(server, DemoWorld.NAME)
-            File(world.worldFolder, ".etherealchronicle-built").writeText("v4\n")
+            val world=net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             val uuid = UUID.nameUUIDFromBytes("enh".toByteArray())
             val player = QaPlayerMock(server, "Smithy", uuid); server.addPlayer(player)

@@ -2,7 +2,6 @@ package net.nakaymi.etherealchronicle.qa
 
 import net.nakaymi.etherealchronicle.core.*
 import net.nakaymi.etherealchronicle.data.*
-import net.nakaymi.etherealchronicle.paper.DemoWorld
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
 import org.junit.jupiter.api.Test
 import org.mockbukkit.mockbukkit.MockBukkit
@@ -38,11 +37,12 @@ class ChallengeRankRewardTest {
             val changed=chapter+mapOf("dungeon_configs" to configs,"flags" to (chapter.strings("flags")+"ec:flag_crucible_first_s"))
             val service=RpgPlugin::class.java.getDeclaredField("content").also { it.isAccessible=true }.get(plugin) as ContentService
             service.install(base.copy(documents=base.documents+mapOf(chapterId to changed)))
-            val world=server.getWorld(DemoWorld.NAME) ?: server.addSimpleWorld(DemoWorld.NAME)
+            val world=net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             player.teleport(world.spawnLocation)
             plugin.dungeons.enter(player,"ec:dungeon_aether_crucible")
             repeat(3) { wave ->
-                val boss=plugin.dungeons.currentBoss(0) ?: error("missing wave boss $wave")
+                assertTrue(server.qaPump { plugin.dungeons.currentBoss(0) != null }, "missing wave boss $wave")
+                val boss=plugin.dungeons.currentBoss(0)!!
                 plugin.dungeons.defeated(boss)
             }
             assertTrue(server.pump { "ec:flag_crucible_first_s" in profile.flags && player.inventory.storageContents.filterNotNull().filter { plugin.identify(it)=="ec:item_mat_aether_gel" }.sumOf { it.amount }>=2 })

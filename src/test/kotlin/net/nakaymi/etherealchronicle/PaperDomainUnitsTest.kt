@@ -62,24 +62,4 @@ class PaperDomainUnitsTest {
         assertTrue(CodexLayout.NEXT_PAGE_SLOT < ChestLayout.DOUBLE_CHEST_SLOTS)
         assertEquals(45,DialogueLayout.MAX_VISIBLE_CHOICES)
     }
-
-    @Test
-    fun `dungeon arena slots have isolated boundaries`() {
-        assertEquals(1_024, DungeonArenaLayout.centerX(0))
-        assertEquals(1_216, DungeonArenaLayout.centerX(1))
-        assertEquals(DungeonArenaLayout.Origin(1_216, 1_024), DungeonArenaLayout.originForSlot(1))
-        assertTrue(DungeonArenaLayout.contains(1_054.0, 1_054.0, 0))
-        assertFalse(DungeonArenaLayout.contains(1_054.01, 1_024.0, 0))
-        assertFalse(DungeonArenaLayout.contains(1_216.0, 1_024.0, 0))
-        val server = MockBukkit.mock()
-        try {
-            val world = server.addSimpleWorld("arena-bounds")
-            assertTrue(DungeonArenaLayout.isInsideBounds(Location(world, 1_054.0, 65.0, 1_054.0), 0))
-            assertFalse(DungeonArenaLayout.isInsideBounds(Location(world, 1_054.01, 65.0, 1_024.0), 0))
-        } finally {
-            MockBukkit.unmock()
-        }
-        assertEquals(listOf(0, 96, 192, 288, 384), DemoWorldLayout.HUB_PLAZAS.map { it.centerX })
-        assertEquals(65, DemoWorldLayout.SURFACE_Y)
-    }
 }

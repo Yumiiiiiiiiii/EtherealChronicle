@@ -88,7 +88,6 @@ internal class EngineSiteRegistry(
     }
 
     override fun activeWorldName(): String = worldName
-    override fun isOverworldMode(): Boolean = true
     override fun isReady(): Boolean = snapshot()?.ready == true
 
     override fun siteForArea(areaId: String): OverworldSiteAnchor? =

@@ -1,12 +1,11 @@
 # auto follows each player's Minecraft client language. Supported values: auto, ja_jp, en_us.
 language: auto
 world:
-  # ワールド動作モード。dedicated_ec_world（専用ワールド ec_world）または overworld（既存オーバーワールド統合）を指定します。
-  # 実機プレイで自然生成オーバーワールドへ拠点・ダンジョン入口を統合する場合は overworld へ変更してください。
-  mode: dedicated_ec_world
-  # mode: overworld 時に統合先とするワールド名です（既定: world）。
+  # ワールド動作モード。overworld（既定。通常のオーバーワールドを旅する形式）を指定します。旧値 dedicated_ec_world（浮島）は廃止され overworld として扱われます。
+  # mode: overworld
+  # 拠点を統合するオーバーワールド名です（既定: world）。
   overworld_name: "world"
-  # mode: overworld 時の空中ダンジョンインスタンス領域（省略時は以下の既定値を使用）。
+  # 空中ダンジョンインスタンス領域（省略時は以下の既定値を使用）。
   # ワールドボーダーを狭く設定している場合はボーダー内へ調整してください（推奨 base_y >= 160）。
   # dungeon:
   #   base_x: 100000

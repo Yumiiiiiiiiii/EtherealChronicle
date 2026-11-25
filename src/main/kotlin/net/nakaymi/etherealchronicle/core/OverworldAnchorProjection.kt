@@ -5,13 +5,17 @@ import kotlin.math.floor
 /** ワールド運用モードの設定値と種別を一元管理します。 */
 enum class WorldMode(val configValue: String) {
     OVERWORLD("overworld"),
-    DEDICATED_EC_WORLD("dedicated_ec_world"),
     ;
 
     companion object {
+        /** 廃止した浮島モードの旧設定値です。 */
+        const val LEGACY_DEDICATED = "dedicated_ec_world"
+
         /** config.yml の `world.mode` を検証してモードへ変換します。 */
         fun fromConfig(value: String?): WorldMode {
-            val normalized = value ?: DEDICATED_EC_WORLD.configValue
+            val normalized = value?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: OVERWORLD.configValue
+            // 廃止した浮島モードの旧設定値は overworld へ読み替えます。
+            if (normalized == LEGACY_DEDICATED) return OVERWORLD
             return entries.firstOrNull { it.configValue == normalized }
                 ?: throw IllegalArgumentException("Unknown world.mode: $normalized")
         }
@@ -71,7 +75,6 @@ data class OverworldDungeonPortal(
 /** 建設実装とゲームプレイを分離する読み取り・復旧ポートです。 */
 interface OverworldSiteRegistry {
     fun activeWorldName(): String
-    fun isOverworldMode(): Boolean
     fun isReady(): Boolean
     fun siteForArea(areaId: String): OverworldSiteAnchor?
     fun allSites(): List<OverworldSiteAnchor>
@@ -94,35 +97,7 @@ class PendingOverworldSiteRegistry(
     private val siteList = sites.values.toList()
 
     override fun activeWorldName(): String = worldName
-    override fun isOverworldMode(): Boolean = true
     override fun isReady(): Boolean = false
-    override fun siteForArea(areaId: String): OverworldSiteAnchor? = sites[areaId]
-    override fun allSites(): List<OverworldSiteAnchor> = siteList
-    override fun portalForDungeon(dungeonId: String): OverworldDungeonPortal? = null
-    override fun allPortals(): List<OverworldDungeonPortal> = emptyList()
-    override fun triggerRepair(): OverworldRepairResult = OverworldRepairResult.UNAVAILABLE
-}
-
-/** 既存 ec_world の座標をそのまま扱う後方互換モードです。 */
-class DedicatedWorldSiteRegistry(
-    private val worldName: String = WorldIds.DEMO,
-    areas: Collection<Area> = emptyList(),
-) : OverworldSiteRegistry {
-    private val sites = areas.associate { area ->
-        area.id to OverworldSiteAnchor(
-            area.id,
-            ((area.minX + area.maxX) / 2).toInt(),
-            OverworldAnchorProjector.BASE_SURFACE_Y,
-            ((area.minZ + area.maxZ) / 2).toInt(),
-            "",
-            OverworldSiteStatus.READY,
-        )
-    }
-    private val siteList = sites.values.toList()
-
-    override fun activeWorldName(): String = worldName
-    override fun isOverworldMode(): Boolean = false
-    override fun isReady(): Boolean = true
     override fun siteForArea(areaId: String): OverworldSiteAnchor? = sites[areaId]
     override fun allSites(): List<OverworldSiteAnchor> = siteList
     override fun portalForDungeon(dungeonId: String): OverworldDungeonPortal? = null
@@ -158,15 +133,6 @@ class OverworldAnchorProjector(
 
     /** アンカー一覧の変化を検知したときだけ水平投影・エリア投影キャッシュを更新します。 */
     private fun ensureCacheFresh() {
-        if (!registry.isOverworldMode()) {
-            if (cachedSitesSnapshot == null) {
-                val list = areas.values.toList()
-                cachedProjectedAreas = list
-                cachedProjectedAreaById = areas
-                cachedSitesSnapshot = emptyList()
-            }
-            return
-        }
         val currentSites = registry.allSites()
         if (cachedSitesRef === currentSites) return
         if (cachedSitesSnapshot == currentSites) {
@@ -183,7 +149,6 @@ class OverworldAnchorProjector(
 
     /** 高さの取得前に水平座標だけ求め、呼び出し側がチャンク状態を検査できるようにします。 */
     fun projectHorizontal(position: Position, areaId: String): Position? {
-        if (!registry.isOverworldMode()) return position
         ensureCacheFresh()
         val key = position to areaId
         if (key in horizontalCache) return horizontalCache[key]
@@ -204,13 +169,11 @@ class OverworldAnchorProjector(
     /** 明示されたエリアに属する位置を地表へ投影します。 */
     fun project(position: Position, areaId: String): Position? {
         val horizontal = projectHorizontal(position, areaId) ?: return null
-        if (!registry.isOverworldMode()) return horizontal
         return horizontal.copy(y = surfaceYResolver(floor(horizontal.x).toInt(), floor(horizontal.z).toInt()).toDouble())
     }
 
     /** エリア指定のない定義は基準範囲内を優先し、範囲外なら最寄り中心へ割り当てます。 */
     fun projectHorizontal(position: Position): Position? {
-        if (!registry.isOverworldMode()) return position
         ensureCacheFresh()
         val key = position to null
         if (key in horizontalCache) return horizontalCache[key]
@@ -235,7 +198,6 @@ class OverworldAnchorProjector(
     /** エリアが明示されていない座標も地表へ投影します。 */
     fun project(position: Position): Position? {
         val horizontal = projectHorizontal(position) ?: return null
-        if (!registry.isOverworldMode()) return horizontal
         return horizontal.copy(y = surfaceYResolver(floor(horizontal.x).toInt(), floor(horizontal.z).toInt()).toDouble())
     }
 
@@ -247,7 +209,7 @@ class OverworldAnchorProjector(
 
     /** Overworld の既定釣り場に建設済み池アンカーがある場合は、その水面の中心座標を返します。 */
     fun fishingWaterCenter(spot: FishingSpotDefinition): Position? {
-        if (!registry.isOverworldMode() || !spot.defaultForArea) return null
+        if (!spot.defaultForArea) return null
         val area = areas[spot.area] ?: return null
         if (spot.world != area.world || spot.center.world != area.world) return null
         val site = registry.siteForArea(spot.area)?.takeIf { it.status == OverworldSiteStatus.READY } ?: return null
@@ -273,7 +235,6 @@ class OverworldAnchorProjector(
 
     /** エリア境界を平行移動し、高さを拠点の地表差だけ移動します。 */
     fun projectArea(area: Area): Area? {
-        if (!registry.isOverworldMode()) return area
         ensureCacheFresh()
         return cachedProjectedAreaById[area.id] ?: computeProjectedArea(area)
     }
@@ -313,7 +274,7 @@ class OverworldAnchorProjector(
         (x - cx) * (x - cx) + (z - cz) * (z - cz)
 
     companion object {
-        /** ec_world の基準地表高さ（DemoWorldLayout.SURFACE_Y と同じ 65）。 */
+        /** ec_world の基準地表高さ（65）。 */
         const val BASE_SURFACE_Y = 65
     }
 }

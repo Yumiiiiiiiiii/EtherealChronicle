@@ -89,6 +89,7 @@
 | `ec.command.validate_success` | コンテンツ検証成功。 | Content validation succeeded. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
 | `ec.command.validation_failed` | 検証失敗: <reason> | Validation failed: <reason> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<reason>` |
 | `ec.content.unknown_name` | 名称不明 | Unknown content | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |
+| `ec.death.gold_lost` | 死亡したため所持ゴールド <amount>G を失いました。 | You died and lost <amount> gold. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt | `<amount>` |
 | `ec.debug.fish_prefix` | FISH <name>: <detail> | FISH <name>: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<detail>`, `<name>` |
 | `ec.debug.fishing_active` | 釣りセッション / phase=<phase> / action=<action> / elapsed=<elapsed>s of <limit>s / fish=<fish> / progress=<progress>% / tension=<tension>% / bossbar=<bossbar> | Fishing session / phase=<phase> / action=<action> / elapsed=<elapsed>s of <limit>s / fish=<fish> / progress=<progress>% / tension=<tension>% / bossbar=<bossbar> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt | `<action>`, `<bossbar>`, `<elapsed>`, `<fish>`, `<limit>`, `<phase>`, `<progress>`, `<tension>` |
 | `ec.debug.fishing_inactive` | 釣りセッションはありません。 | No fishing session is active. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
@@ -111,7 +112,6 @@
 | `ec.dungeon.release_done` | ダンジョンスロット <slot> の保護状態を解放しました。 | Released protected state for dungeon slot <slot>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<slot>` |
 | `ec.dungeon.release_invalid_slot` | 無効なダンジョンスロット番号です。 | Invalid dungeon slot number. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.dungeon.release_not_found` | ダンジョンスロット <slot> に解放対象の保護状態や残骸記録はありません。 | Dungeon slot <slot> has no protected state or leftover record to release. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<slot>` |
-| `ec.dungeon.release_not_overworld` | このコマンドはオーバーワールドモードでのみ使用できます。 | This command is only available in overworld mode. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.dungeon.release_started` | ダンジョンスロット <slot> の撤去と解放を開始しました。 | Started cleanup and release for dungeon slot <slot>. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<slot>` |
 | `ec.dungeon.release_usage` | 使用法: /ec dungeon release <slot> | Usage: /ec dungeon release <slot> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt | `<slot>` |
 | `ec.dungeon.relogin_required` | 帰還記録の安全確認には再ログインが必要です。確認まで次の試練には入場できません。 | Reconnect to verify your return. You cannot enter another trial until it is confirmed. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt |  |
@@ -219,8 +219,7 @@
 | `ec.error.target_missing` | 対象が見つかりません。 | The target was not found. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.error.target_participant` | 対象の参加者ではありません。 | You are not a participant in that target. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.error.teleport_condition` | 転送条件を満たしていません。 | You do not meet the teleport requirements. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
-| `ec.error.teleport_destination` | 転送座標は対象エリア内で指定してください。 | The teleport destination must be inside the selected area. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
-| `ec.error.teleport_world` | 管理ワールド以外へは転送できません。 | Teleporting outside the managed world is not allowed. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt |  |
+| `ec.error.teleport_destination` | 転送座標は対象エリア内で指定してください。 | The teleport destination must be inside the selected area. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.error.transaction_busy` | 取引の処理中です。 | A transaction is already in progress. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.error.transaction_changed` | 取引の状態が変化しました。 | The transaction state changed. Please try again. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
 | `ec.error.transaction_replayed` | 処理済みの取引です。 | This transaction has already been processed. | src/main/kotlin/net/nakaymi/etherealchronicle/core/AdventureServices.kt |  |
@@ -228,7 +227,7 @@
 | `ec.error.usage` | 使い方: <detail> | Usage: <detail> | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt | `<detail>` |
 | `ec.error.world_missing` | 転送先ワールドがありません。 | Destination world is unavailable. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.error.world_owned_only` | この操作は管理対象ワールド内でのみ利用できます。 | This action is only available in the managed world. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/EnemyController.kt |  |
-| `ec.error.world_unavailable` | 専用ワールドの準備ができていません。 | The dedicated world is not ready. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
+| `ec.error.world_unavailable` | 冒険拠点の準備がまだ完了していません。 | The adventure sites are not ready yet. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/AdventureController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/DungeonController.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt<br>src/main/kotlin/net/nakaymi/etherealchronicle/paper/SimulationCommandController.kt |  |
 | `ec.fishing.actionbar_status` | <aqua>張力 <tension>% \| 進捗 <progress>% | <aqua>Tension <tension>% \| Progress <progress>% | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt | `<progress>`, `<tension>` |
 | `ec.fishing.aim_water` | 水面を狙って竿を投げてください。 | Aim at the water before casting. | src/main/kotlin/net/nakaymi/etherealchronicle/paper/FishingController.kt |  |
 | `ec.fishing.bait_auto` | 自動 | Auto | src/main/kotlin/net/nakaymi/etherealchronicle/paper/RpgPlugin.kt |  |

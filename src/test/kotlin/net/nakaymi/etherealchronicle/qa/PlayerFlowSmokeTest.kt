@@ -107,7 +107,7 @@ class PlayerFlowSmokeTest {
             }
             var mob: LivingEntity? = null
             step("4 /ec spawn ec:enemy_aether_slime") {
-                val world = server.addSimpleWorld(net.nakaymi.etherealchronicle.paper.DemoWorld.NAME)
+                val world = net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
                 player.teleport(org.bukkit.Location(world, 0.0, 64.0, 0.0))
                 server.executeConsole("ec", "spawn", "ec:enemy_aether_slime", "QaPlayer")
                 server.pump { true }

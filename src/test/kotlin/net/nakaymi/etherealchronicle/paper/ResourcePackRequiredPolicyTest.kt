@@ -2,6 +2,7 @@ package net.nakaymi.etherealchronicle.paper
 
 import org.bukkit.configuration.file.YamlConfiguration
 import org.junit.jupiter.api.Test
+import kotlin.test.assertNull
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
@@ -15,7 +16,7 @@ class ResourcePackRequiredPolicyTest {
         val plugin=YamlConfiguration.loadConfiguration(javaClass.classLoader.getResourceAsStream("plugin.yml")!!.bufferedReader())
         val paperPlugin=YamlConfiguration.loadConfiguration(javaClass.classLoader.getResourceAsStream("paper-plugin.yml")!!.bufferedReader())
 
-        assertEquals("dedicated_ec_world", config.getString("world.mode"))
+        assertNull(config.getString("world.mode"))  // 未指定時は overworld
         assertEquals("world", config.getString("world.overworld_name"))
         assertTrue(config.getBoolean("resource_pack.required"))
         assertEquals(120, config.getInt("resource_pack.required_timeout_seconds"))

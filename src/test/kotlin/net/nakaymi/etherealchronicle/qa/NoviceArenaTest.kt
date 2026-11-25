@@ -1,6 +1,5 @@
 package net.nakaymi.etherealchronicle.qa
 
-import net.nakaymi.etherealchronicle.paper.DemoWorld
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
 import org.bukkit.Location
 import org.bukkit.entity.Player
@@ -17,7 +16,9 @@ class NoviceArenaTest {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             val end = System.currentTimeMillis() + 5000
             while (runCatching { plugin.snapshot; plugin.dungeons; true }.isFailure && System.currentTimeMillis() < end) { server.scheduler.performOneTick(); Thread.sleep(20) }
-            val world = OwnedWorldMock.add(server, DemoWorld.NAME)
+            seedArenaSchematic(plugin.dungeons, "ec:dungeon_novice_arena")
+            assertTrue(server.qaPump { plugin.dungeons.isJournalReady() }, "return journal did not become ready")
+            val world = net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             val p = QaPlayerMock(server, "ArenaA", java.util.UUID.nameUUIDFromBytes("arena-a".toByteArray())); server.addPlayer(p)
             val until = System.currentTimeMillis() + 5000
             while (p.uniqueId !in plugin.profiles && System.currentTimeMillis() < until) { server.scheduler.performOneTick(); Thread.sleep(20) }
@@ -28,9 +29,9 @@ class NoviceArenaTest {
             runCatching { enter.invoke(d, p, "ec:dungeon_novice_arena") }
             assertTrue((active.invoke(d) as Int) == 0, "arena entered without ec:flag_early_trial_unlocked")
             pr.flags += "ec:flag_early_trial_unlocked"
-            enter.invoke(d, p, "ec:dungeon_novice_arena"); assertTrue((active.invoke(d) as Int) == 1, "arena not created with the flag")
-            leave.invoke(d, p); assertTrue((active.invoke(d) as Int) == 0, "arena instance left behind")
-            enter.invoke(d, p, "ec:dungeon_novice_arena"); assertTrue((active.invoke(d) as Int) == 1, "re-entry failed"); leave.invoke(d, p)
+            enter.invoke(d, p, "ec:dungeon_novice_arena"); assertTrue(server.qaPump { plugin.dungeons.containsPlayer(p.uniqueId) && (active.invoke(d) as Int) == 1 && p.location.y > 150.0 }, "arena not created with the flag")
+            leave.invoke(d, p); assertTrue(server.qaPump { !plugin.dungeons.containsPlayer(p.uniqueId) && (active.invoke(d) as Int) == 0 && p.location.y < 100.0 }, "arena instance left behind")
+            enter.invoke(d, p, "ec:dungeon_novice_arena"); assertTrue(server.qaPump { plugin.dungeons.containsPlayer(p.uniqueId) && (active.invoke(d) as Int) == 1 }, "re-entry failed"); leave.invoke(d, p)
         } finally { MockBukkit.unmock() }
     }
 }

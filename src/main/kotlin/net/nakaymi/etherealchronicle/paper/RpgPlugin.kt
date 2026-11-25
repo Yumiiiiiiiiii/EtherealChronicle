@@ -89,23 +89,33 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     internal val snapshot get() = content.snapshot()
     /** 建設サービスの有無に関わらず、安全な座標投影を初期化します。 */
     private fun initializeWorldProjection() {
-        val mode = WorldMode.fromConfig(config.getString("world.mode", WorldMode.DEDICATED_EC_WORLD.configValue))
-        val registry = if (mode == WorldMode.OVERWORLD) {
+        if (config.getString("world.mode")?.trim()?.lowercase() == WorldMode.LEGACY_DEDICATED) {
+            logger.warning("world.mode '${WorldMode.LEGACY_DEDICATED}' (floating islands) was removed; using 'overworld' instead. Towns are generated into '${config.getString("world.overworld_name", "world")}'.")
+        }
+        WorldMode.fromConfig(config.getString("world.mode"))
+        // world.mode 未指定のテストだけ、固定座標の疑似レジストリ（TestWorldFixture）を使えます。
+        val fixtureRegistry = TestWorldFixture.registryFactory?.takeIf { !config.isSet("world.mode") }
+        fixtureProjection = fixtureRegistry != null
+        val registry = if (fixtureRegistry != null) fixtureRegistry(snapshot.world.areas.values, snapshot.world.dungeons.values) else {
             val worldName = config.getString("world.overworld_name", "world") ?: "world"
             overworldBootstrap = server.getWorld(worldName)?.let { EngineOverworldBootstrap(this, it, snapshot.world.areas.values) }
             overworldBootstrap?.registry ?: PendingOverworldSiteRegistry(
                 worldName, snapshot.world.areas.values,
             ).also { logger.warning("Overworld construction service is unavailable; sites remain pending.") }
-        } else DedicatedWorldSiteRegistry(areas = snapshot.world.areas.values)
+        }
         rebuildWorldProjection(registry)
         appliedReadyAnchors = currentReadyAnchors()
     }
+
+    /** テスト用レジストリ使用中は、地表探索せず基準高さ固定の投影にします。 */
+    private var fixtureProjection = false
 
     private fun rebuildWorldProjection(registry: OverworldSiteRegistry = activeWorldProjection.registry) {
         projectedPositions.clear()
         failedProjectionPositions.clear()
         safeAreaSnapshot = null
         activeWorldProjection = ActiveWorldProjection(registry, snapshot.world.areas.values) { x, z ->
+            if (fixtureProjection) return@ActiveWorldProjection OverworldAnchorProjector.BASE_SURFACE_Y
             val world = server.getWorld(registry.activeWorldName()) ?: error("ec.error.world_unavailable")
             check(world.isChunkLoaded(x shr 4, z shr 4)) { "Projection chunk is not loaded" }
             resolveProjectionSurfaceY(world, x, z)
@@ -207,7 +217,6 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val projection = activeWorldProjection.projector
         val horizontal = if (areaId == null) projection.projectHorizontal(position) else projection.projectHorizontal(position, areaId)
         horizontal ?: return null
-        if (!activeWorldProjection.registry.isOverworldMode()) return horizontal
         val world = server.getWorld(horizontal.world) ?: return null
         val chunk = ChunkCoordinates.fromPosition(horizontal.x, horizontal.z)
         if (!world.isChunkLoaded(chunk.x, chunk.z)) return null
@@ -264,14 +273,12 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     /** 対象ワールドだけをゲームコントローラーに公開します。 */
     internal fun isActiveWorld(world: World): Boolean = world.name == activeWorldProjection.worldName()
 
-    /** 専用ワールドでは所有マーカーを確認してから地形関連の操作を許可します。 */
-    internal fun isManagedWorld(world: World): Boolean = isActiveWorld(world) &&
-        (activeWorldProjection.registry.isOverworldMode() || runCatching { DemoWorld.isOwned(world) }.getOrDefault(false))
+    /** RPG が管理する対象ワールドかどうかを返します。 */
+    internal fun isManagedWorld(world: World): Boolean = isActiveWorld(world)
 
     /** 読み込み済みの安全なルミナ港広場を返し、未準備なら移動を行いません。 */
     internal fun luminaSpawn(): Location? {
         val world = server.getWorld(activeWorldProjection.worldName()) ?: return null
-        if (!activeWorldProjection.registry.isOverworldMode()) return DemoWorld.luminaSpawn(world)
         val site = activeWorldProjection.registry.siteForArea("ec:area_lumina_port")
             ?.takeIf { it.status == GameSiteStatus.READY } ?: return null
         val spawnX = site.plazaSpawnX ?: return null
@@ -283,10 +290,6 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
 
     /** 初回接続時に広場のチャンクを非同期確保し、準備が整ってから安全な地点へ移します。 */
     internal fun requestHubSpawn(player: Player) {
-        if (!activeWorldProjection.registry.isOverworldMode()) {
-            luminaSpawn()?.let(player::teleport)
-            return
-        }
         val id = player.uniqueId
         pendingHubSpawns.add(id)
         val site = activeWorldProjection.registry.siteForArea("ec:area_lumina_port")
@@ -448,17 +451,14 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
                     enemies=EnemyController(this,adventure)
                     dungeons=DungeonController(this,adventure,enemies)
                     try {
-                        if (activeWorldProjection.registry.isOverworldMode()) adventure.reloadNpcs()
-                        else if (DemoWorld.ensure(this) != null) adventure.reloadNpcs()
+                        adventure.reloadNpcs()
                     }
-                    catch(error: Exception) { logger.severe("Could not prepare the dedicated world; foundation features remain enabled: ${error.message}") }
+                    catch(error: Exception) { logger.severe("Could not reload NPCs during startup; foundation features remain enabled: ${error.message}") }
                     gathering=GatheringController(this)
                     fishing=FishingController(this)
                     treasures=TreasureController(this).also { it.reload() }
-                    if (activeWorldProjection.registry.isOverworldMode()) {
-                        DungeonEntranceListener(this, activeWorldProjection.registry, dungeons)
-                        overworldBootstrap?.start { sync { refreshWorldAnchors() } }
-                    }
+                    DungeonEntranceListener(this, activeWorldProjection.registry, dungeons)
+                    overworldBootstrap?.start { sync { refreshWorldAnchors() } }
                     runCatching { reloadAdvancementPack() }.onFailure { advancementWarning(it) }
                     server.scheduler.runTaskTimer(this,Runnable { enemies.tick() },PaperTaskIntervals.ENEMY_UPDATE_TICKS,PaperTaskIntervals.ENEMY_UPDATE_TICKS)
                     ready = true
@@ -544,7 +544,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
 
     /** 必須パック適用後に、ワールド移動・HUD装備・職業メニューを開始します。 */
     private fun finishLoadedJoin(player: Player, profile: PlayerProfile) {
-        if (::dungeons.isInitialized && activeWorldProjection.registry.isOverworldMode() && !dungeons.isJournalReady()) {
+        if (::dungeons.isInitialized && !dungeons.isJournalReady()) {
             dungeons.whenJournalReady {
                 if (player.isOnline && profiles[player.uniqueId] === profile) finishLoadedJoin(player, profile)
             }
@@ -846,7 +846,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
     }
     /** 所有するデータパックだけを生成し、PaperのDatapackManagerで進捗定義を再読込します。 */
     private fun reloadAdvancementPack() {
-        val world=server.worlds.firstOrNull { it.environment==World.Environment.NORMAL && it.name!=DemoWorld.NAME }
+        val world=server.worlds.firstOrNull { it.environment==World.Environment.NORMAL && it.name!=WorldIds.DEMO }
             ?: server.worlds.firstOrNull() ?: error("No world is available for the advancement data pack.")
         val rootTitle=plain(language.component(null,"ec.advancement.root_title"))
         val rootDescription=plain(language.component(null,"ec.advancement.root_description"))
@@ -1308,7 +1308,6 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         }
     }
     private var lootSequence=0L
-    @EventHandler fun playerDeath(e: PlayerDeathEvent) { e.drops.removeIf(::isSkill) }
     @EventHandler(priority=EventPriority.MONITOR,ignoreCancelled=true) fun itemPickup(e:EntityPickupItemEvent) {
         val player=e.entity as? Player ?: return
         val profile=profiles[player.uniqueId] ?: return
@@ -1318,7 +1317,7 @@ open class RpgPlugin: JavaPlugin(), Listener, CommandExecutor {
         val inDungeon = ::dungeons.isInitialized && dungeons.containsPlayer(e.player.uniqueId)
         val hub = luminaSpawn()
         if (!inDungeon && hub != null) e.respawnLocation = hub
-        else if (!inDungeon && activeWorldProjection.registry.isOverworldMode()) sync {
+        else if (!inDungeon) sync {
             if (e.player.isOnline) requestHubSpawn(e.player)
         }
         sync { skillSlot(e.player); profiles[e.player.uniqueId]?.let { applyStats(e.player,it); e.player.health=e.player.getAttribute(Attribute.MAX_HEALTH)!!.value } }

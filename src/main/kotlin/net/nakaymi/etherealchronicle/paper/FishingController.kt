@@ -155,7 +155,7 @@ class FishingController(private val plugin:RpgPlugin,private val random:Random=R
     @EventHandler(priority=EventPriority.LOWEST)
     fun suppressVanilla(e:PlayerFishEvent) {
         val customRod=plugin.identify(e.player.inventory.itemInMainHand)?.let { id -> plugin.snapshot.world.tackle.values.any { it.item==id && it.kind==TackleKind.ROD } }==true
-        if(!plugin.activeWorldProjection.registry.isOverworldMode() && plugin.isManagedWorld(e.player.world) || customRod) e.isCancelled=true
+        if(customRod) e.isCancelled=true
     }
     /** 竿の右・左クリックを釣り開始またはミニゲーム入力へ変換します。 */
     @EventHandler(priority=EventPriority.HIGHEST,ignoreCancelled=false)

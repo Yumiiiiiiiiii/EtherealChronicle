@@ -1,4 +1,6 @@
 ec:
+  death:
+    gold_lost: "You died and lost <amount> gold."
   sites:
     repair_started: "Site repair started. Use /ec sites to check progress."
     repair_unavailable: "Site repair could not start. Inspect the interrupted site and clean it up manually if needed."
@@ -144,7 +146,6 @@ ec:
     release_invalid_slot: "Invalid dungeon slot number."
     release_started: "Started cleanup and release for dungeon slot <slot>."
     release_done: "Released protected state for dungeon slot <slot>."
-    release_not_overworld: "This command is only available in overworld mode."
     release_active: "Dungeon slot <slot> is currently active or reserved and cannot be released."
     release_cleaning: "Dungeon slot <slot> is already being cleaned up."
     release_not_found: "Dungeon slot <slot> has no protected state or leftover record to release."
@@ -233,7 +234,6 @@ ec:
     transaction_changed: "The transaction state changed. Please try again."
     reset_schedule: "Reset schedule must be DAILY or WEEKLY."
     area_missing: "Destination area not found."
-    teleport_world: "Teleporting outside the managed world is not allowed."
     world_missing: "Destination world is unavailable."
     teleport_destination: "The teleport destination must be inside the selected area."
     teleport_condition: "You do not meet the teleport requirements."
@@ -258,7 +258,7 @@ ec:
     party_not_online: "All party members must be online before entering."
     party_gather: "Gather your party nearby and make sure everyone has selected a class."
     dungeon_unlock_required: "All party members must unlock access to the dungeon."
-    world_unavailable: "The dedicated world is not ready."
+    world_unavailable: "The adventure sites are not ready yet."
     dungeon_full: "The sanctuary is full. Please wait."
     spawn_cap: "The enemy spawn limit has been reached."
     guard_spawn_failed: "Could not spawn a guard enemy."

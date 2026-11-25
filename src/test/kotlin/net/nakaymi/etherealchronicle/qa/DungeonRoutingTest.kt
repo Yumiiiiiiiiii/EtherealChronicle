@@ -1,6 +1,5 @@
 package net.nakaymi.etherealchronicle.qa
 
-import net.nakaymi.etherealchronicle.paper.DemoWorld
 import net.nakaymi.etherealchronicle.paper.ClassMenu
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
 import org.bukkit.Material
@@ -32,7 +31,9 @@ class DungeonRoutingTest {
         try {
             val plugin=MockBukkit.load(RpgPlugin::class.java)
             assertTrue(server.pump { plugin.isReadyForGameplay })
-            val world=server.addSimpleWorld(DemoWorld.NAME)
+            server.qaPump { plugin.dungeons.isJournalReady() }
+            seedArenaSchematic(plugin.dungeons,"ec:dungeon_glacial_citadel","minecraft:calcite")
+            val world=net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             val player=PlayerMock(server,"DungeonRoute",UUID.nameUUIDFromBytes("dungeon-route".toByteArray()))
             server.addPlayer(player)
             val itemKey=NamespacedKey(plugin,"item_id")
@@ -45,14 +46,16 @@ class DungeonRoutingTest {
             player.teleport(home)
             profile.flags += "ec:flag_ch2_citadel_unlocked"
             player.performCommand("ec dungeon enter ec:dungeon_glacial_citadel")
-            assertTrue(server.pump { player.x in 1023.0..1025.0 && player.z in 1011.0..1013.0 },"did not enter the glacial instance")
-            assertEquals(Material.CALCITE,world.getBlockAt(1024,64,1024).type,"glacial schematic center floor")
+            val center=plugin.dungeons.currentOverworldLayout().center(0)
+            assertTrue(server.qaPump { kotlin.math.abs(player.x-center.x)<30.0 && kotlin.math.abs(player.z-center.z)<30.0 && player.y>150.0 },"did not enter the glacial instance: ${player.location} center=$center active=${plugin.dungeons.activeCount()} msgs=${generateSequence { player.nextMessage() }.toList().takeLast(4)}")
+            assertTrue((world.minHeight until world.maxHeight).any { y -> world.getBlockAt(center.x,y,center.z).type==Material.CALCITE },"glacial schematic center floor")
             val spawned=world.livingEntities.filterIsInstance<LivingEntity>().mapNotNull { entity -> plugin.enemies.state(entity.uniqueId)?.boss?.definition?.id }
             assertEquals(1,spawned.count { it=="ec:boss_cryo_archon" },"Cryo Archon count")
             assertEquals(2,spawned.count { it=="ec:enemy_glacial_knight" },"glacial guard count")
             player.performCommand("ec dungeon leave")
-            assertTrue(server.pump { kotlin.math.abs(player.x-460.0)<1.0 },"return location not restored")
-            assertEquals(DemoWorld.NAME,player.world.name)
+            val exit=plugin.activeWorldProjection.registry.portalForDungeon("ec:dungeon_glacial_citadel")!!
+            assertTrue(server.qaPump { kotlin.math.abs(player.x-(exit.exitX+0.5))<1.0 && kotlin.math.abs(player.z-(exit.exitZ+0.5))<1.0 },"return location not restored")
+            assertEquals(net.nakaymi.etherealchronicle.core.WorldIds.DEMO,player.world.name)
         } finally { MockBukkit.unmock() }
     }
 }

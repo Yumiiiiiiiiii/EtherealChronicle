@@ -188,7 +188,6 @@ class OverworldDungeonLifecycleTest {
         val registry = object : OverworldSiteRegistry {
             private val byArea = sites.associateBy { it.areaId }
             override fun activeWorldName(): String = world.name
-            override fun isOverworldMode(): Boolean = true
             override fun isReady(): Boolean = registryReadyOverride ?: sites.all { it.status == OverworldSiteStatus.READY }
             override fun siteForArea(areaId: String): OverworldSiteAnchor? = byArea[areaId]
             override fun allSites(): List<OverworldSiteAnchor> = sites
@@ -945,7 +944,6 @@ class OverworldDungeonLifecycleTest {
             )
             val shiftedRegistry = object : OverworldSiteRegistry {
                 override fun activeWorldName(): String = world.name
-                override fun isOverworldMode(): Boolean = true
                 override fun isReady(): Boolean = true
                 override fun siteForArea(areaId: String): OverworldSiteAnchor? = shiftedAnchor.takeIf { it.areaId == areaId }
                 override fun allSites(): List<OverworldSiteAnchor> = listOf(shiftedAnchor)

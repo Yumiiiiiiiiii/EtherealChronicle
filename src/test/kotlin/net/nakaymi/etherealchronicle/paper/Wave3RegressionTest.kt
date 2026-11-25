@@ -70,13 +70,6 @@ class Wave3RegressionTest {
     }
 
     @Test
-    fun repeatedSlotRebuildsWhenDungeonPaletteChanges() {
-        assertTrue(dungeonPaletteNeedsBuild(null, listOf("STONE", "GLASS", "GOLD_BLOCK")))
-        assertFalse(dungeonPaletteNeedsBuild(listOf("STONE", "GLASS", "GOLD_BLOCK"), listOf("STONE", "GLASS", "GOLD_BLOCK")))
-        assertTrue(dungeonPaletteNeedsBuild(listOf("STONE", "GLASS", "GOLD_BLOCK"), listOf("ICE", "PACKED_ICE", "BLUE_ICE")))
-    }
-
-    @Test
     fun npcsOnlySpawnIntoLoadedChunksAndInstanceEnemiesStayScoped() {
         assertFalse(npcChunkMaySpawn(false))
         assertTrue(npcChunkMaySpawn(true))

@@ -1,6 +1,5 @@
 package net.nakaymi.etherealchronicle.qa
 
-import net.nakaymi.etherealchronicle.paper.DemoWorld
 import net.nakaymi.etherealchronicle.paper.RpgMenu
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
 import org.bukkit.NamespacedKey
@@ -21,8 +20,7 @@ class EnhancementGuiTest {
     @Test fun `enhancement consumes material and currency once then persists item level`() {
         val server=MockBukkit.mock()
         try {
-            val world=OwnedWorldMock.add(server, DemoWorld.NAME)
-            java.io.File(world.worldFolder, ".etherealchronicle-built").writeText("v4\n")
+            val world=net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             val plugin=MockBukkit.load(RpgPlugin::class.java)
             val player=QaPlayerMock(server,"Smith",UUID.randomUUID()); server.addPlayer(player)
             assertTrue(server.pump { player.uniqueId in plugin.profiles })

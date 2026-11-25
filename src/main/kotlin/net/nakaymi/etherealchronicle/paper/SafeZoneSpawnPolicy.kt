@@ -7,6 +7,10 @@ import org.bukkit.Location
 import org.bukkit.NamespacedKey
 import org.bukkit.entity.Monster
 
+/** 安全地帯の敵対Mob走査範囲（水平・垂直）。 */
+private const val HOSTILE_SCAN_HORIZONTAL_BLOCKS = 40.0
+private const val HOSTILE_SCAN_VERTICAL_BLOCKS = 128.0
+
 private val vanillaHostileSpawnReasons=setOf("NATURAL","CHUNK_GEN","REINFORCEMENTS","PATROL","VILLAGE_INVASION","RAID","TRIAL_SPAWNER","DEFAULT")
 
 internal fun shouldSuppressVanillaHostileSpawn(reason:String,hostile:Boolean,position:Position,areas:Collection<Area>):Boolean =
@@ -31,8 +35,8 @@ internal fun clearProjectedSafeHostiles(plugin: RpgPlugin, location: Location) {
     val areas = plugin.safeAreas(world.name)
     if (areas.isEmpty()) return
     val enemyKey = NamespacedKey(plugin, "enemy_id")
-    world.getNearbyEntities(location, DemoWorldLayout.HOSTILE_SCAN_HORIZONTAL_BLOCKS,
-        DemoWorldLayout.HOSTILE_SCAN_VERTICAL_BLOCKS, DemoWorldLayout.HOSTILE_SCAN_HORIZONTAL_BLOCKS)
+    world.getNearbyEntities(location, HOSTILE_SCAN_HORIZONTAL_BLOCKS,
+        HOSTILE_SCAN_VERTICAL_BLOCKS, HOSTILE_SCAN_HORIZONTAL_BLOCKS)
         .filterIsInstance<Monster>().forEach { entity ->
         val at = entity.location
         if (shouldRemoveExistingSafeHostile(true, entity.persistentDataContainer.has(enemyKey),

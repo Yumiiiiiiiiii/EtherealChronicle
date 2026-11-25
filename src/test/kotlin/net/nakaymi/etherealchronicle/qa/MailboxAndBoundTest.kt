@@ -1,7 +1,6 @@
 package net.nakaymi.etherealchronicle.qa
 
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
-import net.nakaymi.etherealchronicle.paper.DemoWorld
 import net.nakaymi.etherealchronicle.paper.RpgPlugin
 import org.bukkit.Bukkit
 import org.bukkit.Location
@@ -65,7 +64,7 @@ class MailboxAndBoundTest {
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             server.pump { plugin.isReadyForGameplay }
-            val world = server.addSimpleWorld(DemoWorld.NAME)
+            val world = net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             val itemKey = NamespacedKey(plugin, "item_id"); val enemyKey = NamespacedKey(plugin, "enemy_id")
             val a = join(server, plugin, "MbxA"); val b = join(server, plugin, "MbxB")
             a.teleport(Location(world, -5.0, 65.0, 16.0)); b.teleport(Location(world, -6.0, 65.0, 16.0))

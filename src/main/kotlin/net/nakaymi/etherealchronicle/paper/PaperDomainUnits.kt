@@ -171,149 +171,8 @@ internal object ChestLayout {
     const val BACKGROUND_WIDTH_PIXELS = 176
 }
 
-/** インスタンスダンジョンの区画間隔、建築寸法、保護境界を一元管理します。 */
-internal object DungeonArenaLayout {
-    const val FIRST_CENTER_X = 1_024
-    const val CENTER_Z = 1_024
-    const val SLOT_SPACING_BLOCKS = 192
-    const val PLATFORM_RADIUS_BLOCKS = 24
-    const val INNER_FLOOR_RADIUS_BLOCKS = 2
-    const val OUTER_FLOOR_PALETTE_INDEX = 0
-    const val WALL_PALETTE_INDEX = 1
-    const val INNER_FLOOR_PALETTE_INDEX = 2
-    const val FLOOR_Y = 64
-    const val PLAYER_SPAWN_Y = 65
-    const val ENTITY_SPAWN_Y = 65
-    const val SCHEMATIC_ORIGIN_OFFSET_BLOCKS = 27
-    const val SCHEMATIC_ORIGIN_Y = 54
-    const val SCHEMATIC_WIDTH_BLOCKS = 55
-    const val SCHEMATIC_HEIGHT_BLOCKS = 34
-    const val SCHEMATIC_LENGTH_BLOCKS = 55
-    const val WALL_BOTTOM_Y = 65
-    const val WALL_TOP_Y = 68
-    const val PLAYER_SPAWN_Z_OFFSET = -12
-    const val BOUNDARY_RADIUS_BLOCKS = 30.0
-    const val RECOVERY_MIN_COORDINATE = 900.0
-    const val VOID_RECOVERY_Y = 0.0
-
-    data class Origin(val x: Int, val z: Int)
-
-    fun centerX(slot: Int): Int = FIRST_CENTER_X + slot * SLOT_SPACING_BLOCKS
-
-    fun originForSlot(slot: Int): Origin = Origin(centerX(slot), CENTER_Z)
-
-    fun contains(x: Double, z: Double, slot: Int): Boolean =
-        kotlin.math.abs(x - centerX(slot)) <= BOUNDARY_RADIUS_BLOCKS &&
-            kotlin.math.abs(z - CENTER_Z) <= BOUNDARY_RADIUS_BLOCKS
-
-    fun isInsideBounds(location: Location, slot: Int): Boolean = contains(location.x, location.z, slot)
-}
-
-/** 新規ec_worldの高さと島・広場を宣言的に記述します。 */
-internal object DemoWorldLayout {
-    const val CHUNK_SIZE_BLOCKS = ChunkCoordinates.CHUNK_SIZE_BLOCKS
-    const val UNDERGROUND_Y = 62
-    const val SUPPORT_Y = 63
-    const val GROUND_Y = 64
-    const val SURFACE_Y = 65
-    const val FIRST_ISLAND_CENTER_X = 0
-    const val ISLAND_CENTER_SPACING = 96
-    const val ISLAND_HALF_WIDTH = 36
-    const val ISLAND_COUNT = 9
-    const val FIRST_CHAPTER_ISLAND_COUNT = 5
-    const val ICE_ISLAND_CENTER_RADIUS_BLOCKS = 2
-    const val BRIDGE_ICE_ACCENT_INTERVAL_BLOCKS = 48
-    val GRASS_ISLAND_X_BAND = 60..132
-    val DEEPSLATE_ISLAND_X_BAND = 156..228
-    const val HUB_EDGE_RADIUS = 12
-    const val HUB_GATE_HALF_WIDTH_BLOCKS = 2
-    const val HUB_FLOOR_RADIUS = 4
-    const val SECOND_CHAPTER_BRIDGE_START_X = 421
-    const val SECOND_CHAPTER_BRIDGE_END_X = 804
-    const val FIRST_CHAPTER_BRIDGE_END_X = 420
-    const val BRIDGE_HALF_WIDTH = 3
-    const val ICE_ISLAND_OUTER_LANE_HALF_WIDTH = BRIDGE_HALF_WIDTH
-    const val LIFE_POOL_RADIUS = 3
-    const val SECRET_POOL_CENTER_X = 124
-    const val SECRET_POOL_CENTER_Z = -24
-    const val SECOND_CHAPTER_MATERIAL_START_X = 444
-    const val HOSTILE_SCAN_HORIZONTAL_BLOCKS = 40.0
-    const val HOSTILE_SCAN_VERTICAL_BLOCKS = 128.0
-    const val WAYSTONE_X = 24
-    const val WAYSTONE_Y = SURFACE_Y
-    const val WAYSTONE_Z = 28
-    const val PILLAR_OFFSET_BLOCKS = 8
-    const val BOARDWALK_MIN_X = -20
-    const val BOARDWALK_MAX_X = 20
-    const val BOARDWALK_MIN_Z = 16
-    const val BOARDWALK_MAX_Z = 26
-    const val BOARDWALK_POST_INTERVAL_BLOCKS = 10
-    const val BOARDWALK_POST_TOP_Y = 68
-    const val CHAPTER_TWO_PYLON_TOP_Y = 72
-
-    /** 単一座標上に縦積みする構造物です。 */
-    data class Column(val x: Int, val z: Int, val yRange: IntRange, val material: Material)
-    /** 中心からの幅を持つ水平な樹冠などを表します。 */
-    data class Canopy(val centerX: Int, val centerZ: Int, val halfWidth: Int, val y: Int, val material: Material)
-    /** 範囲の外周または上端だけを埋める枠です。 */
-    data class Outline(val xRange: IntRange, val zRange: IntRange, val yRange: IntRange, val material: Material)
-    /** 指定範囲を隙間なく埋める小規模な構造物です。 */
-    data class SolidBox(val xRange: IntRange, val zRange: IntRange, val yRange: IntRange, val material: Material)
-    /** 円形の地面装飾です。 */
-    data class Disk(val centerX: Int, val centerZ: Int, val y: Int, val radius: Int, val material: Material)
-    /** 単独のランドマークブロックです。 */
-    data class BlockPoint(val x: Int, val y: Int, val z: Int, val material: Material)
-
-    data class Plaza(val centerX: Int, val wallMaterial: Material, val floorMaterial: Material)
-
-    val HUB_PLAZAS = listOf(
-        Plaza(0, Material.STONE_BRICK_WALL, Material.QUARTZ_BRICKS),
-        Plaza(96, Material.OAK_LEAVES, Material.POLISHED_ANDESITE),
-        Plaza(192, Material.STONE_BRICK_WALL, Material.POLISHED_ANDESITE),
-        Plaza(288, Material.STONE_BRICK_WALL, Material.POLISHED_ANDESITE),
-        Plaza(384, Material.STONE_BRICK_WALL, Material.POLISHED_ANDESITE),
-    )
-
-    val LIFE_POOL_CENTERS = listOf(10 to 28, 92 to 30, 190 to 28, 280 to 30, 380 to 28, 480 to 30, 570 to 30, 670 to 30)
-
-    val HUB_TREE_TRUNKS = listOf(88, 104).map { Column(it, 20, 65..69, Material.OAK_LOG) }
-    val HUB_TREE_CANOPIES = listOf(88, 104).map { Canopy(it, 20, 2, 70, Material.OAK_LEAVES) }
-    val LEGACY_LANDMARK_OUTLINES = listOf(Outline(184..200, -16..-16, 65..70, Material.DEEPSLATE_BRICKS))
-    val LEGACY_LANDMARK_DISKS = listOf(Disk(288, 0, GROUND_Y, 6, Material.CALCITE))
-    val LEGACY_LANDMARK_POINTS = listOf(
-        BlockPoint(288, SURFACE_Y, 0, Material.LODESTONE),
-        BlockPoint(384, SURFACE_Y, 0, Material.CRYING_OBSIDIAN),
-    )
-    val CHAPTER_TWO_COLUMNS = listOf(
-        Column(576, 0, 65..72, Material.BLUE_ICE),
-        Column(667, 0, 65..68, Material.PACKED_ICE),
-        Column(677, 0, 65..68, Material.PACKED_ICE),
-    )
-    val CHAPTER_TWO_TOP_BEAMS = listOf(SolidBox(667..677, 0..0, 69..69, Material.PRISMARINE_BRICKS))
-    val CHAPTER_TWO_PYLONS = listOf(756, 780).flatMap { x -> listOf(-12, 12).map { z -> x to z } }
-    const val CHAPTER_TWO_SHRINE_CENTER_X = 480
-    const val CHAPTER_TWO_SHRINE_CENTER_Z = 0
-    const val CHAPTER_TWO_SHRINE_RADIUS_BLOCKS = 8
-}
-
-/** 同梱島・橋Schematicの配置原点を一箇所で定義します。 */
+/** ダンジョンアリーナSchematicのresource対応を定義します。 */
 internal object WorldSchematicLayout {
-    const val ISLAND_SPACING_BLOCKS = 96
-    const val ISLAND_HALF_WIDTH_BLOCKS = 42
-    const val ISLAND_ORIGIN_Y = 34
-    const val ISLAND_HALF_LENGTH_BLOCKS = 42
-    const val BRIDGE_X_OFFSET_BLOCKS = 38
-    const val BRIDGE_ORIGIN_Y = 48
-    const val BRIDGE_Z_ORIGIN = -6
-    val ISLANDS = listOf(
-        "00_lumina_port", "01_ashwood_forest", "02_weeping_mine", "03_stargazer_hill",
-        "04_void_sanctum", "05_frostpeak_outpost", "06_glacier_ridge", "07_crystalline_cavern", "08_glacial_citadel",
-    ).mapIndexed { index, name -> SchematicPlacement("schematics/islands/$name.schem", index * ISLAND_SPACING_BLOCKS - ISLAND_HALF_WIDTH_BLOCKS, ISLAND_ORIGIN_Y, -ISLAND_HALF_LENGTH_BLOCKS) }
-    val BRIDGES = (0..7).map { index ->
-        val chapter = if (index < 4) "bridge_ch1" else "bridge_ch2"
-        SchematicPlacement("schematics/bridges/$chapter.schem", index * ISLAND_SPACING_BLOCKS + BRIDGE_X_OFFSET_BLOCKS, BRIDGE_ORIGIN_Y, BRIDGE_Z_ORIGIN, skipAir = true)
-    }
-
     /** Dungeon IDから対応するアリーナresourceを引きます。 */
     fun dungeonPath(id: String): String? = when (id) {
         "ec:dungeon_novice_arena" -> "schematics/dungeons/dungeon_novice_arena.schem"
@@ -324,8 +183,6 @@ internal object WorldSchematicLayout {
     }
 }
 
-/** クラスパスSchematicと配置原点、およびair上書き方針を表します。 */
-internal data class SchematicPlacement(val path: String, val x: Int, val y: Int, val z: Int, val skipAir: Boolean = false)
 
 /** 職業選択の枠と確認ボタンを同じ定義から組み立てます。 */
 internal object ClassSelectionLayout {

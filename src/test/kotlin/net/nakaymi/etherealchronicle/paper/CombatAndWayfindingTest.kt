@@ -103,7 +103,7 @@ class CombatAndWayfindingTest {
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             assertTrue(server.pump { plugin.isReadyForGameplay })
-            val world = server.getWorld(DemoWorld.NAME) ?: server.addSimpleWorld(DemoWorld.NAME)
+            val world = net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             val player = PlayerMock(server, "ArcherGuideQA", UUID.nameUUIDFromBytes("archer-guide-qa".toByteArray()))
             player.addAttachment(plugin, "etherealchronicle.admin", true)
             server.addPlayer(player)

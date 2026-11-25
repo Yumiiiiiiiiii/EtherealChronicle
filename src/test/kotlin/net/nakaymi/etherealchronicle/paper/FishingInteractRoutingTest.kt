@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test
 import org.mockbukkit.mockbukkit.MockBukkit
 import org.mockbukkit.mockbukkit.entity.PlayerMock
 import org.mockbukkit.mockbukkit.ServerMock
-import net.nakaymi.etherealchronicle.qa.OwnedWorldMock
 import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -68,7 +67,7 @@ class FishingInteractRoutingTest {
         try {
             val plugin = MockBukkit.load(RpgPlugin::class.java)
             assertTrue(await(server) { runCatching { plugin.fishing }.isSuccess })
-            val world = OwnedWorldMock.add(server, DemoWorld.NAME)
+            val world = net.nakaymi.etherealchronicle.qa.QaWorldMock.add(server, net.nakaymi.etherealchronicle.core.WorldIds.DEMO)
             val player = PlayerMock(server, "FishingControllerClick", UUID.randomUUID())
             server.addPlayer(player)
             assertTrue(await(server) { player.uniqueId in plugin.profiles })
